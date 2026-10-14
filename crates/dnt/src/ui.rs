@@ -1,4 +1,5 @@
 use dnt_data::Library;
+use dnt_store::PRESETS;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -7,6 +8,7 @@ use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{App, Section};
+use crate::campaigns::{self, Pane};
 use crate::compendium::{Category, Compendium, Focus};
 use crate::render;
 use crate::theme::Theme;
@@ -32,6 +34,7 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
             ],
             theme,
         ),
+        Section::Campaigns => draw_campaigns(frame, body, app, theme),
         Section::Notes => draw_placeholder(
             frame,
             body,
@@ -62,17 +65,25 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     }
     let sources = match &app.compendium.filter.enabled {
         None => "all sources".to_string(),
+        Some(set) if set.len() > 6 => format!("{} sources", set.len()),
         Some(set) => {
             let mut v: Vec<String> = set.iter().map(|s| s.to_uppercase()).collect();
             v.sort();
             v.join(" ")
         }
     };
-    let right = format!(" {sources} ");
-    let used: usize = spans.iter().map(|s| s.content.width()).sum();
-    let pad = (area.width as usize).saturating_sub(used + right.width());
+    let (campaign, campaign_style) = match app.active_campaign() {
+        Some(c) => (c.settings.name.clone(), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
+        None => ("no campaign — press 4".to_string(), theme.dim),
+    };
+    let right = vec![
+        Span::styled(campaign, campaign_style),
+        Span::styled(format!("  {sources} "), theme.dim),
+    ];
+    let used: usize = spans.iter().chain(&right).map(|s| s.content.width()).sum();
+    let pad = (area.width as usize).saturating_sub(used);
     spans.push(Span::raw(" ".repeat(pad)));
-    spans.push(Span::styled(right, theme.dim));
+    spans.extend(right);
     frame.render_widget(Paragraph::new(Line::from(spans)).style(theme.bar), area);
 }
 
@@ -300,6 +311,120 @@ fn draw_placeholder(frame: &mut Frame, area: Rect, title: &str, milestone: &str,
     );
 }
 
+fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
+    let [left, right] = Layout::horizontal([Constraint::Length(36), Constraint::Min(30)]).areas(area);
+    let c = &mut app.campaigns;
+
+    // Campaign list.
+    let block = pane(Line::from(" Campaigns "), c.pane == Pane::Campaigns, theme);
+    let inner = block.inner(left);
+    frame.render_widget(block, left);
+    let mut lines: Vec<Line> = Vec::new();
+    for (i, camp) in c.list.iter().enumerate() {
+        let marker = if Some(i) == app.active { "● " } else { "  " };
+        let mut line = Line::from(vec![
+            Span::styled(marker, Style::new().fg(theme.accent)),
+            Span::raw(camp.settings.name.clone()),
+        ]);
+        if i == c.selected {
+            line = line.style(theme.selected);
+        }
+        lines.push(line);
+    }
+    if c.list.is_empty() && c.name_input.is_none() {
+        lines.push(Line::styled("No campaigns yet.", theme.dim));
+        lines.push(Line::default());
+        lines.push(Line::from(vec![
+            Span::raw("Press "),
+            Span::styled("n", Style::new().fg(theme.accent)),
+            Span::raw(" to create one."),
+        ]));
+    }
+    if let Some(name) = &c.name_input {
+        lines.push(Line::default());
+        lines.push(Line::from(vec![Span::styled("Name: ", Style::new().fg(theme.accent)), Span::raw(name.clone())]));
+        let y = inner.y + lines.len() as u16 - 1;
+        frame.set_cursor_position((inner.x + 6 + name.width() as u16, y.min(inner.bottom().saturating_sub(1))));
+    }
+    frame.render_widget(Paragraph::new(lines), inner);
+
+    // Sources of the selected campaign.
+    let Some(campaign) = c.list.get(c.selected) else {
+        let block = pane(Line::from(" Sources "), false, theme);
+        frame.render_widget(block, right);
+        return;
+    };
+    let summary = c.summary(campaign);
+    let summary_text = if campaign.settings.sources.is_empty() {
+        "all sources".to_string()
+    } else {
+        summary.iter().map(|(g, n)| format!("{g} {n}")).collect::<Vec<_>>().join(" · ")
+    };
+    let title = Line::from(vec![
+        Span::styled(format!(" Sources · {} ", campaign.settings.name), Style::new().add_modifier(Modifier::BOLD)),
+        Span::styled(format!("{summary_text} "), theme.dim),
+    ]);
+    let block = pane(title, c.pane == Pane::Sources, theme);
+    let inner = block.inner(right);
+    frame.render_widget(block, right);
+
+    let [info, list_area] = Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).areas(inner);
+    let next_preset = PRESETS[c.preset % PRESETS.len()].0;
+    let reprints = if campaign.settings.show_reprinted { "shown" } else { "hidden" };
+    let filter = if c.filtering || !c.source_filter.is_empty() {
+        Span::styled(format!("  /{}", c.source_filter), Style::new().fg(theme.accent))
+    } else {
+        Span::raw("")
+    };
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled("p", Style::new().fg(theme.accent)),
+                Span::styled(format!(" apply preset: {next_preset}   "), theme.dim),
+                Span::styled("r", Style::new().fg(theme.accent)),
+                Span::styled(format!(" reprinted originals: {reprints}"), theme.dim),
+                filter,
+            ]),
+            Line::default(),
+        ]),
+        info,
+    );
+
+    let visible = c.visible_sources();
+    let height = list_area.height as usize;
+    c.source_height = height;
+    c.source_selected = c.source_selected.min(visible.len().saturating_sub(1));
+    // Rows include group headers; build them, then window around the selection.
+    let mut rows: Vec<(Option<usize>, Line)> = Vec::new();
+    let mut last_group = "";
+    for (pos, &i) in visible.iter().enumerate() {
+        let s = &c.sources[i];
+        if s.group != last_group {
+            rows.push((None, Line::styled(s.group.clone(), theme.subheading.fg(theme.accent))));
+            last_group = &s.group;
+        }
+        let on = campaigns::enabled(campaign, &s.id);
+        let check = if on { "[x] " } else { "[ ] " };
+        let mut line = Line::from(vec![
+            Span::styled(check, if on { Style::new().fg(theme.accent) } else { theme.dim }),
+            Span::raw(s.name.clone()),
+            Span::styled(format!("  {} · {}", s.id, s.count), theme.dim),
+        ]);
+        if pos == c.source_selected && c.pane == Pane::Sources {
+            line = line.style(theme.selected);
+        }
+        rows.push((Some(pos), line));
+    }
+    let sel_row = rows.iter().position(|(p, _)| *p == Some(c.source_selected)).unwrap_or(0);
+    if sel_row < c.source_offset {
+        c.source_offset = sel_row.saturating_sub(1);
+    } else if sel_row >= c.source_offset + height {
+        c.source_offset = sel_row + 1 - height;
+    }
+    let lines: Vec<Line> = rows.into_iter().skip(c.source_offset).take(height).map(|(_, l)| l).collect();
+    frame.render_widget(Paragraph::new(lines), list_area);
+}
+
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     let hints: &[(&str, &str)] = match (app.section, app.compendium.focus) {
         (Section::Compendium, Focus::Search) => &[
@@ -315,7 +440,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("enter", "open"),
             ("/", "search"),
             ("tab", "category"),
-            ("1-3", "section"),
+            ("1-4", "section"),
             ("q", "quit"),
         ],
         (Section::Compendium, Focus::Detail) => &[
@@ -325,7 +450,26 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("bksp", "back"),
             ("esc", "list"),
         ],
-        _ => &[("1-3", "section"), ("q", "quit")],
+        (Section::Campaigns, _) if app.campaigns.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
+        (Section::Campaigns, _) if app.campaigns.filtering => &[("type", "filter"), ("enter", "done"), ("esc", "clear")],
+        (Section::Campaigns, _) if app.campaigns.pane == Pane::Campaigns => &[
+            ("j/k", "move"),
+            ("enter", "activate"),
+            ("n", "new"),
+            ("tab/l", "sources"),
+            ("1-4", "section"),
+            ("q", "quit"),
+        ],
+        (Section::Campaigns, _) => &[
+            ("j/k", "move"),
+            ("space", "toggle"),
+            ("p", "preset"),
+            ("a", "all"),
+            ("r", "reprints"),
+            ("/", "filter"),
+            ("tab/h", "campaigns"),
+        ],
+        _ => &[("1-4", "section"), ("q", "quit")],
     };
     let mut spans = Vec::new();
     for (key, what) in hints {

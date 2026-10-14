@@ -1,1 +1,323 @@
-//! On-disk storage for library, campaigns, characters and notes.
+//! On-disk storage for configuration and campaigns.
+//!
+//! ```text
+//! <data>/campaigns/<slug>/campaign.toml
+//!                        /characters/
+//!                        /notes/
+//! <config>/config.toml
+//! ```
+
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, thiserror::Error)]
+pub enum StoreError {
+    #[error("{path}: {source}")]
+    Io { path: PathBuf, source: io::Error },
+    #[error("{path}: {source}")]
+    Parse { path: PathBuf, source: toml::de::Error },
+    #[error("serialising {what}: {source}")]
+    Serialize { what: String, source: toml::ser::Error },
+    #[error("no campaign named {0:?}")]
+    NoSuchCampaign(String),
+    #[error("could not determine the user's data/config directories")]
+    NoHome,
+}
+
+pub type Result<T> = std::result::Result<T, StoreError>;
+
+/// Named source presets offered when choosing a campaign's books.
+pub const PRESETS: &[(&str, &[&str])] = &[
+    ("2024 Core", &["XPHB", "XDMG", "XMM"]),
+    ("2014 Core", &["PHB", "DMG", "MM"]),
+    (
+        "2014 Core + Supplements",
+        &["PHB", "DMG", "MM", "XGE", "TCE", "MPMM", "FTD", "SCAG", "BMT"],
+    ),
+];
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Config {
+    #[serde(default)]
+    pub library: LibraryConfig,
+    /// Slug of the campaign opened at startup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_campaign: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct LibraryConfig {
+    /// Path to a data data checkout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
+    /// Extra homebrew JSON files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub homebrew: Vec<PathBuf>,
+}
+
+/// Contents of `campaign.toml`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct CampaignSettings {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// Enabled source ids, e.g. `["XPHB", "XDMG"]`. Empty means all sources.
+    #[serde(default)]
+    pub sources: Vec<String>,
+    /// Show originals even when their reprint is enabled.
+    #[serde(default)]
+    pub show_reprinted: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Campaign {
+    pub slug: String,
+    pub dir: PathBuf,
+    pub settings: CampaignSettings,
+}
+
+impl Campaign {
+    pub fn characters_dir(&self) -> PathBuf {
+        self.dir.join("characters")
+    }
+
+    pub fn notes_dir(&self) -> PathBuf {
+        self.dir.join("notes")
+    }
+
+    /// The source filter this campaign implies.
+    pub fn source_filter(&self) -> dnt_data::SourceFilter {
+        let mut filter = if self.settings.sources.is_empty() {
+            dnt_data::SourceFilter::default()
+        } else {
+            dnt_data::SourceFilter::only(&self.settings.sources)
+        };
+        filter.hide_reprinted = !self.settings.show_reprinted;
+        filter
+    }
+}
+
+pub struct Store {
+    data_dir: PathBuf,
+    config_path: PathBuf,
+}
+
+impl Store {
+    /// Use the platform's standard locations (`~/.local/share/dnt`,
+    /// `~/.config/dnt/config.toml` on Linux).
+    pub fn open_default() -> Result<Store> {
+        let data = dirs::data_dir().ok_or(StoreError::NoHome)?.join("dnt");
+        let config = dirs::config_dir().ok_or(StoreError::NoHome)?.join("dnt/config.toml");
+        Ok(Store::open(data, config))
+    }
+
+    pub fn open(data_dir: impl Into<PathBuf>, config_path: impl Into<PathBuf>) -> Store {
+        Store {
+            data_dir: data_dir.into(),
+            config_path: config_path.into(),
+        }
+    }
+
+    pub fn config_path(&self) -> &Path {
+        &self.config_path
+    }
+
+    pub fn load_config(&self) -> Result<Config> {
+        if !self.config_path.exists() {
+            return Ok(Config::default());
+        }
+        read_toml(&self.config_path)
+    }
+
+    pub fn save_config(&self, config: &Config) -> Result<()> {
+        write_toml(&self.config_path, config, "config")
+    }
+
+    fn campaigns_dir(&self) -> PathBuf {
+        self.data_dir.join("campaigns")
+    }
+
+    /// All campaigns, sorted by name. Unreadable campaigns are returned as errors
+    /// alongside the readable ones.
+    pub fn campaigns(&self) -> (Vec<Campaign>, Vec<StoreError>) {
+        let mut campaigns = Vec::new();
+        let mut errors = Vec::new();
+        let dir = self.campaigns_dir();
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return (campaigns, errors),
+            Err(source) => return (campaigns, vec![StoreError::Io { path: dir, source }]),
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.join("campaign.toml").is_file() {
+                continue;
+            }
+            let slug = entry.file_name().to_string_lossy().into_owned();
+            match self.load_campaign(&slug) {
+                Ok(c) => campaigns.push(c),
+                Err(e) => errors.push(e),
+            }
+        }
+        campaigns.sort_by_key(|c| c.settings.name.to_lowercase());
+        (campaigns, errors)
+    }
+
+    pub fn load_campaign(&self, slug: &str) -> Result<Campaign> {
+        let dir = self.campaigns_dir().join(slug);
+        let file = dir.join("campaign.toml");
+        if !file.is_file() {
+            return Err(StoreError::NoSuchCampaign(slug.to_string()));
+        }
+        Ok(Campaign {
+            slug: slug.to_string(),
+            settings: read_toml(&file)?,
+            dir,
+        })
+    }
+
+    /// Create a campaign with a unique slug derived from its name.
+    pub fn create_campaign(&self, settings: CampaignSettings) -> Result<Campaign> {
+        let base = slugify(&settings.name);
+        let mut slug = base.clone();
+        let mut n = 2;
+        while self.campaigns_dir().join(&slug).exists() {
+            slug = format!("{base}-{n}");
+            n += 1;
+        }
+        let campaign = Campaign {
+            dir: self.campaigns_dir().join(&slug),
+            slug,
+            settings,
+        };
+        for dir in [campaign.characters_dir(), campaign.notes_dir()] {
+            fs::create_dir_all(&dir).map_err(|source| StoreError::Io { path: dir, source })?;
+        }
+        self.save_campaign(&campaign)?;
+        Ok(campaign)
+    }
+
+    pub fn save_campaign(&self, campaign: &Campaign) -> Result<()> {
+        write_toml(&campaign.dir.join("campaign.toml"), &campaign.settings, "campaign")
+    }
+}
+
+/// Lowercase ASCII slug: `Curse of Strahd!` → `curse-of-strahd`.
+pub fn slugify(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        } else if !out.ends_with('-') && !out.is_empty() {
+            out.push('-');
+        }
+    }
+    let out = out.trim_end_matches('-').to_string();
+    if out.is_empty() {
+        "campaign".to_string()
+    } else {
+        out
+    }
+}
+
+fn read_toml<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
+    let text = fs::read_to_string(path).map_err(|source| StoreError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    toml::from_str(&text).map_err(|source| StoreError::Parse {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Write via a temporary file and rename, so a crash never leaves a
+/// half-written file.
+fn write_toml<T: Serialize>(path: &Path, value: &T, what: &str) -> Result<()> {
+    let text = toml::to_string_pretty(value).map_err(|source| StoreError::Serialize {
+        what: what.to_string(),
+        source,
+    })?;
+    let io_err = |source| StoreError::Io {
+        path: path.to_path_buf(),
+        source,
+    };
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(io_err)?;
+    }
+    let tmp = path.with_extension("toml.tmp");
+    fs::write(&tmp, text).map_err(io_err)?;
+    fs::rename(&tmp, path).map_err(io_err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store() -> (tempfile::TempDir, Store) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path().join("data"), dir.path().join("config/config.toml"));
+        (dir, store)
+    }
+
+    #[test]
+    fn slugs() {
+        assert_eq!(slugify("Curse of Strahd!"), "curse-of-strahd");
+        assert_eq!(slugify("  Waterdeep: Dragon Heist "), "waterdeep-dragon-heist");
+        assert_eq!(slugify("???"), "campaign");
+    }
+
+    #[test]
+    fn campaign_roundtrip() {
+        let (_tmp, store) = store();
+        let settings = CampaignSettings {
+            name: "Curse of Strahd".into(),
+            sources: vec!["XPHB".into(), "XDMG".into()],
+            ..Default::default()
+        };
+        let c = store.create_campaign(settings.clone()).unwrap();
+        assert_eq!(c.slug, "curse-of-strahd");
+        assert!(c.characters_dir().is_dir() && c.notes_dir().is_dir());
+
+        let again = store.create_campaign(settings).unwrap();
+        assert_eq!(again.slug, "curse-of-strahd-2");
+
+        let (all, errors) = store.campaigns();
+        assert!(errors.is_empty());
+        assert_eq!(all.len(), 2);
+        assert_eq!(store.load_campaign("curse-of-strahd").unwrap(), c);
+    }
+
+    #[test]
+    fn config_roundtrip() {
+        let (_tmp, store) = store();
+        assert_eq!(store.load_config().unwrap(), Config::default());
+        let config = Config {
+            library: LibraryConfig {
+                path: Some("/data/dnd".into()),
+                homebrew: vec![],
+            },
+            last_campaign: Some("cos".into()),
+        };
+        store.save_config(&config).unwrap();
+        assert_eq!(store.load_config().unwrap(), config);
+    }
+
+    #[test]
+    fn filter_from_campaign() {
+        let c = Campaign {
+            slug: "x".into(),
+            dir: "/x".into(),
+            settings: CampaignSettings {
+                name: "X".into(),
+                sources: vec!["XPHB".into()],
+                ..Default::default()
+            },
+        };
+        let f = c.source_filter();
+        assert!(f.source_enabled("xphb") && !f.source_enabled("PHB") && f.hide_reprinted);
+    }
+}

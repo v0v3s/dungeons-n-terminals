@@ -165,6 +165,11 @@ impl Compendium {
         c
     }
 
+    pub fn set_filter(&mut self, lib: &Library, filter: SourceFilter) {
+        self.filter = filter;
+        self.refilter(lib);
+    }
+
     /// Recompute the candidate set after a source or category change.
     fn refilter(&mut self, lib: &Library) {
         self.visible = (0..lib.entities().len())

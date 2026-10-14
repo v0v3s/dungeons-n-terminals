@@ -1,4 +1,5 @@
 mod app;
+mod campaigns;
 mod compendium;
 mod render;
 mod theme;
@@ -7,9 +8,10 @@ mod ui;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use dnt_data::{Library, SourceFilter};
+use dnt_store::Store;
 use ratatui::crossterm::event::{self, Event, KeyEventKind};
 
 use app::App;
@@ -18,30 +20,49 @@ use app::App;
 #[derive(Parser)]
 #[command(version)]
 struct Args {
-    /// Path to a data data checkout (repository root or its `data/` directory).
+    /// Path to a data data checkout (repository root or its `data/`
+    /// directory). Remembered in the config file once given.
     #[arg(long, env = "DNT_DATA")]
-    data: PathBuf,
+    data: Option<PathBuf>,
 
-    /// Additional homebrew JSON files to load.
+    /// Additional homebrew JSON files to load (in addition to the config's).
     #[arg(long = "homebrew", value_name = "FILE")]
     homebrew: Vec<PathBuf>,
 
-    /// Comma-separated source abbreviations to enable, e.g. `XPHB,XDMG`.
-    /// All sources are enabled when omitted.
+    /// Comma-separated source abbreviations to enable for this session,
+    /// e.g. `XPHB,XDMG`, overriding the campaign's sources.
     #[arg(long, value_delimiter = ',')]
     sources: Vec<String>,
 
-    /// Show entries even when a reprint of them is enabled.
+    /// With --sources: show entries even when a reprint of them is enabled.
     #[arg(long)]
     show_reprinted: bool,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    let store = Store::open_default()?;
+    let mut config = store.load_config()?;
+
+    let data = match (&args.data, &config.library.path) {
+        (Some(path), _) => {
+            if config.library.path.as_ref() != Some(path) {
+                config.library.path = Some(path.clone());
+                store.save_config(&config)?;
+            }
+            path.clone()
+        }
+        (None, Some(path)) => path.clone(),
+        (None, None) => bail!(
+            "no data data configured: run once with --data /path/to/dnd-data \
+             (it is then remembered in {})",
+            store.config_path().display()
+        ),
+    };
 
     let start = Instant::now();
-    let mut lib = Library::load_data_dir(&args.data).with_context(|| format!("loading {}", args.data.display()))?;
-    for path in &args.homebrew {
+    let mut lib = Library::load_data_dir(&data).with_context(|| format!("loading {}", data.display()))?;
+    for path in config.library.homebrew.iter().chain(&args.homebrew) {
         lib.load_file(path).with_context(|| format!("loading {}", path.display()))?;
     }
     let mut status = format!("Loaded {} entries in {} ms", lib.entities().len(), start.elapsed().as_millis());
@@ -49,19 +70,12 @@ fn main() -> Result<()> {
         status.push_str(&format!(" ({} warnings)", lib.warnings.len()));
     }
 
-    let filter = if args.sources.is_empty() {
-        SourceFilter {
-            enabled: None,
-            hide_reprinted: !args.show_reprinted,
-        }
-    } else {
-        SourceFilter {
-            hide_reprinted: !args.show_reprinted,
-            ..SourceFilter::only(&args.sources)
-        }
-    };
+    let override_filter = (!args.sources.is_empty()).then(|| SourceFilter {
+        hide_reprinted: !args.show_reprinted,
+        ..SourceFilter::only(&args.sources)
+    });
 
-    let mut app = App::new(&lib, filter, status);
+    let mut app = App::new(&lib, store, config, override_filter, status);
     let theme = theme::Theme::default();
     ratatui::run(|terminal| -> Result<()> {
         while !app.quit {

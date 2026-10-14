@@ -102,7 +102,10 @@ impl Library {
         }
 
         let mut lib = Library::new();
-        lib.load_books(&read_json(&data.join("books.json"))?);
+        lib.load_books(&read_json(&data.join("books.json"))?, "book", None);
+        if let Ok(adventures) = read_json(&data.join("adventures.json")) {
+            lib.load_books(&adventures, "adventure", Some("adventure"));
+        }
         for (path, parsed) in parse_parallel(&files) {
             match parsed {
                 Ok(json) => lib.ingest(&json, false),
@@ -124,8 +127,8 @@ impl Library {
         Ok(())
     }
 
-    fn load_books(&mut self, books: &Value) {
-        for book in books.get("book").and_then(Value::as_array).into_iter().flatten() {
+    fn load_books(&mut self, books: &Value, key: &str, group: Option<&str>) {
+        for book in books.get(key).and_then(Value::as_array).into_iter().flatten() {
             let s = |k: &str| book.get(k).and_then(Value::as_str).map(str::to_string);
             if let (Some(id), Some(name)) = (s("source").or_else(|| s("id")), s("name")) {
                 self.sources.insert(
@@ -133,7 +136,7 @@ impl Library {
                     SourceInfo {
                         id,
                         name,
-                        group: s("group"),
+                        group: group.map(str::to_string).or_else(|| s("group")),
                         published: s("published"),
                         homebrew: false,
                     },
@@ -268,6 +271,15 @@ impl Library {
 
     pub fn sources(&self) -> impl Iterator<Item = &SourceInfo> {
         self.sources.values()
+    }
+
+    /// Number of entities per source id (as written in the data).
+    pub fn entity_counts(&self) -> BTreeMap<String, usize> {
+        let mut counts = BTreeMap::new();
+        for e in &self.entities {
+            *counts.entry(e.source.clone()).or_default() += 1;
+        }
+        counts
     }
 
     pub fn source_info(&self, id: &str) -> Option<&SourceInfo> {

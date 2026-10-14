@@ -93,7 +93,11 @@ Entities are addressed with data-style IDs:
   (toggle to show both).
 
 ### Search
-- Global fuzzy finder (`nucleo`) over names, with type/source facets.
+- Fuzzy finder (`nucleo`) over names, narrowed by category tabs.
+- Query terms: `@source`, `#tag`, `*damage`, `^level` / `^1-3`, `"text"`
+  (full text), `!` to negate; `_` stands for a space. `#` means whatever
+  is meaningful on the current tab (class/school for spells, type/rarity
+  for items, category for feats, …). Tab completes facet values.
 - Type-specific filters: spell level/school/class/ritual/concentration, item
   rarity/type, etc.
 - Bookmarks.
@@ -235,8 +239,7 @@ feature ID and its text as comments; overlays are validated live.
 ## Milestones
 
 1. **M1 Compendium** — import, `_copy`, fuzzy search, entry rendering with
-   tag links, source filtering. *Done, except campaign-scoped sources (comes
-   with `dnt-store`; for now `--sources` on the command line).*
+   tag links, faceted queries, campaigns with per-campaign sources. *Done.*
 2. **M2 Rules engine** — formula language, stat graph, breakdowns, overrides,
    class-table variables.
 3. **M3 Characters** — level-1 single-class creation, sheet, tracking, rests.
