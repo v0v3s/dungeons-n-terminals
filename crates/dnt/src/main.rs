@@ -3,10 +3,12 @@ mod campaigns;
 mod characters;
 mod compendium;
 mod levelup;
+mod picker;
 mod render;
 mod theme;
 mod ui;
 mod ui_sheet;
+mod wizard;
 
 use std::path::PathBuf;
 use std::time::Instant;

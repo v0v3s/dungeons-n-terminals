@@ -9,6 +9,7 @@ pub mod engine;
 pub mod levelup;
 pub mod formula;
 pub mod multiclass;
+pub mod origin;
 pub mod overlay;
 pub mod play;
 pub mod value;

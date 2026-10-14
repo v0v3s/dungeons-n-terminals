@@ -358,6 +358,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
 
     let singles = [
         (character.species.as_deref(), FeatureSource::Species),
+        (character.subspecies.as_deref(), FeatureSource::Species),
         (character.background.as_deref(), FeatureSource::Background),
     ];
     for (id, source) in singles {

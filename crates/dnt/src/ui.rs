@@ -132,6 +132,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("/", "filter"),
             ("tab", "campaigns"),
         ],
+        (Section::Characters, _) if app.characters.wizard.is_some() => &[("enter", "choose"), ("esc", "back a step"), ("alt+1-4", "section")],
         (Section::Characters, _) => match app.characters.sheet.as_ref() {
             _ if app.characters.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
             None => &[("j k", "move"), ("enter", "open"), ("n", "new"), ("e", "edit file"), ("1-4", "section"), ("q", "quit")],

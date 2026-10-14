@@ -7,7 +7,6 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::path::PathBuf;
 
 use dnt_rules::builtin;
-use dnt_rules::character::Character;
 use dnt_rules::overlay::{Overlay, OverlaySet};
 
 use crate::campaigns::{Action, Campaigns};
@@ -209,22 +208,18 @@ impl App {
                     }
                 }
             }
-            A::Create(name) => {
+            A::Create(character) => {
                 let Some(campaign) = self.active_campaign().cloned() else {
                     self.status = "Create or activate a campaign first (4)".into();
                     return;
                 };
-                let character = Character {
-                    name,
-                    ..Character::default()
-                };
-                match self.store.create_character(&campaign, character) {
+                match self.store.create_character(&campaign, *character) {
                     Ok(file) => {
                         self.characters.files.push(file.clone());
                         self.characters.files.sort_by_key(|f| f.character.name.to_lowercase());
                         let i = self.characters.files.iter().position(|f| f.path == file.path).unwrap();
                         self.characters.open(i, lib, &self.overlays);
-                        self.status = "Created — press u to choose a class, e to edit abilities and background".into();
+                        self.status = "Character created".into();
                     }
                     Err(e) => self.status = format!("Could not create character: {e}"),
                 }

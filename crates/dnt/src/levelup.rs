@@ -6,88 +6,9 @@ use dnt_rules::character::{Character, HitPoints, HpMethod, Level, LevelChoices};
 use dnt_rules::levelup::{self, LevelPerk};
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::Evaluation;
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
-/// A filterable list of choices.
-#[derive(Debug, Clone)]
-pub struct Picker {
-    pub title: String,
-    pub items: Vec<PickItem>,
-    pub query: String,
-    pub selected: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct PickItem {
-    pub label: String,
-    pub hint: String,
-    pub warning: Option<String>,
-    pub value: String,
-}
-
-impl PickItem {
-    fn new(label: impl Into<String>, hint: impl Into<String>, value: impl Into<String>) -> PickItem {
-        PickItem {
-            label: label.into(),
-            hint: hint.into(),
-            warning: None,
-            value: value.into(),
-        }
-    }
-}
-
-impl Picker {
-    fn new(title: impl Into<String>, items: Vec<PickItem>) -> Picker {
-        Picker {
-            title: title.into(),
-            items,
-            query: String::new(),
-            selected: 0,
-        }
-    }
-
-    /// Indices of items matching the query (all words, any order).
-    pub fn visible(&self) -> Vec<usize> {
-        let words: Vec<String> = self.query.to_lowercase().split_whitespace().map(str::to_string).collect();
-        (0..self.items.len())
-            .filter(|&i| {
-                let hay = format!("{} {}", self.items[i].label, self.items[i].hint).to_lowercase();
-                words.iter().all(|w| hay.contains(w))
-            })
-            .collect()
-    }
-
-    fn current(&self) -> Option<&PickItem> {
-        self.visible().get(self.selected).map(|&i| &self.items[i])
-    }
-
-    /// Returns the chosen value on Enter.
-    fn key(&mut self, key: KeyEvent) -> Option<String> {
-        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        let n = self.visible().len();
-        match key.code {
-            KeyCode::Down | KeyCode::Tab => self.selected = (self.selected + 1).min(n.saturating_sub(1)),
-            KeyCode::Up | KeyCode::BackTab => self.selected = self.selected.saturating_sub(1),
-            KeyCode::Char('n' | 'j') if ctrl => self.selected = (self.selected + 1).min(n.saturating_sub(1)),
-            KeyCode::Char('p' | 'k') if ctrl => self.selected = self.selected.saturating_sub(1),
-            KeyCode::Char('u') if ctrl => {
-                self.query.clear();
-                self.selected = 0;
-            }
-            KeyCode::Backspace => {
-                self.query.pop();
-                self.selected = 0;
-            }
-            KeyCode::Char(c) if !ctrl => {
-                self.query.push(c);
-                self.selected = 0;
-            }
-            KeyCode::Enter => return self.current().map(|i| i.value.clone()),
-            _ => {}
-        }
-        None
-    }
-}
+use crate::picker::{PickItem, Picked, Picker};
 
 #[derive(Debug, Clone)]
 pub enum Stage {
@@ -194,7 +115,7 @@ impl LevelUp {
                 Outcome::Continue
             }
             Stage::Pick(picker) => {
-                let Some(value) = picker.key(key) else { return Outcome::Continue };
+                let Some(Picked::One(value)) = picker.key(key) else { return Outcome::Continue };
                 let label = picker.current().map(|i| i.label.clone()).unwrap_or_default();
                 self.chosen(value, label, lib, c, ev, filter);
                 Outcome::Continue

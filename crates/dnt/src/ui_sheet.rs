@@ -20,6 +20,9 @@ use crate::theme::Theme;
 use crate::ui::{pane, pane_title, spread, truncate};
 
 pub fn draw(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, c: &mut Characters, theme: &Theme, campaign: Option<&str>) {
+    if let Some(w) = &c.wizard {
+        return draw_wizard(frame, area, lib, overlays, w, theme);
+    }
     match c.sheet.as_mut() {
         Some(sheet) => draw_sheet(frame, area, lib, overlays, sheet, theme),
         None => draw_roster(frame, area, lib, overlays, c, theme, campaign),
@@ -323,47 +326,65 @@ fn draw_levelup(frame: &mut Frame, area: Rect, flow: &crate::levelup::LevelUp, t
             );
             frame.set_cursor_position((body.x + 2 + text.width() as u16, body.y));
         }
-        Stage::Pick(p) => {
-            let [input, rule, list] =
-                Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(body);
-            let shown = if p.query.is_empty() {
-                Span::styled("type to filter", theme.dim)
-            } else {
-                Span::raw(p.query.clone())
-            };
-            frame.render_widget(Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), shown])), input);
-            frame.set_cursor_position((input.x + 2 + p.query.width() as u16, input.y));
-            frame.render_widget(Paragraph::new(Line::styled("─".repeat(rule.width as usize), theme.border)), rule);
+        Stage::Pick(p) => draw_picker(frame, body, p, theme),
+    }
+}
 
-            let visible = p.visible();
-            let height = list.height as usize;
-            let offset = p.selected.saturating_sub(height.saturating_sub(1));
-            let width = list.width as usize;
-            let lines: Vec<Line> = visible
-                .iter()
-                .enumerate()
-                .skip(offset)
-                .take(height)
-                .map(|(pos, &i)| {
-                    let item = &p.items[i];
-                    let base = if pos == p.selected { theme.selected } else { Style::new() };
-                    let mut right = Vec::new();
-                    if let Some(w) = &item.warning {
-                        right.push(Span::styled(format!("⚠ {} ", truncate(w, 36)), base.fg(Color::Yellow).remove_modifier(Modifier::BOLD)));
-                    }
-                    right.push(Span::styled(
-                        format!("{} ", item.hint),
-                        base.patch(if pos == p.selected { theme.muted } else { theme.dim }).remove_modifier(Modifier::BOLD),
-                    ));
-                    spread(vec![Span::styled(format!(" {}", item.label), base)], right, width).style(base)
-                })
-                .collect();
-            if lines.is_empty() {
-                frame.render_widget(Paragraph::new(Line::styled("Nothing matches.", theme.dim)), list);
+/// A filter line, a rule and the (optionally multi-select) item list.
+pub(crate) fn draw_picker(frame: &mut Frame, body: Rect, p: &crate::picker::Picker, theme: &Theme) {
+    let [input, rule, list] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(body);
+    let shown = if p.query.is_empty() {
+        Span::styled("type to filter", theme.dim)
+    } else {
+        Span::raw(p.query.clone())
+    };
+    let mut input_spans = vec![Span::styled("❯ ", Style::new().fg(theme.accent)), shown];
+    if let Some(n) = p.multi {
+        input_spans.push(Span::raw("   "));
+        input_spans.push(Span::styled(
+            format!("{}/{n} chosen · space toggles", p.checked.len()),
+            if p.checked.len() == n { Style::new().fg(theme.accent) } else { theme.dim },
+        ));
+    }
+    frame.render_widget(Paragraph::new(Line::from(input_spans)), input);
+    frame.set_cursor_position((input.x + 2 + p.query.width() as u16, input.y));
+    frame.render_widget(Paragraph::new(Line::styled("─".repeat(rule.width as usize), theme.border)), rule);
+
+    let visible = p.visible();
+    let height = list.height as usize;
+    let offset = p.selected.saturating_sub(height.saturating_sub(1));
+    let width = list.width as usize;
+    let lines: Vec<Line> = visible
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(height)
+        .map(|(pos, &i)| {
+            let item = &p.items[i];
+            let base = if pos == p.selected { theme.selected } else { Style::new() };
+            let mut left = Vec::new();
+            if p.multi.is_some() {
+                let on = p.is_checked(&item.value);
+                left.push(Span::styled(if on { " ● " } else { " ○ " }, if on { base.fg(theme.accent) } else { base.patch(theme.muted) }));
             } else {
-                frame.render_widget(Paragraph::new(lines), list);
+                left.push(Span::styled(" ", base));
             }
-        }
+            left.push(Span::styled(item.label.clone(), base));
+            let mut right = Vec::new();
+            if let Some(w) = &item.warning {
+                right.push(Span::styled(format!("⚠ {} ", truncate(w, 36)), base.fg(Color::Yellow).remove_modifier(Modifier::BOLD)));
+            }
+            right.push(Span::styled(
+                format!("{} ", item.hint),
+                base.patch(if pos == p.selected { theme.muted } else { theme.dim }).remove_modifier(Modifier::BOLD),
+            ));
+            spread(left, right, width).style(base)
+        })
+        .collect();
+    if lines.is_empty() {
+        frame.render_widget(Paragraph::new(Line::styled("Nothing matches.", theme.dim)), list);
+    } else {
+        frame.render_widget(Paragraph::new(lines), list);
     }
 }
 
@@ -799,4 +820,165 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
         .padding(Padding::new(2, 2, 1, 0))
         .title_bottom(Line::styled(" esc ", theme.dim).right_aligned());
     frame.render_widget(Paragraph::new(lines).block(block), rect);
+}
+
+// ---- creation wizard ----
+
+pub(crate) fn draw_wizard(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, w: &crate::wizard::Wizard, theme: &Theme) {
+    use crate::wizard::{Method, View, POINT_BUY_BUDGET};
+    let [steps, _, main, _, preview] = Layout::horizontal([
+        Constraint::Length(30),
+        Constraint::Length(1),
+        Constraint::Length(62),
+        Constraint::Length(1),
+        Constraint::Min(20),
+    ])
+    .areas(area);
+
+    // Progress sidebar with the choices made so far.
+    let block = pane(pane_title(&format!("New character · {}", w.name()), false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
+    let inner = block.inner(steps);
+    frame.render_widget(block, steps);
+    let mut lines: Vec<Line> = Vec::new();
+    for (label, done, current) in w.progress() {
+        let (mark, style) = match (done, current) {
+            (_, true) => ("▸ ", Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
+            (true, _) => ("✓ ", Style::new().fg(theme.accent)),
+            _ => ("  ", theme.dim),
+        };
+        lines.push(Line::from(vec![
+            Span::styled(mark, style),
+            Span::styled(label, if current { style } else if done { Style::new() } else { theme.dim }),
+        ]));
+    }
+    lines.push(Line::default());
+    for (k, v) in w.summary() {
+        lines.push(Line::styled(k.clone(), theme.label));
+        for part in wrap_words(v, inner.width.saturating_sub(2) as usize) {
+            lines.push(Line::styled(format!("  {part}"), theme.muted));
+        }
+    }
+    frame.render_widget(Paragraph::new(lines), inner);
+
+    // Current step.
+    let (title, hints) = match w.view() {
+        View::Pick(p) => (
+            p.title.clone(),
+            if p.multi.is_some() { "space toggle · enter next · esc back" } else { "type to filter · enter choose · esc back" },
+        ),
+        View::Abilities(ed) => (format!("Ability scores · {}", ed.method.label()), "j k move · h l adjust · enter next · esc back"),
+        View::Review => ("Review".to_string(), "enter create · esc back"),
+    };
+    let block = pane(pane_title(&title, true, theme), true, theme)
+        .padding(Padding::new(2, 2, 1, 0))
+        .title_bottom(Line::styled(format!(" {hints} "), theme.dim).right_aligned());
+    let inner = block.inner(main);
+    frame.render_widget(block, main);
+    match w.view() {
+        View::Pick(p) => draw_picker(frame, inner, p, theme),
+        View::Abilities(ed) => {
+            let mut lines = Vec::new();
+            match ed.method {
+                Method::PointBuy => {
+                    let left = ed.points_left();
+                    lines.push(Line::from(vec![
+                        Span::styled("Points left  ", theme.label),
+                        Span::styled(format!("{left}/{POINT_BUY_BUDGET}"), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
+                    ]));
+                }
+                Method::StandardArray => lines.push(Line::styled("h/l swaps the value with another ability.", theme.dim)),
+                Method::Manual => lines.push(Line::styled("h/l lowers or raises the score.", theme.dim)),
+            }
+            lines.push(Line::styled("Species and background increases come next.", theme.dim));
+            lines.push(Line::default());
+            for (i, (_, name)) in ABILITIES.iter().enumerate() {
+                let base = if i == ed.cursor { theme.selected } else { Style::new() };
+                let score = ed.scores[i];
+                let modifier = (score - 10).div_euclid(2);
+                let mut spans = vec![
+                    Span::styled(format!(" {name:<14}"), base),
+                    Span::styled(if i == ed.cursor { "‹ " } else { "  " }, base.fg(theme.accent)),
+                    Span::styled(format!("{score:>2}"), base.add_modifier(Modifier::BOLD)),
+                    Span::styled(if i == ed.cursor { " ›" } else { "  " }, base.fg(theme.accent)),
+                    Span::styled(format!("   {modifier:+}"), base.fg(theme.accent)),
+                ];
+                if ed.method == Method::PointBuy {
+                    spans.push(Span::styled(format!("   cost {}", crate::wizard::point_cost(score)), base.patch(theme.dim)));
+                }
+                lines.push(Line::from(spans).style(base));
+            }
+            frame.render_widget(Paragraph::new(lines), inner);
+        }
+        View::Review => {
+            let mut lines = vec![Line::styled("Everything below is saved to the character file.", theme.dim), Line::default()];
+            for (k, v) in w.summary() {
+                for (i, part) in wrap_words(v, inner.width.saturating_sub(22) as usize).into_iter().enumerate() {
+                    let key = if i == 0 { k.as_str() } else { "" };
+                    lines.push(Line::from(vec![Span::styled(format!("{key:<22}"), theme.label), Span::raw(part)]));
+                }
+            }
+            lines.push(Line::default());
+            lines.push(Line::from(vec![
+                Span::styled(" enter ", theme.keycap),
+                Span::styled(" create the character", theme.dim),
+            ]));
+            frame.render_widget(Paragraph::new(lines), inner);
+        }
+    }
+
+    // Preview of the highlighted entity, or the resulting stats on review.
+    let block = pane(pane_title("Preview", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
+    let inner = block.inner(preview);
+    frame.render_widget(block, preview);
+    if let Some(e) = w.preview(lib) {
+        let mut lines = vec![Line::styled(lib.entity(e).name.clone(), theme.title), Line::default()];
+        let doc = view::document(lib, e, &Default::default());
+        lines.extend(render::render(&doc, inner.width.min(96), None, theme).lines);
+        frame.render_widget(Paragraph::new(lines), inner);
+    } else {
+        let ch = w.preview_character();
+        let b = build(&ch, lib, overlays);
+        let ev = b.evaluate();
+        let mut lines = vec![
+            Line::styled(ch.name.clone(), theme.title),
+            Line::styled(identity(lib, &ch, &b.class_summary()), theme.muted),
+            Line::default(),
+        ];
+        for (label, key) in [("Hit Points", "hp.max"), ("Armor Class", "ac"), ("Initiative", "initiative"), ("Speed", "speed")] {
+            lines.push(Line::from(vec![
+                Span::styled(format!("{label:<14}"), theme.label),
+                Span::styled(stat(&ev, key), Style::new().add_modifier(Modifier::BOLD)),
+            ]));
+        }
+        lines.push(Line::default());
+        for (a, name) in ABILITIES {
+            lines.push(Line::from(vec![
+                Span::styled(format!("{name:<14}"), theme.label),
+                Span::styled(format!("{:>3}", stat(&ev, a)), Style::new().add_modifier(Modifier::BOLD)),
+                Span::styled(format!("  {}", signed(&ev, &format!("mod.{a}"))), Style::new().fg(theme.accent)),
+            ]));
+        }
+        for warn in &b.warnings {
+            lines.push(Line::styled(format!("⚠ {warn}"), Style::new().fg(Color::Yellow)));
+        }
+        frame.render_widget(Paragraph::new(lines), inner);
+    }
+}
+
+/// Greedy word wrap for short plain strings.
+fn wrap_words(text: &str, width: usize) -> Vec<String> {
+    let width = width.max(8);
+    let mut out = vec![String::new()];
+    for word in text.split_whitespace() {
+        let line = out.last_mut().unwrap();
+        if !line.is_empty() && line.width() + 1 + word.width() > width {
+            out.push(word.to_string());
+        } else {
+            if !line.is_empty() {
+                line.push(' ');
+            }
+            line.push_str(word);
+        }
+    }
+    out
 }

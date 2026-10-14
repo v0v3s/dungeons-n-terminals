@@ -312,8 +312,13 @@ feature ID and its text as comments; overlays are validated live.
    Level-up flow (class incl. multiclass with requirement warnings,
    subclass when due, HP average/rolled/max, ASI / feat / Epic Boon) and
    undo of the last level; per-level choices live on the level entry.
-   *In progress: creation wizard (species, background, abilities, skills,
-   equipment), Spells/Inventory tabs.*
+   Creation wizard: species, subrace, background, ability scores
+   (standard array / point buy / manual), species/background increases
+   (fixed, choose, 2024 weighted), origin feats, class, level-1 subclass,
+   class and origin skills, armor and shield, review with live preview;
+   Esc steps back.
+   *Next: level-1 feature choices (fighting style, divine order, weapon
+   mastery, expertise), Spells and Inventory tabs.*
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
    homebrew polish; later embedded nvim, export.

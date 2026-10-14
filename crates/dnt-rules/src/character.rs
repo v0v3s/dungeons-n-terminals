@@ -49,6 +49,9 @@ pub struct Character {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub species: Option<String>,
+    /// 2014-style subrace, e.g. `race:Dwarf (Hill)|PHB`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subspecies: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

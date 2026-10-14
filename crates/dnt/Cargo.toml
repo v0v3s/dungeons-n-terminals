@@ -16,7 +16,5 @@ dnt-data.workspace = true
 dnt-rules.workspace = true
 dnt-store.workspace = true
 ratatui = "0.30.2"
-unicode-width = "0.2.2"
-
-[dev-dependencies]
 serde_json = "1.0.154"
+unicode-width = "0.2.2"

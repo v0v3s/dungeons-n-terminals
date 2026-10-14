@@ -11,6 +11,7 @@ use dnt_store::CharacterFile;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::levelup::{self, LevelUp};
+use crate::wizard::{self, Wizard};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tab {
@@ -148,8 +149,8 @@ pub enum Action {
     Status(String),
     /// The open character changed and must be saved.
     Save(String),
-    /// Create a character with this name.
-    Create(String),
+    /// Save a newly created character.
+    Create(Box<Character>),
     /// Open the character file in $EDITOR.
     Edit(std::path::PathBuf),
 }
@@ -159,6 +160,7 @@ pub struct Characters {
     pub selected: usize,
     pub sheet: Option<Sheet>,
     pub name_input: Option<String>,
+    pub wizard: Option<Wizard>,
 }
 
 impl Characters {
@@ -168,11 +170,13 @@ impl Characters {
             selected: 0,
             sheet: None,
             name_input: None,
+            wizard: None,
         }
     }
 
     pub fn wants_text(&self) -> bool {
         self.name_input.is_some()
+            || self.wizard.is_some()
             || matches!(self.sheet.as_ref().and_then(|s| s.popup.as_ref()), Some(Popup::Input(..) | Popup::LevelUp(_)))
     }
 
@@ -202,7 +206,7 @@ impl Characters {
                     let name = name.trim().to_string();
                     self.name_input = None;
                     if !name.is_empty() {
-                        return Action::Create(name);
+                        self.wizard = Some(Wizard::new(name, lib, filter));
                     }
                 }
                 KeyCode::Backspace => {
@@ -210,6 +214,17 @@ impl Characters {
                 }
                 KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => name.push(c),
                 _ => {}
+            }
+            return Action::None;
+        }
+        if let Some(w) = self.wizard.as_mut() {
+            match w.key(key, lib, filter) {
+                wizard::Outcome::Continue => {}
+                wizard::Outcome::Cancel => self.wizard = None,
+                wizard::Outcome::Finish(ch) => {
+                    self.wizard = None;
+                    return Action::Create(ch);
+                }
             }
             return Action::None;
         }
