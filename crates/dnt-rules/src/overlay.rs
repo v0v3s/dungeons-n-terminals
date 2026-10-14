@@ -48,6 +48,9 @@ pub struct Resource {
     pub name: String,
     pub max: Formula,
     pub recharge: Recharge,
+    /// Uses regained on a short rest when `recharge` is longer, e.g. `1`
+    /// for 2024 Rage or Channel Divinity.
+    pub short_rest_regain: Option<Formula>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -112,6 +115,7 @@ struct RawResource {
     name: String,
     max: String,
     recharge: Recharge,
+    short_rest_regain: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -216,12 +220,21 @@ impl Overlay {
                     });
                     continue;
                 }
-                if let Some(max) = formula(&r.max, at(&format!(".resource[{ri}].max")), &mut diags) {
+                let max = formula(&r.max, at(&format!(".resource[{ri}].max")), &mut diags);
+                let regain = match &r.short_rest_regain {
+                    Some(src) => match formula(src, at(&format!(".resource[{ri}].short_rest_regain")), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    None => None,
+                };
+                if let Some(max) = max {
                     resources.push(Resource {
                         key: r.key,
                         name: r.name,
                         max,
                         recharge: r.recharge,
+                        short_rest_regain: regain,
                     });
                 }
             }
@@ -343,6 +356,13 @@ impl FeatureOverlay {
                 base: r.max.clone(),
                 origin: r.name.clone(),
             });
+            if let Some(regain) = &r.short_rest_regain {
+                model.stats.push(StatDef {
+                    key: format!("resource.{}.short_rest", r.key),
+                    base: regain.clone(),
+                    origin: format!("{} (short rest)", r.name),
+                });
+            }
         }
         for t in &self.toggles {
             model.inputs.entry(format!("toggle.{}", t.key)).or_insert(Value::Bool(false));

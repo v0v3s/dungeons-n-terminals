@@ -328,6 +328,14 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
         i += 1;
     }
+    // Keep nested features next to their class/subclass, ordered by level.
+    let rank = |s: FeatureSource| match s {
+        FeatureSource::Class(ci) => ci * 2,
+        FeatureSource::Subclass(ci) => ci * 2 + 1,
+        _ => usize::MAX,
+    };
+    features.sort_by_key(|f| (rank(f.source), f.level));
+
     let singles = [
         (character.species.as_deref(), FeatureSource::Species),
         (character.background.as_deref(), FeatureSource::Background),

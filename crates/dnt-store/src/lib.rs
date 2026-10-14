@@ -11,6 +11,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use dnt_rules::character::Character;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, thiserror::Error)]
@@ -21,6 +22,8 @@ pub enum StoreError {
     Parse { path: PathBuf, source: toml::de::Error },
     #[error("serialising {what}: {source}")]
     Serialize { what: String, source: toml::ser::Error },
+    #[error("{path}: {message}")]
+    Character { path: PathBuf, message: String },
     #[error("no campaign named {0:?}")]
     NoSuchCampaign(String),
     #[error("could not determine the user's data/config directories")]
@@ -98,6 +101,14 @@ impl Campaign {
         filter.hide_reprinted = !self.settings.show_reprinted;
         filter
     }
+}
+
+/// A character file within a campaign.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CharacterFile {
+    pub slug: String,
+    pub path: PathBuf,
+    pub character: Character,
 }
 
 pub struct Store {
@@ -205,6 +216,86 @@ impl Store {
     }
 }
 
+impl Store {
+    /// Characters of a campaign, sorted by name; unreadable files are
+    /// returned as errors.
+    pub fn characters(&self, campaign: &Campaign) -> (Vec<CharacterFile>, Vec<StoreError>) {
+        let dir = campaign.characters_dir();
+        let mut out = Vec::new();
+        let mut errors = Vec::new();
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return (out, errors),
+            Err(source) => return (out, vec![StoreError::Io { path: dir, source }]),
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            match self.load_character(&path) {
+                Ok(c) => out.push(c),
+                Err(e) => errors.push(e),
+            }
+        }
+        out.sort_by_key(|c| c.character.name.to_lowercase());
+        (out, errors)
+    }
+
+    pub fn load_character(&self, path: &Path) -> Result<CharacterFile> {
+        let text = fs::read_to_string(path).map_err(|source| StoreError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        let character = Character::from_toml(&text).map_err(|message| StoreError::Character {
+            path: path.to_path_buf(),
+            message,
+        })?;
+        Ok(CharacterFile {
+            slug: path.file_stem().unwrap_or_default().to_string_lossy().into_owned(),
+            path: path.to_path_buf(),
+            character,
+        })
+    }
+
+    /// Save a new character under a unique slug derived from its name.
+    pub fn create_character(&self, campaign: &Campaign, character: Character) -> Result<CharacterFile> {
+        let dir = campaign.characters_dir();
+        let base = slugify(&character.name);
+        let mut slug = base.clone();
+        let mut n = 2;
+        while dir.join(format!("{slug}.toml")).exists() {
+            slug = format!("{base}-{n}");
+            n += 1;
+        }
+        let file = CharacterFile {
+            path: dir.join(format!("{slug}.toml")),
+            slug,
+            character,
+        };
+        self.save_character(&file)?;
+        Ok(file)
+    }
+
+    pub fn save_character(&self, file: &CharacterFile) -> Result<()> {
+        write_text(&file.path, &file.character.to_toml())
+    }
+
+    /// User overlay files (`<data>/library/overlays/*.toml`), sorted.
+    pub fn overlay_files(&self) -> Vec<PathBuf> {
+        let dir = self.data_dir.join("library/overlays");
+        let mut files: Vec<PathBuf> = fs::read_dir(&dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml"))
+            .collect();
+        files.sort();
+        files
+    }
+}
+
 /// Lowercase ASCII slug: `Curse of Strahd!` → `curse-of-strahd`.
 pub fn slugify(name: &str) -> String {
     let mut out = String::new();
@@ -234,13 +325,17 @@ fn read_toml<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     })
 }
 
-/// Write via a temporary file and rename, so a crash never leaves a
-/// half-written file.
 fn write_toml<T: Serialize>(path: &Path, value: &T, what: &str) -> Result<()> {
     let text = toml::to_string_pretty(value).map_err(|source| StoreError::Serialize {
         what: what.to_string(),
         source,
     })?;
+    write_text(path, &text)
+}
+
+/// Write via a temporary file and rename, so a crash never leaves a
+/// half-written file.
+fn write_text(path: &Path, text: &str) -> Result<()> {
     let io_err = |source| StoreError::Io {
         path: path.to_path_buf(),
         source,
@@ -289,6 +384,33 @@ mod tests {
         assert!(errors.is_empty());
         assert_eq!(all.len(), 2);
         assert_eq!(store.load_campaign("curse-of-strahd").unwrap(), c);
+    }
+
+    #[test]
+    fn character_roundtrip() {
+        let (_tmp, store) = store();
+        let camp = store
+            .create_campaign(CampaignSettings {
+                name: "C".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let ch = Character {
+            name: "Elara Moonwhisper".into(),
+            ..Default::default()
+        };
+        let a = store.create_character(&camp, ch.clone()).unwrap();
+        let b = store.create_character(&camp, ch).unwrap();
+        assert_eq!(a.slug, "elara-moonwhisper");
+        assert_eq!(b.slug, "elara-moonwhisper-2");
+        let (all, errors) = store.characters(&camp);
+        assert!(errors.is_empty());
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[0].character.name, "Elara Moonwhisper");
+
+        std::fs::write(camp.characters_dir().join("broken.toml"), "name = ").unwrap();
+        let (all, errors) = store.characters(&camp);
+        assert_eq!((all.len(), errors.len()), (2, 1));
     }
 
     #[test]

@@ -460,6 +460,7 @@ version = "0.1.0"
 dependencies = [
  "dirs",
  "dnt-data",
+ "dnt-rules",
  "serde",
  "tempfile",
  "thiserror 2.0.21",

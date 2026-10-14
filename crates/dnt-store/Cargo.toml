@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 dirs = "7.0.0"
 dnt-data.workspace = true
+dnt-rules.workspace = true
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"
 toml = "1.1.8"

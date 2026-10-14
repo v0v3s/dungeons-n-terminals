@@ -1,0 +1,352 @@
+# Built-in automation for the 2024 Player's Handbook (XPHB).
+#
+# Numbers come from class-table columns (`class.<class>.<column>`) wherever
+# the book's table has them, so this file only says what each feature does.
+# Format: see crates/dnt-rules/src/overlay.rs.
+
+
+# ---- Barbarian ----
+
+[[feature]]
+id = "classFeature:Rage|Barbarian|XPHB|1"
+[[feature.resource]]
+key = "rage"
+name = "Rage"
+max = "class.barbarian.rages"
+recharge = "long_rest"
+short_rest_regain = "1"
+[[feature.toggle]]
+key = "raging"
+name = "Raging"
+[[feature.effect]]
+target = "rage.damage"
+add = "class.barbarian.rage_damage"
+when = "toggle('raging')"
+
+[[feature]]
+id = "classFeature:Unarmored Defense|Barbarian|XPHB|1"
+name = "Unarmored Defense (Barbarian)"
+[[feature.effect]]
+target = "ac"
+max = "10 + mod.dex + mod.con + armor.shield"
+when = "armor.none"
+
+[[feature]]
+id = "classFeature:Fast Movement|Barbarian|XPHB|5"
+[[feature.effect]]
+target = "speed"
+add = "10"
+when = "not armor.heavy"
+
+# ---- Bard ----
+
+[[feature]]
+id = "classFeature:Bardic Inspiration|Bard|XPHB|1"
+[[feature.resource]]
+key = "bardic_inspiration"
+name = "Bardic Inspiration"
+max = "max(1, mod.cha)"
+recharge = "long_rest"
+short_rest_regain = "if(level('Bard') >= 5, max(1, mod.cha), 0)"
+[[feature.effect]]
+target = "bardic.die"
+set = "class.bard.bardic_die"
+
+[[feature]]
+id = "classFeature:Jack of All Trades|Bard|XPHB|2"
+[[feature.effect]]
+target = "skill.acrobatics"
+add = "floor(prof / 2)"
+when = "prof.skill.acrobatics == 0"
+[[feature.effect]]
+target = "skill.animal_handling"
+add = "floor(prof / 2)"
+when = "prof.skill.animal_handling == 0"
+[[feature.effect]]
+target = "skill.arcana"
+add = "floor(prof / 2)"
+when = "prof.skill.arcana == 0"
+[[feature.effect]]
+target = "skill.athletics"
+add = "floor(prof / 2)"
+when = "prof.skill.athletics == 0"
+[[feature.effect]]
+target = "skill.deception"
+add = "floor(prof / 2)"
+when = "prof.skill.deception == 0"
+[[feature.effect]]
+target = "skill.history"
+add = "floor(prof / 2)"
+when = "prof.skill.history == 0"
+[[feature.effect]]
+target = "skill.insight"
+add = "floor(prof / 2)"
+when = "prof.skill.insight == 0"
+[[feature.effect]]
+target = "skill.intimidation"
+add = "floor(prof / 2)"
+when = "prof.skill.intimidation == 0"
+[[feature.effect]]
+target = "skill.investigation"
+add = "floor(prof / 2)"
+when = "prof.skill.investigation == 0"
+[[feature.effect]]
+target = "skill.medicine"
+add = "floor(prof / 2)"
+when = "prof.skill.medicine == 0"
+[[feature.effect]]
+target = "skill.nature"
+add = "floor(prof / 2)"
+when = "prof.skill.nature == 0"
+[[feature.effect]]
+target = "skill.perception"
+add = "floor(prof / 2)"
+when = "prof.skill.perception == 0"
+[[feature.effect]]
+target = "skill.performance"
+add = "floor(prof / 2)"
+when = "prof.skill.performance == 0"
+[[feature.effect]]
+target = "skill.persuasion"
+add = "floor(prof / 2)"
+when = "prof.skill.persuasion == 0"
+[[feature.effect]]
+target = "skill.religion"
+add = "floor(prof / 2)"
+when = "prof.skill.religion == 0"
+[[feature.effect]]
+target = "skill.sleight_of_hand"
+add = "floor(prof / 2)"
+when = "prof.skill.sleight_of_hand == 0"
+[[feature.effect]]
+target = "skill.stealth"
+add = "floor(prof / 2)"
+when = "prof.skill.stealth == 0"
+[[feature.effect]]
+target = "skill.survival"
+add = "floor(prof / 2)"
+when = "prof.skill.survival == 0"
+
+# ---- Cleric ----
+
+[[feature]]
+id = "classFeature:Channel Divinity|Cleric|XPHB|2"
+name = "Channel Divinity (Cleric)"
+[[feature.resource]]
+key = "channel_divinity_cleric"
+name = "Channel Divinity"
+max = "class.cleric.channel_divinity"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+[[feature]]
+id = "classFeature:Divine Intervention|Cleric|XPHB|10"
+[[feature.resource]]
+key = "divine_intervention"
+name = "Divine Intervention"
+max = "1"
+recharge = "long_rest"
+
+# ---- Druid ----
+
+[[feature]]
+id = "classFeature:Wild Shape|Druid|XPHB|2"
+[[feature.resource]]
+key = "wild_shape"
+name = "Wild Shape"
+max = "class.druid.wild_shape"
+recharge = "long_rest"
+short_rest_regain = "1"
+[[feature.toggle]]
+key = "wild_shaped"
+name = "Wild Shaped"
+
+# ---- Fighter ----
+
+[[feature]]
+id = "classFeature:Second Wind|Fighter|XPHB|1"
+[[feature.resource]]
+key = "second_wind"
+name = "Second Wind"
+max = "class.fighter.second_wind"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+[[feature]]
+id = "classFeature:Action Surge|Fighter|XPHB|2"
+[[feature.resource]]
+key = "action_surge"
+name = "Action Surge"
+max = "scale(level('Fighter'), {2: 1, 17: 2})"
+recharge = "short_rest"
+
+[[feature]]
+id = "classFeature:Indomitable|Fighter|XPHB|9"
+[[feature.resource]]
+key = "indomitable"
+name = "Indomitable"
+max = "scale(level('Fighter'), {9: 1, 13: 2, 17: 3})"
+recharge = "long_rest"
+
+# ---- Monk ----
+
+[[feature]]
+id = "classFeature:Monk's Focus|Monk|XPHB|2"
+[[feature.resource]]
+key = "focus"
+name = "Focus Points"
+max = "class.monk.focus_points"
+recharge = "short_rest"
+
+[[feature]]
+id = "classFeature:Martial Arts|Monk|XPHB|1"
+[[feature.effect]]
+target = "attack.unarmed.damage"
+set = "class.monk.martial_arts + max(mod.str, mod.dex)"
+
+[[feature]]
+id = "classFeature:Unarmored Defense|Monk|XPHB|1"
+name = "Unarmored Defense (Monk)"
+[[feature.effect]]
+target = "ac"
+max = "10 + mod.dex + mod.wis"
+when = "armor.none and armor.shield == 0"
+
+[[feature]]
+id = "classFeature:Unarmored Movement|Monk|XPHB|2"
+[[feature.effect]]
+target = "speed"
+add = "class.monk.unarmored_movement"
+when = "armor.none and armor.shield == 0"
+
+# ---- Paladin ----
+
+[[feature]]
+id = "classFeature:Lay on Hands|Paladin|XPHB|1"
+[[feature.resource]]
+key = "lay_on_hands"
+name = "Lay on Hands pool"
+max = "5 * level('Paladin')"
+recharge = "long_rest"
+
+[[feature]]
+id = "classFeature:Channel Divinity|Paladin|XPHB|3"
+name = "Channel Divinity (Paladin)"
+[[feature.resource]]
+key = "channel_divinity_paladin"
+name = "Channel Divinity"
+max = "class.paladin.channel_divinity"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+[[feature]]
+id = "classFeature:Aura of Protection|Paladin|XPHB|6"
+[[feature.effect]]
+target = "save.str"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.dex"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.con"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.int"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.wis"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.cha"
+add = "max(1, mod.cha)"
+
+# ---- Ranger ----
+
+[[feature]]
+id = "classFeature:Favored Enemy|Ranger|XPHB|1"
+[[feature.resource]]
+key = "favored_enemy"
+name = "Favored Enemy (free Hunter's Mark)"
+max = "class.ranger.favored_enemy"
+recharge = "long_rest"
+
+# ---- Rogue ----
+
+[[feature]]
+id = "classFeature:Sneak Attack|Rogue|XPHB|1"
+[[feature.effect]]
+target = "attack.sneak_attack"
+set = "class.rogue.sneak_attack"
+
+# ---- Sorcerer ----
+
+[[feature]]
+id = "classFeature:Font of Magic|Sorcerer|XPHB|2"
+[[feature.resource]]
+key = "sorcery_points"
+name = "Sorcery Points"
+max = "class.sorcerer.sorcery_points"
+recharge = "long_rest"
+
+[[feature]]
+id = "classFeature:Innate Sorcery|Sorcerer|XPHB|1"
+[[feature.resource]]
+key = "innate_sorcery"
+name = "Innate Sorcery"
+max = "2"
+recharge = "long_rest"
+[[feature.toggle]]
+key = "innate_sorcery"
+name = "Innate Sorcery active"
+
+# ---- Warlock ----
+
+[[feature]]
+id = "classFeature:Magical Cunning|Warlock|XPHB|2"
+[[feature.resource]]
+key = "magical_cunning"
+name = "Magical Cunning"
+max = "1"
+recharge = "long_rest"
+
+# ---- Wizard ----
+
+[[feature]]
+id = "classFeature:Arcane Recovery|Wizard|XPHB|1"
+[[feature.resource]]
+key = "arcane_recovery"
+name = "Arcane Recovery"
+max = "1"
+recharge = "long_rest"
+
+# ---- Feats ----
+
+[[feature]]
+id = "feat:Alert|XPHB"
+[[feature.effect]]
+target = "initiative"
+add = "prof"
+
+[[feature]]
+id = "feat:Tough|XPHB"
+[[feature.effect]]
+target = "hp.max"
+add = "2 * level"
+
+[[feature]]
+id = "feat:Lucky|XPHB"
+[[feature.resource]]
+key = "luck"
+name = "Luck Points"
+max = "prof"
+recharge = "long_rest"
+
+# ---- Fighting styles ----
+
+[[feature]]
+id = "feat:Defense|XPHB"
+name = "Defense (Fighting Style)"
+[[feature.effect]]
+target = "ac"
+add = "1"
+when = "not armor.none"

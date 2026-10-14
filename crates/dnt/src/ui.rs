@@ -30,20 +30,10 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
     match app.section {
         Section::Compendium => draw_compendium(frame, body, lib, &mut app.compendium, theme),
         Section::Campaigns => draw_campaigns(frame, body, app, theme),
-        Section::Characters => draw_placeholder(
-            frame,
-            body,
-            "Characters",
-            "M3",
-            &[
-                "Character roster for the active campaign",
-                "Creation wizard: species, class, background, ability scores, skills, equipment, spells",
-                "Sheet tabs: Overview / Combat / Spells / Inventory / Features / Notes",
-                "HP, hit dice, spell slots, class resources, conditions",
-                "Short and long rests; breakdown and override for every stat",
-            ],
-            theme,
-        ),
+        Section::Characters => {
+            let campaign = app.active.map(|i| app.campaigns.list[i].settings.name.clone());
+            crate::ui_sheet::draw(frame, body, lib, &app.overlays, &mut app.characters, theme, campaign.as_deref())
+        }
         Section::Notes => draw_placeholder(
             frame,
             body,
@@ -142,6 +132,24 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("/", "filter"),
             ("tab", "campaigns"),
         ],
+        (Section::Characters, _) => match app.characters.sheet.as_ref() {
+            _ if app.characters.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
+            None => &[("j k", "move"), ("enter", "open"), ("n", "new"), ("e", "edit file"), ("1-4", "section"), ("q", "quit")],
+            Some(s) if s.popup.is_some() => &[("enter", "confirm"), ("esc", "close")],
+            Some(s) if s.tab == crate::characters::Tab::Features => {
+                &[("j k", "feature"), ("J K", "scroll text"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
+            }
+            Some(_) => &[
+                ("j k", "move"),
+                ("space", "use"),
+                ("+", "restore"),
+                ("?", "breakdown"),
+                ("d h t", "dmg/heal/temp"),
+                ("s L", "short/long rest"),
+                ("tab", "tab"),
+                ("esc", "roster"),
+            ],
+        },
         _ => &[("1-4", "section"), ("q", "quit")],
     };
     let mut spans = vec![Span::raw(" ")];
@@ -159,7 +167,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-fn pane(title: Line<'static>, focused: bool, theme: &Theme) -> Block<'static> {
+pub(crate) fn pane(title: Line<'static>, focused: bool, theme: &Theme) -> Block<'static> {
     Block::default()
         .borders(Borders::ALL)
         .border_type(theme.border_type)
@@ -168,13 +176,13 @@ fn pane(title: Line<'static>, focused: bool, theme: &Theme) -> Block<'static> {
         .padding(Padding::horizontal(1))
 }
 
-fn pane_title(text: &str, focused: bool, theme: &Theme) -> Line<'static> {
+pub(crate) fn pane_title(text: &str, focused: bool, theme: &Theme) -> Line<'static> {
     let style = if focused { theme.title } else { theme.pane_title };
     Line::from(Span::styled(format!(" {text} "), style))
 }
 
 /// Pad `left` and `right` spans apart to fill `width`.
-fn spread(mut left: Vec<Span<'static>>, right: Vec<Span<'static>>, width: usize) -> Line<'static> {
+pub(crate) fn spread(mut left: Vec<Span<'static>>, right: Vec<Span<'static>>, width: usize) -> Line<'static> {
     let used: usize = left.iter().chain(&right).map(|s| s.content.width()).sum();
     left.push(Span::raw(" ".repeat(width.saturating_sub(used))));
     left.extend(right);
@@ -642,7 +650,7 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     frame.render_widget(Paragraph::new(lines), list_area);
 }
 
-fn truncate(s: &str, width: usize) -> String {
+pub(crate) fn truncate(s: &str, width: usize) -> String {
     if s.width() <= width {
         return s.to_string();
     }

@@ -307,7 +307,9 @@ feature ID and its text as comments; overlays are validated live.
 2. **M2 Rules engine** — formula language, stat graph, breakdowns, overrides,
    class-table variables, overlays, standard 5e stats. *Done* (no UI; the
    sheet in M3 is its first consumer).
-3. **M3 Characters** — level-1 single-class creation, sheet, tracking, rests.
+3. **M3 Characters** — character files, multiclass-aware builder, built-in
+   2024 overlays, roster and sheet (Overview, Features), tracking, rests.
+   *In progress: creation wizard, level-up, Spells/Inventory tabs.*
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
    homebrew polish; later embedded nvim, export.

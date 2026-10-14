@@ -151,7 +151,7 @@ impl Compendium {
             results: Vec::new(),
             selected: 0,
             list_offset: 0,
-            focus: Focus::Search,
+            focus: Focus::List,
             detail: None,
             history: Vec::new(),
             detail_links: Vec::new(),

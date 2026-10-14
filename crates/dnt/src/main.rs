@@ -1,9 +1,11 @@
 mod app;
 mod campaigns;
+mod characters;
 mod compendium;
 mod render;
 mod theme;
 mod ui;
+mod ui_sheet;
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -83,6 +85,16 @@ fn main() -> Result<()> {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     app.handle_key(&lib, key);
+                }
+            }
+            if let Some(path) = app.pending_edit.take() {
+                ratatui::restore();
+                let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| "vi".into());
+                let status = std::process::Command::new(&editor).arg(&path).status();
+                *terminal = ratatui::init();
+                match status {
+                    Ok(_) => app.after_edit(&lib, &path),
+                    Err(e) => app.status = format!("Could not run {editor}: {e}"),
                 }
             }
         }

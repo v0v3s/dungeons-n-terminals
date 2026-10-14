@@ -4,7 +4,14 @@ use dnt_data::{Library, SourceFilter};
 use dnt_store::{CampaignSettings, Config, Store, PRESETS};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use std::path::PathBuf;
+
+use dnt_rules::builtin;
+use dnt_rules::character::Character;
+use dnt_rules::overlay::{Overlay, OverlaySet};
+
 use crate::campaigns::{Action, Campaigns};
+use crate::characters::{self, Characters};
 use crate::compendium::{Compendium, Outcome};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +43,10 @@ pub struct App {
     pub active: Option<usize>,
     /// Sources forced from the command line, overriding the campaign.
     pub override_filter: Option<SourceFilter>,
+    pub characters: Characters,
+    pub overlays: OverlaySet,
+    /// A file to open in $EDITOR; handled by the main loop.
+    pub pending_edit: Option<PathBuf>,
     pub status: String,
     pub quit: bool,
     store: Store,
@@ -58,6 +69,11 @@ impl App {
             .or_else(|| active.map(|i| list[i].source_filter()))
             .unwrap_or_default();
         let section = if list.is_empty() { Section::Campaigns } else { Section::Compendium };
+        let (overlays, problems) = load_overlays(&store, lib);
+        if problems > 0 && status.is_empty() {
+            status = format!("{problems} overlay problem(s) — run the check_overlays example");
+        }
+        let files = active.map(|i| store.characters(&list[i]).0).unwrap_or_default();
         let mut campaigns = Campaigns::new(lib, list);
         campaigns.selected = active.unwrap_or(0);
         App {
@@ -66,10 +82,24 @@ impl App {
             campaigns,
             active,
             override_filter,
+            characters: Characters::new(files),
+            overlays,
+            pending_edit: None,
             status,
             quit: false,
             store,
             config,
+        }
+    }
+
+    /// Re-read the character file after it was edited externally.
+    pub fn after_edit(&mut self, lib: &Library, path: &std::path::Path) {
+        match self.store.load_character(path) {
+            Ok(file) => {
+                self.characters.reload(file, lib, &self.overlays);
+                self.status = "Reloaded character".into();
+            }
+            Err(e) => self.status = format!("Could not reload: {e}"),
         }
     }
 
@@ -81,6 +111,7 @@ impl App {
         match self.section {
             Section::Compendium => self.compendium.wants_text(),
             Section::Campaigns => self.campaigns.wants_text(),
+            Section::Characters => self.characters.wants_text(),
             _ => false,
         }
     }
@@ -91,7 +122,8 @@ impl App {
             self.quit = true;
             return;
         }
-        if !self.wants_text() {
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        if !self.wants_text() || alt {
             if let KeyCode::Char(c @ '1'..='9') = key.code {
                 if let Some(&s) = Section::ALL.get(c as usize - '1' as usize) {
                     self.section = s;
@@ -109,7 +141,11 @@ impl App {
                 let action = self.campaigns.handle_key(key);
                 self.campaign_action(lib, action);
             }
-            Section::Characters | Section::Notes => {
+            Section::Characters => {
+                let action = self.characters.handle_key(key, lib, &self.overlays);
+                self.character_action(lib, action);
+            }
+            Section::Notes => {
                 if key.code == KeyCode::Char('q') {
                     self.quit = true;
                 }
@@ -157,6 +193,44 @@ impl App {
         }
     }
 
+    fn character_action(&mut self, lib: &Library, action: characters::Action) {
+        use characters::Action as A;
+        match action {
+            A::None => {}
+            A::Quit => self.quit = true,
+            A::Status(s) => self.status = s,
+            A::Edit(path) => self.pending_edit = Some(path),
+            A::Save(status) => {
+                if let Some(sheet) = &self.characters.sheet {
+                    match self.store.save_character(&sheet.file) {
+                        Ok(()) => self.status = status,
+                        Err(e) => self.status = format!("Could not save: {e}"),
+                    }
+                }
+            }
+            A::Create(name) => {
+                let Some(campaign) = self.active_campaign().cloned() else {
+                    self.status = "Create or activate a campaign first (4)".into();
+                    return;
+                };
+                let character = Character {
+                    name,
+                    ..Character::default()
+                };
+                match self.store.create_character(&campaign, character) {
+                    Ok(file) => {
+                        self.characters.files.push(file.clone());
+                        self.characters.files.sort_by_key(|f| f.character.name.to_lowercase());
+                        let i = self.characters.files.iter().position(|f| f.path == file.path).unwrap();
+                        self.characters.open(i, lib, &self.overlays);
+                        self.status = "Created — press e to edit the file until the creation wizard lands".into();
+                    }
+                    Err(e) => self.status = format!("Could not create character: {e}"),
+                }
+            }
+        }
+    }
+
     fn activate(&mut self, lib: &Library, index: usize) {
         self.active = Some(index);
         let campaign = &self.campaigns.list[index];
@@ -168,6 +242,7 @@ impl App {
             self.status = format!("Active campaign: {name}");
         }
         self.apply_filter(lib);
+        self.characters = Characters::new(self.store.characters(&self.campaigns.list[index]).0);
     }
 
     fn apply_filter(&mut self, lib: &Library) {
@@ -178,4 +253,20 @@ impl App {
         let filter = self.active_campaign().map(|c| c.source_filter()).unwrap_or_default();
         self.compendium.set_filter(lib, filter);
     }
+}
+
+/// Built-in overlays plus the user's own, and the number of problems found.
+fn load_overlays(store: &Store, lib: &Library) -> (OverlaySet, usize) {
+    let (mut set, diags) = builtin::overlays();
+    let mut problems = diags.len();
+    for path in store.overlay_files() {
+        match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
+            Ok((overlay, diags)) => {
+                problems += diags.len() + overlay.unresolved(lib).len();
+                set.add(overlay);
+            }
+            Err(_) => problems += 1,
+        }
+    }
+    (set, problems)
 }
