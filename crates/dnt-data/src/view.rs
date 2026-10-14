@@ -18,7 +18,7 @@ pub fn document(lib: &Library, id: EntityId, filter: &SourceFilter) -> Vec<Block
     let mut props: Vec<(&str, Vec<Span>)> = Vec::new();
     let mut lines = Vec::new();
     match e.kind {
-        Kind::Spell => spell_props(lib, id, &mut props),
+        Kind::Spell => spell_props(lib, id, filter, &mut props),
         Kind::Item | Kind::BaseItem | Kind::ItemGroup | Kind::MagicVariant => item_props(d, &mut props),
         Kind::Race | Kind::Subrace => race_props(d, &mut props),
         Kind::Background => background_props(d, &mut props),
@@ -162,7 +162,7 @@ pub fn ability_name(code: &str) -> &'static str {
     }
 }
 
-fn title_case(s: &str) -> String {
+pub fn title_case(s: &str) -> String {
     s.split(' ')
         .map(|w| {
             let mut c = w.chars();
@@ -174,7 +174,7 @@ fn title_case(s: &str) -> String {
 
 // ---- spells ----
 
-fn spell_props(lib: &Library, id: EntityId, props: &mut Vec<(&'static str, Vec<Span>)>) {
+fn spell_props(lib: &Library, id: EntityId, filter: &SourceFilter, props: &mut Vec<(&'static str, Vec<Span>)>) {
     let d = &lib.entity(id).data;
     let level = d.get("level").and_then(Value::as_u64).unwrap_or(0);
     let school = spell_school(str_of(d, "school").unwrap_or(""));
@@ -193,7 +193,7 @@ fn spell_props(lib: &Library, id: EntityId, props: &mut Vec<(&'static str, Vec<S
     props.push(("Components", spell_components(d)));
     props.push(("Duration", plain(spell_duration(d))));
 
-    let classes = lib.spell_classes(id);
+    let classes: Vec<_> = lib.spell_classes(id).iter().filter(|c| filter.source_enabled(&c.source)).collect();
     if !classes.is_empty() {
         let mut spans = Vec::new();
         for (i, c) in classes.iter().enumerate() {
@@ -394,7 +394,7 @@ fn format_coins(cp: u64) -> String {
     }
 }
 
-fn item_type(code: &str) -> &'static str {
+pub fn item_type(code: &str) -> &'static str {
     match code {
         "A" => "Ammunition",
         "AF" => "Ammunition (futuristic)",
@@ -444,7 +444,7 @@ fn item_property(code: &str) -> &'static str {
     }
 }
 
-fn damage_type(code: &str) -> &'static str {
+pub fn damage_type(code: &str) -> &'static str {
     match code {
         "A" => "acid",
         "B" => "bludgeoning",
@@ -615,15 +615,7 @@ fn background_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
 
 fn feat_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
     if let Some(cat) = str_of(d, "category") {
-        let label = match cat {
-            "O" => "Origin",
-            "G" => "General",
-            "FS" | "FS:P" | "FS:R" => "Fighting Style",
-            "EB" => "Epic Boon",
-            "D" => "Dragonmark",
-            other => other,
-        };
-        props.push(("Category", plain(label)));
+        props.push(("Category", plain(feat_category(cat))));
     }
     if let Some(types) = d.get("featureType").and_then(Value::as_array) {
         let s: Vec<&str> = types.iter().filter_map(Value::as_str).map(feature_type).collect();
@@ -634,7 +626,18 @@ fn feat_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
     }
 }
 
-fn feature_type(code: &str) -> &str {
+pub fn feat_category(code: &str) -> &str {
+    match code {
+        "O" => "Origin",
+        "G" => "General",
+        "FS" | "FS:P" | "FS:R" => "Fighting Style",
+        "EB" => "Epic Boon",
+        "D" => "Dragonmark",
+        other => other,
+    }
+}
+
+pub fn feature_type(code: &str) -> &str {
     match code {
         "EI" => "Eldritch Invocation",
         "MM" => "Metamagic",

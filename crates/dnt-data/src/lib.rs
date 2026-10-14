@@ -5,6 +5,7 @@ pub mod doc;
 pub mod id;
 pub mod kind;
 pub mod library;
+pub mod query;
 pub mod search;
 pub mod tags;
 pub mod view;

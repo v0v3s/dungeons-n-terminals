@@ -1,5 +1,6 @@
 //! Compendium browser state and key handling.
 
+use dnt_data::query::{Facet, FacetIndex, Query};
 use dnt_data::search::Searcher;
 use dnt_data::tags::Link;
 use dnt_data::{doc::Block, view, EntityId, Kind, Library, SourceFilter};
@@ -20,7 +21,7 @@ pub enum Category {
 }
 
 impl Category {
-    const ORDER: [Category; 9] = [
+    pub const ORDER: [Category; 9] = [
         Category::All,
         Category::Spells,
         Category::Classes,
@@ -58,6 +59,21 @@ impl Category {
             Category::Feats => kind == Feat,
             Category::Items => matches!(kind, Item | BaseItem | ItemGroup | MagicVariant | ItemMastery),
             Category::Rules => matches!(kind, Condition | Disease | Status | Action | VariantRule | Sense | Skill | Language),
+        }
+    }
+
+    /// What `#`, `*` and `^` mean on this tab, for the hint line.
+    pub fn hints(self) -> &'static [(char, &'static str)] {
+        match self {
+            Category::All => &[('#', "kind"), ('*', "damage"), ('^', "level")],
+            Category::Spells => &[('#', "class/school/ritual/concentration"), ('*', "damage"), ('^', "level")],
+            Category::Classes => &[('#', "class/caster")],
+            Category::Features => &[('#', "class/subclass/type"), ('^', "level")],
+            Category::Species => &[('#', "creature type")],
+            Category::Backgrounds => &[],
+            Category::Feats => &[('#', "category")],
+            Category::Items => &[('#', "type/rarity/wondrous/attunement"), ('*', "damage")],
+            Category::Rules => &[('#', "kind")],
         }
     }
 
@@ -117,8 +133,11 @@ pub struct Compendium {
     pub detail_height: usize,
     pub detail_lines: usize,
     pub list_height: usize,
+    /// Completions for the facet term being typed, with counts.
+    pub suggestions: Vec<(String, usize)>,
     visible: Vec<EntityId>,
     searcher: Searcher,
+    facets: FacetIndex,
 }
 
 impl Compendium {
@@ -137,8 +156,10 @@ impl Compendium {
             detail_height: 0,
             detail_lines: 0,
             list_height: 0,
+            suggestions: Vec::new(),
             visible: Vec::new(),
             searcher: Searcher::default(),
+            facets: FacetIndex::build(lib),
         };
         c.refilter(lib);
         c
@@ -156,10 +177,53 @@ impl Compendium {
     }
 
     fn research(&mut self, lib: &Library) {
-        self.results = self.searcher.search(lib, &self.query, &self.visible);
+        let query = Query::parse(&self.query);
+        let candidates = if query.terms.is_empty() {
+            self.visible.clone()
+        } else {
+            self.facets.filter(lib, &query, &self.visible)
+        };
+        self.results = self.searcher.search(lib, &query.name, &candidates);
+        self.suggestions = match self.partial_facet() {
+            Some((facet, partial)) => {
+                let mut s = self.facets.suggestions(facet, &partial, &self.visible);
+                s.truncate(8);
+                s
+            }
+            None => Vec::new(),
+        };
         self.selected = 0;
         self.list_offset = 0;
         self.sync_detail(lib);
+    }
+
+    /// The facet term currently being typed (the last token), if any.
+    fn partial_facet(&self) -> Option<(Facet, String)> {
+        if self.query.ends_with(char::is_whitespace) {
+            return None;
+        }
+        let last = self.query.split_whitespace().last()?;
+        let last = last.strip_prefix('!').unwrap_or(last);
+        let mut chars = last.chars();
+        let prefix = chars.next()?;
+        let facet = Facet::ALL.into_iter().find(|f| f.prefix() == prefix && *f != Facet::Level)?;
+        Some((facet, chars.as_str().to_string()))
+    }
+
+    /// Replace the facet term being typed with the first suggestion.
+    fn complete(&mut self, lib: &Library) -> bool {
+        let Some((value, _)) = self.suggestions.first() else { return false };
+        let value = value.replace(' ', "_");
+        let start = self.query.rfind(char::is_whitespace).map_or(0, |i| i + 1);
+        let token = &self.query[start..];
+        let keep = token.chars().take_while(|c| *c == '!').count() + 1;
+        let head = token[..keep].to_string();
+        self.query.truncate(start);
+        self.query.push_str(&head);
+        self.query.push_str(&value);
+        self.query.push(' ');
+        self.research(lib);
+        true
     }
 
     /// Show the selected result in the detail pane (preview behaviour).
@@ -180,12 +244,18 @@ impl Compendium {
         }
     }
 
+    /// Whether keystrokes are currently text input (so global keys must not fire).
+    pub fn wants_text(&self) -> bool {
+        self.focus == Focus::Search
+    }
+
     pub fn handle_key(&mut self, lib: &Library, key: KeyEvent) -> Outcome {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') {
             return Outcome::Quit;
         }
         match key.code {
+            KeyCode::Tab if self.focus == Focus::Search && self.complete(lib) => return Outcome::None,
             KeyCode::Tab if self.focus != Focus::Detail => return self.set_category(lib, self.category.cycle(1)),
             KeyCode::BackTab if self.focus != Focus::Detail => return self.set_category(lib, self.category.cycle(-1)),
             _ => {}

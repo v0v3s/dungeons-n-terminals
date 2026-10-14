@@ -331,6 +331,40 @@ fn ability_line(obj: &Value) -> Vec<Span> {
     vec![bold(&label), Span::plain(formula)]
 }
 
+/// All text of a document joined by spaces, for full-text search.
+pub fn plain_text(blocks: &[Block]) -> String {
+    fn spans(s: &[Span], out: &mut String) {
+        for span in s {
+            out.push_str(&span.text);
+        }
+        out.push(' ');
+    }
+    fn walk(blocks: &[Block], out: &mut String) {
+        for b in blocks {
+            match b {
+                Block::Heading { text, .. } | Block::Paragraph(text) => spans(text, out),
+                Block::Properties(lines) => lines.iter().for_each(|l| spans(l, out)),
+                Block::List(items) => items.iter().for_each(|i| walk(i, out)),
+                Block::Table(t) => {
+                    t.header.iter().for_each(|c| spans(c, out));
+                    t.rows.iter().flatten().for_each(|c| spans(c, out));
+                }
+                Block::Inset { title, body } => {
+                    if let Some(t) = title {
+                        spans(t, out);
+                    }
+                    walk(body, out);
+                }
+                Block::Quote { body, .. } => walk(body, out),
+                Block::Rule => {}
+            }
+        }
+    }
+    let mut out = String::new();
+    walk(blocks, &mut out);
+    out
+}
+
 /// Collect every link in a document, in reading order.
 pub fn links(blocks: &[Block]) -> Vec<&Link> {
     fn spans<'a>(s: &'a [Span], out: &mut Vec<&'a Link>) {

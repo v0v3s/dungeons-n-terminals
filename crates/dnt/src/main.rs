@@ -1,3 +1,4 @@
+mod app;
 mod compendium;
 mod render;
 mod theme;
@@ -11,7 +12,7 @@ use clap::Parser;
 use dnt_data::{Library, SourceFilter};
 use ratatui::crossterm::event::{self, Event, KeyEventKind};
 
-use compendium::{Compendium, Outcome};
+use app::App;
 
 /// Dungeons & Terminals: a D&D 5e TUI for players.
 #[derive(Parser)]
@@ -60,22 +61,17 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut compendium = Compendium::new(&lib, filter);
+    let mut app = App::new(&lib, filter, status);
     let theme = theme::Theme::default();
     ratatui::run(|terminal| -> Result<()> {
-        loop {
-            terminal.draw(|f| ui::draw(f, &lib, &mut compendium, &status, &theme))?;
+        while !app.quit {
+            terminal.draw(|f| ui::draw(f, &lib, &mut app, &theme))?;
             if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-                status.clear();
-                match compendium.handle_key(&lib, key) {
-                    Outcome::Quit => return Ok(()),
-                    Outcome::Status(s) => status = s,
-                    Outcome::None => {}
+                if key.kind == KeyEventKind::Press {
+                    app.handle_key(&lib, key);
                 }
             }
         }
+        Ok(())
     })
 }

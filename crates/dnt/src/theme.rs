@@ -17,6 +17,17 @@ pub struct Theme {
     pub selected: Style,
     pub border: Style,
     pub border_focused: Style,
+    pub bar: Style,
+    pub brand: Style,
+    pub tab_active: Style,
+    pub tab_inactive: Style,
+    pub category_active: Style,
+    pub category_inactive: Style,
+    pub facet_source: Color,
+    pub facet_tag: Color,
+    pub facet_damage: Color,
+    pub facet_level: Color,
+    pub facet_text: Color,
 }
 
 impl Default for Theme {
@@ -32,10 +43,21 @@ impl Default for Theme {
             code: Color::Green,
             inset_border: Style::new().fg(Color::Blue),
             table_header: Style::new().add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
-            table_alt: Style::new().add_modifier(Modifier::DIM),
+            table_alt: Style::new(),
             selected: Style::new().add_modifier(Modifier::REVERSED),
             border: Style::new().fg(Color::DarkGray),
             border_focused: Style::new().fg(Color::Yellow),
+            bar: Style::new(),
+            brand: Style::new().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD),
+            tab_active: Style::new().fg(Color::Yellow).add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            tab_inactive: Style::new().fg(Color::Gray),
+            category_active: Style::new().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+            category_inactive: Style::new().fg(Color::Gray),
+            facet_source: Color::Blue,
+            facet_tag: Color::Green,
+            facet_damage: Color::Red,
+            facet_level: Color::Magenta,
+            facet_text: Color::Yellow,
         }
     }
 }
