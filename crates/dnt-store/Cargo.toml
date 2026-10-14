@@ -1,0 +1,10 @@
+[package]
+name = "dnt-store"
+description = "On-disk storage for library, campaigns, characters and notes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dnt-data.workspace = true
+dnt-rules.workspace = true

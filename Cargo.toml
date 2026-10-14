@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+dnt-data = { path = "crates/dnt-data" }
+dnt-rules = { path = "crates/dnt-rules" }
+dnt-store = { path = "crates/dnt-store" }
