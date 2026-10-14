@@ -181,7 +181,17 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
                 warn,
                 header.width as usize,
             ),
-            Line::styled(format!("   {}", identity(lib, ch, &sheet.build.class_summary())), theme.muted),
+            if ch.levels.is_empty() {
+                Line::from(vec![
+                    Span::styled("   No class yet — press ", theme.muted),
+                    Span::styled(" u ", theme.keycap),
+                    Span::styled(" to take your first level, ", theme.muted),
+                    Span::styled(" e ", theme.keycap),
+                    Span::styled(" to set abilities, species and background", theme.muted),
+                ])
+            } else {
+                Line::styled(format!("   {}", identity(lib, ch, &sheet.build.class_summary())), theme.muted)
+            },
         ]),
         header,
     );
@@ -234,7 +244,133 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
                 rect,
             );
         }
+        Some(Popup::LevelUp(flow)) => draw_levelup(frame, area, &flow, theme),
+        Some(Popup::Undo) => {
+            let rect = centered(area, 52, 5);
+            frame.render_widget(Clear, rect);
+            let last = sheet
+                .character()
+                .levels
+                .last()
+                .map(|l| l.class.split_once(':').map_or("", |(_, r)| r.split('|').next().unwrap_or(r)).to_string())
+                .unwrap_or_default();
+            let block = pane(pane_title("Undo level", true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::raw(format!("Remove the latest level ({last})?  ")),
+                    Span::styled(" y ", theme.keycap),
+                    Span::styled(" yes  ", theme.dim),
+                    Span::styled(" n ", theme.keycap),
+                    Span::styled(" no", theme.dim),
+                ]))
+                .block(block),
+                rect,
+            );
+        }
         None => {}
+    }
+}
+
+fn draw_levelup(frame: &mut Frame, area: Rect, flow: &crate::levelup::LevelUp, theme: &Theme) {
+    use crate::levelup::Stage;
+    let rect = centered(area, 76.min(area.width), area.height.saturating_sub(4).min(26));
+    frame.render_widget(Clear, rect);
+    let title = match &flow.stage {
+        Stage::Pick(p) => p.title.clone(),
+        Stage::Roll(_) => "Hit points for this level".into(),
+        Stage::Confirm => "Confirm level up".into(),
+    };
+    let hints = match &flow.stage {
+        Stage::Pick(_) => "type to filter · ↑↓ move · enter choose · esc cancel",
+        Stage::Roll(_) => "enter the rolled value · esc cancel",
+        Stage::Confirm => "enter apply · esc cancel",
+    };
+    let block = pane(pane_title(&title, true, theme), true, theme)
+        .padding(Padding::new(2, 2, 1, 0))
+        .title_bottom(Line::styled(format!(" {hints} "), theme.dim).right_aligned());
+    let inner = block.inner(rect);
+    frame.render_widget(block, rect);
+
+    let summary: Vec<Line> = flow
+        .summary
+        .iter()
+        .map(|s| Line::from(vec![Span::styled("✓ ", Style::new().fg(theme.accent)), Span::styled(s.clone(), theme.muted)]))
+        .collect();
+    let summary_h = summary.len() as u16 + u16::from(!summary.is_empty());
+    let [top, body] = Layout::vertical([Constraint::Length(summary_h), Constraint::Min(1)]).areas(inner);
+    frame.render_widget(Paragraph::new(summary), top);
+
+    match &flow.stage {
+        Stage::Confirm => {
+            frame.render_widget(
+                Paragraph::new(vec![
+                    Line::styled(format!("This becomes character level {}.", flow_total_hint(flow)), Style::new()),
+                    Line::default(),
+                    Line::from(vec![
+                        Span::styled(" enter ", theme.keycap),
+                        Span::styled(" apply   ", theme.dim),
+                        Span::styled(" esc ", theme.keycap),
+                        Span::styled(" cancel", theme.dim),
+                    ]),
+                ]),
+                body,
+            );
+        }
+        Stage::Roll(text) => {
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())])),
+                body,
+            );
+            frame.set_cursor_position((body.x + 2 + text.width() as u16, body.y));
+        }
+        Stage::Pick(p) => {
+            let [input, rule, list] =
+                Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(body);
+            let shown = if p.query.is_empty() {
+                Span::styled("type to filter", theme.dim)
+            } else {
+                Span::raw(p.query.clone())
+            };
+            frame.render_widget(Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), shown])), input);
+            frame.set_cursor_position((input.x + 2 + p.query.width() as u16, input.y));
+            frame.render_widget(Paragraph::new(Line::styled("─".repeat(rule.width as usize), theme.border)), rule);
+
+            let visible = p.visible();
+            let height = list.height as usize;
+            let offset = p.selected.saturating_sub(height.saturating_sub(1));
+            let width = list.width as usize;
+            let lines: Vec<Line> = visible
+                .iter()
+                .enumerate()
+                .skip(offset)
+                .take(height)
+                .map(|(pos, &i)| {
+                    let item = &p.items[i];
+                    let base = if pos == p.selected { theme.selected } else { Style::new() };
+                    let mut right = Vec::new();
+                    if let Some(w) = &item.warning {
+                        right.push(Span::styled(format!("⚠ {} ", truncate(w, 36)), base.fg(Color::Yellow).remove_modifier(Modifier::BOLD)));
+                    }
+                    right.push(Span::styled(
+                        format!("{} ", item.hint),
+                        base.patch(if pos == p.selected { theme.muted } else { theme.dim }).remove_modifier(Modifier::BOLD),
+                    ));
+                    spread(vec![Span::styled(format!(" {}", item.label), base)], right, width).style(base)
+                })
+                .collect();
+            if lines.is_empty() {
+                frame.render_widget(Paragraph::new(Line::styled("Nothing matches.", theme.dim)), list);
+            } else {
+                frame.render_widget(Paragraph::new(lines), list);
+            }
+        }
+    }
+}
+
+fn flow_total_hint(flow: &crate::levelup::LevelUp) -> String {
+    match &flow.class {
+        Some(_) => format!("{} in this class", flow.new_level),
+        None => "?".into(),
     }
 }
 
@@ -282,7 +418,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
     frame.render_widget(block, abil);
     let mut lines = vec![Line::from(vec![
         Span::styled(format!("{:<13}", ""), theme.label),
-        Span::styled("score  mod  save", theme.label),
+        Span::styled("score  mod save", theme.label),
     ])];
     for (a, name) in ABILITIES {
         let item = Item::Stat(a.to_string());
@@ -293,7 +429,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
                 Span::styled(format!("{name:<13}"), base),
                 Span::styled(format!("{:>5}", stat(ev, a)), base),
                 Span::styled(format!("{:>5}", signed(ev, &format!("mod.{a}"))), base.fg(theme.accent).add_modifier(Modifier::BOLD)),
-                Span::styled(format!("{:>6} ", signed(ev, &format!("save.{a}"))), base),
+                Span::styled(format!("{:>5} ", signed(ev, &format!("save.{a}"))), base),
                 Span::styled(if proficient { "●" } else { "○" }, if proficient { base.fg(theme.accent) } else { base.patch(theme.dim) }),
             ])
             .style(base),

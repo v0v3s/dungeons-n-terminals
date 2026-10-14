@@ -309,7 +309,11 @@ feature ID and its text as comments; overlays are validated live.
    sheet in M3 is its first consumer).
 3. **M3 Characters** — character files, multiclass-aware builder, built-in
    2024 overlays, roster and sheet (Overview, Features), tracking, rests.
-   *In progress: creation wizard, level-up, Spells/Inventory tabs.*
+   Level-up flow (class incl. multiclass with requirement warnings,
+   subclass when due, HP average/rolled/max, ASI / feat / Epic Boon) and
+   undo of the last level; per-level choices live on the level entry.
+   *In progress: creation wizard (species, background, abilities, skills,
+   equipment), Spells/Inventory tabs.*
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
    homebrew polish; later embedded nvim, export.

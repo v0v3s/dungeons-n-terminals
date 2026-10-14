@@ -142,7 +142,8 @@ impl App {
                 self.campaign_action(lib, action);
             }
             Section::Characters => {
-                let action = self.characters.handle_key(key, lib, &self.overlays);
+                let filter = self.compendium.filter.clone();
+                let action = self.characters.handle_key(key, lib, &self.overlays, &filter);
                 self.character_action(lib, action);
             }
             Section::Notes => {
@@ -223,7 +224,7 @@ impl App {
                         self.characters.files.sort_by_key(|f| f.character.name.to_lowercase());
                         let i = self.characters.files.iter().position(|f| f.path == file.path).unwrap();
                         self.characters.open(i, lib, &self.overlays);
-                        self.status = "Created — press e to edit the file until the creation wizard lands".into();
+                        self.status = "Created — press u to choose a class, e to edit abilities and background".into();
                     }
                     Err(e) => self.status = format!("Could not create character: {e}"),
                 }

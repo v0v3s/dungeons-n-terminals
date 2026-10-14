@@ -137,7 +137,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             None => &[("j k", "move"), ("enter", "open"), ("n", "new"), ("e", "edit file"), ("1-4", "section"), ("q", "quit")],
             Some(s) if s.popup.is_some() => &[("enter", "confirm"), ("esc", "close")],
             Some(s) if s.tab == crate::characters::Tab::Features => {
-                &[("j k", "feature"), ("J K", "scroll text"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
+                &[("j k", "feature"), ("J K", "scroll text"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
             }
             Some(_) => &[
                 ("j k", "move"),
@@ -145,8 +145,9 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("+", "restore"),
                 ("?", "breakdown"),
                 ("d h t", "dmg/heal/temp"),
-                ("s L", "short/long rest"),
-                ("tab", "tab"),
+                ("s L", "rests"),
+                ("u U", "level up/undo"),
+                ("e", "edit"),
                 ("esc", "roster"),
             ],
         },

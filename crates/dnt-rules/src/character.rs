@@ -60,7 +60,7 @@ pub struct Character {
     pub abilities: Abilities,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ability_bonus: Vec<AbilityBonus>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub proficiencies: Proficiencies,
     /// One entry per character level, in the order taken. The first entry's
     /// class is the starting class.
@@ -69,9 +69,9 @@ pub struct Character {
     /// Chosen subclass per class id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub subclasses: BTreeMap<String, String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub equipped: Equipped,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub state: State,
     /// Manual overrides: stat key → formula (usually just a number).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -145,6 +145,25 @@ pub struct Level {
     pub class: String,
     #[serde(default, skip_serializing_if = "HitPoints::is_average")]
     pub hp: HitPoints,
+    /// Choices made when taking this level (ASI or feat).
+    #[serde(default, skip_serializing_if = "LevelChoices::is_empty")]
+    pub choices: LevelChoices,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct LevelChoices {
+    /// Ability score increases, e.g. `{ str = 2 }` or `{ dex = 1, con = 1 }`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ability: BTreeMap<String, i64>,
+    /// A feat taken instead of (or as part of) an ASI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feat: Option<String>,
+}
+
+impl LevelChoices {
+    pub fn is_empty(&self) -> bool {
+        self.ability.is_empty() && self.feat.is_none()
+    }
 }
 
 /// Hit points gained at a level. The very first level is always the maximum.
@@ -218,6 +237,10 @@ pub struct State {
     pub death_failures: i64,
 }
 
+fn is_default<T: Default + PartialEq>(v: &T) -> bool {
+    *v == T::default()
+}
+
 fn is_zero(n: &i64) -> bool {
     *n == 0
 }
@@ -241,6 +264,21 @@ impl Character {
 
     pub fn starting_class(&self) -> Option<&str> {
         self.levels.first().map(|l| l.class.as_str())
+    }
+
+    /// Level of one class.
+    pub fn class_level(&self, class: &str) -> i64 {
+        self.levels.iter().filter(|l| l.class == class).count() as i64
+    }
+
+    /// Remove the most recent level, and the class's subclass if no levels
+    /// of that class remain. Returns the removed level.
+    pub fn remove_last_level(&mut self) -> Option<Level> {
+        let last = self.levels.pop()?;
+        if self.class_level(&last.class) == 0 {
+            self.subclasses.remove(&last.class);
+        }
+        Some(last)
     }
 
     pub fn from_toml(text: &str) -> Result<Character, String> {

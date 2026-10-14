@@ -1,6 +1,6 @@
 //! Characters section: roster and character sheet state, and key handling.
 
-use dnt_data::Library;
+use dnt_data::{Library, SourceFilter};
 use dnt_rules::builder::{build, Build};
 use dnt_rules::character::Character;
 use dnt_rules::overlay::OverlaySet;
@@ -9,6 +9,8 @@ use dnt_rules::standard::{ABILITIES, SKILLS};
 use dnt_rules::Evaluation;
 use dnt_store::CharacterFile;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+use crate::levelup::{self, LevelUp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tab {
@@ -55,11 +57,14 @@ impl Prompt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Popup {
     Breakdown(String),
     Input(Prompt, String),
     Confirm(Rest),
+    LevelUp(Box<LevelUp>),
+    /// Confirm removing the most recent level.
+    Undo,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -167,7 +172,8 @@ impl Characters {
     }
 
     pub fn wants_text(&self) -> bool {
-        self.name_input.is_some() || matches!(self.sheet.as_ref().and_then(|s| s.popup.as_ref()), Some(Popup::Input(..)))
+        self.name_input.is_some()
+            || matches!(self.sheet.as_ref().and_then(|s| s.popup.as_ref()), Some(Popup::Input(..) | Popup::LevelUp(_)))
     }
 
     pub fn open(&mut self, index: usize, lib: &Library, overlays: &OverlaySet) {
@@ -188,7 +194,7 @@ impl Characters {
         }
     }
 
-    pub fn handle_key(&mut self, key: KeyEvent, lib: &Library, overlays: &OverlaySet) -> Action {
+    pub fn handle_key(&mut self, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
         if let Some(name) = self.name_input.as_mut() {
             match key.code {
                 KeyCode::Esc => self.name_input = None,
@@ -210,7 +216,7 @@ impl Characters {
         match self.sheet.as_mut() {
             None => self.roster_key(key, lib, overlays),
             Some(sheet) => {
-                let action = sheet_key(sheet, key, lib, overlays);
+                let action = sheet_key(sheet, key, lib, overlays, filter);
                 if matches!(action, Action::Quit) {
                     // `q`/Esc on a sheet goes back to the roster.
                     if let Some(s) = self.sheet.take() {
@@ -240,11 +246,33 @@ impl Characters {
     }
 }
 
-fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet) -> Action {
+fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     // Popups take all input.
     if let Some(popup) = sheet.popup.clone() {
         match popup {
+            Popup::LevelUp(mut flow) => {
+                match flow.key(key, lib, &sheet.file.character, &sheet.ev, filter) {
+                    levelup::Outcome::Continue => sheet.popup = Some(Popup::LevelUp(flow)),
+                    levelup::Outcome::Cancel => sheet.popup = None,
+                    levelup::Outcome::Apply => {
+                        sheet.popup = None;
+                        let status = flow.apply(&mut sheet.file.character);
+                        return changed(sheet, lib, overlays, status);
+                    }
+                }
+                return Action::None;
+            }
+            Popup::Undo => {
+                sheet.popup = None;
+                if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
+                    if let Some(l) = sheet.file.character.remove_last_level() {
+                        let name = l.class.split_once(':').map_or("", |(_, r)| r.split('|').next().unwrap_or(r)).to_string();
+                        return changed(sheet, lib, overlays, format!("Removed a {name} level"));
+                    }
+                }
+                return Action::None;
+            }
             Popup::Breakdown(_) => {
                 if matches!(key.code, KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q' | '?' | ' ')) {
                     sheet.popup = None;
@@ -326,6 +354,15 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             return Action::None;
         }
         KeyCode::Char('e') => return Action::Edit(sheet.file.path.clone()),
+        KeyCode::Char('u') => {
+            let flow = LevelUp::start(lib, &sheet.file.character, &sheet.ev, filter);
+            sheet.popup = Some(Popup::LevelUp(Box::new(flow)));
+            return Action::None;
+        }
+        KeyCode::Char('U') if !sheet.file.character.levels.is_empty() => {
+            sheet.popup = Some(Popup::Undo);
+            return Action::None;
+        }
         _ => {}
     }
 

@@ -112,6 +112,26 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
+    // ---- per-level choices: ASIs and feats ----
+    let mut level_feats: Vec<String> = Vec::new();
+    let mut counts: BTreeMap<&str, i64> = BTreeMap::new();
+    for l in &character.levels {
+        let n = counts.entry(&l.class).or_default();
+        *n += 1;
+        // `class:Fighter|XPHB` → `Fighter`
+        let class_name = l.class.split_once(':').map_or("", |(_, r)| r.split('|').next().unwrap_or(r));
+        for (ab, v) in &l.choices.ability {
+            model.effects.push(Effect {
+                target: ab.clone(),
+                op: Op::Add,
+                value: Formula::constant(Value::int(*v)),
+                when: None,
+                origin: format!("Ability Score Improvement ({class_name} {n})"),
+            });
+        }
+        level_feats.extend(l.choices.feat.iter().cloned());
+    }
+
     // ---- classes ----
     let mut classes: Vec<ClassState> = Vec::new();
     for (id, level) in character.class_levels() {
@@ -350,7 +370,8 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             }
         }
     }
-    for (list, source) in [(&character.feats, FeatureSource::Feat), (&character.options, FeatureSource::Option)] {
+    let all_feats: Vec<String> = character.feats.iter().cloned().chain(level_feats).collect();
+    for (list, source) in [(&all_feats, FeatureSource::Feat), (&character.options, FeatureSource::Option)] {
         for id in list {
             if let Some(e) = resolve(id, &mut warnings) {
                 features.push(ActiveFeature { entity: e, source, level: 0 });
@@ -510,6 +531,7 @@ mod tests {
             .map(|cls| Level {
                 class: format!("class:{cls}|T"),
                 hp: Default::default(),
+                choices: Default::default(),
             })
             .collect();
         c
@@ -587,6 +609,28 @@ mod tests {
         });
         let b = build(&c, &library(), &OverlaySet::default());
         assert!(!b.warnings.iter().any(|w| w.contains("Wizard requires")));
+    }
+
+    #[test]
+    fn level_choices_apply_and_undo() {
+        let mut c = character(&["Fighter", "Fighter", "Fighter", "Fighter"]);
+        c.levels[3].choices.ability.insert("str".into(), 2);
+        let lib = library();
+        let ev = build(&c, &lib, &OverlaySet::default()).evaluate();
+        assert_eq!(ev.int("str"), Some(16));
+        assert!(ev.stats["str"].explain().contains("Ability Score Improvement (Fighter 4)"));
+
+        eldritch_knight(&mut c);
+        for _ in 0..2 {
+            c.remove_last_level();
+        }
+        assert!(c.subclasses.contains_key("class:Fighter|T"), "still has Fighter levels");
+        let ev = build(&c, &lib, &OverlaySet::default()).evaluate();
+        assert_eq!(ev.int("str"), Some(14), "the ASI left with its level");
+        c.remove_last_level();
+        c.remove_last_level();
+        assert!(c.subclasses.is_empty());
+        assert!(c.remove_last_level().is_none());
     }
 
     #[test]

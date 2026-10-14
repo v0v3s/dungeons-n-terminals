@@ -6,6 +6,7 @@ pub mod character;
 pub mod class_table;
 pub mod standard;
 pub mod engine;
+pub mod levelup;
 pub mod formula;
 pub mod multiclass;
 pub mod overlay;

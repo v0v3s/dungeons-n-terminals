@@ -2,6 +2,7 @@ mod app;
 mod campaigns;
 mod characters;
 mod compendium;
+mod levelup;
 mod render;
 mod theme;
 mod ui;
@@ -90,7 +91,14 @@ fn main() -> Result<()> {
             if let Some(path) = app.pending_edit.take() {
                 ratatui::restore();
                 let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| "vi".into());
-                let status = std::process::Command::new(&editor).arg(&path).status();
+                // $EDITOR may carry arguments (`code --wait`), so let the shell split it;
+                // the path is passed as "$1" to survive spaces.
+                let status = std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("{editor} \"$1\""))
+                    .arg("dnt")
+                    .arg(&path)
+                    .status();
                 *terminal = ratatui::init();
                 match status {
                     Ok(_) => app.after_edit(&lib, &path),
