@@ -119,6 +119,12 @@ impl Library {
         Ok(lib)
     }
 
+    /// Load an in-memory data-shaped document (e.g. homebrew, or test data).
+    pub fn load_json(&mut self, json: &Value) {
+        self.ingest(json, true);
+        self.finish();
+    }
+
     /// Load an additional file (e.g. homebrew) into an already-built library.
     pub fn load_file(&mut self, path: &Path) -> Result<(), LoadError> {
         let json = read_json(path)?;

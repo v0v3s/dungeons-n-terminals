@@ -94,9 +94,19 @@ fn cell_value(cell: &Json) -> Value {
 /// Extract all table columns of a class (its data JSON).
 pub fn class_columns(class: &Json) -> Vec<ClassColumn> {
     let name = class.get("name").and_then(Json::as_str).unwrap_or("class");
-    let class_slug = slug(name);
+    table_columns(class.get("classTableGroups"), &slug(name))
+}
+
+/// Extract a subclass's own table columns (e.g. Eldritch Knight spell
+/// slots). They live in the parent class's namespace: `class.fighter.slots.1`.
+pub fn subclass_columns(subclass: &Json) -> Vec<ClassColumn> {
+    let class = subclass.get("className").and_then(Json::as_str).unwrap_or("class");
+    table_columns(subclass.get("subclassTableGroups"), &slug(class))
+}
+
+fn table_columns(groups: Option<&Json>, class_slug: &str) -> Vec<ClassColumn> {
     let mut out = Vec::new();
-    for group in class.get("classTableGroups").and_then(Json::as_array).into_iter().flatten() {
+    for group in groups.and_then(Json::as_array).into_iter().flatten() {
         let title = group.get("title").and_then(Json::as_str).map(tags::strip).unwrap_or_default();
         let (rows, is_slots) = match group.get("rowsSpellProgression") {
             Some(rows) => (rows, true),

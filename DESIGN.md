@@ -153,6 +153,40 @@ Tabs: Overview / Combat / Spells / Inventory / Features / Notes.
   (max 3), currency, containers.
 - **Breakdown view** for any stat; **override** any stat.
 
+### Multiclassing
+No limit on the number of classes; nothing in the model assumes one class.
+
+- **Source of truth** is the ordered `levels` list: one entry per character
+  level, naming the class taken. Class levels, the starting class (first
+  entry) and total level are derived from it. Subclasses are chosen per class.
+- **Starting class only**: saving throw proficiencies, full starting
+  proficiencies, max hit die at level 1. Later classes grant
+  `multiclassing.proficienciesGained` instead.
+- **Requirements** are checked and shown as warnings (assisted, not
+  enforced): 2014 classes use `multiclassing.requirements`, 2024 classes
+  require 13 in their `primaryAbility`. Both the current classes and the new
+  one must qualify.
+- **Per-class scoping**: features, subclass features and class-table
+  variables use that class's level (`class.<slug>.<column>`,
+  `level('Ranger')`); `level` is the total. Subclass tables (e.g. Eldritch
+  Knight slots) extend the same namespace.
+- **Spellcasting** is per class: `spell.<class>.mod/attack/dc`, prepared
+  spells and cantrips from that class's columns, a spell list per class.
+- **Spell slots**: with one slot-granting class, use its own table (needed
+  for third-casters). With several, sum caster levels — full = level,
+  `1/2` = half rounded down, `artificer` = half rounded up (2024 Paladin and
+  Ranger use this), `1/3` = third rounded down — and read the multiclass
+  slot table. **Pact Magic** stays separate (`pact.slots`, `pact.level`).
+- **Hit points and hit dice**: per level from that level's class hit die;
+  hit dice are pooled by die size (`hit_dice.d10`, …).
+- **Non-stacking features** (Extra Attack, Unarmored Defense from two
+  classes) are expressed in overlays with `max`/`set` rather than `add`.
+- **Level cap**: totals above 20 produce a warning, not an error (epic /
+  homebrew play).
+- **UI**: the sheet header lists classes (`Fighter 5 / Wizard 3 / Rogue 1`);
+  features and spells are grouped per class; level-up asks which class
+  (existing or new) to advance, showing requirement warnings.
+
 ## 3. Rules engine (`dnt-rules`)
 
 ### Sources of automation

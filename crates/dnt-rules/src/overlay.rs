@@ -60,7 +60,8 @@ pub struct Toggle {
 pub struct FeatureOverlay {
     /// The `id` as written in the file.
     pub id: String,
-    pub key: Key,
+    /// Candidate keys: an `item:` id may be a magic item or a base item.
+    pub keys: Vec<Key>,
     /// Display name used as the origin of effects; defaults to the entity name.
     pub name: String,
     pub resources: Vec<Resource>,
@@ -145,18 +146,34 @@ fn valid_key(k: &str) -> bool {
     })
 }
 
-/// Parse an overlay `id` such as `feat:Alert|XPHB` into a library key.
-pub fn parse_id(id: &str) -> Result<Key, String> {
-    let (kind, reference) = id
+/// Parse an entity id such as `feat:Alert|XPHB` into candidate library keys.
+/// The prefix is a data type or tag name; tag names that cover several
+/// kinds (`item`, `race`) yield one candidate per kind.
+pub fn parse_id(id: &str) -> Result<Vec<Key>, String> {
+    let (prefix, reference) = id
         .split_once(':')
         .ok_or_else(|| "expected `<type>:<reference>`, e.g. `feat:Alert|XPHB`".to_string())?;
-    let kind = Kind::from_json_key(kind)
-        .or_else(|| Kind::for_tag(kind).first().copied())
-        .ok_or_else(|| format!("unknown type `{kind}`"))?;
+    let kinds: Vec<Kind> = match Kind::for_tag(prefix) {
+        [] => Kind::from_json_key(prefix).into_iter().collect(),
+        many => many.to_vec(),
+    };
+    if kinds.is_empty() {
+        return Err(format!("unknown type `{prefix}`"));
+    }
     let parts: Vec<&str> = reference.split('|').collect();
-    Key::from_ref(kind, kind.json_key(), &parts)
-        .map(|(key, _)| key)
-        .ok_or_else(|| format!("incomplete reference for {}", kind.json_key()))
+    let keys: Vec<Key> = kinds
+        .iter()
+        .filter_map(|&k| Key::from_ref(k, prefix, &parts).map(|(key, _)| key))
+        .collect();
+    if keys.is_empty() {
+        return Err(format!("incomplete reference for {prefix}"));
+    }
+    Ok(keys)
+}
+
+/// Resolve an entity id to the library entity it names, if any.
+pub fn resolve_id(lib: &Library, id: &str) -> Option<dnt_data::EntityId> {
+    parse_id(id).ok()?.iter().find_map(|k| lib.get(k))
 }
 
 impl Overlay {
@@ -168,7 +185,7 @@ impl Overlay {
         let mut features = Vec::new();
         for (fi, f) in raw.feature.into_iter().enumerate() {
             let at = |s: &str| format!("feature[{fi}]{s}");
-            let key = match parse_id(&f.id) {
+            let keys = match parse_id(&f.id) {
                 Ok(k) => k,
                 Err(message) => {
                     diags.push(Diagnostic { location: at(".id"), message });
@@ -267,7 +284,7 @@ impl Overlay {
 
             features.push(FeatureOverlay {
                 id: f.id,
-                key,
+                keys,
                 name,
                 resources,
                 toggles,
@@ -282,7 +299,7 @@ impl Overlay {
     pub fn unresolved<'a>(&'a self, lib: &Library) -> Vec<&'a str> {
         self.features
             .iter()
-            .filter(|f| lib.get(&f.key).is_none())
+            .filter(|f| !f.keys.iter().any(|k| lib.get(k).is_some()))
             .map(|f| f.id.as_str())
             .collect()
     }
@@ -297,7 +314,9 @@ pub struct OverlaySet {
 impl OverlaySet {
     pub fn add(&mut self, overlay: Overlay) {
         for f in overlay.features {
-            self.by_key.entry(f.key.clone()).or_default().push(f);
+            for k in &f.keys {
+                self.by_key.entry(k.clone()).or_default().push(f.clone());
+            }
         }
     }
 
@@ -306,7 +325,7 @@ impl OverlaySet {
     }
 
     pub fn len(&self) -> usize {
-        self.by_key.values().map(Vec::len).sum()
+        self.by_key.values().flatten().map(|f| &f.id).collect::<std::collections::HashSet<_>>().len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -373,7 +392,7 @@ when = "not armor.none"
         let (overlay, diags) = Overlay::parse(BLOOD_HUNTER).unwrap();
         assert!(diags.is_empty(), "{diags:?}");
         assert_eq!(overlay.features.len(), 3);
-        assert_eq!(overlay.features[0].key.path, "blood maledict|blood hunter|bh|2|bh");
+        assert_eq!(overlay.features[0].keys[0].path, "blood maledict|blood hunter|bh|2|bh");
         assert_eq!(overlay.features[0].name, "Blood Maledict");
         assert_eq!(overlay.features[2].effects[0].origin, "Defense (Fighting Style)");
 
