@@ -448,6 +448,10 @@ name = "dnt-rules"
 version = "0.1.0"
 dependencies = [
  "dnt-data",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml",
 ]
 
 [[package]]

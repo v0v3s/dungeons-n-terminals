@@ -195,22 +195,52 @@ when   = "not armor.heavy"
 
 ### Formula language
 Small, pure, side-effect free expression language (custom; `rhai` only as a
-future escape hatch).
-- **Types**: integer, dice (`1d6`, a value — never rolled), string, boolean.
-- **Operators**: `+ - * /` (integer, floor), comparison, `and or not`.
-- **Variables**: `str`…`cha`, `mod(dex)`, `prof`, `level`, `level('Wizard')`,
-  `class.<slug>.<column>`, `ac`, `hp.max`, `resource.<key>.max`,
-  `toggle('<key>')`, `armor.heavy`, `armor.none`, `shield`, …
-- **Functions**: `min`, `max`, `floor`, `ceil`, `if(c, a, b)`,
-  `scale(n, {lvl: value, ...})`.
-- Errors carry spans for inline display in the editor.
+future escape hatch). Implemented in `dnt-rules::formula`.
+- **Types**: numbers are exact fractions (so `level / 2` stays ½ until the
+  final 5e round-down), dice (`1d6`, `d8` — values, never rolled; `2 * d6`
+  is `2d6`, `1d8 + 3` stays dice), booleans, strings.
+- **Operators**: `+ - * /`, `== != < <= > >=`, `and or not` (also `&& || !`).
+  `and`/`or` short-circuit; `if` evaluates only the chosen branch.
+- **Variables** are dotted paths (see stat names below), plus
+  `class.<class>.<column>` from class tables and `toggle('<key>')`.
+- **Functions**: `mod(score)`, `min`, `max`, `floor`, `ceil`, `abs`,
+  `if(c, a, b)`, `scale(n, {lvl: value, …})`, `dice(count, faces)`,
+  `average(dice)`, `level()` / `level('Wizard')`.
+- Errors carry byte spans; `Error::display` draws a caret under the culprit.
+
+### Stat names (`dnt-rules::standard`)
+| Stat | Formula |
+|------|---------|
+| `str` … `cha` | `base.<ab>` (+ effects) |
+| `mod.<ab>` | `mod(<ab>)` |
+| `prof` | `2 + floor((level - 1) / 4)` |
+| `save.<ab>` | `mod.<ab> + prof * prof.save.<ab>` |
+| `skill.<skill>` | `mod.<ab> + prof * prof.skill.<skill>` (0, ½, 1, 2) |
+| `passive.perception/investigation/insight` | `10 + skill.<x>` |
+| `initiative` | `mod.dex` |
+| `ac` | armor category aware; + `armor.shield` |
+| `hp.max` | `hp.base + mod.con * level` |
+| `speed` | `speed.base` |
+| `spell.mod/attack/dc` | per casting ability (`standard::spellcasting`) |
+| `resource.<key>.max` | from overlays |
+
+Effects may also target new keys (e.g. `attack.unarmed.damage`); such
+implicit stats start at the input of the same name, or 0.
 
 ### Evaluation
 - Each stat is a node; base formulas + effects define edges.
-- Topological evaluation with **cycle detection** (reported, not crashing).
-- Every result keeps its contributions → the breakdown view:
-  `AC 17 = 10 base + 3 DEX + 2 Shield + 1 Defense + override`.
-- Overrides apply last and are shown as such.
+- Topological evaluation with **cycle detection** (reported per stat; other
+  stats still evaluate). Errors in one effect don't break the stat.
+- Order per stat: base and `max` candidates (highest wins) → last `set` →
+  `add`s → `min` caps → round down → manual override.
+- Every result keeps its parts, including inactive (`when` false) and
+  losing ones, for the breakdown view:
+  `AC 17 = 15 Unarmored Defense + 2 Shield overridden to 17`.
+
+### Overlay diagnostics
+TOML structure errors fail the file; invalid ids, keys and formulas are
+reported per item (`feature[0].effect[1].add: …`) and only that item is
+skipped. `Overlay::unresolved` lists ids not found in the library.
 
 ### Authoring
 "Automate this feature" opens the editor with a template prefilled with the
@@ -241,7 +271,8 @@ feature ID and its text as comments; overlays are validated live.
 1. **M1 Compendium** — import, `_copy`, fuzzy search, entry rendering with
    tag links, faceted queries, campaigns with per-campaign sources. *Done.*
 2. **M2 Rules engine** — formula language, stat graph, breakdowns, overrides,
-   class-table variables.
+   class-table variables, overlays, standard 5e stats. *Done* (no UI; the
+   sheet in M3 is its first consumer).
 3. **M3 Characters** — level-1 single-class creation, sheet, tracking, rests.
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
