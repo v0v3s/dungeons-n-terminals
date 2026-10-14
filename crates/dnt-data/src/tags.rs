@@ -15,6 +15,8 @@ pub struct Style {
     pub code: bool,
     /// Game mechanics: dice, DCs, attack bonuses.
     pub mechanic: bool,
+    /// Secondary information, such as a source abbreviation.
+    pub muted: bool,
 }
 
 /// An unresolved reference from an inline tag (or a structured `ref*` entry).

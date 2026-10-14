@@ -15,6 +15,9 @@ pub struct Rendered {
     pub links: Vec<(Link, usize)>,
 }
 
+/// Space between table columns.
+const GAP: usize = 3;
+
 /// A styled run of text, optionally part of link number `link`.
 #[derive(Clone)]
 struct Run {
@@ -76,6 +79,9 @@ impl Renderer<'_> {
             }
             if s.style.code {
                 style = style.fg(self.theme.code);
+            }
+            if s.style.muted {
+                style = style.patch(self.theme.dim);
             }
             if s.style.mechanic {
                 style = style.fg(self.theme.mechanic);
@@ -209,9 +215,15 @@ impl Renderer<'_> {
         match block {
             Block::Heading { level, text } => {
                 self.blank();
-                let style = if *level <= 1 { self.theme.heading } else { self.theme.subheading };
-                let runs = self.runs(text, style);
-                self.wrap(runs, first, rest);
+                if *level <= 1 {
+                    let runs = self.runs(text, self.theme.heading);
+                    let bar = with(first, Span::styled("▍", self.theme.heading_bar));
+                    let hang = with(rest, Span::raw(" "));
+                    self.wrap(runs, &bar, &hang);
+                } else {
+                    let runs = self.runs(text, self.theme.subheading);
+                    self.wrap(runs, first, rest);
+                }
             }
             Block::Paragraph(spans) => {
                 let runs = self.runs(spans, Style::default());
@@ -219,7 +231,7 @@ impl Renderer<'_> {
                 self.lines.push(Line::default());
             }
             Block::List(items) => {
-                let bullet: Vec<Span<'static>> = with(first, Span::styled("• ", self.theme.dim));
+                let bullet: Vec<Span<'static>> = with(first, Span::styled("• ", self.theme.bullet));
                 let hang: Vec<Span<'static>> = with(rest, Span::raw("  "));
                 for item in items {
                     let before = self.lines.len();
@@ -236,19 +248,53 @@ impl Renderer<'_> {
                 self.lines.push(Line::default());
             }
             Block::Inset { title, body } => {
-                let bar: Vec<Span<'static>> = with(rest, Span::styled("│ ", self.theme.inset_border));
-                if let Some(title) = title {
-                    let runs = self.runs(title, self.theme.subheading);
-                    self.wrap(runs, &bar, &bar);
+                // A rounded box: ╭─ Title ─╮ / │ body │ / ╰───╯
+                let border = self.theme.inset_border;
+                let indent_w: usize = rest.iter().map(|s| s.content.width()).sum();
+                let inner_w = self.width.saturating_sub(indent_w + 2);
+                let title_text: String = title
+                    .as_ref()
+                    .map(|t| t.iter().map(|s| s.text.as_str()).collect())
+                    .unwrap_or_default();
+                let mut top = rest.to_vec();
+                top.push(Span::styled("╭─", border));
+                if !title_text.is_empty() {
+                    let title_text = format!(" {title_text} ");
+                    let fill = inner_w.saturating_sub(title_text.width() + 1);
+                    top.push(Span::styled(title_text, self.theme.subheading));
+                    top.push(Span::styled("─".repeat(fill), border));
+                } else {
+                    top.push(Span::styled("─".repeat(inner_w.saturating_sub(1)), border));
                 }
+                top.push(Span::styled("╮", border));
+                self.lines.push(Line::from(top));
+
+                let bar: Vec<Span<'static>> = with(rest, Span::styled("│ ", border));
+                let saved = self.width;
+                self.width = saved.saturating_sub(2);
+                let start = self.lines.len();
                 self.blocks(body, &bar, &bar);
-                if self.lines.last().is_some_and(|l| l.spans.len() <= bar.len()) {
+                while self.lines.len() > start && self.lines.last().is_some_and(|l| l.spans.len() <= bar.len()) {
                     self.lines.pop();
                 }
+                self.width = saved;
+                // Close the right-hand side.
+                for line in &mut self.lines[start..] {
+                    if line.spans.is_empty() {
+                        line.spans = bar.clone();
+                    }
+                    let used: usize = line.spans.iter().map(|s| s.content.width()).sum();
+                    let pad = self.width.saturating_sub(used + 1);
+                    line.spans.push(Span::raw(" ".repeat(pad)));
+                    line.spans.push(Span::styled("│", border));
+                }
+                let mut bottom = rest.to_vec();
+                bottom.push(Span::styled(format!("╰{}╯", "─".repeat(inner_w)), border));
+                self.lines.push(Line::from(bottom));
                 self.lines.push(Line::default());
             }
             Block::Quote { body, by } => {
-                let bar: Vec<Span<'static>> = with(rest, Span::styled("  ", self.theme.dim));
+                let bar: Vec<Span<'static>> = with(rest, Span::styled("┃ ", self.theme.quote_bar));
                 let start = self.lines.len();
                 self.blocks(body, &bar, &bar);
                 for line in &mut self.lines[start..] {
@@ -265,10 +311,23 @@ impl Renderer<'_> {
                 }
             }
             Block::Properties(props) => {
-                let hang: Vec<Span<'static>> = with(rest, Span::raw("  "));
+                // Two aligned columns: dim labels, then values.
+                let label_of = |spans: &[DocSpan]| {
+                    spans
+                        .first()
+                        .map(|s| s.text.trim_end_matches([':', ' ']).to_string())
+                        .unwrap_or_default()
+                };
+                let label_w = props.iter().map(|p| label_of(p).width()).max().unwrap_or(0);
+                let hang: Vec<Span<'static>> = with(rest, Span::raw(" ".repeat(label_w + 2)));
                 for (i, spans) in props.iter().enumerate() {
-                    let runs = self.runs(spans, Style::default());
-                    self.wrap(runs, if i == 0 { first } else { rest }, &hang);
+                    let label = label_of(spans);
+                    let lead = with(
+                        if i == 0 { first } else { rest },
+                        Span::styled(format!("{label:<label_w$}  "), self.theme.label),
+                    );
+                    let runs = self.runs(spans.get(1..).unwrap_or_default(), Style::default());
+                    self.wrap(runs, &lead, &hang);
                 }
             }
             Block::Rule => {
@@ -291,26 +350,46 @@ impl Renderer<'_> {
             self.wrap(runs, indent, indent);
         }
         let text_w = |spans: &[DocSpan]| spans.iter().map(|s| s.text.width()).sum::<usize>();
-        let mut widths = vec![1usize; ncols];
+        let word_w = |spans: &[DocSpan]| {
+            spans
+                .iter()
+                .flat_map(|s| s.text.split_whitespace())
+                .map(UnicodeWidthStr::width)
+                .max()
+                .unwrap_or(0)
+        };
+        // Natural width (no wrapping) and minimum width (longest word) per column.
+        let mut natural = vec![1usize; ncols];
+        let mut minimum = vec![1usize; ncols];
         for row in std::iter::once(&t.header).chain(&t.rows) {
             for (c, cell) in row.iter().enumerate() {
-                widths[c] = widths[c].max(text_w(cell));
+                natural[c] = natural[c].max(text_w(cell));
+                minimum[c] = minimum[c].max(word_w(cell));
             }
         }
-        // Shrink the widest columns until the table fits.
-        let gap = 2;
-        let avail = self.width.saturating_sub(indent_w);
-        let fixed = gap * (ncols - 1);
-        while widths.iter().sum::<usize>() + fixed > avail {
-            let (i, &w) = widths.iter().enumerate().max_by_key(|(_, w)| **w).unwrap();
-            if w <= 4 {
-                break;
-            }
-            widths[i] = w - 1;
-        }
+        let fixed = GAP * (ncols - 1);
+        let avail = self.width.saturating_sub(indent_w + fixed);
+        let widths: Vec<usize> = if natural.iter().sum::<usize>() <= avail {
+            natural
+        } else {
+            // Start from the minimums and share the remaining space in
+            // proportion to how much each column would like to grow.
+            let base: usize = minimum.iter().sum();
+            let spare = avail.saturating_sub(base);
+            let want: usize = natural.iter().zip(&minimum).map(|(n, m)| n - m).sum::<usize>().max(1);
+            natural
+                .iter()
+                .zip(&minimum)
+                .map(|(n, m)| m + (n - m) * spare / want)
+                .collect()
+        };
 
         let header_style = self.theme.table_header;
         self.table_row(&t.header, &widths, indent, header_style);
+        let total = widths.iter().sum::<usize>() + fixed;
+        let mut rule = indent.to_vec();
+        rule.push(Span::styled("─".repeat(total), self.theme.dim));
+        self.lines.push(Line::from(rule));
         for (r, row) in t.rows.iter().enumerate() {
             let style = if r % 2 == 1 { self.theme.table_alt } else { Style::default() };
             self.table_row(row, &widths, indent, style);
@@ -350,7 +429,7 @@ impl Renderer<'_> {
                 if let Some(line) = line {
                     spans.extend(line.spans.iter().cloned());
                 }
-                let pad = w.saturating_sub(used) + if c + 1 < widths.len() { 2 } else { 0 };
+                let pad = w.saturating_sub(used) + if c + 1 < widths.len() { GAP } else { 0 };
                 spans.push(Span::styled(" ".repeat(pad), style));
             }
             self.lines.push(Line::from(spans));
@@ -411,6 +490,6 @@ mod tests {
     fn table_columns_align() {
         let blocks = doc::from_entries(&json!([{"type": "table", "colLabels": ["A", "B"], "rows": [["x", "y"], ["long", "z"]]}]));
         let r = render(&blocks, 40, None, &Theme::default());
-        assert_eq!(text(&r), vec!["A     B", "x     y", "long  z"]);
+        assert_eq!(text(&r), vec!["A      B", "────────", "x      y", "long   z"]);
     }
 }

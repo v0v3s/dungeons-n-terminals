@@ -123,7 +123,7 @@ fn source_span(source: &str) -> Span {
     Span::styled(
         format!("  {source}"),
         Style {
-            italic: true,
+            muted: true,
             ..Style::default()
         },
     )
@@ -187,7 +187,7 @@ fn spell_props(lib: &Library, id: EntityId, filter: &SourceFilter, props: &mut V
     if ritual {
         header.push_str(" (ritual)");
     }
-    props.push(("Spell", plain(header)));
+    props.push(("Level", plain(header)));
     props.push(("Casting Time", plain(spell_time(d))));
     props.push(("Range", plain(spell_range(d))));
     props.push(("Components", spell_components(d)));

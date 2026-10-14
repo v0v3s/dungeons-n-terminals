@@ -65,14 +65,14 @@ impl Category {
     /// What `#`, `*` and `^` mean on this tab, for the hint line.
     pub fn hints(self) -> &'static [(char, &'static str)] {
         match self {
-            Category::All => &[('#', "kind"), ('*', "damage"), ('^', "level")],
-            Category::Spells => &[('#', "class/school/ritual/concentration"), ('*', "damage"), ('^', "level")],
-            Category::Classes => &[('#', "class/caster")],
-            Category::Features => &[('#', "class/subclass/type"), ('^', "level")],
+            Category::All => &[('#', "kind"), ('*', "dmg"), ('^', "lvl")],
+            Category::Spells => &[('#', "class·school"), ('*', "dmg"), ('^', "lvl")],
+            Category::Classes => &[('#', "class·caster")],
+            Category::Features => &[('#', "class·subclass"), ('^', "lvl")],
             Category::Species => &[('#', "creature type")],
             Category::Backgrounds => &[],
             Category::Feats => &[('#', "category")],
-            Category::Items => &[('#', "type/rarity/wondrous/attunement"), ('*', "damage")],
+            Category::Items => &[('#', "type·rarity"), ('*', "dmg")],
             Category::Rules => &[('#', "kind")],
         }
     }
@@ -133,6 +133,8 @@ pub struct Compendium {
     pub detail_height: usize,
     pub detail_lines: usize,
     pub list_height: usize,
+    /// Entities per category under the current source filter.
+    pub category_counts: [usize; Category::ORDER.len()],
     /// Completions for the facet term being typed, with counts.
     pub suggestions: Vec<(String, usize)>,
     visible: Vec<EntityId>,
@@ -156,18 +158,32 @@ impl Compendium {
             detail_height: 0,
             detail_lines: 0,
             list_height: 0,
+            category_counts: [0; Category::ORDER.len()],
             suggestions: Vec::new(),
             visible: Vec::new(),
             searcher: Searcher::default(),
             facets: FacetIndex::build(lib),
         };
+        c.recount(lib);
         c.refilter(lib);
         c
     }
 
     pub fn set_filter(&mut self, lib: &Library, filter: SourceFilter) {
         self.filter = filter;
+        self.recount(lib);
         self.refilter(lib);
+    }
+
+    fn recount(&mut self, lib: &Library) {
+        self.category_counts = [0; Category::ORDER.len()];
+        for e in lib.entities().iter().filter(|e| self.filter.allows(e)) {
+            for (i, cat) in Category::ORDER.iter().enumerate() {
+                if cat.contains(e.kind) {
+                    self.category_counts[i] += 1;
+                }
+            }
+        }
     }
 
     /// Recompute the candidate set after a source or category change.
