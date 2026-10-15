@@ -31,7 +31,10 @@ data checkout and works with the 2024 and the 2014 rules.
 
 ## Getting started
 
-You need [Rust](https://rustup.rs) and a copy of the data data:
+Download `dnt` for Linux or Windows from the
+[releases](https://github.com/v0v3s/dungeons-n-terminals/releases), or build
+it. Either way you need a copy of the data data; to build, you also
+need [Rust](https://rustup.rs):
 
 ```sh
 git clone --depth 1 https://github.com/data/dnd-data.git ~/dnd-data
@@ -135,6 +138,25 @@ The sandbox script makes a throwaway campaign with sample characters, so
 you can try things without touching your own data. `vendor/edtui` is a
 patched copy of the edtui editor (word-aware wrapping; see its
 `PATCHES.md`). The design notes are in [DESIGN.md](DESIGN.md).
+
+### Releases
+
+Changes go in through pull requests, squash-merged, whose title is a
+[Conventional Commit](https://www.conventionalcommits.org): it becomes the
+commit on `main` and decides the release.
+
+| PR title | Release |
+| --- | --- |
+| `feat: …` | minor (0.3.1 → 0.4.0) |
+| `fix: …`, `perf: …` | patch (0.3.1 → 0.3.2) |
+| `feat!: …`, or `BREAKING CHANGE:` in the description | major (0.3.1 → 1.0.0) |
+| `docs:`, `chore:`, `ci:`, `refactor:`, `test:`, … | none |
+
+On a releasing merge, GitHub Actions bumps the version in `Cargo.toml`,
+tags `vX.Y.Z`, builds Linux (x86_64) and Windows (x86_64) binaries and
+publishes them as a release, with notes from the merged pull requests.
+`scripts/next-version.sh "<title>"` shows what a title would do. CI checks
+formatting, clippy and tests on Linux and Windows for every pull request.
 
 dnt is a fan project and not affiliated with Wizards of the Coast; it
 ships no game content and reads the data you provide.

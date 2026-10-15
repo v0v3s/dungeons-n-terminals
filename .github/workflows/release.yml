@@ -1,0 +1,119 @@
+# Release on every merge to main whose (squash) commit is a releasing
+# Conventional Commit: bump the workspace version, tag vX.Y.Z, build the
+# binaries and publish a GitHub release with notes from the merged PRs.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    # The version bump this workflow pushes must not release again.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: next
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          version=$(scripts/next-version.sh "$MESSAGE")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -n "$version" ]; then echo "Releasing v$version"; else echo "No release for this commit"; fi
+
+  tag:
+    needs: version
+    if: ${{ needs.version.outputs.version != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Bump the version, commit and tag
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          sed -i "/^\[workspace.package\]/,/^\[/s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+          cargo update --workspace
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): v$VERSION"
+          git tag "v$VERSION"
+          git push origin main "v$VERSION"
+
+  build:
+    needs: [version, tag]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --locked -p dnt --target ${{ matrix.target }}
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          name="dnt-v$VERSION-${{ matrix.target }}"
+          mkdir "$name"
+          cp "target/${{ matrix.target }}/release/dnt" README.md LICENSE "$name/"
+          tar czf "$name.tar.gz" "$name"
+          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $name = "dnt-v$env:VERSION-${{ matrix.target }}"
+          New-Item -ItemType Directory $name | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/dnt.exe", README.md, LICENSE $name
+          Compress-Archive -Path $name -DestinationPath "$name.zip"
+          "ASSET=$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ env.ASSET }}
+
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: v${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: dist/*
