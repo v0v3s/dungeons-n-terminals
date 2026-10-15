@@ -335,6 +335,24 @@ impl Store {
         write_text(&file.path, &file.character.to_toml())
     }
 
+    /// The file holding a user's overlay for one feature (`id` as in the
+    /// overlay, e.g. `feat:Tough|XPHB`).
+    pub fn feature_overlay_path(&self, id: &str) -> PathBuf {
+        self.data_dir.join("library/overlays").join(format!("{}.toml", slugify(id)))
+    }
+
+    /// Write a feature's overlay; empty text removes the file.
+    pub fn save_feature_overlay(&self, id: &str, text: &str) -> Result<()> {
+        let path = self.feature_overlay_path(id);
+        if text.trim().is_empty() {
+            return match fs::remove_file(&path) {
+                Err(e) if e.kind() != io::ErrorKind::NotFound => Err(StoreError::Io { path, source: e }),
+                _ => Ok(()),
+            };
+        }
+        write_text(&path, text)
+    }
+
     /// User overlay files (`<data>/library/overlays/*.toml`), sorted.
     pub fn overlay_files(&self) -> Vec<PathBuf> {
         let dir = self.data_dir.join("library/overlays");

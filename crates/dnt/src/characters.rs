@@ -94,6 +94,8 @@ pub enum Popup {
     MoveInto(Box<Picker>, usize),
     /// Swapping a weapon mastery: the mastered weapon being replaced.
     SwapMastery(Box<Picker>, dnt_data::EntityId),
+    /// Writing a feature's rules.
+    Overlay(Box<crate::overlay_editor::OverlayEditor>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,6 +251,10 @@ pub enum Action {
     OpenNote(String),
     /// Create a campaign item and add it to the inventory.
     CreateItem,
+    /// Open the rules editor for a feature.
+    EditOverlay(dnt_data::EntityId),
+    /// Save a feature's rules (overlay id, TOML; empty removes them).
+    SaveOverlay(String, String),
 }
 
 pub struct Characters {
@@ -262,6 +268,14 @@ pub struct Characters {
 }
 
 impl Characters {
+    /// Open the rules editor on the open sheet (`user`: the user's overlay text).
+    pub fn open_overlay(&mut self, lib: &Library, overlays: &OverlaySet, entity: dnt_data::EntityId, user: Option<String>) {
+        let Some(sheet) = self.sheet.as_mut() else { return };
+        let mut ed = crate::overlay_editor::OverlayEditor::open(lib, entity, user);
+        ed.check(lib, &sheet.file.character, overlays, &sheet.ev);
+        sheet.popup = Some(Popup::Overlay(Box::new(ed)));
+    }
+
     pub fn new(files: Vec<CharacterFile>) -> Characters {
         Characters {
             files,
@@ -289,6 +303,7 @@ impl Characters {
                         | Popup::Wear(..)
                         | Popup::MoveInto(..)
                         | Popup::SwapMastery(..)
+                        | Popup::Overlay(..)
                 )
             )
     }
@@ -563,6 +578,23 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::None;
             }
+            Popup::Overlay(mut ed) => {
+                return match ed.key(key) {
+                    crate::overlay_editor::Outcome::Continue => {
+                        ed.check(lib, &sheet.file.character, overlays, &sheet.ev);
+                        sheet.popup = Some(Popup::Overlay(ed));
+                        Action::None
+                    }
+                    crate::overlay_editor::Outcome::Close => {
+                        sheet.popup = None;
+                        Action::Status("Rules unchanged".into())
+                    }
+                    crate::overlay_editor::Outcome::Save(text) => {
+                        sheet.popup = None;
+                        Action::SaveOverlay(ed.id.clone(), text)
+                    }
+                };
+            }
             Popup::SwapMastery(mut picker, old) => {
                 sheet.popup = None;
                 match picker.key(key) {
@@ -750,6 +782,11 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 KeyCode::Char('k') | KeyCode::Up => {
                     sheet.feature_cursor = sheet.feature_cursor.saturating_sub(1);
                     sheet.feature_scroll = 0;
+                }
+                KeyCode::Char('O') => {
+                    if let Some(f) = sheet.build.features.get(sheet.feature_cursor) {
+                        return Action::EditOverlay(f.entity);
+                    }
                 }
                 KeyCode::Char('r') => {
                     let Some(f) = sheet.build.features.get(sheet.feature_cursor) else { return Action::None };

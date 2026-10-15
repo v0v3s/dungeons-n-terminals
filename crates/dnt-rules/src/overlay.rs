@@ -319,7 +319,7 @@ impl Overlay {
 }
 
 /// All loaded overlays, indexed by the entity they automate.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct OverlaySet {
     by_key: HashMap<Key, Vec<FeatureOverlay>>,
 }
@@ -333,6 +333,22 @@ impl OverlaySet {
         }
     }
 
+    /// Add an overlay whose features replace any already loaded for the
+    /// same entities (a user's version of a built-in overlay).
+    pub fn replace(&mut self, overlay: Overlay) {
+        for f in &overlay.features {
+            for k in &f.keys {
+                self.by_key.remove(k);
+            }
+        }
+        self.add(overlay);
+    }
+
+    /// Remove the overlays for an entity.
+    pub fn remove(&mut self, key: &Key) {
+        self.by_key.remove(key);
+    }
+
     pub fn for_entity(&self, key: &Key) -> &[FeatureOverlay] {
         self.by_key.get(key).map(Vec::as_slice).unwrap_or_default()
     }
@@ -344,6 +360,43 @@ impl OverlaySet {
     pub fn is_empty(&self) -> bool {
         self.by_key.is_empty()
     }
+}
+
+/// A commented starting point for a feature's overlay.
+pub fn template(id: &str, name: &str) -> String {
+    format!(
+        r#"# Rules for {name}. Formulas can use: level, prof, str … cha, mod.str …,
+# class.<class>.level, class table columns (class.rogue.sneak_attack),
+# level('Fighter'), scale(level('Fighter'), {{3: 4, 7: 5}}), if(cond, a, b),
+# max(a, b), dice like 1d8, toggle('<key>').
+
+[[feature]]
+id = "{id}"
+
+# A use-limited ability:
+# [[feature.resource]]
+# key = "my_feature"
+# name = "{name}"
+# max = "prof"
+# recharge = "long_rest"        # or "short_rest"
+# short_rest_regain = "1"       # optional
+
+# An on/off state for effects to depend on:
+# [[feature.toggle]]
+# key = "my_state"
+# name = "{name} active"
+
+# A change to a number. Targets: ac, speed, hp.max, initiative, save.dex,
+# skill.stealth, attack.bonus, attack.damage, attack.melee.damage,
+# attack.ranged.bonus, attack.heavy.damage, attack.unarmed.damage,
+# rider.<key> (extra damage on a hit), resource.<key>.max …
+# [[feature.effect]]
+# target = "ac"
+# add = "1"                     # or set / max / min
+# when = "toggle('my_state')"   # optional
+# origin = "{name}: when it applies"   # optional
+"#
+    )
 }
 
 impl FeatureOverlay {

@@ -352,6 +352,28 @@ impl App {
             A::Status(s) => self.status = s,
             A::Edit(path) => self.pending_edit = Some(path),
             A::CreateItem => self.start_new(homebrew::Template::ITEMS, true),
+            A::EditOverlay(entity) => {
+                let id = crate::overlay_editor::overlay_id(lib, entity);
+                let user = std::fs::read_to_string(self.store.feature_overlay_path(&id)).ok();
+                self.characters.open_overlay(lib, &self.overlays, entity, user);
+            }
+            A::SaveOverlay(id, text) => {
+                self.status = match self.store.save_feature_overlay(&id, &text) {
+                    Ok(()) => {
+                        let (overlays, problems) = load_overlays(&self.store, lib);
+                        self.overlays = overlays;
+                        self.characters.refresh(lib, &self.overlays);
+                        let what = if text.is_empty() { "Removed your rules" } else { "Saved your rules" };
+                        let path = self.store.feature_overlay_path(&id);
+                        let mut msg = format!("{what} ({})", path.display());
+                        if problems > 0 {
+                            msg.push_str(&format!(" · {problems} overlay problem(s)"));
+                        }
+                        msg
+                    }
+                    Err(e) => format!("Could not save the rules: {e}"),
+                };
+            }
             A::OpenNote(name) => {
                 self.section = Section::Notes;
                 self.status = match self.notes.open_character(&name) {
@@ -425,7 +447,8 @@ fn load_overlays(store: &Store, lib: &Library) -> (OverlaySet, usize) {
         match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
             Ok((overlay, diags)) => {
                 problems += diags.len() + overlay.unresolved(lib).len();
-                set.add(overlay);
+                // A user's overlay replaces the built-in one for its feature.
+                set.replace(overlay);
             }
             Err(_) => problems += 1,
         }

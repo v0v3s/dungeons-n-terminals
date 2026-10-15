@@ -198,6 +198,9 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         (Section::Characters, _) => match app.characters.sheet.as_ref() {
             _ if app.characters.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
             None => &[("j k", "move"), ("enter", "open"), ("n", "new"), ("e", "edit file"), ("1-4", "section"), ("q", "quit")],
+            Some(s) if matches!(s.popup, Some(crate::characters::Popup::Overlay(_))) => {
+                &[("i", "insert"), ("esc", "normal · save"), ("^s", "save"), ("^q", "discard")]
+            }
             Some(s) if s.popup.is_some() => &[("enter", "confirm"), ("esc", "close")],
             Some(s) if s.tab == crate::characters::Tab::Spells => &[
                 ("j k", "move"),
@@ -228,7 +231,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("esc", "roster"),
             ],
             Some(s) if s.tab == crate::characters::Tab::Features => {
-                &[("j k", "feature"), ("J K", "scroll text"), ("r", "swap mastery"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
+                &[("j k", "feature"), ("J K", "scroll text"), ("O", "edit rules"), ("r", "swap mastery"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
             }
             Some(s) if matches!(s.current_item(), Some(crate::characters::Item::Attack(_))) => &[
                 ("j k", "move"),

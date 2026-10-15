@@ -517,5 +517,12 @@ enabled for that campaign.
    in the picker; Weapon Masteries are swapped with `r` on the Features
    tab; Great Weapon Fighting is noted on two-handed melee attacks (the
    sheet does not roll dice).
-8. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
-   export.
+8. **Rules authoring** — `O` on a feature (Features tab) opens its rules
+   as TOML: the user's version, dnt's built-in one, or a commented
+   template. A check pane shows problems and what the draft changes on
+   the open character (`ac: 13 → 14`) as you type. Saving writes
+   `<data>/library/overlays/<feature>.toml`, which replaces the built-in
+   rules for that feature; saving nothing removes it. Extra damage on a
+   hit (`rider.<key>`: Sneak Attack, Radiant Strikes, …) is listed under
+   the attacks.
+9. **Later** — export, embedded nvim.

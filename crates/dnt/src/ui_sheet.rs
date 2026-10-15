@@ -230,7 +230,13 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         Tab::Notes => draw_character_note(frame, body, sheet, theme),
     }
 
+    // The rules editor keeps its scroll state, so it draws from the sheet.
+    if let Some(Popup::Overlay(ed)) = sheet.popup.as_mut() {
+        draw_overlay_editor(frame, body, ed, theme);
+        return;
+    }
     match sheet.popup.clone() {
+        Some(Popup::Overlay(_)) => {}
         Some(Popup::Breakdown(key)) => draw_breakdown(frame, area, sheet, &key, theme),
         Some(Popup::Input(prompt, text)) => {
             let rect = centered(area, 34, 5);
@@ -1393,6 +1399,66 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
         }
         None => {}
     }
+}
+
+/// The rules editor: TOML on the left, the check and what it changes on
+/// the right.
+fn draw_overlay_editor(frame: &mut Frame, area: Rect, ed: &mut crate::overlay_editor::OverlayEditor, theme: &Theme) {
+    use crate::overlay_editor::Source;
+    use edtui::{EditorMode, EditorTheme, EditorView};
+    use ratatui::widgets::Widget;
+    frame.render_widget(Clear, area);
+    let [left, _, right] = Layout::horizontal([Constraint::Percentage(58), Constraint::Length(1), Constraint::Min(30)]).areas(area);
+    let mode = match ed.editor.mode {
+        EditorMode::Insert => " INSERT ",
+        EditorMode::Visual => " VISUAL ",
+        EditorMode::Search => " SEARCH ",
+        EditorMode::Normal => " NORMAL ",
+    };
+    let block = pane(pane_title(&format!("Rules for {}", ed.name), true, theme), true, theme)
+        .padding(Padding::new(1, 1, 1, 0))
+        .title_bottom(Line::from(vec![Span::styled(" esc saves · ctrl-q discards ", theme.dim), Span::styled(mode, theme.keycap)]).right_aligned());
+    let inner = block.inner(left);
+    frame.render_widget(block, left);
+    let editor_theme = EditorTheme::default()
+        .base(Style::new())
+        .cursor_style(Style::new().add_modifier(Modifier::REVERSED))
+        .selection_style(Style::new().bg(Color::DarkGray))
+        .hide_status_line();
+    EditorView::new(&mut ed.editor).theme(editor_theme).wrap(true).render(inner, frame.buffer_mut());
+
+    let block = pane(pane_title("Check", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
+    let inner = block.inner(right);
+    frame.render_widget(block, right);
+    let width = inner.width as usize;
+    let mut lines = vec![Line::styled(
+        match ed.source {
+            Source::User => "Your rules for this feature.",
+            Source::Builtin => "dnt's built-in rules. Saving a change makes your own version, which replaces them.",
+            Source::New => "Nothing automates this feature yet: fill in the template.",
+        },
+        theme.muted,
+    )];
+    lines.push(Line::styled(format!("id = {}", ed.id), theme.dim));
+    lines.push(Line::default());
+    if ed.errors.is_empty() {
+        lines.push(Line::styled("✓ valid", Style::new().fg(Color::Green).add_modifier(Modifier::BOLD)));
+    } else {
+        for e in &ed.errors {
+            lines.push(Line::styled(format!("⚠ {}", truncate(e, width.saturating_sub(2) * 3)), Style::new().fg(Color::Red)));
+        }
+    }
+    lines.push(Line::default());
+    lines.push(Line::styled("On this character", theme.heading));
+    if ed.changes.is_empty() && ed.errors.is_empty() {
+        lines.push(Line::styled("no change", theme.dim));
+    }
+    for c in &ed.changes {
+        lines.push(Line::raw(truncate(c, width)));
+    }
+    lines.push(Line::default());
+    lines.push(Line::styled("Empty text removes your rules (the built-in ones come back).", theme.dim));
+    frame.render_widget(Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false }), inner);
 }
 
 /// What is worn in each slot and what is in hand.

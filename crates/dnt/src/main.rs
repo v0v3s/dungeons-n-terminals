@@ -6,6 +6,7 @@ mod compendium;
 mod entry_editor;
 mod levelup;
 mod notes_view;
+mod overlay_editor;
 mod picker;
 mod render;
 mod spells_tab;
