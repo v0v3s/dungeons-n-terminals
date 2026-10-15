@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/index.schema.json",
+  "title": "dnt directory index",
+  "description": "class/index.json and spells/index.json: which files in that directory to read, as `source id: file name`.",
+  "type": "object",
+  "additionalProperties": { "type": "string", "pattern": "\\.json$" }
+}

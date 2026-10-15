@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/spell-classes.schema.json",
+  "title": "dnt spell class lists",
+  "description": "spells/sources.json: which classes have each spell on their list, by the spell's source and name. (Homebrew spells can list classes inline in `classes.fromClassList` instead.)",
+  "type": "object",
+  "additionalProperties": {
+    "description": "Spells of one source, by name.",
+    "type": "object",
+    "additionalProperties": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "type": "array",
+          "items": { "type": "object", "required": ["name", "source"], "properties": { "name": { "type": "string" }, "source": { "type": "string" } } }
+        }
+      }
+    }
+  }
+}

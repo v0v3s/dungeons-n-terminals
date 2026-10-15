@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/books.schema.json",
+  "title": "dnt books (and adventures)",
+  "description": "books.json (key `book`) and the optional adventures.json (key `adventure`): the sources entities refer to with `source`.",
+  "type": "object",
+  "properties": {
+    "book": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "adventure": { "type": "array", "items": { "$ref": "#/$defs/source" } }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["name"],
+      "anyOf": [{ "required": ["source"] }, { "required": ["id"] }],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string", "description": "The id entities use (`XPHB`); `id` if missing." },
+        "name": { "type": "string", "description": "Full name (`Player's Handbook (2024)`)." },
+        "group": { "type": "string", "description": "core, supplement, setting, …" },
+        "published": { "type": "string", "description": "Date, `YYYY-MM-DD`." }
+      }
+    }
+  }
+}

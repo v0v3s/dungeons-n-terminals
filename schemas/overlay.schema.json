@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/overlay.schema.json",
+  "title": "dnt rules (overlay) file",
+  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles and effects to characters that have it. Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
+  "type": "object",
+  "properties": {
+    "feature": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`." },
+          "name": { "type": "string", "description": "Shown as the origin of effects; the entity's name if missing." },
+          "resource": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "name", "max", "recharge"],
+              "additionalProperties": false,
+              "properties": {
+                "key": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+                "name": { "type": "string" },
+                "max": { "type": "string", "description": "Formula." },
+                "recharge": { "enum": ["short_rest", "long_rest", "dawn", "manual"] },
+                "short_rest_regain": { "type": "string", "description": "Formula: how many come back on a short rest (for long-rest resources)." }
+              }
+            }
+          },
+          "toggle": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "name"],
+              "additionalProperties": false,
+              "properties": { "key": { "type": "string", "pattern": "^[a-z0-9_]+$" }, "name": { "type": "string" } }
+            }
+          },
+          "effect": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["target"],
+              "additionalProperties": false,
+              "minProperties": 2,
+              "properties": {
+                "target": { "type": "string", "description": "A stat: ac, speed, hp.max, initiative, save.dex, skill.stealth, attack.bonus, attack.damage, attack.melee.damage, attack.ranged.bonus, attack.one_handed.damage, attack.strength.damage, attack.heavy.damage, attack.unarmed.damage, attack.offhand.full_mod, rider.<key>, resource.<key>.max, …" },
+                "add": { "type": "string" },
+                "set": { "type": "string" },
+                "max": { "type": "string" },
+                "min": { "type": "string" },
+                "mul": { "type": "string" },
+                "when": { "type": "string", "description": "Formula that must be true, e.g. `toggle('raging')`." },
+                "origin": { "type": "string", "description": "Shown in breakdowns; for riders, `Name: when it applies`." }
+              },
+              "oneOf": [
+                { "required": ["add"] },
+                { "required": ["set"] },
+                { "required": ["max"] },
+                { "required": ["min"] },
+                { "required": ["mul"] }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

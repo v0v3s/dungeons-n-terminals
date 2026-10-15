@@ -1,0 +1,1819 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/data-file.schema.json",
+  "title": "dnt data file",
+  "description": "A file of game entities as dnt reads it: the content files of a data directory, a campaign's homebrew.json and global homebrew. Each top-level key holds a list of one kind of entity. Only the fields dnt uses are described; others are allowed and kept.",
+  "type": "object",
+  "properties": {
+    "_meta": {
+      "$ref": "#/$defs/meta"
+    },
+    "class": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/class"
+        }
+      }
+    },
+    "subclass": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/subclass"
+        }
+      }
+    },
+    "classFeature": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/classFeature"
+        }
+      }
+    },
+    "subclassFeature": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/subclassFeature"
+        }
+      }
+    },
+    "spell": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/spell"
+        }
+      }
+    },
+    "race": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/race"
+        }
+      }
+    },
+    "subrace": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/subrace"
+        }
+      }
+    },
+    "background": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/background"
+        }
+      }
+    },
+    "feat": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/feat"
+        }
+      }
+    },
+    "optionalfeature": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/optionalfeature"
+        }
+      }
+    },
+    "item": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/item"
+        }
+      }
+    },
+    "baseitem": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/item"
+        }
+      }
+    },
+    "itemGroup": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/item"
+        }
+      }
+    },
+    "magicvariant": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/magicvariant"
+        }
+      }
+    },
+    "itemMastery": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "condition": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "disease": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "status": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "language": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "skill": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/skill"
+        }
+      }
+    },
+    "sense": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "action": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    },
+    "variantrule": {
+      "type": "array",
+      "items": {
+        "if": {
+          "required": [
+            "_copy"
+          ]
+        },
+        "then": {
+          "$ref": "#/$defs/patch"
+        },
+        "else": {
+          "$ref": "#/$defs/rule"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "meta": {
+      "description": "Sources the file defines (homebrew and campaign files).",
+      "type": "object",
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "json"
+            ],
+            "properties": {
+              "json": {
+                "type": "string",
+                "description": "The source id entities use in `source`, e.g. `CoS-HB`."
+              },
+              "abbreviation": {
+                "type": "string"
+              },
+              "full": {
+                "type": "string",
+                "description": "The source's full name."
+              },
+              "version": {
+                "type": "string"
+              },
+              "dateReleased": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "ref": {
+      "description": "A reference to another entity: `name|source`, with more parts for some kinds (`Rage|Barbarian|XPHB|1`). Case does not matter.",
+      "type": "string",
+      "minLength": 1
+    },
+    "text": {
+      "description": "Text with inline tags: `{@tag arguments|more|display}`, e.g. `{@spell Fireball|XPHB}`, `{@damage 2d6}`, `{@b bold}`. See schemas/README.md.",
+      "type": "string"
+    },
+    "entries": {
+      "description": "Rich text: a list of paragraphs and blocks.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "entry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "Block type. dnt renders: entries, section, options, variantSub, inset, insetReadaloud, variant, variantInner, quote, list, item, itemSub, itemSpell, table, tableGroup, hr, image, gallery, abilityDc, abilityAttackMod, abilityGeneric, refClassFeature, refSubclassFeature, refOptionalfeature; other types show their entries.",
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "entries": {
+              "$ref": "#/$defs/entries"
+            },
+            "entry": {
+              "$ref": "#/$defs/entry"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/entry"
+              }
+            },
+            "colLabels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "array"
+              }
+            },
+            "caption": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer",
+              "description": "options: how many to choose"
+            },
+            "classFeature": {
+              "$ref": "#/$defs/ref"
+            },
+            "subclassFeature": {
+              "$ref": "#/$defs/ref"
+            },
+            "optionalfeature": {
+              "$ref": "#/$defs/ref"
+            }
+          }
+        }
+      ]
+    },
+    "common": {
+      "description": "Fields every entity has.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source id: a book from books.json or a `_meta` source."
+        },
+        "page": {
+          "type": "integer"
+        },
+        "entries": {
+          "$ref": "#/$defs/entries"
+        },
+        "srd": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "srd52": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "basicRules": {
+          "type": "boolean"
+        },
+        "basicRules2024": {
+          "type": "boolean"
+        },
+        "edition": {
+          "type": "string",
+          "description": "`one` marks the 2024 rules; `classic` the 2014 ones."
+        },
+        "reprintedAs": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "_copy": {
+          "$ref": "#/$defs/copy"
+        },
+        "_versions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Named variants generated from this entity (e.g. lineages); `_abstract` + `_implementations` with `_variables` fill a template."
+        },
+        "_dnt": {
+          "description": "dnt's own fields in homebrew.",
+          "type": "object",
+          "properties": {
+            "replaces": {
+              "type": "boolean",
+              "description": "This `_copy` replaces the copied entity within the campaign."
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "source"
+          ]
+        },
+        {
+          "required": [
+            "_copy"
+          ]
+        },
+        {
+          "required": [
+            "inherits"
+          ]
+        }
+      ]
+    },
+    "copy": {
+      "description": "Inherit from another entity: its fields, then this entity's own, then `_mod` changes. `_preserve` keeps fields that are not inherited by default (page, srd, …; `*` keeps all).",
+      "type": "object",
+      "required": [
+        "name",
+        "source"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "_mod": {
+          "type": "object",
+          "description": "Per field (or `*` for all text, `_` for the entity itself): one change or a list. Modes: replaceTxt, setProp, appendArr, prependArr, insertArr, appendIfNotExistsArr, replaceArr, replaceOrAppendArr, removeArr, renameArr; or \"remove\".",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "const": "remove"
+              },
+              {
+                "$ref": "#/$defs/mod"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/mod"
+                }
+              }
+            ]
+          }
+        },
+        "_preserve": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "mod": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "replaceTxt",
+            "setProp",
+            "appendArr",
+            "prependArr",
+            "insertArr",
+            "appendIfNotExistsArr",
+            "replaceArr",
+            "replaceOrAppendArr",
+            "removeArr",
+            "renameArr"
+          ]
+        },
+        "items": {},
+        "replace": {},
+        "with": {
+          "type": "string"
+        },
+        "flags": {
+          "type": "string"
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prop": {
+          "type": "string"
+        },
+        "value": {},
+        "index": {
+          "type": "integer"
+        },
+        "names": {},
+        "renames": {
+          "type": "array"
+        }
+      }
+    },
+    "additionalSpells": {
+      "description": "Spells a class, subclass, species, background or feat grants. Each list item is one alternative. Keys are levels (`3`), `_` (always), or spell levels for `expanded` (`s1`).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ability": {},
+          "prepared": {
+            "type": "object"
+          },
+          "known": {
+            "type": "object"
+          },
+          "innate": {
+            "type": "object",
+            "description": "Per level: `{\"daily\": {\"1\": [spells]}}` (per long rest) or a list (at will)."
+          },
+          "expanded": {
+            "type": "object",
+            "description": "Spells added to the class's list, by class level or spell level (`s1`)."
+          }
+        }
+      }
+    },
+    "spellChoice": {
+      "description": "A spell (`name|source`, `#c` for a cantrip) or a choice `{\"choose\": \"level=1|class=Cleric\", \"count\": 2}`."
+    },
+    "proficiencies": {
+      "description": "Proficiency grants: a list of alternatives, each an object of `name|source: true` or `{\"any\": n}` / `{\"choose\": {\"from\": [...], \"count\": n}}`.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "abilityBonus": {
+      "description": "Ability score increases: `{\"str\": 2}`, or a choice `{\"choose\": {\"from\": [\"str\", \"dex\"], \"count\": 2}}` / `{\"choose\": {\"weighted\": {...}}}`.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "prerequisite": {
+      "description": "Alternatives; all parts of one must hold. dnt checks `level` (a number or `{\"level\": 5, \"class\": {\"name\": …}}`), `optionalfeature` (refs) and `spell` (refs or `{\"choose\": filter}`).",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "class": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "hd": {
+          "type": "object",
+          "properties": {
+            "number": {
+              "type": "integer"
+            },
+            "faces": {
+              "type": "integer"
+            }
+          }
+        },
+        "proficiency": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "str",
+              "dex",
+              "con",
+              "int",
+              "wis",
+              "cha"
+            ]
+          },
+          "description": "Saving throws."
+        },
+        "primaryAbility": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "spellcastingAbility": {
+          "enum": [
+            "str",
+            "dex",
+            "con",
+            "int",
+            "wis",
+            "cha"
+          ]
+        },
+        "casterProgression": {
+          "enum": [
+            "full",
+            "1/2",
+            "1/3",
+            "artificer",
+            "pact"
+          ]
+        },
+        "cantripProgression": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "spellsKnownProgression": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "spellsKnownProgressionFixed": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "preparedSpells": {
+          "type": "string",
+          "description": "2014: a formula like `<$level$> + <$wis_mod$>`."
+        },
+        "preparedSpellsProgression": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "startingProficiencies": {
+          "type": "object",
+          "properties": {
+            "armor": {
+              "type": "array"
+            },
+            "weapons": {
+              "type": "array",
+              "description": "`simple`, `martial`, `{@item …}` text, a sentence with a `property=` filter, or objects."
+            },
+            "tools": {
+              "type": "array"
+            },
+            "skills": {
+              "$ref": "#/$defs/proficiencies"
+            }
+          }
+        },
+        "startingEquipment": {
+          "type": "object"
+        },
+        "multiclassing": {
+          "type": "object",
+          "properties": {
+            "requirements": {
+              "type": "object",
+              "description": "`{\"str\": 13}` or `{\"or\": [{\"str\": 13, \"dex\": 13}]}`."
+            },
+            "proficienciesGained": {
+              "type": "object"
+            }
+          }
+        },
+        "classTableGroups": {
+          "$ref": "#/$defs/tableGroups"
+        },
+        "classFeatures": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref",
+                "description": "`name|class|classSource|level[|source]`"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "classFeature"
+                ],
+                "properties": {
+                  "classFeature": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "gainSubclassFeature": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "subclassTitle": {
+          "type": "string"
+        },
+        "featProgression": {
+          "type": "array"
+        },
+        "optionalfeatureProgression": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "additionalSpells": {
+          "$ref": "#/$defs/additionalSpells"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "tableGroups": {
+      "description": "Class table columns; each column becomes a value such as `class.monk.martial_arts`.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "colLabels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "rowsSpellProgression": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "subclass": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "required": [
+        "name",
+        "shortName",
+        "className",
+        "classSource"
+      ],
+      "properties": {
+        "shortName": {
+          "type": "string"
+        },
+        "className": {
+          "type": "string"
+        },
+        "classSource": {
+          "type": "string"
+        },
+        "casterProgression": {
+          "type": "string"
+        },
+        "spellcastingAbility": {
+          "type": "string"
+        },
+        "subclassTableGroups": {
+          "$ref": "#/$defs/tableGroups"
+        },
+        "subclassFeatures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref",
+            "description": "`name|class|classSource|subclassShortName|subclassSource|level[|source]`"
+          }
+        },
+        "additionalSpells": {
+          "$ref": "#/$defs/additionalSpells"
+        }
+      }
+    },
+    "classFeature": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "required": [
+        "name",
+        "className",
+        "classSource",
+        "level"
+      ],
+      "properties": {
+        "className": {
+          "type": "string"
+        },
+        "classSource": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        }
+      }
+    },
+    "subclassFeature": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/classFeature"
+        }
+      ],
+      "required": [
+        "subclassShortName",
+        "subclassSource"
+      ],
+      "properties": {
+        "subclassShortName": {
+          "type": "string"
+        },
+        "subclassSource": {
+          "type": "string"
+        }
+      }
+    },
+    "spell": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "school": {
+          "enum": [
+            "A",
+            "C",
+            "D",
+            "E",
+            "V",
+            "I",
+            "N",
+            "T",
+            "P"
+          ]
+        },
+        "time": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "integer"
+              },
+              "unit": {
+                "enum": [
+                  "action",
+                  "bonus",
+                  "reaction",
+                  "minute",
+                  "hour",
+                  "round"
+                ]
+              },
+              "condition": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "range": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "point, special, or an area: cone, cube, line, sphere, hemisphere, radius, emanation, cylinder",
+              "type": "string"
+            },
+            "distance": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "description": "feet, miles, self, touch, sight, unlimited",
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "type": "object",
+          "properties": {
+            "v": {
+              "type": "boolean"
+            },
+            "s": {
+              "type": "boolean"
+            },
+            "r": {
+              "type": "boolean"
+            },
+            "m": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    },
+                    "cost": {
+                      "type": "integer"
+                    },
+                    "consume": {}
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "duration": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "instant",
+                  "timed",
+                  "permanent",
+                  "special"
+                ]
+              },
+              "duration": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "concentration": {
+                "type": "boolean"
+              },
+              "ends": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "ritual": {
+              "type": "boolean"
+            }
+          }
+        },
+        "classes": {
+          "description": "Classes with the spell on their list (for homebrew; the data directory has a separate lookup, see spell-classes.schema.json).",
+          "type": "object",
+          "properties": {
+            "fromClassList": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "entriesHigherLevel": {
+          "$ref": "#/$defs/entries"
+        },
+        "scalingLevelDice": {
+          "description": "Cantrip damage by character level.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/scaling"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/scaling"
+              }
+            }
+          ]
+        },
+        "spellAttack": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "M",
+              "R",
+              "O"
+            ]
+          }
+        },
+        "savingThrow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "damageInflict": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "scaling": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "scaling": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "race": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "walk": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "ability": {
+          "$ref": "#/$defs/abilityBonus"
+        },
+        "darkvision": {
+          "type": "integer"
+        },
+        "skillProficiencies": {
+          "$ref": "#/$defs/proficiencies"
+        },
+        "weaponProficiencies": {
+          "$ref": "#/$defs/proficiencies"
+        },
+        "feats": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "additionalSpells": {
+          "$ref": "#/$defs/additionalSpells"
+        },
+        "creatureTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "subrace": {
+      "description": "A subrace, layered over its race: its fields replace the race's, and `null` removes one (no skill proficiencies). Without a name it is the race's base version (dnt skips it).",
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "required": [
+        "raceName",
+        "raceSource"
+      ],
+      "properties": {
+        "size": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "walk": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/abilityBonus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "darkvision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skillProficiencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/proficiencies"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "weaponProficiencies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/proficiencies"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "feats": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "additionalSpells": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/additionalSpells"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "creatureTypes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "raceName": {
+          "type": "string"
+        },
+        "raceSource": {
+          "type": "string"
+        }
+      }
+    },
+    "background": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "ability": {
+          "$ref": "#/$defs/abilityBonus"
+        },
+        "feats": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "skillProficiencies": {
+          "$ref": "#/$defs/proficiencies"
+        },
+        "toolProficiencies": {
+          "$ref": "#/$defs/proficiencies"
+        },
+        "weaponProficiencies": {
+          "$ref": "#/$defs/proficiencies"
+        },
+        "startingEquipment": {
+          "type": "array"
+        },
+        "additionalSpells": {
+          "$ref": "#/$defs/additionalSpells"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "feat": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "O origin, G general, FS fighting style, EB epic boon, …"
+        },
+        "prerequisite": {
+          "$ref": "#/$defs/prerequisite"
+        },
+        "ability": {
+          "$ref": "#/$defs/abilityBonus"
+        },
+        "repeatable": {
+          "type": "boolean"
+        },
+        "weaponProficiencies": {
+          "$ref": "#/$defs/proficiencies"
+        },
+        "additionalSpells": {
+          "$ref": "#/$defs/additionalSpells"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "optionalfeature": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "featureType": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "EI eldritch invocation, MM metamagic, MV:B maneuver, FS:F fighting style, …"
+        },
+        "prerequisite": {
+          "$ref": "#/$defs/prerequisite"
+        },
+        "additionalSpells": {
+          "$ref": "#/$defs/additionalSpells"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "item": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Item type code, optionally with a source: M melee weapon, R ranged weapon, A ammunition, LA/MA/HA armor, S shield, G gear, P potion, WD wand, RD rod, RG ring, SCF focus, … (`M|XPHB`)."
+        },
+        "rarity": {
+          "type": "string"
+        },
+        "reqAttune": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "wondrous": {
+          "type": "boolean"
+        },
+        "weight": {
+          "type": "number"
+        },
+        "value": {
+          "type": "number",
+          "description": "Copper pieces."
+        },
+        "ac": {
+          "type": "integer"
+        },
+        "armor": {
+          "type": "boolean"
+        },
+        "strength": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stealth": {
+          "type": "boolean"
+        },
+        "weapon": {
+          "type": "boolean"
+        },
+        "weaponCategory": {
+          "enum": [
+            "simple",
+            "martial"
+          ]
+        },
+        "dmg1": {
+          "type": "string",
+          "description": "Damage dice, e.g. `1d8`."
+        },
+        "dmg2": {
+          "type": "string",
+          "description": "Versatile (two-handed) damage."
+        },
+        "dmgType": {
+          "type": "string",
+          "description": "A acid, B bludgeoning, C cold, F fire, O force, L lightning, N necrotic, P piercing, I poison, Y psychic, R radiant, S slashing, T thunder."
+        },
+        "range": {
+          "type": "string",
+          "description": "`80/320`"
+        },
+        "property": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "uid": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "description": "F finesse, L light, H heavy, R reach, T thrown, 2H two-handed, V versatile, A ammunition, LD loading (`V|XPHB`)."
+        },
+        "mastery": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "bonusWeapon": {
+          "type": "string",
+          "description": "`+1`"
+        },
+        "bonusWeaponAttack": {
+          "type": "string"
+        },
+        "bonusWeaponDamage": {
+          "type": "string"
+        },
+        "bonusAc": {
+          "type": "string"
+        },
+        "bonusSavingThrow": {
+          "type": "string"
+        },
+        "baseItem": {
+          "$ref": "#/$defs/ref"
+        },
+        "inherits": {
+          "type": "object",
+          "description": "A magic variant's fields (items of a variant)."
+        },
+        "containerCapacity": {
+          "type": "object",
+          "properties": {
+            "weight": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "item": {
+              "type": "array"
+            },
+            "volume": {
+              "type": "array"
+            },
+            "weightless": {
+              "type": "boolean"
+            }
+          }
+        },
+        "packContents": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "item": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "special": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "scfType": {
+          "type": "string"
+        },
+        "equipmentType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "magicvariant": {
+      "description": "A generic magic item (+1 Weapon) that dnt turns into specific items for every base item it applies to.",
+      "type": "object",
+      "required": [
+        "name",
+        "inherits"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Any of these; each lists base item fields that must match (`{\"weapon\": true}`, `{\"type\": \"HA|XPHB\"}`)."
+        },
+        "excludes": {
+          "type": "object",
+          "description": "Base item fields that rule a base out (a value or a list)."
+        },
+        "inherits": {
+          "type": "object",
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "namePrefix": {
+              "type": "string"
+            },
+            "nameSuffix": {
+              "type": "string"
+            },
+            "nameRemove": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "rarity": {
+              "type": "string"
+            },
+            "reqAttune": {
+              "type": [
+                "boolean",
+                "string"
+              ]
+            },
+            "bonusWeapon": {
+              "type": "string"
+            },
+            "bonusAc": {
+              "type": "string"
+            },
+            "entries": {
+              "$ref": "#/$defs/entries",
+              "description": "`{=bonusWeapon}`-style placeholders are filled from the item."
+            }
+          }
+        }
+      }
+    },
+    "skill": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "properties": {
+        "ability": {
+          "enum": [
+            "str",
+            "dex",
+            "con",
+            "int",
+            "wis",
+            "cha"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "rule": {
+      "description": "Conditions, languages, senses, actions, variant rules and the like: a name, a source and text.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        }
+      ],
+      "required": [
+        "name"
+      ]
+    },
+    "patch": {
+      "description": "An entity built from another with `_copy`: its own fields are only changes to the copied ones (`null` removes a field), so they are not checked as a full entity.",
+      "type": "object",
+      "required": [
+        "_copy"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "_copy": {
+          "$ref": "#/$defs/copy"
+        }
+      }
+    }
+  }
+}
