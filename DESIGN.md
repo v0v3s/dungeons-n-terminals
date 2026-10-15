@@ -538,8 +538,12 @@ enabled for that campaign.
     disadvantage for the next roll; conditions set it too (Poisoned,
     Prone, Invisible, …), and Paralyzed and similar fail Str and Dex
     saves. `C` toggles conditions and exhaustion: speed 0 when grappled
-    or restrained, 2024 exhaustion −2 per level on d20 tests and −5 ft.
-    speed (2014: disadvantage by level). The last rolls show under hit
+    or restrained, 2024 exhaustion −2 per level on d20 tests (not passive
+    scores) and −5 ft. speed; 2014 exhaustion by level (disadvantage,
+    halved speed, halved hit point maximum, speed 0); level 6 is death.
+    Spells that add "your spellcasting ability modifier" (Cure Wounds,
+    Healing Word, Spiritual Weapon) roll with it. Effects can multiply
+    (`mul`, after adds and before caps). The last rolls show under hit
     points; `N` also writes them into the latest session note (`## Rolls`).
     Spell rows show their damage or healing at their level.
 11. **Later** — embedded nvim (the built-in editor is enough for now).

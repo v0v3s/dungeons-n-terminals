@@ -260,12 +260,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             }
             let base = if cursor == names.len() { theme.selected } else { Style::new() };
             let lvl = st.exhaustion;
-            let what = match (lvl, sheet.edition == dnt_rules::play::Edition::Modern) {
-                (0, _) => String::new(),
-                (6, _) => "death".to_string(),
-                (l, true) => format!("−{} to d20 tests, −{} ft. speed", 2 * l, 5 * l),
-                (l, false) => format!("level {l} (2014 rules: see the condition)"),
-            };
+            let what = dnt_rules::conditions::exhaustion_summary(lvl, sheet.edition == dnt_rules::play::Edition::Modern);
             lines.push(Line::default());
             lines.push(
                 Line::from(vec![
@@ -865,6 +860,11 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
                 theme.dim,
             ));
         }
+        if st.exhaustion > 0 {
+            let what = dnt_rules::conditions::exhaustion_summary(st.exhaustion, sheet.edition == dnt_rules::play::Edition::Modern);
+            let style = if st.exhaustion >= 6 { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
+            lines.push(Line::styled(format!("{:<12}Exhaustion: {}", "", truncate(&what, width.saturating_sub(24))), style));
+        }
     }
     // The last few rolls, newest first.
     if !sheet.roller.log.is_empty() {
@@ -1159,7 +1159,16 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 let lvl = spells::spell_level(lib, e);
                 // What it deals (or heals) at its own level.
                 let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
-                if let Some(d) = &r.dice {
+                let caster = match row {
+                    Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.as_str()),
+                    _ => None,
+                };
+                let modifier = {
+                    let (_, dc) = crate::rolls::spell_numbers(sheet, caster);
+                    dc - 8 - ev.int("prof").unwrap_or(2)
+                };
+                let dice = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() });
+                if let Some(d) = &dice {
                     right.push_str(&format!("{d} {} · ", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
                 }
                 right.push_str(&if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
@@ -1718,6 +1727,7 @@ fn breakdown_lines(sheet: &Sheet, key: &str, theme: &Theme) -> Vec<Line<'static>
             PartKind::Set => "set",
             PartKind::Max => "best of",
             PartKind::Min => "cap",
+            PartKind::Mul => "times",
             PartKind::Override => "override",
         };
         let value = p.value.as_ref().map(|v| v.to_string()).unwrap_or_else(|| "—".into());

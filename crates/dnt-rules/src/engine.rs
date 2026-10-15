@@ -21,6 +21,8 @@ pub enum Op {
     Set,
     Max,
     Min,
+    /// Multiply after the adds (halved speed), before caps.
+    Mul,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -72,6 +74,7 @@ pub enum PartKind {
     Set,
     Max,
     Min,
+    Mul,
     Override,
 }
 
@@ -115,6 +118,7 @@ impl StatResult {
                     None => format!(" + {v} {}", p.origin),
                 },
                 PartKind::Min => format!(" capped at {v} ({})", p.origin),
+                PartKind::Mul => format!(" × {v} ({})", p.origin),
                 PartKind::Override => format!(" overridden to {v}"),
                 _ => format!(" {v} {}", p.origin),
             };
@@ -291,6 +295,7 @@ impl Model {
                 Op::Set => PartKind::Set,
                 Op::Max => PartKind::Max,
                 Op::Min => PartKind::Min,
+                Op::Mul => PartKind::Mul,
             };
             let on = match &e.when {
                 None => Ok(true),
@@ -379,7 +384,19 @@ impl Model {
             }
         }
 
-        // 4. Caps.
+        // 4. Multipliers (halved, doubled).
+        for (e, v) in active.iter().filter(|(e, _)| e.op == Op::Mul) {
+            let idx = push(&mut parts, e, PartKind::Mul, v);
+            match (current.as_num(), v.as_num()) {
+                (Some(cur), Some(k)) => current = Value::Num(cur * k),
+                _ => {
+                    parts[idx].applied = false;
+                    parts[idx].note = Some("multiplying needs numbers".into());
+                }
+            }
+        }
+
+        // 5. Caps.
         for (e, v) in active.iter().filter(|(e, _)| e.op == Op::Min) {
             let idx = push(&mut parts, e, PartKind::Min, v);
             match (current.as_num(), v.as_num()) {
@@ -391,7 +408,7 @@ impl Model {
             }
         }
 
-        // 5. Round, then override.
+        // 6. Round, then override.
         let mut value = current.rounded();
         if let Some(o) = self.overrides.get(key) {
             parts.push(Part {

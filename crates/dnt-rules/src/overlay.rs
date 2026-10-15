@@ -133,6 +133,7 @@ struct RawEffect {
     set: Option<String>,
     max: Option<String>,
     min: Option<String>,
+    mul: Option<String>,
     when: Option<String>,
     origin: Option<String>,
 }
@@ -266,6 +267,7 @@ impl Overlay {
                     (Op::Set, "set", &e.set),
                     (Op::Max, "max", &e.max),
                     (Op::Min, "min", &e.min),
+                    (Op::Mul, "mul", &e.mul),
                 ]
                 .into_iter()
                 .filter_map(|(op, n, v)| v.as_ref().map(|v| (op, n, v)))
@@ -273,7 +275,7 @@ impl Overlay {
                 let [(op, field, src)] = ops.as_slice() else {
                     diags.push(Diagnostic {
                         location: loc(""),
-                        message: "an effect needs exactly one of `add`, `set`, `max`, `min`".into(),
+                        message: "an effect needs exactly one of `add`, `set`, `max`, `min`, `mul`".into(),
                     });
                     continue;
                 };
@@ -392,7 +394,7 @@ id = "{id}"
 # rider.<key> (extra damage on a hit), resource.<key>.max …
 # [[feature.effect]]
 # target = "ac"
-# add = "1"                     # or set / max / min
+# add = "1"                     # or set / max / min / mul
 # when = "toggle('my_state')"   # optional
 # origin = "{name}: when it applies"   # optional
 "#

@@ -52,7 +52,8 @@ pub const SKILLS: [(&str, &str, &str); 18] = [
 
 /// Definitions of the standard stats.
 pub fn stats() -> Vec<StatDef> {
-    let mut out = Vec::new();
+    // Exhaustion (2024) adds to this: it lowers d20 tests.
+    let mut out = vec![StatDef::new("d20.penalty", "0", "no exhaustion")];
     for (ab, name) in ABILITIES {
         out.push(StatDef::new(ab, &format!("base.{ab}"), "base score"));
         out.push(StatDef::new(&format!("mod.{ab}"), &format!("mod({ab})"), name));
@@ -72,7 +73,8 @@ pub fn stats() -> Vec<StatDef> {
         ));
     }
     for skill in ["perception", "investigation", "insight"] {
-        out.push(StatDef::new(&format!("passive.{skill}"), &format!("10 + skill.{skill}"), "10 + skill"));
+        // Exhaustion lowers d20 rolls; passive scores roll nothing.
+        out.push(StatDef::new(&format!("passive.{skill}"), &format!("10 + skill.{skill} - d20.penalty"), "10 + skill"));
     }
     out.push(StatDef::new("initiative", "mod.dex", "Dexterity"));
     out.push(StatDef::new(

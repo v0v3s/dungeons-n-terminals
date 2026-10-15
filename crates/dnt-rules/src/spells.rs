@@ -384,10 +384,13 @@ pub struct SpellRoll {
     pub dice: Option<crate::value::Dice>,
     /// `fire`, `necrotic`, or `healing`.
     pub kind: String,
+    /// The text adds the spellcasting ability modifier (Cure Wounds).
+    pub add_modifier: bool,
 }
 
-/// `{@tag text}` contents for the given tags, in order.
-fn tags_in(v: &Json, names: &[&str], out: &mut Vec<(String, String)>) {
+/// `{@tag text}` for the given tags, in order: (tag, contents, the text
+/// right after it).
+fn tags_in(v: &Json, names: &[&str], out: &mut Vec<(String, String, String)>) {
     match v {
         Json::String(s) => {
             let mut rest = s.as_str();
@@ -397,7 +400,8 @@ fn tags_in(v: &Json, names: &[&str], out: &mut Vec<(String, String)>) {
                 let inner = &after[..end];
                 if let Some((tag, body)) = inner.split_once(' ') {
                     if names.contains(&tag) {
-                        out.push((tag.to_string(), body.to_string()));
+                        let follow: String = after[end + 1..].chars().take(60).collect();
+                        out.push((tag.to_string(), body.to_string(), follow));
                     }
                 }
                 rest = &after[end..];
@@ -418,6 +422,7 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
     let save = d.get("savingThrow").and_then(Json::as_array).and_then(|a| a.first()).and_then(Json::as_str).map(str::to_string);
     let damage_types: Vec<&str> = d.get("damageInflict").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str).collect();
     let mut kind = damage_types.join(" or ");
+    let mut add_modifier = false;
     // Cantrips: the tier for the character's level.
     let scaling = d.get("scalingLevelDice").map(|s| match s {
         Json::Array(a) => a.first().cloned().unwrap_or(Json::Null),
@@ -434,8 +439,11 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
     if dice.is_none() {
         let mut found = Vec::new();
         tags_in(d.get("entries").unwrap_or(&Json::Null), &["damage", "dice"], &mut found);
-        let base = found.iter().find(|(t, _)| t == "damage").or_else(|| found.iter().find(|(t, _)| t == "dice"));
-        if let Some((tag, text)) = base {
+        let base = found.iter().find(|(t, _, _)| t == "damage").or_else(|| found.iter().find(|(t, _, _)| t == "dice"));
+        if let Some((tag, text, follow)) = base {
+            let follow = follow.to_lowercase();
+            add_modifier = follow.trim_start().starts_with("plus your spellcasting ability modifier")
+                || follow.trim_start().starts_with("+ your spellcasting ability modifier");
             if tag == "dice" && kind.is_empty() {
                 kind = "healing".into();
             }
@@ -443,7 +451,7 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
             // Higher slots: `{@scaledamage 8d6|3-9|1d6}` adds 1d6 per level.
             let mut steps = Vec::new();
             tags_in(d.get("entriesHigherLevel").unwrap_or(&Json::Null), &["scaledamage", "scaledice"], &mut steps);
-            if let (Some(base), Some((_, step))) = (dice.as_mut(), steps.first()) {
+            if let (Some(base), Some((_, step, _))) = (dice.as_mut(), steps.first()) {
                 let per = step.split('|').nth(2).and_then(crate::roll::parse_dice);
                 let extra = (slot_level - level).max(0);
                 if let Some(per) = per {
@@ -454,7 +462,7 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
             }
         }
     }
-    SpellRoll { attack, save, dice, kind }
+    SpellRoll { attack, save, dice, kind, add_modifier }
 }
 
 #[cfg(test)]
@@ -524,7 +532,7 @@ mod tests {
              "scalingLevelDice": {"label": "Fire damage", "scaling": {"1": "1d10", "5": "2d10", "11": "3d10"}}, "entries": ["{@damage 1d10}"]},
             {"name": "Fireball", "source": "T", "level": 3, "savingThrow": ["dexterity"], "damageInflict": ["fire"],
              "entries": ["takes {@damage 8d6} Fire damage"], "entriesHigherLevel": [{"type": "entries", "entries": ["{@scaledamage 8d6|3-9|1d6}"]}]},
-            {"name": "Cure Wounds", "source": "T", "level": 1, "entries": ["regains {@dice 2d8} plus"], "entriesHigherLevel": ["{@scaledice 2d8|1-9|2d8}"]}
+            {"name": "Cure Wounds", "source": "T", "level": 1, "entries": ["regains {@dice 2d8} plus your spellcasting ability modifier"], "entriesHigherLevel": ["{@scaledice 2d8|1-9|2d8}"]}
         ]}));
         let id = |n: &str| lib.get(&dnt_data::Key::new(Kind::Spell, &[n, "T"])).unwrap();
         let fb = spell_roll(&lib, id("Fire Bolt"), 6, 0);
@@ -534,6 +542,7 @@ mod tests {
         assert_eq!(fireball.save.as_deref(), Some("dexterity"));
         assert_eq!(fireball.dice.unwrap().to_string(), "10d6");
         let cure = spell_roll(&lib, id("Cure Wounds"), 1, 2);
+        assert!(cure.add_modifier && !fb.add_modifier);
         assert_eq!((cure.dice.unwrap().to_string(), cure.kind), ("4d8".to_string(), "healing".to_string()));
     }
 }

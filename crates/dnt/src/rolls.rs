@@ -29,7 +29,10 @@ pub struct Rolled {
 impl Rolled {
     /// A single line for the status bar and the session note.
     pub fn line(&self) -> String {
-        let mut s = format!("{}: {} ({})", self.title, self.result, self.detail);
+        let mut s = format!("{}: {}", self.title, self.result);
+        if !self.detail.is_empty() {
+            s.push_str(&format!(" ({})", self.detail));
+        }
         for e in &self.extra {
             s.push_str(&format!(" · {e}"));
         }
@@ -219,7 +222,9 @@ pub fn spell(sheet: &mut Sheet, lib: &Library, spell: EntityId, slot_level: i64,
     };
     let mut extra = Vec::new();
     if let Some(dice) = &s.dice {
-        let d = roll::damage(&mut sheet.roller.rng, &dnt_rules::Value::Dice(dice.clone()), DamageRules { critical, ..Default::default() });
+        // "… plus your spellcasting ability modifier": the DC is 8 + proficiency + it.
+        let dice = if s.add_modifier { dice.plus_flat(dc - 8 - sheet.ev.int("prof").unwrap_or(2)) } else { dice.clone() };
+        let d = roll::damage(&mut sheet.roller.rng, &dnt_rules::Value::Dice(dice), DamageRules { critical, ..Default::default() });
         let what = if s.kind == "healing" { "healing".to_string() } else { format!("{} damage", s.kind) };
         extra.push(format!("{} {what} ({})", d.total, d.describe()));
         if s.save.is_some() && s.kind != "healing" {

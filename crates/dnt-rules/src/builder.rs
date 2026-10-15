@@ -581,7 +581,6 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
 
     // ---- conditions and exhaustion (before attacks, which copy attack.bonus) ----
     let rules_2024 = classes.first().is_none_or(|c| lib.entity(c.entity).source == "XPHB");
-    model.stats.push(StatDef::new("d20.penalty", "0", "no exhaustion"));
     let state = &character.state;
     model.effects.extend(crate::conditions::effects(&state.conditions, state.exhaustion, rules_2024));
     if rules_2024 && state.exhaustion > 0 {
