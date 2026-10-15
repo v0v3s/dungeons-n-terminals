@@ -525,4 +525,9 @@ enabled for that campaign.
    rules for that feature; saving nothing removes it. Extra damage on a
    hit (`rider.<key>`: Sneak Attack, Radiant Strikes, …) is listed under
    the attacks.
-9. **Later** — export, embedded nvim.
+9. **Export** — `X` on a sheet writes `<campaign>/exports/<character>.md`
+   and `.html` (a print-ready page; the browser's print dialog saves it
+   as PDF): abilities and combat numbers, skills, attacks and extra damage,
+   resources, spellcasting, inventory with containers, and every feature
+   with its text. Notes are Markdown files already. *Done.*
+10. **Later** — embedded nvim (the built-in editor is enough for now).

@@ -252,6 +252,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("u U", "level up/undo"),
                 ("c", "choices"),
                 ("e", "edit"),
+                ("X", "export"),
                 ("esc", "roster"),
             ],
         },

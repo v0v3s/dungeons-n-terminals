@@ -255,6 +255,8 @@ pub enum Action {
     EditOverlay(dnt_data::EntityId),
     /// Save a feature's rules (overlay id, TOML; empty removes them).
     SaveOverlay(String, String),
+    /// Export the open sheet: (file slug, Markdown, HTML).
+    Export(String, String, String),
 }
 
 pub struct Characters {
@@ -745,6 +747,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             return Action::None;
         }
         KeyCode::Char('e') => return Action::Edit(sheet.file.path.clone()),
+        KeyCode::Char('X') => {
+            let d = crate::export::character(lib, sheet);
+            return Action::Export(sheet.file.slug.clone(), crate::export::to_markdown(&d), crate::export::to_html(&d));
+        }
         KeyCode::Char('u') => {
             let flow = LevelUp::start(lib, &sheet.file.character, &sheet.ev, filter);
             sheet.popup = Some(Popup::LevelUp(Box::new(flow)));

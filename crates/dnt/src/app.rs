@@ -352,6 +352,19 @@ impl App {
             A::Status(s) => self.status = s,
             A::Edit(path) => self.pending_edit = Some(path),
             A::CreateItem => self.start_new(homebrew::Template::ITEMS, true),
+            A::Export(slug, markdown, html) => {
+                let Some(campaign) = self.active_campaign() else { return };
+                let dir = campaign.dir.join("exports");
+                let md = dir.join(format!("{slug}.md"));
+                let page = dir.join(format!("{slug}.html"));
+                let written = std::fs::create_dir_all(&dir)
+                    .and_then(|_| std::fs::write(&md, markdown))
+                    .and_then(|_| std::fs::write(&page, html));
+                self.status = match written {
+                    Ok(()) => format!("Exported {} and {} (open the .html to print or save as PDF)", md.display(), page.display()),
+                    Err(e) => format!("Could not export: {e}"),
+                };
+            }
             A::EditOverlay(entity) => {
                 let id = crate::overlay_editor::overlay_id(lib, entity);
                 let user = std::fs::read_to_string(self.store.feature_overlay_path(&id)).ok();
