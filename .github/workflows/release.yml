@@ -66,11 +66,11 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            asset: dnt-linux-x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            asset: dnt-windows-x86_64.exe
     runs-on: ${{ matrix.os }}
-    env:
-      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,27 +81,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --release --locked -p dnt --target ${{ matrix.target }}
-      - name: Package (Linux)
-        if: runner.os == 'Linux'
+      # Plain binaries named by platform, the same in every release, so
+      # releases/latest/download/<name> always gets the newest.
+      - name: Name the binary
+        shell: bash
         run: |
-          name="dnt-v$VERSION-${{ matrix.target }}"
-          mkdir "$name"
-          cp "target/${{ matrix.target }}/release/dnt" README.md LICENSE "$name/"
-          tar czf "$name.tar.gz" "$name"
-          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $name = "dnt-v$env:VERSION-${{ matrix.target }}"
-          New-Item -ItemType Directory $name | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/dnt.exe", README.md, LICENSE $name
-          Compress-Archive -Path $name -DestinationPath "$name.zip"
-          "ASSET=$name.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+          bin=target/${{ matrix.target }}/release/dnt
+          if [ -f "$bin.exe" ]; then bin="$bin.exe"; fi
+          mkdir dist
+          cp "$bin" "dist/${{ matrix.asset }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
-          path: ${{ env.ASSET }}
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
 
   publish:
     needs: [version, build]
@@ -111,6 +103,8 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum dnt-* > SHA256SUMS && cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version.outputs.version }}

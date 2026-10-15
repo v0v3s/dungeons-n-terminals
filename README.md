@@ -31,10 +31,21 @@ data checkout and works with the 2024 and the 2014 rules.
 
 ## Getting started
 
-Download `dnt` for Linux or Windows from the
-[releases](https://github.com/v0v3s/dungeons-n-terminals/releases), or build
-it. Either way you need a copy of the data data; to build, you also
-need [Rust](https://rustup.rs):
+Download the binary from the
+[latest release](https://github.com/v0v3s/dungeons-n-terminals/releases/latest),
+or build it. Either way you need a copy of the data data.
+
+```sh
+# Linux
+curl -LO https://github.com/v0v3s/dungeons-n-terminals/releases/latest/download/dnt-linux-x86_64
+chmod +x dnt-linux-x86_64 && mv dnt-linux-x86_64 ~/.local/bin/dnt
+```
+
+On Windows, download `dnt-windows-x86_64.exe` (rename it to `dnt.exe` if
+you like) and run it in Windows Terminal. Each release also has
+`SHA256SUMS` to check the download.
+
+To build it yourself you need [Rust](https://rustup.rs):
 
 ```sh
 git clone --depth 1 https://github.com/data/dnd-data.git ~/dnd-data
@@ -153,8 +164,9 @@ commit on `main` and decides the release.
 | `docs:`, `chore:`, `ci:`, `refactor:`, `test:`, … | none |
 
 On a releasing merge, GitHub Actions bumps the version in `Cargo.toml`,
-tags `vX.Y.Z`, builds Linux (x86_64) and Windows (x86_64) binaries and
-publishes them as a release, with notes from the merged pull requests.
+tags `vX.Y.Z`, builds the Linux and Windows (x86_64) binaries and publishes
+them as a release (`dnt-linux-x86_64`, `dnt-windows-x86_64.exe`,
+`SHA256SUMS`), with notes from the merged pull requests.
 `scripts/next-version.sh "<title>"` shows what a title would do. CI checks
 formatting, clippy and tests on Linux and Windows for every pull request.
 
