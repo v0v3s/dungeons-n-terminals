@@ -343,6 +343,29 @@ impl Notes {
         Ok(changed)
     }
 
+    /// The latest session note (`Sessions/<date>.md`, newest name first).
+    pub fn latest_session(&self) -> Option<String> {
+        let mut sessions: Vec<Entry> = self.list("Sessions").into_iter().filter(|e| !e.is_dir).collect();
+        sessions.sort_by(|a, b| b.name.cmp(&a.name));
+        sessions.into_iter().next().map(|e| e.path)
+    }
+
+    /// Append a line to the latest session note under a `## Rolls` heading
+    /// (added at the end if missing). Returns the note's path.
+    pub fn log_to_session(&self, line: &str) -> Result<Option<String>> {
+        let Some(path) = self.latest_session() else { return Ok(None) };
+        let mut text = self.read(&path)?;
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        if !text.lines().any(|l| l.trim() == "## Rolls") {
+            text.push_str("\n## Rolls\n\n");
+        }
+        text.push_str(&format!("- {}\n", line.trim()));
+        self.write(&path, &text)?;
+        Ok(Some(path))
+    }
+
     /// Every note, recursively, with its parsed metadata.
     pub fn index(&self) -> Vec<NoteInfo> {
         let mut out = Vec::new();

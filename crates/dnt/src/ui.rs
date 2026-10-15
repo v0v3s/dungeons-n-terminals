@@ -206,6 +206,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("j k", "move"),
                 ("a", "add"),
                 ("enter", "cast/choose"),
+                ("r", "roll"),
                 ("p", "prepare"),
                 ("f", "favorite"),
                 ("x", "remove"),
@@ -235,8 +236,10 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             }
             Some(s) if matches!(s.current_item(), Some(crate::characters::Item::Attack(_))) => &[
                 ("j k", "move"),
+                ("r", "roll"),
+                ("v", "adv/dis"),
                 ("space", "main hand"),
-                ("o", "off hand"),
+                ("o b", "off/both hands"),
                 ("S", "shield"),
                 ("?", "breakdown"),
                 ("d h t", "dmg/heal/temp"),
@@ -244,8 +247,10 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ],
             Some(_) => &[
                 ("j k", "move"),
-                ("space", "use"),
-                ("+", "restore"),
+                ("space +", "use/restore"),
+                ("r R", "roll/save"),
+                ("v", "adv/dis"),
+                ("C", "conditions"),
                 ("?", "breakdown"),
                 ("d h t", "dmg/heal/temp"),
                 ("s L", "rests"),

@@ -352,6 +352,20 @@ impl App {
             A::Status(s) => self.status = s,
             A::Edit(path) => self.pending_edit = Some(path),
             A::CreateItem => self.start_new(homebrew::Template::ITEMS, true),
+            A::Rolled(line, to_notes) => {
+                self.status = line.clone();
+                if to_notes {
+                    // Keep an open, edited note from overwriting the log.
+                    self.notes.save();
+                    let logged = self.notes.notes.as_ref().map(|n| n.log_to_session(&line));
+                    match logged {
+                        Some(Ok(Some(_))) => self.notes.reload_open(),
+                        Some(Ok(None)) => self.status = format!("{line} · no session note yet (Notes: s)"),
+                        Some(Err(e)) => self.status = format!("{line} · could not log it: {e}"),
+                        None => {}
+                    }
+                }
+            }
             A::Export(slug, markdown, html) => {
                 let Some(campaign) = self.active_campaign() else { return };
                 let dir = campaign.dir.join("exports");

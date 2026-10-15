@@ -270,6 +270,9 @@ pub struct Attack {
     pub monk_weapon: bool,
     /// Has an off-hand attack (`attack.<slug>.offhand` damage).
     pub offhand: bool,
+    /// Great Weapon Fighting applies when used with two hands: `true` for
+    /// 2024 (1s and 2s count as 3s), `false` for 2014 (reroll them).
+    pub great_weapon: Option<bool>,
     /// Why something is off (no damage dice, needs attunement, …).
     pub notes: Vec<String>,
 }
@@ -386,6 +389,7 @@ pub fn add_attacks(
         // Great Weapon Fighting: melee weapons used with both hands.
         if let Some(rules_2024) = great_weapon {
             if w.melee && (w.has("2H") || w.has("V")) {
+                a.great_weapon = Some(rules_2024);
                 let what = if w.has("2H") { "" } else { " (two-handed)" };
                 a.notes.push(if rules_2024 {
                     format!("Great Weapon Fighting{what}: 1s and 2s on damage dice count as 3s")
@@ -545,6 +549,7 @@ fn weapon_attack(
         has_versatile: w.versatile.is_some(),
         monk_weapon: monk,
         offhand,
+        great_weapon: None,
         properties: w.properties.iter().filter(|p| !matches!(p.as_str(), "V")).map(|p| item_property(p).to_string()).collect(),
         mastery,
         notes,
@@ -593,6 +598,7 @@ fn unarmed(model: &mut Model) -> Attack {
         mastery: None,
         monk_weapon: false,
         offhand: false,
+        great_weapon: None,
         notes: Vec::new(),
     }
 }

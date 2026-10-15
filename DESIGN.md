@@ -530,4 +530,16 @@ enabled for that campaign.
    as PDF): abilities and combat numbers, skills, attacks and extra damage,
    resources, spellcasting, inventory with containers, and every feature
    with its text. Notes are Markdown files already. *Done.*
-10. **Later** — embedded nvim (the built-in editor is enough for now).
+10. **Play** — rolling from the sheet: `r` on an ability, skill,
+    initiative or attack (`R`: a saving throw), `r` on a spell; casting a
+    spell rolls it at the slot level used. Attacks roll damage (dice
+    doubled on a natural 20, Great Weapon Fighting applied when held in
+    two hands) and each extra damage on a hit. `v` sets advantage or
+    disadvantage for the next roll; conditions set it too (Poisoned,
+    Prone, Invisible, …), and Paralyzed and similar fail Str and Dex
+    saves. `C` toggles conditions and exhaustion: speed 0 when grappled
+    or restrained, 2024 exhaustion −2 per level on d20 tests and −5 ft.
+    speed (2014: disadvantage by level). The last rolls show under hit
+    points; `N` also writes them into the latest session note (`## Rolls`).
+    Spell rows show their damage or healing at their level.
+11. **Later** — embedded nvim (the built-in editor is enough for now).

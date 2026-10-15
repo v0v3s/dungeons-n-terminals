@@ -237,6 +237,46 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
     }
     match sheet.popup.clone() {
         Some(Popup::Overlay(_)) => {}
+        Some(Popup::Conditions(cursor)) => {
+            let names = dnt_rules::conditions::CONDITIONS;
+            let st = &sheet.file.character.state;
+            let rect = centered(area, 96.min(area.width), names.len() as u16 + 7);
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title("Conditions", true, theme), true, theme)
+                .padding(Padding::new(2, 2, 1, 0))
+                .title_bottom(Line::styled(" space toggle · + - exhaustion · esc done ", theme.dim).right_aligned());
+            let mut lines = Vec::new();
+            for (i, c) in names.iter().enumerate() {
+                let on = st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c));
+                let base = if i == cursor { theme.selected } else { Style::new() };
+                lines.push(
+                    Line::from(vec![
+                        Span::styled(if on { "◉ " } else { "○ " }, if on { base.fg(Color::Magenta) } else { base.patch(theme.dim) }),
+                        Span::styled(format!("{c:<15}"), if on { base.add_modifier(Modifier::BOLD) } else { base }),
+                        Span::styled(dnt_rules::conditions::summary(c), base.patch(theme.dim)),
+                    ])
+                    .style(base),
+                );
+            }
+            let base = if cursor == names.len() { theme.selected } else { Style::new() };
+            let lvl = st.exhaustion;
+            let what = match (lvl, sheet.edition == dnt_rules::play::Edition::Modern) {
+                (0, _) => String::new(),
+                (6, _) => "death".to_string(),
+                (l, true) => format!("−{} to d20 tests, −{} ft. speed", 2 * l, 5 * l),
+                (l, false) => format!("level {l} (2014 rules: see the condition)"),
+            };
+            lines.push(Line::default());
+            lines.push(
+                Line::from(vec![
+                    Span::styled(format!("  {:<15}", "Exhaustion"), base),
+                    Span::styled(format!("{lvl}  "), base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD)),
+                    Span::styled(what, base.patch(theme.dim)),
+                ])
+                .style(base),
+            );
+            frame.render_widget(Paragraph::new(lines).block(block), rect);
+        }
         Some(Popup::Breakdown(key)) => draw_breakdown(frame, area, sheet, &key, theme),
         Some(Popup::Input(prompt, text)) => {
             let rect = centered(area, 34, 5);
@@ -524,7 +564,10 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
                 Span::styled("In hand  ", theme.label),
                 if held.is_empty() { Span::styled("nothing", theme.dim) } else { Span::styled(held.join(" · "), Style::new().add_modifier(Modifier::BOLD)) },
             ],
-            vec![Span::styled("space main hand · o off hand · S shield ", theme.dim)],
+            match sheet.roller.next {
+                dnt_rules::roll::Advantage::Normal => vec![Span::styled("r roll · space main · o off · b both · S shield ", theme.dim)],
+                m => vec![Span::styled(format!(" next roll: {} ", m.label()), theme.category_active), Span::raw(" ")],
+            },
             width,
         ),
         Line::default(),
@@ -804,6 +847,48 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
             Span::styled("  ✗".repeat(ch.state.death_failures as usize), Style::new().fg(Color::Red)),
         ]));
     }
+    // Conditions (C to change) and what they do.
+    let st = &ch.state;
+    if !st.conditions.is_empty() || st.exhaustion > 0 {
+        let mut names: Vec<String> = st.conditions.clone();
+        if st.exhaustion > 0 {
+            names.push(format!("Exhaustion {}", st.exhaustion));
+        }
+        lines.push(Line::from(vec![
+            Span::styled(format!("{:<12}", "Conditions"), theme.label),
+            Span::styled(names.join(" · "), Style::new().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+            Span::styled("   C", theme.dim),
+        ]));
+        for c in &st.conditions {
+            lines.push(Line::styled(
+                format!("{:<12}{}", "", truncate(dnt_rules::conditions::summary(c), width.saturating_sub(12))),
+                theme.dim,
+            ));
+        }
+    }
+    // The last few rolls, newest first.
+    if !sheet.roller.log.is_empty() {
+        lines.push(Line::default());
+        for (n, r) in sheet.roller.log.iter().take(3).enumerate() {
+            let head = if n == 0 { Style::new().add_modifier(Modifier::BOLD) } else { theme.muted };
+            let colour = match r.crit {
+                Some(true) => Style::new().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Some(false) => Style::new().fg(Color::Red).add_modifier(Modifier::BOLD),
+                None if n == 0 => Style::new().fg(theme.accent).add_modifier(Modifier::BOLD),
+                None => theme.muted,
+            };
+            let label = if n == 0 { "Rolled" } else { "" };
+            lines.push(Line::from(vec![
+                Span::styled(format!("{label:<12}"), theme.label),
+                Span::styled(format!("{}  ", r.title), head),
+                Span::styled(r.result.clone(), colour),
+                Span::styled(format!("  {}", truncate(&r.detail, width.saturating_sub(r.title.width() + r.result.width() + 18))), theme.dim),
+            ]));
+            for e in &r.extra {
+                lines.push(Line::styled(format!("{:<12}{}", "", truncate(e, width.saturating_sub(12))), if n == 0 { Style::new() } else { theme.dim }));
+            }
+        }
+    }
     lines.push(Line::default());
 
     let section = |lines: &mut Vec<Line>, title: &str| {
@@ -1072,6 +1157,11 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
             let mut right = String::new();
             if let Some(e) = e {
                 let lvl = spells::spell_level(lib, e);
+                // What it deals (or heals) at its own level.
+                let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
+                if let Some(d) = &r.dice {
+                    right.push_str(&format!("{d} {} · ", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
+                }
                 right.push_str(&if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
                 if spells::concentration(lib, e) {
                     right.push_str(" · C");

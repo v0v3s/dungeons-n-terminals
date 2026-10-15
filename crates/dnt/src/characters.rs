@@ -96,6 +96,8 @@ pub enum Popup {
     SwapMastery(Box<Picker>, dnt_data::EntityId),
     /// Writing a feature's rules.
     Overlay(Box<crate::overlay_editor::OverlayEditor>),
+    /// Conditions and exhaustion (cursor row; the last is exhaustion).
+    Conditions(usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -158,6 +160,8 @@ pub struct Sheet {
     pub inventory_cursor: usize,
     /// Folded containers (by `id`).
     pub folded: std::collections::BTreeSet<String>,
+    /// Dice, the next roll's mode and the roll log.
+    pub roller: crate::rolls::Roller,
     pub spell_cursor: usize,
     pub feature_cursor: usize,
     pub feature_scroll: usize,
@@ -189,6 +193,7 @@ impl Sheet {
             cursor: 0,
             inventory_cursor: 0,
             folded: Default::default(),
+            roller: Default::default(),
             spell_cursor: 0,
             feature_cursor: 0,
             feature_scroll: 0,
@@ -257,6 +262,8 @@ pub enum Action {
     SaveOverlay(String, String),
     /// Export the open sheet: (file slug, Markdown, HTML).
     Export(String, String, String),
+    /// A roll was made: its line, and whether to add it to the session note.
+    Rolled(String, bool),
 }
 
 pub struct Characters {
@@ -571,7 +578,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 match picker.key(key) {
                     Some(Picked::One(how)) => {
                         return match spells_tab::cast(lib, &mut sheet.file.character, &sheet.ev, spell, &how) {
-                            Ok(msg) => changed(sheet, lib, overlays, msg),
+                            Ok(msg) => {
+                                let action = changed(sheet, lib, overlays, msg.clone());
+                                cast_roll(sheet, lib, spell, &how, &msg).unwrap_or(action)
+                            }
                             Err(msg) => Action::Status(msg),
                         };
                     }
@@ -596,6 +606,50 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         Action::SaveOverlay(ed.id.clone(), text)
                     }
                 };
+            }
+            Popup::Conditions(cursor) => {
+                let names = dnt_rules::conditions::CONDITIONS;
+                let n = names.len() + 1;
+                let st = &mut sheet.file.character.state;
+                let msg = match key.code {
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('C') => {
+                        sheet.popup = None;
+                        return Action::None;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        sheet.popup = Some(Popup::Conditions((cursor + 1).min(n - 1)));
+                        return Action::None;
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        sheet.popup = Some(Popup::Conditions(cursor.saturating_sub(1)));
+                        return Action::None;
+                    }
+                    KeyCode::Char('+' | '=') => {
+                        st.exhaustion = (st.exhaustion + 1).min(6);
+                        format!("Exhaustion {}", st.exhaustion)
+                    }
+                    KeyCode::Char('-') => {
+                        st.exhaustion = (st.exhaustion - 1).max(0);
+                        format!("Exhaustion {}", st.exhaustion)
+                    }
+                    KeyCode::Char(' ') | KeyCode::Enter if cursor < names.len() => {
+                        let c = names[cursor];
+                        if let Some(i) = st.conditions.iter().position(|x| x.eq_ignore_ascii_case(c)) {
+                            st.conditions.remove(i);
+                            format!("No longer {c}")
+                        } else {
+                            st.conditions.push(c.to_string());
+                            c.to_string()
+                        }
+                    }
+                    _ => {
+                        sheet.popup = Some(Popup::Conditions(cursor));
+                        return Action::None;
+                    }
+                };
+                let action = changed(sheet, lib, overlays, msg);
+                sheet.popup = Some(Popup::Conditions(cursor));
+                return action;
             }
             Popup::SwapMastery(mut picker, old) => {
                 sheet.popup = None;
@@ -819,6 +873,42 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
     }
 }
 
+/// After casting: roll the spell's attack and damage at the level used.
+fn cast_roll(sheet: &mut Sheet, lib: &Library, spell: dnt_data::EntityId, how: &str, msg: &str) -> Option<Action> {
+    if !crate::rolls::spell_rolls(lib, spell) {
+        return None;
+    }
+    let (atk, dc) = crate::rolls::spell_numbers(sheet, None);
+    let level = crate::rolls::cast_level(sheet, lib, spell, how);
+    let r = crate::rolls::spell(sheet, lib, spell, level, atk, dc);
+    Some(Action::Rolled(format!("{msg} · {}", r.line()), sheet.roller.to_notes))
+}
+
+/// Roll what the overview cursor is on (`save`: a saving throw for an ability).
+fn roll_item(sheet: &mut Sheet, save: bool) -> Action {
+    let rolled = match sheet.current_item() {
+        Some(Item::Stat(k)) if ABILITIES.iter().any(|(a, _)| *a == k) => {
+            if save {
+                crate::rolls::save(sheet, &k)
+            } else {
+                crate::rolls::check(sheet, &k, None)
+            }
+        }
+        Some(Item::Stat(k)) if k.starts_with("skill.") => {
+            let key = k.trim_start_matches("skill.");
+            let Some((_, name, ab)) = SKILLS.iter().find(|(s, _, _)| *s == key) else { return Action::None };
+            crate::rolls::check(sheet, ab, Some((key, name)))
+        }
+        Some(Item::Stat(k)) if k == "initiative" => crate::rolls::initiative(sheet),
+        Some(Item::Attack(slug)) => {
+            let Some(a) = sheet.build.attacks.iter().find(|a| a.slug == slug).cloned() else { return Action::None };
+            crate::rolls::attack(sheet, &a)
+        }
+        _ => return Action::Status("Roll an ability, skill, initiative or attack (r), or a save on an ability (R)".into()),
+    };
+    Action::Rolled(rolled.line(), sheet.roller.to_notes)
+}
+
 fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet) -> Action {
     let items = sheet.items();
     let n = items.len();
@@ -842,6 +932,28 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
             } else if let Some(Item::Toggle(_)) = items.get(sheet.cursor) {
                 return toggle(sheet, lib, overlays);
             }
+        }
+        KeyCode::Char('r') => return roll_item(sheet, false),
+        KeyCode::Char('R') => return roll_item(sheet, true),
+        KeyCode::Char('v') => {
+            let m = sheet.roller.cycle();
+            return Action::Status(match m {
+                dnt_rules::roll::Advantage::Normal => "Next roll: normal".into(),
+                m => format!("Next roll: {}", m.label()),
+            });
+        }
+        KeyCode::Char('N') => {
+            sheet.roller.to_notes = !sheet.roller.to_notes;
+            return Action::Status(if sheet.roller.to_notes { "Rolls go into the latest session note" } else { "Rolls stay on the sheet" }.into());
+        }
+        KeyCode::Char('C') => {
+            sheet.popup = Some(Popup::Conditions(0));
+            return Action::None;
+        }
+        KeyCode::Char('b') if matches!(items.get(sheet.cursor), Some(Item::Attack(_))) => {
+            let Some(Item::Attack(slug)) = items.get(sheet.cursor) else { unreachable!() };
+            let Some(i) = attack_line(sheet, lib, slug) else { return Action::None };
+            return hold(sheet, lib, overlays, i, Hand::Both);
         }
         KeyCode::Char(' ' | 'w' | 'o') if matches!(items.get(sheet.cursor), Some(Item::Attack(_))) => {
             let Some(Item::Attack(slug)) = items.get(sheet.cursor) else { unreachable!() };
@@ -913,7 +1025,10 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                 // Free (innate) casts first, if the grant has them.
                 if let Some(Row::GrantSpell { how: dnt_rules::spells::Grant::Innate(Some(_)), .. }) = &row {
                     return match spells_tab::cast(lib, &mut sheet.file.character, &sheet.ev, spell, "free") {
-                        Ok(msg) => changed(sheet, lib, overlays, msg),
+                        Ok(msg) => {
+                            let action = changed(sheet, lib, overlays, msg.clone());
+                            cast_roll(sheet, lib, spell, "free", &msg).unwrap_or(action)
+                        }
                         Err(msg) => Action::Status(msg),
                     };
                 }
@@ -939,6 +1054,21 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                     return changed(sheet, lib, overlays, "Removed".into());
                 }
             }
+        }
+        KeyCode::Char('r') => {
+            let Some(id) = row.as_ref().and_then(|r| r.spell_id()) else { return Action::None };
+            let Some(spell) = dnt_rules::overlay::resolve_id(lib, id) else { return Action::None };
+            if !crate::rolls::spell_rolls(lib, spell) {
+                return Action::Status(format!("{} has nothing to roll", lib.entity(spell).name));
+            }
+            let slug = match row.as_ref() {
+                Some(Row::ClassSpell { caster, .. }) => data.casters.get(*caster).map(|c| c.slug.clone()),
+                _ => None,
+            };
+            let (atk, dc) = crate::rolls::spell_numbers(sheet, slug.as_deref());
+            let level = dnt_rules::spells::spell_level(lib, spell);
+            let r = crate::rolls::spell(sheet, lib, spell, level, atk, dc);
+            return Action::Rolled(r.line(), sheet.roller.to_notes);
         }
         KeyCode::Char('f') => {
             if let Some(id) = row.as_ref().and_then(|r| r.spell_id()).map(str::to_string) {

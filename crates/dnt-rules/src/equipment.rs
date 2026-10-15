@@ -618,6 +618,10 @@ pub fn wield(lib: &Library, c: &mut Character, i: usize, hand: Hand) -> String {
         c.inventory[i].hand = None;
         return format!("Put away {name}");
     }
+    let versatile = d.and_then(|d| crate::attacks::Weapon::from_item("", d)).is_some_and(|w| w.has("V"));
+    if hand == Hand::Both && !two_handed && !versatile {
+        return format!("{name} is not used with two hands");
+    }
     let new = match (current, hand) {
         _ if two_handed => Hand::Both,
         (Some(Hand::Main), Hand::Off) | (Some(Hand::Off), Hand::Main) if quantity >= 2 && !shield => Hand::Pair,

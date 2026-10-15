@@ -579,6 +579,25 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
+    // ---- conditions and exhaustion (before attacks, which copy attack.bonus) ----
+    let rules_2024 = classes.first().is_none_or(|c| lib.entity(c.entity).source == "XPHB");
+    model.stats.push(StatDef::new("d20.penalty", "0", "no exhaustion"));
+    let state = &character.state;
+    model.effects.extend(crate::conditions::effects(&state.conditions, state.exhaustion, rules_2024));
+    if rules_2024 && state.exhaustion > 0 {
+        for c in &classes {
+            if c.casting_ability.is_some() {
+                model.effects.push(Effect {
+                    target: format!("spell.{}.attack", c.slug),
+                    op: Op::Add,
+                    value: Formula::constant(Value::int(-2 * state.exhaustion.min(6))),
+                    when: None,
+                    origin: format!("Exhaustion {}", state.exhaustion.min(6)),
+                });
+            }
+        }
+    }
+
     // ---- attacks (after overlays: their attack effects are copied) ----
     let class_entities: Vec<EntityId> = classes.iter().map(|c| c.entity).collect();
     let proficiency_sources: Vec<EntityId> = features

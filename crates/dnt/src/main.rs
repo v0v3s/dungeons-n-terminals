@@ -9,6 +9,7 @@ mod levelup;
 mod notes_view;
 mod overlay_editor;
 mod picker;
+mod rolls;
 mod render;
 mod spells_tab;
 mod theme;
