@@ -505,5 +505,13 @@ enabled for that campaign.
    container keeps its contents.
    *Done* (not yet: generic "+1 Weapon" variants without a base weapon,
    Great Weapon Fighting rerolls).
-7. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
+7. **Rule gaps** — specific magic items generated from magic variants
+   (+1 Longsword, Flame Tongue Greatsword) as on the data site;
+   subclass expanded spell lists in the class picker (2014 patrons by
+   spell level, Eldritch Knight and Arcane Trickster Wizard lists by
+   class level); Mystic Arcanum choices (level 6–9 Warlock spells, a free
+   cast per long rest each); cantrip and prepared/known limits enforced
+   (Wizard spellbooks are open), "N spells to choose" on the sheet and
+   after a level-up.
+8. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

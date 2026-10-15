@@ -391,7 +391,16 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     levelup::Outcome::Apply => {
                         sheet.popup = None;
                         let status = flow.apply(&mut sheet.file.character);
-                        return changed(sheet, lib, overlays, status);
+                        let action = changed(sheet, lib, overlays, status.clone());
+                        // New spells to learn or prepare at the new level.
+                        let casters = dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev);
+                        let gaps = spells_tab::spell_gaps(&sheet.file.character, &casters);
+                        if !gaps.is_empty() {
+                            if let Action::Save(_) = action {
+                                return Action::Save(format!("{status} · to choose on the Spells tab: {}", spells_tab::describe_gaps(&gaps)));
+                            }
+                        }
+                        return action;
                     }
                 }
                 return Action::None;
@@ -525,8 +534,15 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     .filter_map(|i| dnt_rules::overlay::resolve_id(lib, i))
                     .map(|e| lib.entity(e).name.clone())
                     .collect();
-                spells_tab::add(lib, &mut sheet.file.character, &target, ids);
-                return changed(sheet, lib, overlays, format!("Added {}", names.join(", ")));
+                let casters = dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev);
+                let limits = match &target {
+                    spells_tab::Target::Class { class_id, .. } => casters.iter().find(|c| &c.id == class_id).map(|c| &c.limits),
+                    _ => None,
+                };
+                return match spells_tab::add(lib, &mut sheet.file.character, &target, ids, limits) {
+                    Ok(()) => changed(sheet, lib, overlays, format!("Added {}", names.join(", "))),
+                    Err(e) => Action::Status(e),
+                };
             }
             Popup::Cast(mut picker, spell) => {
                 sheet.popup = None;
@@ -828,8 +844,10 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
         },
         KeyCode::Char('p') => {
             if let Some(r) = &row {
-                if let Some(on) = spells_tab::toggle_prepared(&mut sheet.file.character, &data.casters, r) {
-                    return changed(sheet, lib, overlays, if on { "Prepared".into() } else { "Unprepared".into() });
+                match spells_tab::toggle_prepared(&mut sheet.file.character, &data.casters, r) {
+                    Some(Ok(on)) => return changed(sheet, lib, overlays, if on { "Prepared".into() } else { "Unprepared".into() }),
+                    Some(Err(e)) => return Action::Status(e),
+                    None => {}
                 }
             }
         }

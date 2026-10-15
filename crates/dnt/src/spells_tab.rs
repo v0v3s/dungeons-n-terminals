@@ -122,6 +122,37 @@ pub fn rows(lib: &Library, ch: &Character, build: &dnt_rules::builder::Build, ev
     Rows { casters, rows }
 }
 
+/// Free places per casting class: (class, cantrips, prepared or known
+/// spells) still to choose. Wizards' spellbooks are not counted.
+pub fn spell_gaps(ch: &Character, casters: &[Caster]) -> Vec<(String, i64, i64)> {
+    casters
+        .iter()
+        .filter_map(|c| {
+            let mine = ch.spells.classes.get(&c.id).cloned().unwrap_or_default();
+            let cantrips = (c.limits.cantrips - mine.cantrips.len() as i64).max(0);
+            let spells = (c.limits.spells - mine.prepared.len() as i64).max(0);
+            (cantrips + spells > 0).then(|| (c.name.clone(), cantrips, spells))
+        })
+        .collect()
+}
+
+/// "Wizard: 1 cantrip, 2 spells" for the status line.
+pub fn describe_gaps(gaps: &[(String, i64, i64)]) -> String {
+    gaps.iter()
+        .map(|(name, cantrips, spells)| {
+            let mut parts = Vec::new();
+            if *cantrips > 0 {
+                parts.push(format!("{cantrips} cantrip{}", if *cantrips == 1 { "" } else { "s" }));
+            }
+            if *spells > 0 {
+                parts.push(format!("{spells} spell{}", if *spells == 1 { "" } else { "s" }));
+            }
+            format!("{name}: {}", parts.join(", "))
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
 /// Mark or unmark a spell as a favorite; returns whether it is one now.
 pub fn toggle_favorite(ch: &mut Character, id: &str) -> bool {
     let favs = &mut ch.spells.favorites;
@@ -162,7 +193,7 @@ fn spell_item(lib: &Library, e: EntityId) -> PickItem {
 pub fn class_picker(lib: &Library, ch: &Character, c: &Caster, filter: &SourceFilter) -> (Picker, Target) {
     let mine = ch.spells.classes.get(&c.id).cloned().unwrap_or_default();
     let have: Vec<&String> = mine.cantrips.iter().chain(&mine.prepared).chain(&mine.spellbook).collect();
-    let items: Vec<PickItem> = spells::class_spell_list(lib, &c.name, c.limits.max_level, filter)
+    let items: Vec<PickItem> = spells::caster_spell_list(lib, c, filter)
         .into_iter()
         .filter(|&e| !have.contains(&&spells::spell_id(lib, e)))
         .filter(|&e| spells::spell_level(lib, e) > 0 || c.limits.cantrips > 0)
@@ -192,11 +223,26 @@ pub fn grant_picker(lib: &Library, ch: &Character, key: &str, filter_text: &str,
     (picker, Target::Grant { key: key.to_string() })
 }
 
-/// Add picked spells to the character.
-pub fn add(lib: &Library, ch: &mut Character, target: &Target, ids: Vec<String>) {
+/// Add picked spells to the character, within the class's limits
+/// (cantrips, prepared or known spells; a Wizard's spellbook has none).
+pub fn add(lib: &Library, ch: &mut Character, target: &Target, ids: Vec<String>, limits: Option<&spells::ClassLimits>) -> Result<(), String> {
     match target {
         Target::Class { class_id, wizard, .. } => {
             let entry = ch.spells.classes.entry(class_id.clone()).or_default();
+            if let Some(l) = limits {
+                let new_cantrips = ids.iter().filter(|id| resolve_id(lib, id).is_some_and(|e| spells::spell_level(lib, e) == 0)).count() as i64;
+                let new_spells = ids.len() as i64 - new_cantrips;
+                if new_cantrips > 0 && entry.cantrips.len() as i64 + new_cantrips > l.cantrips {
+                    return Err(format!("Cantrips {}/{}: remove one first (x)", entry.cantrips.len(), l.cantrips));
+                }
+                let what = match l.list {
+                    spells::SpellList::Prepared => "Prepared",
+                    spells::SpellList::Known => "Known",
+                };
+                if !wizard && new_spells > 0 && entry.prepared.len() as i64 + new_spells > l.spells {
+                    return Err(format!("{what} {}/{}: remove one first (x)", entry.prepared.len(), l.spells));
+                }
+            }
             for id in ids {
                 let cantrip = resolve_id(lib, &id).is_some_and(|e| spells::spell_level(lib, e) == 0);
                 let list = match (cantrip, wizard) {
@@ -211,6 +257,7 @@ pub fn add(lib: &Library, ch: &mut Character, target: &Target, ids: Vec<String>)
         }
         Target::Grant { key } => ch.spells.chosen.entry(key.clone()).or_default().extend(ids),
     }
+    Ok(())
 }
 
 /// Remove the spell on a row.
@@ -237,22 +284,26 @@ pub fn remove(ch: &mut Character, casters: &[Caster], row: &Row) -> bool {
     }
 }
 
-/// Toggle preparing a spellbook spell (Wizards).
-pub fn toggle_prepared(ch: &mut Character, casters: &[Caster], row: &Row) -> Option<bool> {
+/// Toggle preparing a spellbook spell (Wizards), within the prepared limit.
+pub fn toggle_prepared(ch: &mut Character, casters: &[Caster], row: &Row) -> Option<Result<bool, String>> {
     let Row::ClassSpell { caster, id, slot } = row else { return None };
     casters[*caster].limits.spellbook?;
+    let max = casters[*caster].limits.spells;
     let entry = ch.spells.classes.entry(casters[*caster].id.clone()).or_default();
     match slot {
+        Slot::Book if entry.prepared.len() as i64 >= max => {
+            Some(Err(format!("Prepared {}/{max}: unprepare one first (p)", entry.prepared.len())))
+        }
         Slot::Book => {
             entry.prepared.push(id.clone());
-            Some(true)
+            Some(Ok(true))
         }
         Slot::Prepared => {
             entry.prepared.retain(|s| s != id);
             if !entry.spellbook.contains(id) {
                 entry.spellbook.push(id.clone());
             }
-            Some(false)
+            Some(Ok(false))
         }
         Slot::Cantrip => None,
     }

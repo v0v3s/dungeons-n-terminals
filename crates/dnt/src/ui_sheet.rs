@@ -181,6 +181,13 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         warn.push(Span::styled(" c ", theme.keycap));
         warn.push(Span::raw("   "));
     }
+    let gaps = crate::spells_tab::spell_gaps(ch, &dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev));
+    let open: i64 = gaps.iter().map(|(_, c, s)| c + s).sum();
+    if open > 0 {
+        warn.push(Span::styled(format!(" {open} spell(s) to choose "), theme.category_active));
+        warn.push(Span::styled("  Spells tab ", theme.dim));
+        warn.push(Span::raw("   "));
+    }
     if !sheet.build.warnings.is_empty() {
         warn.push(Span::styled(format!("⚠ {} warning(s) ", sheet.build.warnings.len()), Style::new().fg(Color::Yellow)));
     }

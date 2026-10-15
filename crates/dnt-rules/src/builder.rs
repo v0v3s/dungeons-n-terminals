@@ -500,14 +500,40 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             sources.push((f.entity, total));
         }
     }
-    let mut innate: Vec<(Resource, String)> = Vec::new();
+    let mut sets: Vec<(String, String, Vec<spells::Granted>)> = Vec::new();
     for (e, level) in sources {
         let grants = spells::granted_spells(&lib.entity(e).data, level);
-        if grants.is_empty() {
-            continue;
+        if !grants.is_empty() {
+            let ent = lib.entity(e);
+            sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
         }
-        let ent = lib.entity(e);
-        let key = format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source);
+    }
+    // Mystic Arcanum (Warlock 11, 13, 15, 17): a level 6–9 Warlock spell
+    // each, cast once per long rest without a slot.
+    let mut arcana: Vec<i64> = features
+        .iter()
+        .map(|f| lib.entity(f.entity))
+        .filter(|e| e.kind == Kind::ClassFeature && e.name.starts_with("Mystic Arcanum"))
+        .filter(|e| e.data.get("className").and_then(Json::as_str) == Some("Warlock"))
+        .filter_map(|e| e.data.get("level").and_then(Json::as_i64))
+        .filter(|l| *l >= 11)
+        .map(|l| 6 + (l - 11) / 2)
+        .collect();
+    arcana.sort();
+    arcana.dedup();
+    if !arcana.is_empty() {
+        let grants = arcana
+            .iter()
+            .map(|lvl| spells::Granted::Choice {
+                filter: format!("level={lvl}|class=Warlock"),
+                count: 1,
+                grant: spells::Grant::Innate(Some(1)),
+            })
+            .collect();
+        sets.push(("Mystic Arcanum".into(), "classFeature:Mystic Arcanum|Warlock".into(), grants));
+    }
+    let mut innate: Vec<(Resource, String)> = Vec::new();
+    for (origin, key, grants) in sets {
         for (i, g) in grants.iter().enumerate() {
             // Innate casts per long rest become trackable resources.
             let (ids, uses) = match g {
@@ -528,15 +554,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                         recharge: crate::overlay::Recharge::LongRest,
                         short_rest_regain: None,
                     },
-                    ent.name.clone(),
+                    origin.clone(),
                 ));
             }
         }
-        granted.push(GrantedSpells {
-            origin: ent.name.clone(),
-            key,
-            grants,
-        });
+        granted.push(GrantedSpells { origin, key, grants });
     }
     for (r, _) in &innate {
         model.stats.push(StatDef {
@@ -685,7 +707,7 @@ mod tests {
                  "casterProgression": "pact", "spellcastingAbility": "cha",
                  "classTableGroups": [{"colLabels": ["Spell Slots", "Slot Level"],
                                        "rows": [[1, "1st"], [2, "1st"], [2, "2nd"]]}],
-                 "classFeatures": []}
+                 "classFeatures": ["Mystic Arcanum|Warlock|T|11", "Mystic Arcanum|Warlock|T|13"]}
             ],
             "subclass": [
                 {"name": "Eldritch Knight", "shortName": "Eldritch Knight", "source": "T", "className": "Fighter", "classSource": "T",
@@ -698,8 +720,11 @@ mod tests {
                 {"name": "Arcane Recovery", "source": "T", "className": "Wizard", "classSource": "T", "level": 1, "entries": ["x"]},
                 {"name": "Scholar", "source": "T", "className": "Wizard", "classSource": "T", "level": 2, "entries": ["x"]},
                 {"name": "Second Wind", "source": "T", "className": "Fighter", "classSource": "T", "level": 1, "entries": ["x"]},
-                {"name": "Fighter Subclass", "source": "T", "className": "Fighter", "classSource": "T", "level": 3, "entries": ["x"]}
+                {"name": "Fighter Subclass", "source": "T", "className": "Fighter", "classSource": "T", "level": 3, "entries": ["x"]},
+                {"name": "Mystic Arcanum", "source": "T", "className": "Warlock", "classSource": "T", "level": 11, "entries": ["x"]},
+                {"name": "Mystic Arcanum", "source": "T", "className": "Warlock", "classSource": "T", "level": 13, "entries": ["x"]}
             ],
+            "spell": [{"name": "Eyebite", "source": "T", "level": 6, "entries": ["x"]}],
             "subclassFeature": [
                 {"name": "Eldritch Knight", "source": "T", "className": "Fighter", "classSource": "T",
                  "subclassShortName": "Eldritch Knight", "subclassSource": "T", "level": 3,
@@ -771,6 +796,24 @@ mod tests {
         assert_eq!(ev.int("slots.1.max"), Some(2), "wizard 1 alone");
         assert_eq!(ev.int("pact.slots.max"), Some(2));
         assert_eq!(b.model.inputs["pact.level"], Value::int(2));
+    }
+
+    #[test]
+    fn mystic_arcanum() {
+        let lib = library();
+        let mut c = character(&["Warlock"; 12]);
+        let b = build(&c, &lib, &OverlaySet::default());
+        let arcanum = b.granted.iter().find(|g| g.origin == "Mystic Arcanum").expect("level 11 arcanum");
+        assert_eq!(arcanum.grants.len(), 1);
+        assert!(matches!(&arcanum.grants[0], spells::Granted::Choice { filter, grant: spells::Grant::Innate(Some(1)), .. } if filter == "level=6|class=Warlock"));
+        // A chosen arcanum is a free cast per long rest.
+        c.spells.chosen.insert(format!("{}#0", arcanum.key), vec!["spell:Eyebite|T".into()]);
+        let b = build(&c, &lib, &OverlaySet::default());
+        assert!(b.resources.iter().any(|(r, _)| r.key == "innate_eyebite"));
+        let c = character(&["Warlock"; 13]);
+        let b = build(&c, &lib, &OverlaySet::default());
+        assert_eq!(b.granted.iter().find(|g| g.origin == "Mystic Arcanum").unwrap().grants.len(), 2);
+        assert!(build(&character(&["Warlock"; 3]), &lib, &OverlaySet::default()).granted.iter().all(|g| g.origin != "Mystic Arcanum"));
     }
 
     #[test]

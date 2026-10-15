@@ -83,6 +83,48 @@ pub struct Caster {
     pub slug: String,
     pub level: i64,
     pub limits: ClassLimits,
+    /// Spells the subclass adds to the class's list (`expanded`): spell
+    /// refs (`spell:faerie fire|phb`) and filters (`level=1|class=Wizard`).
+    pub expanded: Vec<Expanded>,
+}
+
+/// One entry of an expanded spell list.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expanded {
+    Spell(String),
+    Filter(String),
+}
+
+/// A subclass's expanded spell list at a class level: keys are class
+/// levels (`"3"`), or spell levels (`"s1"`, 2014 Warlock patrons) that
+/// apply once the caster can cast them.
+pub fn expanded_list(subclass: &Json, class_level: i64, max_spell_level: i64) -> Vec<Expanded> {
+    let mut out = Vec::new();
+    for alt in subclass.get("additionalSpells").and_then(Json::as_array).into_iter().flatten() {
+        for (k, list) in alt.get("expanded").and_then(Json::as_object).into_iter().flatten() {
+            let open = match k.strip_prefix('s') {
+                Some(n) => n.parse::<i64>().is_ok_and(|n| n <= max_spell_level),
+                None => k.parse::<i64>().is_ok_and(|n| n <= class_level),
+            };
+            if !open {
+                continue;
+            }
+            for entry in list.as_array().into_iter().flatten() {
+                let e = match entry {
+                    Json::String(r) => Expanded::Spell(format!("spell:{}", r.split('#').next().unwrap_or(r))),
+                    Json::Object(o) => match o.get("all").and_then(Json::as_str) {
+                        Some(f) => Expanded::Filter(f.to_string()),
+                        None => continue,
+                    },
+                    _ => continue,
+                };
+                if !out.contains(&e) {
+                    out.push(e);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// The character's spellcasting classes (including subclass casters such
@@ -107,6 +149,7 @@ pub fn casters(lib: &Library, build: &crate::builder::Build, ev: &crate::engine:
                 _ => &lib.entity(c.entity).data,
             };
             let mods = |ab: &str| ev.int(&format!("mod.{ab}")).unwrap_or(0);
+            let expanded = c.subclass.map(|s| expanded_list(&lib.entity(s).data, c.level, max_level)).unwrap_or_default();
             Caster {
                 class_index: i,
                 id: c.id.clone(),
@@ -114,6 +157,7 @@ pub fn casters(lib: &Library, build: &crate::builder::Build, ev: &crate::engine:
                 slug: c.slug.clone(),
                 level: c.level,
                 limits: class_limits(data, c.level, max_level, &mods),
+                expanded,
             }
         })
         .collect()
@@ -141,6 +185,25 @@ pub fn spell_level(lib: &Library, spell: EntityId) -> i64 {
 pub fn spell_id(lib: &Library, spell: EntityId) -> String {
     let e = lib.entity(spell);
     format!("spell:{}|{}", e.name, e.source)
+}
+
+/// What a caster can choose from: the class's list plus the subclass's
+/// expanded spells, up to the highest spell level it can cast.
+pub fn caster_spell_list(lib: &Library, c: &Caster, filter: &SourceFilter) -> Vec<EntityId> {
+    let mut out = class_spell_list(lib, &c.name, c.limits.max_level, filter);
+    for e in &c.expanded {
+        let found = match e {
+            Expanded::Spell(id) => crate::overlay::resolve_id(lib, id).into_iter().collect(),
+            Expanded::Filter(f) => filter_spells(lib, f, filter),
+        };
+        for s in found {
+            if spell_level(lib, s) <= c.limits.max_level && !out.contains(&s) {
+                out.push(s);
+            }
+        }
+    }
+    out.sort_by(|&a, &b| spell_level(lib, a).cmp(&spell_level(lib, b)).then(lib.entity(a).name.cmp(&lib.entity(b).name)));
+    out
 }
 
 /// Spells on a class's list (by class name, so 2014 classes see 2024
@@ -352,5 +415,20 @@ mod tests {
         assert!(g.contains(&Granted::Spell { id: "spell:dancing lights|xphb".into(), grant: Grant::Known }));
         assert_eq!(describe_filter("level=0|class=Cleric"), "Cleric cantrip");
         assert_eq!(describe_filter("level=0;1;2|class=Wizard|school=V"), "Wizard Evocation spell (level 0–2)");
+    }
+
+    #[test]
+    fn expanded_lists() {
+        let fiend = json!({"additionalSpells": [{"expanded": {"s1": ["burning hands", "command"], "s3": ["fireball"]}}]});
+        assert_eq!(
+            expanded_list(&fiend, 3, 2),
+            vec![Expanded::Spell("spell:burning hands".into()), Expanded::Spell("spell:command".into())],
+            "level 3 spells once the caster has them"
+        );
+        assert_eq!(expanded_list(&fiend, 5, 3).len(), 3);
+        let ek = json!({"additionalSpells": [{"expanded": {"3": [{"all": "level=0|class=Wizard"}, {"all": "level=1|class=Wizard"}],
+                                                             "7": [{"all": "level=2|class=Wizard"}]}}]});
+        assert_eq!(expanded_list(&ek, 3, 1).len(), 2);
+        assert_eq!(expanded_list(&ek, 7, 2)[2], Expanded::Filter("level=2|class=Wizard".into()));
     }
 }
