@@ -1,4 +1,4 @@
-//! Converts data `entries` trees into a small, renderer-agnostic document
+//! Converts `entries` trees (see schemas/) into a small, renderer-agnostic document
 //! model. The TUI turns [`Block`]s into terminal lines.
 
 use serde_json::Value;

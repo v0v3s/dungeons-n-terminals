@@ -57,7 +57,7 @@ pub struct Config {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct LibraryConfig {
-    /// Path to a data data checkout.
+    /// Path to the data directory (see schemas/README.md).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
     /// Extra homebrew JSON files.
@@ -344,7 +344,7 @@ fn read_json(path: &Path) -> Result<serde_json::Value> {
 
 /// A short source abbreviation from a campaign name: `Curse of Strahd` →
 /// `CoS`, `Waterdeep: Dragon Heist` → `WDH`. Small words stay lowercase,
-/// as in data (`CoS`, `ToA`).
+/// as in the source abbreviations of the data (`CoS`, `ToA`).
 pub fn source_abbreviation(name: &str) -> String {
     const SMALL: &[&str] = &["of", "the", "and", "a", "an", "in", "on", "to", "for"];
     let abbr: String = name

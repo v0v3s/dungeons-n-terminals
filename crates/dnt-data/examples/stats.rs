@@ -1,6 +1,6 @@
-//! Load a data data directory and report counts, timing and link health.
+//! Load a data directory and report counts, timing and link health.
 //!
-//! cargo run --release -p dnt-data --example stats -- /path/to/dnd-data
+//! cargo run --release -p dnt-data --example stats -- /path/to/data
 
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -10,7 +10,7 @@ use dnt_data::{doc, view, Library};
 fn main() {
     let path = std::env::args().nth(1).expect("usage: stats <data dir>");
     let start = Instant::now();
-    let lib = Library::load_data_dir(path.as_ref()).expect("load failed");
+    let lib = Library::load_dir(path.as_ref()).expect("load failed");
     println!("loaded {} entities in {:?}", lib.entities().len(), start.elapsed());
 
     let mut by_kind: BTreeMap<String, usize> = BTreeMap::new();

@@ -654,7 +654,7 @@ impl NotesView {
 }
 
 /// Find a compendium entity for a `[[kind:Name]]` link, preferring ones the
-/// campaign enables. `kind` is a data tag (`spell`, `item`, `race`, …).
+/// campaign enables. `kind` is a tag name (`spell`, `item`, `race`, …).
 pub fn find_entity(lib: &Library, kind: &str, name: &str, filter: &SourceFilter) -> Option<EntityId> {
     let kinds: Vec<Kind> = match Kind::for_tag(kind) {
         [] => Kind::from_json_key(kind).into_iter().collect(),

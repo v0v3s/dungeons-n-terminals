@@ -1,4 +1,4 @@
-//! Resolution of data `_copy` inheritance: an entity declares
+//! Resolution of `_copy` inheritance in the data format: an entity declares
 //! `"_copy": {"name", "source", "_mod": {...}, "_preserve": {...}}` and is
 //! built from the referenced base plus modifications.
 

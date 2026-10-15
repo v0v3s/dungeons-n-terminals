@@ -7,7 +7,7 @@
 set -eu
 
 dir=${1:?usage: sandbox.sh DIR [DATA_DIR]}
-data=${2:-${DNT_DATA:-$HOME/Projects/third-party/dnd-data}}
+data=${2:-${DNT_DATA:?give the data directory or set DNT_DATA}}
 campaign="$dir/data/dnt/campaigns/curse-of-strahd"
 
 mkdir -p "$dir/config/dnt" "$campaign/characters" "$campaign/notes"

@@ -203,7 +203,7 @@ pub fn damage(rng: &mut Rng, value: &Value, rules: DamageRules) -> Damage {
     Damage { dice, flat, total }
 }
 
-/// Parse a dice expression like `2d6 + 3` (as in data tags).
+/// Parse a dice expression like `2d6 + 3` (as in inline tags).
 pub fn parse_dice(text: &str) -> Option<Dice> {
     match crate::formula::Formula::parse(text).ok()?.eval(&std::collections::HashMap::<String, Value>::new()).ok()? {
         Value::Dice(d) => Some(d),

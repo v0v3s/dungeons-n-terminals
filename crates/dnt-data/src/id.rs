@@ -1,4 +1,4 @@
-//! Entity identity, following the data's pipe-delimited reference conventions.
+//! Entity identity, following the data format's pipe-delimited references.
 //!
 //! Lookup keys are lowercase and fully qualified (defaults filled in), so
 //! that a tag like `{@classFeature Rage|Barbarian||1}` and the feature's own
@@ -38,7 +38,7 @@ impl Key {
     }
 
     /// Build a key from the pipe-separated parts of a reference (an inline
-    /// tag's arguments, or a `classFeatures` entry), filling data defaults.
+    /// tag's arguments, or a `classFeatures` entry), filling the format's defaults.
     /// Returns the key and the index of the part holding display text, if any.
     pub fn from_ref(kind: Kind, tag: &str, parts: &[&str]) -> Option<(Key, Option<usize>)> {
         let part = |i: usize| parts.get(i).copied().map(str::trim).filter(|p| !p.is_empty());
@@ -75,7 +75,7 @@ pub fn entity_source(obj: &Value) -> Option<&str> {
 }
 
 /// The human-facing name of an entity. Subraces are shown as
-/// `Race (Subrace)`, matching how data tags refer to them.
+/// `Race (Subrace)`, matching how tags refer to them.
 pub fn display_name(kind: Kind, obj: &Value) -> Option<String> {
     let name = obj.get("name").and_then(Value::as_str)?;
     if kind == Kind::Subrace {

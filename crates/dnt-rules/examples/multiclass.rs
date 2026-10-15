@@ -1,6 +1,6 @@
-//! Build a 4-class character from real data data and print the result.
+//! Build a 4-class character from a real data directory and print the result.
 //!
-//! cargo run -p dnt-rules --example multiclass -- /path/to/dnd-data
+//! cargo run -p dnt-rules --example multiclass -- /path/to/data
 
 use dnt_data::Library;
 use dnt_rules::builder::build;
@@ -53,7 +53,7 @@ shield = true
 
 fn main() {
     let path = std::env::args().nth(1).expect("usage: multiclass <data dir>");
-    let lib = Library::load_data_dir(path.as_ref()).expect("load");
+    let lib = Library::load_dir(path.as_ref()).expect("load");
     let character = Character::from_toml(CHARACTER).expect("character");
     let b = build(&character, &lib, &OverlaySet::default());
     println!("{} — {}", character.name, b.class_summary());

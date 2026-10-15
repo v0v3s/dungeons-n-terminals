@@ -1,4 +1,4 @@
-//! Editing a campaign's homebrew document (data homebrew JSON): cloning
+//! Editing a campaign's homebrew document (a data file with `_meta`, see schemas/): cloning
 //! entities, changing and reverting fields, and converting `entries` to and
 //! from Markdown for editing.
 
@@ -236,7 +236,7 @@ const LINK_TAGS: &[&str] = &[
     "status",
 ];
 
-/// data inline tags → Markdown: `{@b x}` → `**x**`, `{@i x}` → `*x*`,
+/// Inline tags → Markdown: `{@b x}` → `**x**`, `{@i x}` → `*x*`,
 /// `{@spell Fireball|XPHB}` → `[[spell:Fireball@XPHB]]`; others unchanged.
 pub fn tags_to_markdown(s: &str) -> String {
     let mut out = String::new();
@@ -291,7 +291,7 @@ pub fn tags_to_markdown(s: &str) -> String {
     out
 }
 
-/// Markdown → data inline tags (the reverse of [`tags_to_markdown`]).
+/// Markdown → inline tags (the reverse of [`tags_to_markdown`]).
 pub fn markdown_to_tags(s: &str) -> String {
     // Links first, so `**` inside display text still converts.
     let mut out = String::new();

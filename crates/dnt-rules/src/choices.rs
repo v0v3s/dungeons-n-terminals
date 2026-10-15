@@ -45,7 +45,7 @@ pub struct Choice {
     pub options: Vec<ChoiceOption>,
 }
 
-/// Running total of a data progression at `level`: arrays give the total
+/// Running total of a progression at `level`: arrays give the total
 /// per level, objects give totals at the listed levels.
 fn progression_total(p: &Json, level: i64) -> i64 {
     match p {
@@ -108,7 +108,7 @@ fn known_spells(lib: &Library, c: &Character) -> Vec<EntityId> {
         .collect()
 }
 
-/// Why an option's prerequisites are not met, or `None`. data lists
+/// Why an option's prerequisites are not met, or `None`. The data lists
 /// alternatives; all parts of one alternative must hold: a class level,
 /// other options taken (Pact of the Blade), spells known.
 fn unmet_prerequisite(

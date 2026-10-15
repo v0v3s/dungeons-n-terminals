@@ -1,8 +1,9 @@
 # dungeons-n-terminals (`dnt`) — Design
 
 A keyboard-driven TUI for D&D 5e **players**: compendium, assisted character
-management, and campaign-scoped notes. Data comes from user-supplied
-[data](https://data) JSON (official + homebrew). No dice rolling (yet).
+management, campaign-scoped notes and dice. Game data comes from a
+user-supplied data directory in the JSON format documented in `schemas/`
+(rules data and homebrew alike).
 
 ## Goals
 
@@ -13,11 +14,11 @@ management, and campaign-scoped notes. Data comes from user-supplied
   overlay files with a small formula language, without touching source data.
 - **Plain files**: characters and overlays are TOML, notes are Markdown — all
   git/sync friendly and editable outside the app.
-- **No bundled game data**: the user imports their own data data.
+- **No bundled game data**: the user provides their own data directory.
 
 ## Non-goals (for now)
 
-- Dice rolling, DM tools (encounters, monsters as a focus), online sync,
+- DM tools (encounters, monsters as a focus), online sync,
   multiplayer.
 
 ## Stack
@@ -50,31 +51,36 @@ UI-free crates stay testable without a terminal.
 ```
 $XDG_DATA_HOME/dnt/            (~/.local/share/dnt)
   library/
-    sources/      raw imported data JSON, untouched
-    overlays/     automation overlays (built-in + user), *.toml
-    cache/        parsed/resolved library + search index (rebuildable)
+    homebrew/*.json   homebrew shared by every campaign
+    overlays/*.toml   the user's rules (built-in ones ship in the binary)
   campaigns/
     <slug>/
       campaign.toml           name, enabled sources, settings
       characters/<slug>.toml  choices + state + overrides
+      homebrew.json           the campaign's homebrew
       notes/**/*.md           free-form tree
-$XDG_CONFIG_HOME/dnt/config.toml   keybindings, theme, paths
+      exports/                exported sheets
+  templates/*.md      the user's note templates
+$XDG_CONFIG_HOME/dnt/config.toml   the data directory, the last campaign
+
+The data directory itself is read in place at every start (nothing is
+copied or cached).
 ```
 
 ## 1. Compendium
 
 ### Import
-- Local directory (clone of the data data repo), single files, homebrew
-  files (`_meta` block).
+- A data directory laid out as in `schemas/README.md`, single files,
+  homebrew files (`_meta` block).
 - Entity types: `class`, `subclass`, `classFeature`, `subclassFeature`, `spell`,
   `race`/`subrace`, `background`, `feat`, `optionalfeature`, `item`,
   `baseitem`, `condition`, `language`, `skill`, `action`.
 - Resolve `_copy` (with `_mod`) at import time; record `reprintedAs`.
 - Spell ↔ class lists come from the separate lookup files, not the spell entry.
-- Result is cached; re-import only on source change.
+- Loaded in parallel at start (a quarter of a second for the core books).
 
 ### Identity
-Entities are addressed with data-style IDs:
+Entities are addressed with IDs in the data's own reference style:
 `<type>:<name>|<source>[|...]`, compared case-insensitively, e.g.
 `spell:fireball|xphb`, `classFeature:Crimson Rite|Blood Hunter|BH|1`.
 
@@ -134,7 +140,7 @@ Because stats are always recomputed, fixing an overlay fixes every character.
 ### Creation wizard
 Ruleset/sources (from campaign) → Species → Class → Background → Ability
 scores (point buy, standard array, manual) → Skills/proficiencies → Equipment
-→ Spells → Details. Choices encoded in data data (`skillProficiencies`
+→ Spells → Details. Choices encoded in the data (`skillProficiencies`
 `choose`, `additionalSpells`, optional feature progressions, …) become wizard
 steps.
 
@@ -369,17 +375,17 @@ threads · Next time.
 
 ## 5. Campaign layer: homebrew, clones and overrides
 
-Imported data (data, homebrew files) is never edited. Each campaign has
-its own homebrew file, `campaigns/<slug>/homebrew.json` (standard data
-homebrew format), with a campaign source (e.g. `CoS`) that is always
+Imported data (the data directory, homebrew files) is never edited. Each
+campaign has its own homebrew file, `campaigns/<slug>/homebrew.json` (a
+data file with a `_meta` block, see `schemas/`), with a campaign source (e.g. `CoS`) that is always
 enabled for that campaign.
 
 - **Create** new entities (items first, then spells, feats, optional
   features, class/subclass features, species, backgrounds, later whole
   subclasses/classes).
-- **Clone** any entity, stored as a diff via data `_copy` (only changed
-  fields are written; upstream fixes still flow in; data/Foundry can
-  load the file). Two modes:
+- **Clone** any entity, stored as a diff via `_copy` (only changed
+  fields are written; upstream fixes still flow in; other tools that read
+  the format can load the file). Two modes:
   - **Replace the original** (`"_dnt": {"replaces": true}`): within the
     campaign the clone is used everywhere instead of the original —
     compendium, search, note links, pickers and existing characters.
@@ -393,7 +399,7 @@ enabled for that campaign.
   to 1 minute", classes "Wizard, Druid", value "50 gp", attunement "by a
   wizard" — or picked from a list (level, school, rarity, item type,
   damage type, weapon and feat category, ritual). Descriptions are
-  Markdown in the built-in editor (converted to data entries), any
+  Markdown in the built-in editor (converted to `entries`), any
   field can be edited as JSON (`J`), and `E` opens the whole entry in
   `$EDITOR` (validated on save: still an object, same source; a campaign
   version keeps its name and `_copy`). A live preview shows the result.
@@ -506,7 +512,7 @@ enabled for that campaign.
    *Done* (not yet: generic "+1 Weapon" variants without a base weapon,
    Great Weapon Fighting rerolls).
 7. **Rule gaps** — specific magic items generated from magic variants
-   (+1 Longsword, Flame Tongue Greatsword) as on the data site;
+   (+1 Longsword, Flame Tongue Greatsword) from `magicvariant` templates;
    subclass expanded spell lists in the class picker (2014 patrons by
    spell level, Eldritch Knight and Arcane Trickster Wizard lists by
    class level); Mystic Arcanum choices (level 6–9 Warlock spells, a free

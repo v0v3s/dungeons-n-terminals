@@ -91,7 +91,7 @@ fn cell_value(cell: &Json) -> Value {
     }
 }
 
-/// Extract all table columns of a class (its data JSON).
+/// Extract all table columns of a class (its JSON).
 pub fn class_columns(class: &Json) -> Vec<ClassColumn> {
     let name = class.get("name").and_then(Json::as_str).unwrap_or("class");
     table_columns(class.get("classTableGroups"), &slug(name))

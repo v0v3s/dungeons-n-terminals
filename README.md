@@ -2,8 +2,9 @@
 
 `dnt` is a D&D 5e companion for players, in the terminal: a compendium,
 character sheets that do the maths, dice, campaign notes and campaign
-homebrew. It reads the rules from a local [data](https://github.com/data/dnd-data)
-data checkout and works with the 2024 and the 2014 rules.
+homebrew. It reads the rules from a data directory you provide, in the
+JSON format described in [`schemas/`](schemas/README.md), and works with
+the 2024 and the 2014 rules. dnt ships no game content.
 
 - **Compendium** — fuzzy search over spells, classes, species, feats,
   items and rules, with filters (`@XPHB #spell ^3 *fire "concentration"`),
@@ -33,7 +34,8 @@ data checkout and works with the 2024 and the 2014 rules.
 
 Download the binary from the
 [latest release](https://github.com/v0v3s/dungeons-n-terminals/releases/latest),
-or build it. Either way you need a copy of the data data.
+or build it. Either way you need a data directory (see
+[`schemas/README.md`](schemas/README.md) for the layout).
 
 ```sh
 # Linux
@@ -48,11 +50,10 @@ you like) and run it in Windows Terminal. Each release also has
 To build it yourself you need [Rust](https://rustup.rs):
 
 ```sh
-git clone --depth 1 https://github.com/data/dnd-data.git ~/dnd-data
 git clone https://github.com/v0v3s/dungeons-n-terminals.git
 cd dungeons-n-terminals
 cargo build --release
-./target/release/dnt --data ~/dnd-data
+./target/release/dnt --data /path/to/data
 ```
 
 The data path is remembered, so afterwards `dnt` is enough. On the first
@@ -66,7 +67,7 @@ Press `?` on any screen for its keys (F1 works while typing too).
 
 | Option | |
 | --- | --- |
-| `--data PATH` | the data checkout (or its `data/`); also `DNT_DATA` |
+| `--data PATH` | the data directory (or a folder with it as `data/`); also `DNT_DATA` |
 | `--homebrew FILE` | load a homebrew JSON file for this run (repeatable) |
 | `--sources XPHB,XDMG` | use these sources instead of the campaign's |
 | `--show-reprinted` | with `--sources`: keep entries that were reprinted |
@@ -81,7 +82,7 @@ Everything is plain files you can read, edit and back up:
   campaigns/<campaign>/
     campaign.toml                    name, sources, notes order
     characters/<name>.toml           one file per character
-    homebrew.json                    the campaign's homebrew (data format)
+    homebrew.json                    the campaign's homebrew (see schemas/)
     notes/                           Markdown notes (Sessions/, NPCs/, …)
     exports/                         exported sheets
   library/
@@ -94,8 +95,9 @@ Everything is plain files you can read, edit and back up:
 `XDG_DATA_HOME` and `XDG_CONFIG_HOME` variables move them on Linux.)
 
 `e` on a character opens its file in `$EDITOR`; changes are read back when
-you return. Homebrew files are standard data homebrew, so data and
-other tools can load them too.
+you return. Homebrew files are data files like any other (a `_meta` block
+naming their sources, then entity lists), so you can share them or load
+them with `--homebrew`.
 
 ## Rules (overlays)
 
@@ -133,15 +135,15 @@ built-in rules for it.
 
 The workspace has four crates:
 
-- `dnt-data` — loading data data, entities, search, rendering entries
+- `dnt-data` — loading the data, entities, search, rendering entries
 - `dnt-rules` — the rules engine, characters, attacks, spells, dice
 - `dnt-store` — campaigns, characters, notes and homebrew on disk
 - `dnt` — the terminal app (ratatui)
 
 ```sh
 cargo test                                   # all crates
-cargo run --example check_overlays -p dnt-rules -- ~/dnd-data
-scripts/sandbox.sh /tmp/dnt-sandbox ~/dnd-data
+cargo run --example check_overlays -p dnt-rules -- /path/to/data
+scripts/sandbox.sh /tmp/dnt-sandbox /path/to/data
 XDG_DATA_HOME=/tmp/dnt-sandbox/data XDG_CONFIG_HOME=/tmp/dnt-sandbox/config cargo run -p dnt
 ```
 

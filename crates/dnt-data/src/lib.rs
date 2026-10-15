@@ -1,4 +1,5 @@
-//! data data model, import and search index.
+//! D&D 5e data model, import and search index. The accepted JSON is
+//! described in `schemas/` at the repository root.
 
 pub mod copy;
 pub mod doc;

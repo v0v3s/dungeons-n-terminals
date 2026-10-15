@@ -16,7 +16,7 @@ pub enum Edition {
 }
 
 impl Edition {
-    /// The edition of the starting class (data `edition: "one"` = 2024).
+    /// The edition of the starting class (`edition: "one"` = 2024).
     pub fn of(build: &Build, lib: &dnt_data::Library) -> Edition {
         let modern = build.classes.first().and_then(|c| lib.entity(c.entity).data.get("edition")).and_then(|e| e.as_str()) == Some("one");
         if modern {

@@ -16,7 +16,7 @@ pub enum LoadError {
     Io { path: PathBuf, source: std::io::Error },
     #[error("{path}: {source}")]
     Json { path: PathBuf, source: serde_json::Error },
-    #[error("{0} does not look like a data data directory (no books.json)")]
+    #[error("{0} does not look like a dnt data directory (no books.json; see schemas/README.md)")]
     NotADataDir(PathBuf),
 }
 
@@ -68,7 +68,7 @@ pub struct Library {
     generated_variants: std::collections::HashSet<(EntityId, EntityId)>,
 }
 
-/// Top-level files in a data `data/` directory that hold player-facing content.
+/// Top-level files in a data directory that hold player-facing content.
 const DATA_FILES: &[&str] = &[
     "races.json",
     "backgrounds.json",
@@ -90,8 +90,8 @@ impl Library {
         Library::default()
     }
 
-    /// Load a data data directory (either the repository root or its `data/`).
-    pub fn load_data_dir(root: &Path) -> Result<Library, LoadError> {
+    /// Load a data directory (it, or its `data/` subdirectory; see schemas/README.md).
+    pub fn load_dir(root: &Path) -> Result<Library, LoadError> {
         let data = if root.join("data/books.json").is_file() {
             root.join("data")
         } else if root.join("books.json").is_file() {
@@ -207,7 +207,7 @@ impl Library {
         keys
     }
 
-    /// Load an in-memory data-shaped document (e.g. homebrew, or test data).
+    /// Load an in-memory data document (e.g. homebrew, or test data).
     pub fn load_json(&mut self, json: &Value) {
         self.ingest(json, true);
         self.finish();
@@ -402,7 +402,7 @@ impl Library {
 
     /// Turn generic magic variants ("+1 Weapon", "Flame Tongue") into
     /// specific items for every base item they apply to ("+1 Longsword"),
-    /// as data does. Existing items with the same name win.
+    /// as the format intends. Existing items with the same name win.
     fn expand_magic_variants(&mut self) {
         let variants: Vec<EntityId> = (0..self.entities.len()).filter(|&i| self.entities[i].kind == Kind::MagicVariant).collect();
         let bases: Vec<EntityId> = (0..self.entities.len()).filter(|&i| self.entities[i].kind == Kind::BaseItem).collect();

@@ -308,7 +308,7 @@ pub fn granted_spells(data: &Json, level: i64) -> Vec<Granted> {
     out
 }
 
-/// Spells matching a data choose filter (`level=0|class=Cleric`,
+/// Spells matching a choose filter (`level=0|class=Cleric`,
 /// `level=1;2|school=V`).
 pub fn filter_spells(lib: &Library, filter_text: &str, filter: &SourceFilter) -> Vec<EntityId> {
     let mut levels: Option<Vec<i64>> = None;

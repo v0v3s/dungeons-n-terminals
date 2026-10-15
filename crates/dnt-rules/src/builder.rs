@@ -555,7 +555,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     }
 
     // ---- conditions and exhaustion (before attacks, which copy attack.bonus) ----
-    let rules_2024 = classes.first().is_none_or(|c| lib.entity(c.entity).source == "XPHB");
+    let rules_2024 = classes.first().is_none_or(|c| is_2024(lib, c.entity));
     let state = &character.state;
     model.effects.extend(crate::conditions::effects(&state.conditions, state.exhaustion, rules_2024));
     if rules_2024 && state.exhaustion > 0 {
@@ -584,16 +584,17 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     let martial_arts = features.iter().find_map(|f| {
         let e = lib.entity(f.entity);
         let monk = e.data.get("className").and_then(Json::as_str) == Some("Monk");
-        (e.kind == Kind::ClassFeature && monk && e.name == "Martial Arts").then(|| attacks::MartialArts { rules_2024: e.source == "XPHB" })
+        (e.kind == Kind::ClassFeature && monk && e.name == "Martial Arts")
+            .then(|| attacks::MartialArts { rules_2024: is_2024(lib, f.entity) })
     });
     let dual_wielder = features.iter().find_map(|f| {
         let e = lib.entity(f.entity);
-        (e.kind == Kind::Feat && e.name == "Dual Wielder").then(|| attacks::DualWielder { rules_2024: e.source == "XPHB" })
+        (e.kind == Kind::Feat && e.name == "Dual Wielder").then(|| attacks::DualWielder { rules_2024: is_2024(lib, f.entity) })
     });
     let great_weapon = features.iter().find_map(|f| {
         let e = lib.entity(f.entity);
         // A 2024 feat, or a 2014 fighting style (an optional feature).
-        (matches!(e.kind, Kind::Feat | Kind::OptionalFeature) && e.name == "Great Weapon Fighting").then(|| e.source == "XPHB")
+        (matches!(e.kind, Kind::Feat | Kind::OptionalFeature) && e.name == "Great Weapon Fighting").then(|| is_2024(lib, f.entity))
     });
     let found = attacks::AttackFeatures { martial_arts, dual_wielder, great_weapon };
     let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, found);
@@ -652,6 +653,23 @@ fn collect_refs(v: &Json, out: &mut Vec<(Kind, String)>) {
         }
         _ => {}
     }
+}
+
+/// Whether an entity follows the 2024 rules: its `edition` (`one`), else
+/// its class's (class features), else whether it comes from the 2024 core
+/// rules source.
+pub fn is_2024(lib: &Library, entity: EntityId) -> bool {
+    let e = lib.entity(entity);
+    if let Some(edition) = e.data.get("edition").and_then(Json::as_str) {
+        return edition == "one";
+    }
+    let class = e.data.get("className").and_then(Json::as_str).zip(e.data.get("classSource").and_then(Json::as_str));
+    if let Some(c) = class.and_then(|(name, source)| lib.get(&dnt_data::Key::new(Kind::Class, &[name, source]))) {
+        if let Some(edition) = lib.entity(c).data.get("edition").and_then(Json::as_str) {
+            return edition == "one";
+        }
+    }
+    e.source == "XPHB"
 }
 
 fn species_speed(d: &Json) -> Option<i64> {
@@ -777,6 +795,21 @@ mod tests {
         assert_eq!(ev.int("slots.1.max"), Some(2), "wizard 1 alone");
         assert_eq!(ev.int("pact.slots.max"), Some(2));
         assert_eq!(b.model.inputs["pact.level"], Value::int(2));
+    }
+
+    #[test]
+    fn edition_decides_the_rules() {
+        let mut lib = Library::new();
+        lib.load_json(&serde_json::json!({
+            "class": [{"name": "Blade", "source": "HB", "edition": "one"}, {"name": "Old", "source": "HB"}],
+            "classFeature": [{"name": "Cut", "source": "HB", "className": "Blade", "classSource": "HB", "level": 1}],
+            "feat": [{"name": "Grit", "source": "XPHB"}, {"name": "Grit", "source": "PHB"}]
+        }));
+        let get = |k: Kind, parts: &[&str]| lib.get(&dnt_data::Key::new(k, parts)).unwrap();
+        assert!(is_2024(&lib, get(Kind::Class, &["Blade", "HB"])), "edition one");
+        assert!(is_2024(&lib, get(Kind::ClassFeature, &["Cut", "Blade", "HB", "1", "HB"])), "its class's edition");
+        assert!(!is_2024(&lib, get(Kind::Class, &["Old", "HB"])));
+        assert!(is_2024(&lib, get(Kind::Feat, &["Grit", "XPHB"])) && !is_2024(&lib, get(Kind::Feat, &["Grit", "PHB"])));
     }
 
     #[test]

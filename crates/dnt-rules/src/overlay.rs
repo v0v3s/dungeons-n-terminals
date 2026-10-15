@@ -1,5 +1,5 @@
 //! Automation overlays: TOML files that attach resources, toggles and
-//! effects to library entities without touching the data data.
+//! effects to library entities without touching the source data.
 //!
 //! ```toml
 //! [[feature]]
@@ -21,7 +21,7 @@
 //! when = "toggle('crimson_rite')"
 //! ```
 //!
-//! `id` is `<data type>:<reference>` using the data's pipe syntax, e.g.
+//! `id` is `<type>:<reference>` using the data format's pipe syntax, e.g.
 //! `feat:Alert|XPHB`, `item:Shield|XPHB`, `classFeature:Rage|Barbarian|XPHB|1`.
 
 use std::collections::HashMap;

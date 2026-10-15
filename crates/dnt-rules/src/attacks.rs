@@ -44,7 +44,7 @@ pub struct WeaponProficiency {
 }
 
 impl WeaponProficiency {
-    /// Add one data weapon proficiency entry: `"simple"`, `"martial"`,
+    /// Add one weapon proficiency entry: `"simple"`, `"martial"`,
     /// `"{@item longsword|phb}"`, a sentence with a property filter, or an
     /// object like `{"martial": true, "longsword|phb": true}`.
     fn add(&mut self, entry: &Json) -> Vec<String> {

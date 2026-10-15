@@ -1,6 +1,6 @@
-//! Friendly editing of common data fields: each format shows a field as
+//! Friendly editing of common entity fields: each format shows a field as
 //! short text ("1 bonus action", "Concentration, up to 1 minute", "50 gp")
-//! or a list of choices, and parses the text back into data JSON.
+//! or a list of choices, and parses the text back into data-format JSON.
 
 use serde_json::{json, Map, Value};
 

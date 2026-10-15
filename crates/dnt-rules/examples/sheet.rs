@@ -1,7 +1,7 @@
-//! Build a level-5 Monk (2024) from real data data plus an overlay, and
+//! Build a level-5 Monk (2024) from a real data directory plus an overlay, and
 //! print the computed stats with their breakdowns.
 //!
-//! cargo run -p dnt-rules --example sheet -- /path/to/dnd-data
+//! cargo run -p dnt-rules --example sheet -- /path/to/data
 
 use dnt_data::{Key, Kind, Library};
 use dnt_rules::class_table::class_columns;
@@ -40,7 +40,7 @@ when = "armor.none"
 
 fn main() {
     let path = std::env::args().nth(1).expect("usage: sheet <data dir>");
-    let lib = Library::load_data_dir(path.as_ref()).expect("load");
+    let lib = Library::load_dir(path.as_ref()).expect("load");
     let monk = lib.get(&Key::new(Kind::Class, &["Monk", "XPHB"])).expect("XPHB Monk");
     let level = 5;
 

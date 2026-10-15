@@ -6,7 +6,7 @@ use serde_json::Value as Json;
 use crate::standard::ABILITIES;
 
 /// How a class (or subclass) contributes to the multiclass caster level,
-/// as encoded in the data's `casterProgression`.
+/// as encoded in `casterProgression`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Progression {
     Full,

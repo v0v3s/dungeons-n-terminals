@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// The kinds of data entities `dnt` knows how to ingest.
+/// The kinds of entities `dnt` knows how to ingest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Kind {
     Class,
@@ -142,7 +142,7 @@ impl Kind {
         }
     }
 
-    /// Source assumed by data when a tag omits it.
+    /// Source assumed when a tag omits it.
     pub fn default_tag_source(tag: &str) -> &'static str {
         match tag {
             "item" | "disease" | "variantrule" | "table" | "hazard" | "object" | "deck" | "card" => "DMG",

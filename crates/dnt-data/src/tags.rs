@@ -1,4 +1,4 @@
-//! Parser for data inline tags such as `{@spell fireball|XPHB}`,
+//! Parser for inline tags such as `{@spell fireball|XPHB}`,
 //! `{@b bold {@i nested}}` or `{@damage 2d6}`.
 //!
 //! Text is flattened into styled [`Span`]s; reference tags become links that
@@ -167,10 +167,10 @@ fn emit_tag(inner: &str, style: Style, out: &mut Vec<Span>) {
                     out.push(s);
                 }
             } else {
-                // Unknown or unsupported tags (filter, book, data, …): show
+                // Unknown or unsupported tags (filter, book, …): show
                 // the display text, which is the 3rd part for "page" tags.
                 let display = match tag {
-                    "filter" | "book" | "adventure" | "homepage" | "link" | "loader" => first,
+                    "filter" | "book" | "adventure" | "link" | "loader" => first,
                     "quickref" => nth(4).unwrap_or(first),
                     _ => nth(2).unwrap_or(first),
                 };

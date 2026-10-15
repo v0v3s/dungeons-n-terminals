@@ -35,8 +35,8 @@ use app::App;
 #[derive(Parser)]
 #[command(version)]
 struct Args {
-    /// Path to a data data checkout (repository root or its `data/`
-    /// directory). Remembered in the config file once given.
+    /// Path to the data directory (or a folder holding it as `data/`), in
+    /// the format described in schemas/. Remembered once given.
     #[arg(long, env = "DNT_DATA")]
     data: Option<PathBuf>,
 
@@ -58,7 +58,7 @@ struct Args {
 /// and extra homebrew files. Campaign homebrew is layered on a clone of it
 /// (see App::prepare_library).
 fn load_base(data: &Path, extra: &[PathBuf], store: &Store) -> Result<Library> {
-    let mut base = Library::load_data_dir(data).with_context(|| format!("loading {}", data.display()))?;
+    let mut base = Library::load_dir(data).with_context(|| format!("loading {}", data.display()))?;
     for path in store.global_homebrew_files().iter().chain(extra) {
         base.load_file(path).with_context(|| format!("loading {}", path.display()))?;
     }
@@ -80,7 +80,7 @@ fn main() -> Result<()> {
         }
         (None, Some(path)) => path.clone(),
         (None, None) => bail!(
-            "no data data configured: run once with --data /path/to/dnd-data \
+            "no data directory configured: run once with --data /path/to/data \
              (it is then remembered in {})",
             store.config_path().display()
         ),

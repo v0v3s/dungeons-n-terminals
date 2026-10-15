@@ -50,7 +50,7 @@ pub enum Outcome {
     Save(String),
 }
 
-/// The overlay id for an entity: `<type>:<reference>` in the data's pipe
+/// The overlay id for an entity: `<type>:<reference>` in the data format's pipe
 /// syntax.
 pub fn overlay_id(lib: &Library, entity: EntityId) -> String {
     let e = lib.entity(entity);
