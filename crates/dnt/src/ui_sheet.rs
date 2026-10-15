@@ -459,6 +459,86 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 /// Row style for an item: highlighted under the cursor.
+/// Attack bonus, damage and range of each weapon and the unarmed strike.
+fn draw_attacks(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
+    let block = pane(pane_title("Attacks", false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let width = inner.width as usize;
+    let ev = &sheet.ev;
+    let damage_of = |a: &dnt_rules::attacks::Attack| {
+        let dmg = |k: &str| ev.get(&format!("attack.{}.{k}", a.slug)).map(|v| v.to_string());
+        let mut d = format!("{} {}", dmg("damage").unwrap_or_else(|| "?".into()), a.damage_type);
+        if let Some(two) = dmg("versatile") {
+            d.push_str(&format!(" ({two})"));
+        }
+        d
+    };
+    let attacks = &sheet.build.attacks;
+    let col = |f: &dyn Fn(&dnt_rules::attacks::Attack) -> usize, min: usize| attacks.iter().map(f).max().unwrap_or(0).max(min) + 3;
+    let name_w = col(&|a| a.name.width(), 6).min(28);
+    let dmg_w = col(&|a| damage_of(a).width(), 6);
+    let range_w = col(&|a| a.range.width(), 5);
+    let mut lines = vec![Line::from(vec![
+        Span::styled(format!("  {:<name_w$}", "weapon"), theme.label),
+        Span::styled(format!("{:>4}   ", "hit"), theme.label),
+        Span::styled(format!("{:<dmg_w$}", "damage"), theme.label),
+        Span::styled(format!("{:<range_w$}", "range"), theme.label),
+        Span::styled("notes", theme.label),
+    ])];
+    let mut selected = 0;
+    for a in attacks {
+        let item = Item::Attack(a.slug.clone());
+        let base = row_style(sheet, &item, theme);
+        if base != Style::new() {
+            selected = lines.len();
+        }
+        let faint = if base == Style::new() { theme.dim } else { theme.muted };
+        let hit = ev.int(&format!("attack.{}.bonus", a.slug)).map(|n| format!("{n:+}")).unwrap_or_else(|| "?".into());
+        let mut notes: Vec<Span> = Vec::new();
+        for n in &a.notes {
+            notes.push(Span::styled(format!("{n}  "), base.fg(Color::Red)));
+        }
+        if let Some(m) = &a.mastery {
+            notes.push(Span::styled(format!("mastery: {m}  "), base.fg(theme.accent)));
+        }
+        if !a.properties.is_empty() {
+            notes.push(Span::styled(a.properties.join(", "), base.patch(faint)));
+        }
+        let weapon_equipped = a.equipped && a.item.is_some();
+        let name_style = if weapon_equipped { base.add_modifier(Modifier::BOLD) } else { base };
+        let hit_style = if a.proficient { base.fg(theme.accent).add_modifier(Modifier::BOLD) } else { base.fg(Color::Red) };
+        let mut spans = vec![
+            Span::styled(if weapon_equipped { "◉ " } else { "  " }, base.fg(theme.accent)),
+            Span::styled(format!("{:<name_w$}", truncate(&a.name, name_w - 1)), name_style),
+            Span::styled(format!("{hit:>4}   "), hit_style),
+            Span::styled(format!("{:<dmg_w$}", damage_of(a)), base),
+            Span::styled(format!("{:<range_w$}", a.range), base.patch(faint)),
+        ];
+        spans.extend(notes);
+        let used: usize = spans.iter().map(|s| s.content.width()).sum();
+        if used > width {
+            // Trim the notes to the pane.
+            let mut out = Vec::new();
+            let mut left = width;
+            for sp in spans {
+                let w = sp.content.width();
+                if w <= left {
+                    left -= w;
+                    out.push(sp);
+                } else {
+                    out.push(Span::styled(truncate(&sp.content, left), sp.style));
+                    break;
+                }
+            }
+            spans = out;
+        }
+        lines.push(Line::from(spans).style(base));
+    }
+    let scroll = (selected + 1).saturating_sub(inner.height as usize);
+    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
+}
+
 fn row_style(sheet: &Sheet, item: &Item, theme: &Theme) -> Style {
     if sheet.current_item().as_ref() == Some(item) && sheet.popup.is_none() {
         theme.selected
@@ -562,7 +642,16 @@ fn draw_overview(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
     frame.render_widget(Paragraph::new(lines), inner);
 
     // Middle: combat tiles, HP, resources.
-    let [tiles, _, rest] = Layout::vertical([Constraint::Length(5), Constraint::Length(1), Constraint::Min(3)]).areas(mid);
+    let attacks_h = (sheet.build.attacks.len() as u16 + 5).min(16);
+    let [tiles, _, attacks, _, rest] = Layout::vertical([
+        Constraint::Length(5),
+        Constraint::Length(1),
+        Constraint::Length(attacks_h),
+        Constraint::Length(1),
+        Constraint::Min(3),
+    ])
+    .areas(mid);
+    draw_attacks(frame, attacks, sheet, theme);
     let tile_keys = [
         ("ac", "Armor Class", false),
         ("initiative", "Initiative", true),
@@ -1179,7 +1268,65 @@ fn stat_label(sheet: &Sheet, key: &str) -> String {
 }
 
 fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme: &Theme) {
-    let Some(result) = sheet.ev.stats.get(key) else { return };
+    let attack = key.strip_prefix("attack.").and_then(|slug| sheet.build.attacks.iter().find(|a| a.slug == slug));
+    let (title, lines) = match attack {
+        Some(a) => {
+            let mut lines = Vec::new();
+            for (part, label) in [("bonus", "Attack bonus"), ("damage", "Damage"), ("versatile", "Damage, two-handed")] {
+                let k = format!("attack.{}.{part}", a.slug);
+                if sheet.ev.stats.contains_key(&k) {
+                    if !lines.is_empty() {
+                        lines.push(Line::default());
+                    }
+                    lines.push(Line::styled(label, theme.heading));
+                    lines.extend(breakdown_lines(sheet, &k, theme));
+                }
+            }
+            lines.push(Line::default());
+            let prof = &sheet.build.weapon_proficiency;
+            let status = if a.item.is_none() {
+                "Everyone is proficient with unarmed strikes.".to_string()
+            } else if a.proficient {
+                "Proficient.".to_string()
+            } else {
+                "Not proficient: no proficiency bonus to hit.".to_string()
+            };
+            lines.push(Line::styled(status, if a.proficient { theme.muted } else { Style::new().fg(Color::Red) }));
+            for o in &prof.origins {
+                lines.push(Line::styled(format!("  {o}"), theme.dim));
+            }
+            if let Some(m) = &a.mastery {
+                lines.push(Line::default());
+                lines.push(Line::from(vec![
+                    Span::styled("Mastery  ", theme.label),
+                    Span::styled(m.clone(), Style::new().fg(theme.accent)),
+                    Span::styled("  (see the compendium for what it does)", theme.dim),
+                ]));
+            }
+            for n in &a.notes {
+                lines.push(Line::styled(format!("⚠ {n}"), Style::new().fg(Color::Red)));
+            }
+            (a.name.clone(), lines)
+        }
+        None => {
+            if !sheet.ev.stats.contains_key(key) {
+                return;
+            }
+            (stat_label(sheet, key), breakdown_lines(sheet, key, theme))
+        }
+    };
+    let width = lines.iter().map(|l| l.width()).max().unwrap_or(30).clamp(36, 90) as u16 + 6;
+    let rect = centered(area, width, lines.len() as u16 + 4);
+    frame.render_widget(Clear, rect);
+    let block = pane(pane_title(&title, true, theme), true, theme)
+        .padding(Padding::new(2, 2, 1, 0))
+        .title_bottom(Line::styled(" esc ", theme.dim).right_aligned());
+    frame.render_widget(Paragraph::new(lines).block(block), rect);
+}
+
+/// The value of a stat and how it is made up.
+fn breakdown_lines(sheet: &Sheet, key: &str, theme: &Theme) -> Vec<Line<'static>> {
+    let Some(result) = sheet.ev.stats.get(key) else { return Vec::new() };
     let mut lines: Vec<Line> = Vec::new();
     match &result.value {
         Ok(v) => lines.push(Line::styled(v.to_string(), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD))),
@@ -1213,13 +1360,7 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
         }
         lines.push(Line::from(spans));
     }
-    let width = lines.iter().map(|l| l.width()).max().unwrap_or(30).clamp(36, 90) as u16 + 6;
-    let rect = centered(area, width, lines.len() as u16 + 4);
-    frame.render_widget(Clear, rect);
-    let block = pane(pane_title(&stat_label(sheet, key), true, theme), true, theme)
-        .padding(Padding::new(2, 2, 1, 0))
-        .title_bottom(Line::styled(" esc ", theme.dim).right_aligned());
-    frame.render_widget(Paragraph::new(lines).block(block), rect);
+    lines
 }
 
 // ---- creation wizard ----

@@ -464,5 +464,16 @@ enabled for that campaign.
 5. **M5 Campaign layer** — campaign homebrew file and source, clone
    (replace / separate), creator and editor forms (items, spells first),
    compendium markers, inventory shortcut, global homebrew. *Done.*
-6. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
+6. **Attacks** — weapon proficiency from classes (starting and
+   multiclass), species, backgrounds, feats and the character's own
+   `proficiencies.weapons`; an Attacks pane on the Overview with hit
+   bonus, damage (and two-handed damage), range, mastery and properties
+   for every carried weapon plus the unarmed strike; `?` explains bonus
+   and damage part by part. Finesse uses the better of Str and Dex,
+   ranged weapons Dex, magic weapons add `bonusWeapon`. Overlays target
+   `attack.ranged.bonus` (Archery), `attack.one_handed.damage` (Dueling),
+   `attack.strength.damage` (Rage), `attack.unarmed.*` (Martial Arts).
+   *Done* (not yet: attack cantrips, generic "+1 Weapon" variants without
+   a base weapon, Great Weapon Fighting rerolls, Monk weapons with Dex).
+7. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

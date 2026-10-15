@@ -275,6 +275,8 @@ mod tests {
             ],
             toggles: Vec::new(),
             granted: Vec::new(),
+            attacks: Vec::new(),
+            weapon_proficiency: Default::default(),
             warnings: Vec::new(),
         };
         let ev = build.evaluate();

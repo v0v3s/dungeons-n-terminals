@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use dnt_data::{EntityId, Kind, Library};
 use serde_json::Value as Json;
 
+use crate::attacks;
 use crate::character::Character;
 use crate::class_table::{class_columns, slug, subclass_columns};
 use crate::engine::{Effect, Evaluation, Model, Op, StatDef};
@@ -65,6 +66,9 @@ pub struct Build {
     pub toggles: Vec<(Toggle, String)>,
     /// Spells and spell choices granted by features.
     pub granted: Vec<GrantedSpells>,
+    /// Weapon attacks (carried weapons and the unarmed strike).
+    pub attacks: Vec<attacks::Attack>,
+    pub weapon_proficiency: attacks::WeaponProficiency,
     pub warnings: Vec<String>,
 }
 
@@ -550,6 +554,17 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
+    // ---- attacks (after overlays: their attack effects are copied) ----
+    let class_entities: Vec<EntityId> = classes.iter().map(|c| c.entity).collect();
+    let proficiency_sources: Vec<EntityId> = features
+        .iter()
+        .filter(|f| matches!(f.source, FeatureSource::Species | FeatureSource::Background | FeatureSource::Feat))
+        .map(|f| f.entity)
+        .collect();
+    let weapon_proficiency = attacks::weapon_proficiency(lib, character, &class_entities, &proficiency_sources);
+    let mastered: Vec<EntityId> = features.iter().filter(|f| f.source == FeatureSource::Mastery).map(|f| f.entity).collect();
+    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered);
+
     // ---- state that feeds stats, and overrides ----
     for (k, on) in &character.state.toggles {
         model.inputs.insert(format!("toggle.{k}"), Value::Bool(*on));
@@ -583,6 +598,8 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         resources,
         toggles,
         granted,
+        attacks,
+        weapon_proficiency,
         warnings,
     }
 }

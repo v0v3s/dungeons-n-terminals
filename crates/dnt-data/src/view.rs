@@ -437,7 +437,7 @@ pub fn item_type(code: &str) -> &'static str {
     }
 }
 
-fn item_property(code: &str) -> &'static str {
+pub fn item_property(code: &str) -> &'static str {
     match code {
         "A" | "AF" => "Ammunition",
         "BF" => "Burst fire",

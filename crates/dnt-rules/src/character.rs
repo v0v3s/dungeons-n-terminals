@@ -147,6 +147,10 @@ pub struct Proficiencies {
     pub tools: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub languages: Vec<String>,
+    /// Extra weapon proficiencies: `simple`, `martial` or a weapon name.
+    /// Classes, species, backgrounds and feats add theirs automatically.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub weapons: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

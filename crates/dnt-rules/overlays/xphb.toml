@@ -19,7 +19,7 @@ short_rest_regain = "1"
 key = "raging"
 name = "Raging"
 [[feature.effect]]
-target = "rage.damage"
+target = "attack.strength.damage"
 add = "class.barbarian.rage_damage"
 when = "toggle('raging')"
 
@@ -201,8 +201,11 @@ recharge = "short_rest"
 [[feature]]
 id = "classFeature:Martial Arts|Monk|XPHB|1"
 [[feature.effect]]
+target = "attack.unarmed.mod"
+set = "max(mod.str, mod.dex)"
+[[feature.effect]]
 target = "attack.unarmed.damage"
-set = "class.monk.martial_arts + max(mod.str, mod.dex)"
+set = "class.monk.martial_arts + attack.unarmed.mod"
 
 [[feature]]
 id = "classFeature:Unarmored Defense|Monk|XPHB|1"
@@ -350,3 +353,17 @@ name = "Defense (Fighting Style)"
 target = "ac"
 add = "1"
 when = "not armor.none"
+
+[[feature]]
+id = "feat:Archery|XPHB"
+name = "Archery (Fighting Style)"
+[[feature.effect]]
+target = "attack.ranged.bonus"
+add = "2"
+
+[[feature]]
+id = "feat:Dueling|XPHB"
+name = "Dueling (Fighting Style)"
+[[feature.effect]]
+target = "attack.one_handed.damage"
+add = "2"

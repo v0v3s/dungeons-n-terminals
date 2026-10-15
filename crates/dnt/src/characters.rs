@@ -49,6 +49,8 @@ pub enum Item {
     Pact,
     HitDie(i64),
     Toggle(String),
+    /// An attack by slug (`attack.<slug>.*` stats).
+    Attack(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,6 +194,7 @@ impl Sheet {
         for k in ["ac", "hp.max", "initiative", "speed", "prof", "passive.perception"] {
             out.push(Item::Stat(k.into()));
         }
+        out.extend(self.build.attacks.iter().map(|a| Item::Attack(a.slug.clone())));
         out.extend(SKILLS.iter().map(|(k, _, _)| Item::Stat(format!("skill.{k}"))));
         out.extend(self.build.resources.iter().map(|(r, _)| Item::Resource(r.key.clone())));
         for level in 1..=9 {
@@ -649,6 +652,7 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
                 Some(Item::Slot(l)) => Some(format!("slots.{l}.max")),
                 Some(Item::Pact) => Some("pact.slots.max".into()),
                 Some(Item::HitDie(f)) => Some(format!("hit_dice.d{f}.max")),
+                Some(Item::Attack(s)) => Some(format!("attack.{s}")),
                 _ => None,
             };
             if let Some(k) = key {

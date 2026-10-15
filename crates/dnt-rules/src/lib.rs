@@ -1,5 +1,6 @@
 //! Formula language and rules engine.
 
+pub mod attacks;
 pub mod builder;
 pub mod builtin;
 pub mod character;

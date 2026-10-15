@@ -16,7 +16,7 @@
 //! name = "Crimson Rite"
 //!
 //! [[feature.effect]]
-//! target = "attack.weapon.damage_bonus"
+//! target = "attack.damage"   # every weapon attack; see attacks.rs for the groups
 //! add = "class.blood_hunter.hemocraft_die"
 //! when = "toggle('crimson_rite')"
 //! ```
