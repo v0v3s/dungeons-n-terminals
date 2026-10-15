@@ -449,6 +449,8 @@ enabled for that campaign.
    commands, word-aware wrapping (patched edtui in vendor/). *Done.*
 5. **M5 Campaign layer** — campaign homebrew file and source, clone
    (replace / separate), creator and editor forms (items, spells first),
-   compendium markers, inventory shortcut.
+   compendium markers, inventory shortcut. *M5a (campaign source,
+   homebrew file, overrides, markers, `o` original) and M5b (clone flow,
+   field editor with Markdown/JSON, revert, delete) done.*
 6. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

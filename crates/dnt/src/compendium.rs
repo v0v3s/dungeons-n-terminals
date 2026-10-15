@@ -117,6 +117,10 @@ pub enum Outcome {
     None,
     Quit,
     Status(String),
+    /// Clone this entity into the campaign's homebrew.
+    Clone(EntityId),
+    /// Edit this campaign entity.
+    Edit(EntityId),
 }
 
 pub struct Compendium {
@@ -358,6 +362,16 @@ impl Compendium {
         let half = (self.list_height / 2).max(1) as isize;
         match key.code {
             KeyCode::Char('q') => return Outcome::Quit,
+            KeyCode::Char('c') => {
+                if let Some(&id) = self.results.get(self.selected) {
+                    return Outcome::Clone(id);
+                }
+            }
+            KeyCode::Char('e') => {
+                if let Some(&id) = self.results.get(self.selected) {
+                    return Outcome::Edit(id);
+                }
+            }
             KeyCode::Char('/' | 'i') => self.focus = Focus::Search,
             KeyCode::Char('j') | KeyCode::Down => self.move_selection(lib, 1),
             KeyCode::Char('k') | KeyCode::Up => self.move_selection(lib, -1),
@@ -399,6 +413,8 @@ impl Compendium {
             KeyCode::PageUp => detail.scroll = detail.scroll.saturating_sub(half * 2),
             KeyCode::Char('g') | KeyCode::Home => detail.scroll = 0,
             KeyCode::Char('G') | KeyCode::End => detail.scroll = max_scroll,
+            KeyCode::Char('c') if !ctrl => return Outcome::Clone(detail.entity),
+            KeyCode::Char('e') if !ctrl => return Outcome::Edit(detail.entity),
             KeyCode::Char('o') if !ctrl => {
                 // Toggle the book version of a campaign override.
                 let Some(orig) = lib.original(detail.entity) else {

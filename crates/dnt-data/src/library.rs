@@ -151,10 +151,10 @@ impl Library {
                             let mut merged = copy::merge(&original, &patch);
                             if let Some(m) = merged.as_object_mut() {
                                 // Keep the original identity so ids keep resolving.
-                                for k in ["name", "source", "className", "classSource", "level", "shortName", "subclassShortName", "subclassSource"] {
+                                for k in ["name", "source"].iter().chain(crate::homebrew::identity_fields(kind)) {
                                     match original.get(k) {
                                         Some(v) => m.insert(k.to_string(), v.clone()),
-                                        None => m.remove(k),
+                                        None => m.remove(*k),
                                     };
                                 }
                                 if let Some(name) = obj.get("name").filter(|n| Some(*n) != original.get("name")) {
@@ -594,7 +594,7 @@ mod tests {
             "_meta": {"sources": [{"json": "CoS", "full": "Curse of Strahd"}]},
             "spell": [
                 {"name": "Hunter's Mark", "source": "CoS", "_copy": {"name": "Hunter's Mark", "source": "XPHB"},
-                 "_dnt": {"replaces": true},
+                 "_dnt": {"replaces": true}, "level": 2,
                  "duration": [{"type": "timed", "duration": {"type": "minute", "amount": 10}, "concentration": true}]},
                 {"name": "Blood Spike", "source": "CoS", "level": 2, "entries": ["Ouch."],
                  "classes": {"fromClassList": [{"name": "Wizard", "source": "XPHB"}]}},
@@ -608,7 +608,8 @@ mod tests {
         assert_eq!(e.data["duration"][0]["duration"]["type"], "minute");
         assert_eq!(e.data["entries"][0], "Mark a target.", "unchanged fields come from the book");
         assert_eq!(lib.original(id).unwrap()["duration"][0]["duration"]["type"], "hour");
-        assert_eq!(lib.overridden_fields(id), vec!["duration"]);
+        assert_eq!(e.data["level"], 2, "a spell's level is not part of its identity");
+        assert_eq!(lib.overridden_fields(id), vec!["duration", "level"]);
         assert_eq!(e.data["page"], 289, "book metadata is kept");
         let spike = lib.get(&Key::new(Kind::Spell, &["Blood Spike", "CoS"])).unwrap();
         assert_eq!(lib.spell_classes(spike)[0].name, "Wizard");

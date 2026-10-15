@@ -28,7 +28,16 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
 
     draw_header(frame, header, app, theme);
     match app.section {
-        Section::Compendium => draw_compendium(frame, body, lib, &mut app.compendium, theme),
+        Section::Compendium if app.editor.is_some() => {
+            let filter = app.compendium.filter.clone();
+            crate::ui_editor::draw(frame, body, lib, &filter, app.homebrew.as_ref(), app.editor.as_mut().unwrap(), theme)
+        }
+        Section::Compendium => {
+            draw_compendium(frame, body, lib, &mut app.compendium, theme);
+            if let Some(flow) = &app.clone_flow {
+                crate::ui_editor::draw_clone(frame, body, lib, flow, theme);
+            }
+        }
         Section::Campaigns => draw_campaigns(frame, body, app, theme),
         Section::Characters => {
             let campaign = app.active.map(|i| app.campaigns.list[i].settings.name.clone());
@@ -98,7 +107,24 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
 }
 
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
+    use crate::entry_editor::Mode as EdMode;
     let hints: &[(&str, &str)] = match (app.section, app.compendium.focus) {
+        (Section::Compendium, _) if app.clone_flow.as_ref().is_some_and(|f| f.name.is_some()) => &[("enter", "create copy"), ("esc", "cancel")],
+        (Section::Compendium, _) if app.clone_flow.is_some() => &[("j k", "choose"), ("enter", "clone"), ("esc", "cancel")],
+        (Section::Compendium, _) if app.editor.is_some() => match app.editor.as_ref().map(|e| &e.mode) {
+            Some(EdMode::Big { .. }) => &[("i", "insert"), ("esc", "normal · save"), ("^s", "save")],
+            Some(EdMode::Prompt { .. } | EdMode::AddField(_)) => &[("enter", "set"), ("^u", "clear"), ("esc", "cancel")],
+            Some(EdMode::ConfirmDelete) => &[("y", "delete"), ("n", "keep")],
+            _ => &[
+                ("j k", "field"),
+                ("enter", "edit"),
+                ("J", "as JSON"),
+                ("x", "revert"),
+                ("a", "add field"),
+                ("D", "delete"),
+                ("esc", "done"),
+            ],
+        },
         (Section::Compendium, Focus::Search) => &[
             ("↑↓", "move"),
             ("enter", "open"),
@@ -111,6 +137,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("enter", "open"),
             ("/", "search"),
             ("tab", "category"),
+            ("c e", "clone/edit"),
             ("1-4", "section"),
             ("q", "quit"),
         ],

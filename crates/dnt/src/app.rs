@@ -12,6 +12,8 @@ use dnt_rules::overlay::{Overlay, OverlaySet};
 use crate::campaigns::{Action, Campaigns};
 use crate::characters::{self, Characters};
 use crate::compendium::{Compendium, Outcome};
+use crate::entry_editor::{self, EntryEditor};
+use dnt_data::homebrew;
 use crate::notes_view::{self, NotesView};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,6 +37,15 @@ impl Section {
     }
 }
 
+/// Choosing between replacing the original and a separate copy.
+pub struct CloneFlow {
+    pub entity: dnt_data::EntityId,
+    /// Name for a separate copy, while typing it.
+    pub name: Option<String>,
+    /// 0 = replace, 1 = separate copy.
+    pub cursor: usize,
+}
+
 pub struct App {
     pub section: Section,
     pub compendium: Compendium,
@@ -47,6 +58,12 @@ pub struct App {
     pub notes: NotesView,
     /// Quick capture text, while the capture box is open.
     pub capture: Option<String>,
+    /// Editing a campaign homebrew entity.
+    pub editor: Option<EntryEditor>,
+    /// Choosing how to clone an entity.
+    pub clone_flow: Option<CloneFlow>,
+    /// The active campaign's homebrew document.
+    pub homebrew: Option<serde_json::Value>,
     pub overlays: OverlaySet,
     /// A file to open in $EDITOR; handled by the main loop.
     pub pending_edit: Option<PathBuf>,
@@ -93,6 +110,9 @@ impl App {
             characters,
             notes,
             capture: None,
+            editor: None,
+            clone_flow: None,
+            homebrew: None,
             overlays,
             pending_edit: None,
             pending_reload: false,
@@ -118,6 +138,7 @@ impl App {
                 if let Some(p) = problems.first() {
                     self.status = format!("Campaign homebrew: {p}");
                 }
+                self.homebrew = Some(doc);
             }
             Err(e) => self.status = format!("Campaign homebrew: {e}"),
         }
@@ -159,7 +180,7 @@ impl App {
     }
 
     fn wants_text(&self) -> bool {
-        if self.capture.is_some() {
+        if self.capture.is_some() || self.clone_flow.is_some() || self.editor.as_ref().is_some_and(EntryEditor::wants_text) {
             return true;
         }
         match self.section {
@@ -212,10 +233,20 @@ impl App {
             }
         }
         match self.section {
+            Section::Compendium if self.clone_flow.is_some() => self.clone_key(lib, key),
+            Section::Compendium if self.editor.is_some() => self.editor_key(lib, key),
             Section::Compendium => match self.compendium.handle_key(lib, key) {
                 Outcome::Quit => self.quit = true,
                 Outcome::Status(s) => self.status = s,
                 Outcome::None => {}
+                Outcome::Clone(id) => {
+                    if self.active.is_none() {
+                        self.status = "Cloning needs an active campaign (4)".into();
+                    } else {
+                        self.clone_flow = Some(CloneFlow { entity: id, name: None, cursor: 0 });
+                    }
+                }
+                Outcome::Edit(id) => self.start_edit(lib, id),
             },
             Section::Campaigns => {
                 let action = self.campaigns.handle_key(key);
@@ -290,6 +321,160 @@ impl App {
                     self.apply_filter(lib);
                 }
             }
+        }
+    }
+
+    fn start_edit(&mut self, lib: &Library, id: dnt_data::EntityId) {
+        let Some(campaign) = self.active_campaign() else {
+            self.status = "Editing needs an active campaign (4)".into();
+            return;
+        };
+        let e = lib.entity(id);
+        let replaces = lib.original(id).is_some();
+        if !replaces && !e.source.eq_ignore_ascii_case(&campaign.settings.source) {
+            self.status = format!("{} is from a book: press c to clone it into the campaign", e.name);
+            return;
+        }
+        self.editor = Some(EntryEditor::new(e.key.clone(), e.kind, replaces));
+    }
+
+    fn clone_key(&mut self, lib: &Library, key: KeyEvent) {
+        let Some(flow) = self.clone_flow.as_mut() else { return };
+        if let Some(name) = flow.name.as_mut() {
+            match key.code {
+                KeyCode::Esc => flow.name = None,
+                KeyCode::Backspace => {
+                    name.pop();
+                }
+                KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => name.clear(),
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => name.push(c),
+                KeyCode::Enter if !name.trim().is_empty() => {
+                    let (id, name) = (flow.entity, name.trim().to_string());
+                    self.clone_flow = None;
+                    self.do_clone(lib, id, homebrew::CloneMode::Copy { name });
+                }
+                _ => {}
+            }
+            return;
+        }
+        match key.code {
+            KeyCode::Esc => self.clone_flow = None,
+            KeyCode::Char('j') | KeyCode::Down | KeyCode::Char('k') | KeyCode::Up | KeyCode::Tab => flow.cursor = 1 - flow.cursor,
+            KeyCode::Enter => {
+                if flow.cursor == 0 {
+                    let id = flow.entity;
+                    self.clone_flow = None;
+                    self.do_clone(lib, id, homebrew::CloneMode::Replace);
+                } else {
+                    flow.name = Some(format!("{} (copy)", lib.entity(flow.entity).name));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn do_clone(&mut self, lib: &Library, id: dnt_data::EntityId, mode: homebrew::CloneMode) {
+        let Some(i) = self.active else { return };
+        let campaign = self.campaigns.list[i].clone();
+        let mut doc = match self.store.homebrew(&campaign) {
+            Ok(d) => d,
+            Err(e) => {
+                self.status = format!("Could not read homebrew: {e}");
+                return;
+            }
+        };
+        let e = lib.entity(id);
+        let (key, replaces) = match &mode {
+            homebrew::CloneMode::Replace => {
+                if homebrew::find_entry(&doc, lib, id).is_none() && lib.original(id).is_none() {
+                    let entry = homebrew::clone_entry(lib, id, &campaign.settings.source, &mode);
+                    homebrew::add_entry(&mut doc, e.kind, entry);
+                }
+                (e.key.clone(), true)
+            }
+            homebrew::CloneMode::Copy { .. } => {
+                let entry = homebrew::clone_entry(lib, id, &campaign.settings.source, &mode);
+                let Some(key) = dnt_data::Key::of_entity(e.kind, &entry) else { return };
+                if lib.get(&key).is_some() {
+                    self.status = "An entry with that name already exists".into();
+                    return;
+                }
+                homebrew::add_entry(&mut doc, e.kind, entry);
+                (key, false)
+            }
+        };
+        if let Err(err) = self.store.save_homebrew(&campaign, &doc) {
+            self.status = format!("Could not save homebrew: {err}");
+            return;
+        }
+        self.homebrew = Some(doc);
+        self.pending_reload = true;
+        self.status = if replaces {
+            format!("{} now has a campaign version", e.name)
+        } else {
+            format!("Created a campaign copy of {}", e.name)
+        };
+        self.editor = Some(EntryEditor::new(key, e.kind, replaces));
+    }
+
+    fn editor_key(&mut self, lib: &Library, key: KeyEvent) {
+        let Some(editor) = self.editor.as_mut() else { return };
+        let entry = editor
+            .entity(lib)
+            .and_then(|id| self.homebrew.as_ref().and_then(|doc| Some((doc, homebrew::find_entry(doc, lib, id)?))))
+            .and_then(|(doc, at)| homebrew::entry(doc, &at).cloned());
+        let fields = editor.fields(lib, entry.as_ref());
+        match editor.key(key, &fields) {
+            entry_editor::Action::None => {}
+            entry_editor::Action::Close => self.editor = None,
+            entry_editor::Action::Status(s) => self.status = s,
+            entry_editor::Action::Set(field, value) => self.edit_homebrew(lib, |doc, at, editor| {
+                let entry = homebrew::entry_mut(doc, at)?;
+                let verb = if value.is_some() { "Saved" } else { "Reverted" };
+                match value {
+                    Some(v) => {
+                        entry.insert(field.clone(), v);
+                    }
+                    None => {
+                        entry.remove(&field);
+                    }
+                }
+                // Renaming a separate entry changes its key.
+                if field == "name" && !editor.replaces {
+                    if let Some(k) = dnt_data::Key::of_entity(editor.kind, &serde_json::Value::Object(entry.clone())) {
+                        editor.key = k;
+                    }
+                }
+                Some(format!("{verb} {field}"))
+            }),
+            entry_editor::Action::Delete => {
+                self.edit_homebrew(lib, |doc, at, _| homebrew::delete_entry(doc, at).then(|| "Deleted the campaign entry".to_string()));
+                self.editor = None;
+            }
+        }
+    }
+
+    /// Change the active campaign's homebrew entry for the edited entity.
+    fn edit_homebrew(
+        &mut self,
+        lib: &Library,
+        change: impl FnOnce(&mut serde_json::Value, &(String, usize), &mut EntryEditor) -> Option<String>,
+    ) {
+        let (Some(i), Some(editor)) = (self.active, self.editor.as_mut()) else { return };
+        let campaign = self.campaigns.list[i].clone();
+        let Ok(mut doc) = self.store.homebrew(&campaign) else { return };
+        let Some(at) = editor.entity(lib).and_then(|id| homebrew::find_entry(&doc, lib, id)) else {
+            self.status = "This entry is not in the campaign's homebrew".into();
+            return;
+        };
+        let Some(msg) = change(&mut doc, &at, editor) else { return };
+        match self.store.save_homebrew(&campaign, &doc) {
+            Ok(()) => {
+                self.homebrew = Some(doc);
+                self.pending_reload = true;
+                self.status = msg;
+            }
+            Err(e) => self.status = format!("Could not save homebrew: {e}"),
         }
     }
 

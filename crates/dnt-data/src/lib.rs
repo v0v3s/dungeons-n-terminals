@@ -2,6 +2,7 @@
 
 pub mod copy;
 pub mod doc;
+pub mod homebrew;
 pub mod id;
 pub mod kind;
 pub mod library;

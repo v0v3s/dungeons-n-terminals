@@ -2,6 +2,7 @@ mod app;
 mod campaigns;
 mod characters;
 mod compendium;
+mod entry_editor;
 mod levelup;
 mod notes_view;
 mod picker;
@@ -10,6 +11,7 @@ mod spells_tab;
 mod theme;
 mod ui;
 mod ui_notes;
+mod ui_editor;
 mod ui_sheet;
 mod wizard;
 
