@@ -373,6 +373,8 @@ impl Characters {
             KeyCode::Char('q') => return Action::Quit,
             KeyCode::Char('j') | KeyCode::Down if n > 0 => self.selected = (self.selected + 1).min(n - 1),
             KeyCode::Char('k') | KeyCode::Up => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Char('g') | KeyCode::Home => self.selected = 0,
+            KeyCode::Char('G') | KeyCode::End => self.selected = n.saturating_sub(1),
             KeyCode::Enter | KeyCode::Char('l') if n > 0 => self.open(self.selected, lib, overlays),
             KeyCode::Char('n') => self.name_input = Some(String::new()),
             KeyCode::Char('e') if n > 0 => return Action::Edit(self.files[self.selected].path.clone()),

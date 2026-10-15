@@ -278,8 +278,9 @@ recharge = "long_rest"
 [[feature]]
 id = "classFeature:Sneak Attack|Rogue|XPHB|1"
 [[feature.effect]]
-target = "attack.sneak_attack"
+target = "rider.sneak_attack"
 set = "class.rogue.sneak_attack"
+origin = "Sneak Attack: once per turn, a Finesse or ranged weapon, with Advantage or an ally next to the target"
 
 # ---- Sorcerer ----
 
@@ -382,3 +383,154 @@ name = "Two-Weapon Fighting (Fighting Style)"
 [[feature.effect]]
 target = "attack.offhand.full_mod"
 set = "1"
+
+# ---- Extra damage on a hit (shown under the attacks) ----
+
+[[feature]]
+id = "classFeature:Brutal Strike|Barbarian|XPHB|9"
+[[feature.effect]]
+target = "rider.brutal_strike"
+set = "if(class.barbarian.level >= 17, 2d10, 1d10)"
+origin = "Brutal Strike: with Reckless Attack, forgo Advantage on one Strength attack"
+
+[[feature]]
+id = "classFeature:Radiant Strikes|Paladin|XPHB|11"
+[[feature.effect]]
+target = "rider.radiant_strikes"
+set = "1d8"
+origin = "Radiant Strikes: radiant, on every melee weapon or Unarmed Strike hit"
+
+[[feature]]
+id = "classFeature:Divine Strike|Cleric|XPHB|7"
+[[feature.effect]]
+target = "rider.divine_strike"
+set = "if(class.cleric.level >= 14, 2d8, 1d8)"
+origin = "Divine Strike: necrotic or radiant, once per turn on a weapon hit"
+
+[[feature]]
+id = "classFeature:Primal Strike|Druid|XPHB|7"
+[[feature.effect]]
+target = "rider.primal_strike"
+set = "if(class.druid.level >= 15, 2d8, 1d8)"
+origin = "Primal Strike: cold, fire, lightning or thunder, once per turn on a weapon or Beast-form hit"
+
+# ---- Subclass resources ----
+
+[[feature]]
+id = "subclassFeature:Combat Superiority|Fighter|XPHB|Battle Master|XPHB|3"
+[[feature.resource]]
+key = "superiority_dice"
+name = "Superiority Dice"
+max = "scale(level('Fighter'), {3: 4, 7: 5, 15: 6})"
+recharge = "short_rest"
+
+[[feature]]
+id = "subclassFeature:Psionic Power|Fighter|XPHB|Psi Warrior|XPHB|3"
+[[feature.resource]]
+key = "psionic_energy"
+name = "Psionic Energy Dice"
+max = "2 * prof"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+[[feature]]
+id = "subclassFeature:Psionic Power|Rogue|XPHB|Soulknife|XPHB|3"
+[[feature.resource]]
+key = "psionic_energy"
+name = "Psionic Energy Dice"
+max = "2 * prof"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+# ---- Species ----
+
+[[feature]]
+id = "race:Dwarf|XPHB"
+name = "Dwarven Toughness"
+[[feature.effect]]
+target = "hp.max"
+add = "level"
+
+[[feature]]
+id = "race:Human|XPHB"
+[[feature.resource]]
+key = "heroic_inspiration"
+name = "Heroic Inspiration"
+max = "1"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Orc|XPHB"
+[[feature.resource]]
+key = "adrenaline_rush"
+name = "Adrenaline Rush"
+max = "prof"
+recharge = "short_rest"
+[[feature.resource]]
+key = "relentless_endurance"
+name = "Relentless Endurance"
+max = "1"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Dragonborn|XPHB"
+[[feature.resource]]
+key = "breath_weapon"
+name = "Breath Weapon"
+max = "prof"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Goliath|XPHB"
+[[feature.resource]]
+key = "giant_ancestry"
+name = "Giant Ancestry"
+max = "prof"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Aasimar|XPHB"
+[[feature.resource]]
+key = "healing_hands"
+name = "Healing Hands"
+max = "1"
+recharge = "long_rest"
+[[feature.resource]]
+key = "celestial_revelation"
+name = "Celestial Revelation"
+max = "1"
+recharge = "long_rest"
+
+# ---- More feats ----
+
+[[feature]]
+id = "feat:Speedy|XPHB"
+[[feature.effect]]
+target = "speed"
+add = "10"
+
+[[feature]]
+id = "feat:Great Weapon Master|XPHB"
+[[feature.effect]]
+target = "attack.heavy.damage"
+add = "prof"
+origin = "Great Weapon Master (Heavy weapon, as part of the Attack action)"
+
+[[feature]]
+id = "feat:Tavern Brawler|XPHB"
+[[feature.effect]]
+target = "attack.unarmed.damage"
+max = "1d4 + attack.unarmed.mod"
+origin = "Tavern Brawler"
+
+[[feature]]
+id = "feat:Boon of Fortitude|XPHB"
+[[feature.effect]]
+target = "hp.max"
+add = "40"
+
+[[feature]]
+id = "feat:Boon of Speed|XPHB"
+[[feature.effect]]
+target = "speed"
+add = "30"

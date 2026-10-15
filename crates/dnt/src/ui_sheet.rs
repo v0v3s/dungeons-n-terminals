@@ -601,6 +601,24 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
         }
         lines.push(Line::from(spans).style(base));
     }
+    // Extra damage on some hits (Sneak Attack, Radiant Strikes): the value
+    // and, from the feature, when it applies.
+    let riders: Vec<(&String, &dnt_rules::StatResult)> = ev.stats.iter().filter(|(k, _)| k.starts_with("rider.")).collect();
+    if !riders.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::styled("On a hit", theme.label));
+        for (_, r) in riders {
+            let Ok(v) = &r.value else { continue };
+            let why = r.parts.iter().rev().find(|p| p.applied).map(|p| p.origin.clone()).unwrap_or_default();
+            let (name, rest) = why.split_once(": ").unwrap_or((why.as_str(), ""));
+            lines.push(Line::from(vec![
+                Span::raw("      "),
+                Span::styled(format!("+{v} "), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
+                Span::styled(name.to_string(), Style::new().add_modifier(Modifier::BOLD)),
+                Span::styled(if rest.is_empty() { String::new() } else { format!("  {}", truncate(rest, width.saturating_sub(name.width() + 20))) }, theme.dim),
+            ]));
+        }
+    }
     let scroll = (selected + 1).saturating_sub(inner.height as usize);
     frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
 }
@@ -708,7 +726,8 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     frame.render_widget(Paragraph::new(lines), inner);
 
     // Middle: combat tiles, HP, resources.
-    let attacks_h = (sheet.build.attacks.len() as u16 + 7).min(18);
+    let riders = sheet.ev.stats.keys().filter(|k| k.starts_with("rider.")).count() as u16;
+    let attacks_h = (sheet.build.attacks.len() as u16 + 7 + if riders > 0 { riders + 2 } else { 0 }).min(22);
     let [tiles, _, attacks, _, rest] = Layout::vertical([
         Constraint::Length(5),
         Constraint::Length(1),

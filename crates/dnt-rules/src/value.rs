@@ -26,6 +26,10 @@ fn gcd(a: i64, b: i64) -> i64 {
 impl Num {
     pub const ZERO: Num = Num { n: 0, d: 1 };
 
+    pub fn to_f64(self) -> f64 {
+        self.n as f64 / self.d as f64
+    }
+
     pub fn int(n: i64) -> Num {
         Num { n, d: 1 }
     }
@@ -151,6 +155,12 @@ impl Dice {
     pub fn average(&self) -> i64 {
         let twice: i64 = self.terms.iter().map(|(&f, &c)| c * (f as i64 + 1)).sum();
         (twice + 2 * self.flat).div_euclid(2)
+    }
+
+    /// The exact mean, for comparing dice.
+    pub fn mean(&self) -> f64 {
+        let twice: i64 = self.terms.iter().map(|(&f, &c)| c * (f as i64 + 1)).sum();
+        (twice + 2 * self.flat) as f64 / 2.0
     }
 }
 

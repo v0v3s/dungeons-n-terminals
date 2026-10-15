@@ -335,7 +335,12 @@ impl Model {
         let mut current_idx = 0;
         for (e, v) in active.iter().filter(|(e, _)| e.op == Op::Max) {
             let idx = push(&mut parts, e, PartKind::Max, v);
-            match (current.as_num(), v.as_num()) {
+            // Dice compare by their average (1d4 + 2 beats 3).
+            let size = |x: &Value| match x {
+                Value::Dice(d) => Some(d.mean()),
+                other => other.as_num().map(|n| n.to_f64()),
+            };
+            match (size(&current), size(v)) {
                 (Some(cur), Some(new)) if new > cur => {
                     parts[current_idx].applied = false;
                     parts[current_idx].note = Some(format!("lower than {}", e.origin));

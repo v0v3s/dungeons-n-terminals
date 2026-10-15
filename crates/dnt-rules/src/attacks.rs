@@ -14,6 +14,11 @@
 //! | `attack.ranged.bonus/damage`| ranged weapons (Archery)                    |
 //! | `attack.one_handed.damage`  | melee weapons held in one hand (Dueling)    |
 //! | `attack.strength.damage`    | attacks using Strength (Rage)               |
+//! | `attack.heavy.damage`       | Heavy weapons (Great Weapon Master)         |
+//!
+//! Extra damage dealt on some hits (Sneak Attack, Radiant Strikes) goes to
+//! `rider.<key>` stats, shown under the attacks with the effect's origin
+//! as the explanation.
 
 use dnt_data::view::item_property;
 use dnt_data::{EntityId, Library};
@@ -475,6 +480,9 @@ fn weapon_attack(
     if w.melee && !w.has("2H") && held.dueling {
         damage_groups.push("attack.one_handed");
     }
+    if w.has("H") {
+        damage_groups.push("attack.heavy");
+    }
     for (stat, dice, one_handed) in [(key("damage"), Some(dice), true), (key("versatile"), w.versatile.clone(), false)] {
         let Some(dice) = dice else { continue };
         let origin = format!("{name} ({})", if one_handed { "damage dice" } else { "two-handed" });
@@ -783,6 +791,39 @@ add = "2"
         assert!(notes("Greataxe").contains("count as 3s"));
         assert!(notes("Longsword").contains("(two-handed)"), "versatile");
         assert!(notes("Rapier").is_empty() && !notes("Longbow").contains("Great Weapon"));
+    }
+
+    #[test]
+    fn heavy_riders_and_dice_max() {
+        let lib = library();
+        let (o, d) = Overlay::parse(
+            r#"
+[[feature]]
+id = "feat:Archery|T"
+[[feature.effect]]
+target = "attack.heavy.damage"
+add = "prof"
+[[feature.effect]]
+target = "rider.radiant"
+set = "1d8"
+origin = "Radiant: on melee hits"
+[[feature.effect]]
+target = "attack.unarmed.damage"
+max = "1d4 + attack.unarmed.mod"
+origin = "Tavern Brawler"
+"#,
+        )
+        .unwrap();
+        assert!(d.is_empty(), "{d:?}");
+        let mut set = OverlaySet::default();
+        set.add(o);
+        let mut c = character(&["Fighter"], &["Greataxe", "Longsword"]);
+        c.feats = vec!["feat:Archery|T".into()];
+        let ev = build(&c, &lib, &set).evaluate();
+        assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 5", "Heavy: + prof");
+        assert_eq!(ev.get("attack.longsword.damage").unwrap().to_string(), "1d8 + 3");
+        assert_eq!(ev.get("rider.radiant").unwrap().to_string(), "1d8");
+        assert_eq!(ev.get("attack.unarmed.damage").unwrap().to_string(), "1d4 + 3", "1d4 + 3 beats 4");
     }
 
     #[test]
