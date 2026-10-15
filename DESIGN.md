@@ -282,19 +282,108 @@ feature ID and its text as comments; overlays are validated live.
 
 ## 4. Notes
 
-- Campaign-scoped Markdown files under `campaigns/<slug>/notes/`.
-- **Explorer tree** (Snacks-like): `a` add (trailing `/` = folder), `r`
-  rename, `d` delete, `/` filter, Enter open; plus a fuzzy note picker.
+Plain Markdown with YAML frontmatter and `[[wiki links]]`, so a campaign's
+`notes/` folder also opens as an Obsidian vault.
+
+### Default structure (created with every campaign)
+
+```
+campaigns/<slug>/notes/
+├── Campaign.md     hub: premise, house rules, party, goals; generated
+│                   sections for open quests, recent sessions, recent NPCs
+├── Inbox.md        quick capture lands here
+├── Sessions/       one note per session, named by date: 2026-10-15.md
+│                   (second on a day: "2026-10-15 (2).md"); newest first
+├── NPCs/
+├── Quests/         status (active · done · failed) in frontmatter, not folders
+├── Places/
+├── Party/          <character>.md per character (the sheet's Notes tab),
+│                   Party.md for shared fund, cart, marching order
+├── Factions/
+└── Lore/           history, gods, legends, rumours, prophecies
+```
+
+- **No Loot folder**: items live in the inventory; party-wide things in
+  `Party/Party.md`.
+- **Folder order is the user's**: the default above is only a starting
+  point. Folders are reordered in the tree (`J`/`K`) and the order is saved
+  per campaign (`[notes] order = [...]` in `campaign.toml`); folders not
+  listed follow alphabetically. The default for new campaigns can be set
+  in the global config.
+- Sessions are not numbered; the title defaults to the date.
+
+### Templates
+
+Each folder has a template (frontmatter + headings), used when creating a
+note there. Shipped defaults can be overridden globally
+(`<data>/templates/<Folder>.md`) and per campaign
+(`notes/.templates/<Folder>.md`); the most specific wins. Placeholders:
+`{{title}}`, `{{date}}`, `{{campaign}}`, `{{character}}`.
+
+```markdown
+---
+type: npc
+tags: [npc]
+status: alive          # alive · dead · unknown
+location:
+faction:
+attitude: neutral      # friendly · neutral · hostile
+first_seen: "[[{{date}}]]"
+---
+# {{title}}
+
+**Who:**
+**Wants:**
+**Knows / told us:**
+**Our dealings:**
+```
+
+Session template sections: Recap · Met · Went · Got · Learned · Open
+threads · Next time.
+
+### Features
+
+- **Explorer tree** (Snacks-like): `a` add (in a folder: from its
+  template; trailing `/` = folder), `r` rename, `d` delete, `J`/`K` move
+  folder, `/` filter, Enter open; plus a fuzzy note picker.
 - **Editor**: `edtui` with vim modes.
 - **Links**: `[[Note Name]]` → note, `[[spell:Fireball]]` → compendium;
-  `gd` follows, hover/`K` previews.
-- Session journal: "new session note" creates `sessions/YYYY-MM-DD.md`.
-- Quick capture hotkey: append a timestamped line to today's session note
-  from anywhere.
-- Tags (`#npc`) and full-text search.
-- Pinned notes shown on the character sheet.
+  `gd` follows, `K` previews. **Backlinks** ("mentioned in") per note.
+- Session journal: "new session" creates today's session note.
+- Quick capture hotkey: append a timestamped line to `Inbox.md` (or
+  today's session note) from anywhere.
+- Tags (`#npc`, frontmatter `tags`) and full-text search.
+- Character sheet Notes tab shows `Party/<character>.md`.
 
-## 5. UX
+## 5. Campaign layer: homebrew, clones and overrides
+
+Imported data (data, homebrew files) is never edited. Each campaign has
+its own homebrew file, `campaigns/<slug>/homebrew.json` (standard data
+homebrew format), with a campaign source (e.g. `CoS`) that is always
+enabled for that campaign.
+
+- **Create** new entities (items first, then spells, feats, optional
+  features, class/subclass features, species, backgrounds, later whole
+  subclasses/classes).
+- **Clone** any entity, stored as a diff via data `_copy` (only changed
+  fields are written; upstream fixes still flow in; data/Foundry can
+  load the file). Two modes:
+  - **Replace the original** (`"_dnt": {"replaces": true}`): within the
+    campaign the clone is used everywhere instead of the original —
+    compendium, search, note links, pickers and existing characters.
+    Clones can be as small as one class feature.
+  - **Separate copy**: a new entity under its own name.
+- Compendium marks campaign versions ("Campaign version · changed:
+  duration") with a key to view the original.
+- **Editor**: per-kind form for common fields, description written as
+  Markdown in the built-in editor (converted to data entries), raw JSON
+  in `$EDITOR` as an escape hatch (validated on save).
+- Entry points: Compendium `c` clone / `n` new (edit/delete only for
+  campaign entities), Inventory "Create new item…".
+- Entities can be promoted to a global homebrew library
+  (`<data>/library/homebrew/`) to use them in every campaign.
+
+## 6. UX
 
 - Vim-ish navigation everywhere, `:` command line, global fuzzy picker.
 - Split panes: sheet + compendium/notes side by side.
@@ -340,6 +429,11 @@ feature ID and its text as comments; overlays are validated live.
    free casts as long-rest resources, and "choose" grants), casting from
    a chosen slot or pact slot or as a ritual, concentration tracking.
    *M3 done. Next: M4 Notes.*
-4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
-5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
-   homebrew polish; later embedded nvim, export.
+4. **M4 Notes** — notes store, default structure and folder order,
+   templates, explorer tree, edtui editor, links and backlinks, session
+   journal, quick capture, sheet Notes tab.
+5. **M5 Campaign layer** — campaign homebrew file and source, clone
+   (replace / separate), creator and editor forms (items, spells first),
+   compendium markers, inventory shortcut.
+6. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
+   export.
