@@ -479,6 +479,19 @@ enabled for that campaign.
    (`monk_weapon = true/false` overrides the rules either way) — use the
    better of Str and Dex and the Martial Arts die when it is bigger.
    Favorite spells (`f`) are listed first on the Spells tab.
+   **Equipment**: worn items go in slots (head, eyes, neck, shoulders,
+   body, arms, hands, waist, feet, two rings, and any number of "other"),
+   one item per slot — space in the Inventory asks where, the likely slot
+   preselected from the item's name and type; the Inventory shows an
+   Equipment panel. Weapons and shields are *held*, not worn: main hand,
+   off hand, both hands (two-handed) or a pair of the same weapon, and
+   they are switched on the Overview's attack list (space main hand, `o`
+   off hand, `S` shield) so a fighter can go from javelins to sword and
+   board mid-fight. The shield counts for AC only in hand; Dueling needs
+   a one-handed weapon and no other weapon in hand; an off-hand weapon
+   shows its off-hand attack (no ability modifier unless negative, or
+   with Two-Weapon Fighting). Every carried weapon is listed, what is in
+   hand first. Older files are converted when opened.
    *Done* (not yet: generic "+1 Weapon" variants without a base weapon,
    Great Weapon Fighting rerolls).
 7. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,

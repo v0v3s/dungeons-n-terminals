@@ -4,7 +4,7 @@ use dnt_data::{Library, SourceFilter};
 use dnt_rules::builder::{build, Build};
 use dnt_rules::equipment;
 use dnt_rules::choices::{self, Pending};
-use dnt_rules::character::Character;
+use dnt_rules::character::{Character, Hand, Slot};
 use dnt_rules::overlay::OverlaySet;
 use dnt_rules::play::{self, Edition};
 use dnt_rules::standard::{ABILITIES, SKILLS};
@@ -88,6 +88,8 @@ pub enum Popup {
     SpellPick(Box<Picker>, spells_tab::Target),
     /// Choosing how to cast a spell.
     Cast(Box<Picker>, dnt_data::EntityId),
+    /// Choosing where to wear an inventory line.
+    Wear(Box<Picker>, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,7 +159,10 @@ impl Sheet {
         Some(campaign.join("notes/Party").join(format!("{}.md", dnt_store::notes::file_safe(&self.file.character.name))))
     }
 
-    pub fn new(file: CharacterFile, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Sheet {
+    pub fn new(mut file: CharacterFile, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Sheet {
+        // Older files: equipped weapons go in hand, worn items get a slot
+        // (saved with the next change).
+        equipment::normalize(lib, &mut file.character);
         let build = build(&file.character, lib, overlays);
         let ev = build.evaluate();
         let edition = Edition::of(&build, lib);
@@ -270,6 +275,7 @@ impl Characters {
                         | Popup::Text(..)
                         | Popup::SpellPick(..)
                         | Popup::Cast(..)
+                        | Popup::Wear(..)
                 )
             )
     }
@@ -497,6 +503,24 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::None;
             }
+            Popup::Wear(mut picker, i) => {
+                sheet.popup = None;
+                match picker.key(key) {
+                    Some(Picked::One(v)) => {
+                        let Some(&slot) = v.parse::<usize>().ok().and_then(|n| Slot::ALL.get(n)) else { return Action::None };
+                        let off = equipment::wear(lib, &mut sheet.file.character, i, slot);
+                        let name = line_name(lib, &sheet.file.character.inventory[i]);
+                        let mut msg = format!("Wearing {name} ({})", slot.label());
+                        if !off.is_empty() {
+                            msg.push_str(&format!(", took off {}", off.join(", ")));
+                        }
+                        return changed(sheet, lib, overlays, msg);
+                    }
+                    _ if key.code == KeyCode::Esc => {}
+                    _ => sheet.popup = Some(Popup::Wear(picker, i)),
+                }
+                return Action::None;
+            }
             Popup::Undo => {
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
@@ -661,6 +685,26 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
                 return toggle(sheet, lib, overlays);
             }
         }
+        KeyCode::Char(' ' | 'w' | 'o') if matches!(items.get(sheet.cursor), Some(Item::Attack(_))) => {
+            let Some(Item::Attack(slug)) = items.get(sheet.cursor) else { unreachable!() };
+            let Some(i) = attack_line(sheet, lib, slug) else {
+                return Action::Status("Unarmed strikes need no hands".into());
+            };
+            let hand = if key.code == KeyCode::Char('o') { Hand::Off } else { Hand::Main };
+            return hold(sheet, lib, overlays, i, hand);
+        }
+        KeyCode::Char('S') => {
+            // Take up or put away the shield (the one in hand first).
+            let inv = &sheet.file.character.inventory;
+            let is_shield = |l: &dnt_rules::character::InventoryItem| {
+                item_entity(lib, l).is_some_and(|e| equipment::armor_kind(&lib.entity(e).data) == Some("shield"))
+            };
+            let Some(i) = inv.iter().position(|l| is_shield(l) && l.hand.is_some()).or_else(|| inv.iter().position(is_shield)) else {
+                return Action::Status("No shield in the inventory".into());
+            };
+            let hand = sheet.file.character.inventory[i].hand.unwrap_or(Hand::Off);
+            return hold(sheet, lib, overlays, i, hand);
+        }
         KeyCode::Char(' ' | '-') => return spend(sheet, lib, overlays, 1),
         KeyCode::Char('+' | '=') => return spend(sheet, lib, overlays, -1),
         _ => {}
@@ -810,36 +854,96 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             return changed(sheet, lib, overlays, format!("Removed {}", line_name(lib, &removed)));
         }
         KeyCode::Char(' ') if n > 0 => {
-            let kind = item_entity(lib, &sheet.file.character.inventory[i]).and_then(|e| equipment::armor_kind(&lib.entity(e).data));
-            let on = !sheet.file.character.inventory[i].equipped;
-            // Only one armor and one shield can be worn.
-            if on && kind.is_some() {
-                let is_shield = kind == Some("shield");
-                for (j, other) in sheet.file.character.inventory.iter_mut().enumerate() {
-                    let other_kind = item_entity(lib, other).and_then(|e| equipment::armor_kind(&lib.entity(e).data));
-                    if j != i && other.equipped && other_kind.is_some() && (other_kind == Some("shield")) == is_shield {
-                        other.equipped = false;
-                    }
-                }
+            let c = &sheet.file.character;
+            let line = &c.inventory[i];
+            let data = item_entity(lib, line).map(|e| &lib.entity(e).data);
+            // Weapons and shields are held; the rest is worn in a slot.
+            if data.is_some_and(equipment::is_held) {
+                let shield = data.and_then(equipment::armor_kind) == Some("shield");
+                return hold(sheet, lib, overlays, i, if shield { Hand::Off } else { Hand::Main });
             }
-            let line = &mut sheet.file.character.inventory[i];
-            line.equipped = on;
-            let name = line_name(lib, line);
-            return changed(sheet, lib, overlays, format!("{} {name}", if on { "Equipped" } else { "Unequipped" }));
+            if line.equipped {
+                equipment::take_off(&mut sheet.file.character, i);
+                let name = line_name(lib, &sheet.file.character.inventory[i]);
+                return changed(sheet, lib, overlays, format!("Took off {name}"));
+            }
+            let picker = wear_picker(lib, c, i);
+            sheet.popup = Some(Popup::Wear(Box::new(picker), i));
+        }
+        KeyCode::Char('o') if n > 0 => {
+            let data = item_entity(lib, &sheet.file.character.inventory[i]).map(|e| &lib.entity(e).data);
+            if !data.is_some_and(equipment::is_held) {
+                return Action::Status("Only weapons and shields are held".into());
+            }
+            return hold(sheet, lib, overlays, i, Hand::Off);
         }
         KeyCode::Char('A') if n > 0 => {
             let line = &mut sheet.file.character.inventory[i];
             line.attuned = !line.attuned;
-            // An attuned item only works while worn or carried as intended.
-            if line.attuned {
-                line.equipped = true;
+            let mut msg = format!("{} {}", if line.attuned { "Attuned to" } else { "No longer attuned to" }, line_name(lib, line));
+            // Its magic works only while worn (or held).
+            if line.attuned && !line.equipped && line.hand.is_none() {
+                msg.push_str(" (not worn: space to wear it)");
             }
-            let msg = format!("{} {}", if line.attuned { "Attuned to" } else { "No longer attuned to" }, line_name(lib, line));
             return changed(sheet, lib, overlays, msg);
         }
         _ => {}
     }
     Action::None
+}
+
+/// Take an inventory line in hand (or put it away), keeping the overview
+/// cursor on the same attack as the list reorders.
+fn hold(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, i: usize, hand: Hand) -> Action {
+    let before = sheet.current_item();
+    let msg = equipment::wield(lib, &mut sheet.file.character, i, hand);
+    let action = changed(sheet, lib, overlays, msg);
+    if let Some(item @ Item::Attack(_)) = before {
+        if let Some(at) = sheet.items().iter().position(|x| *x == item) {
+            sheet.cursor = at;
+        }
+    }
+    action
+}
+
+/// The inventory line behind an attack row.
+fn attack_line(sheet: &Sheet, lib: &Library, slug: &str) -> Option<usize> {
+    let a = sheet.build.attacks.iter().find(|a| a.slug == slug)?;
+    let id = a.item?;
+    let inv = &sheet.file.character.inventory;
+    inv.iter()
+        .position(|l| item_entity(lib, l) == Some(id) && line_name(lib, l) == a.name)
+        .or_else(|| inv.iter().position(|l| item_entity(lib, l) == Some(id)))
+}
+
+/// Where to wear a line: every slot, with what it would replace; the
+/// likely slot is preselected.
+fn wear_picker(lib: &Library, c: &dnt_rules::character::Character, i: usize) -> Picker {
+    let line = &c.inventory[i];
+    let name = line_name(lib, line);
+    let guess = item_entity(lib, line).map(|e| equipment::guess_slot(c, &name, &lib.entity(e).data)).unwrap_or(Slot::Other);
+    let items: Vec<crate::picker::PickItem> = Slot::ALL
+        .iter()
+        .enumerate()
+        .map(|(n, &slot)| {
+            let occupant = c
+                .inventory
+                .iter()
+                .enumerate()
+                .find(|(j, l)| *j != i && slot != Slot::Other && l.equipped && l.slot == Some(slot))
+                .map(|(_, l)| line_name(lib, l));
+            let label = match slot {
+                Slot::Ring1 => "Ring 1".to_string(),
+                Slot::Ring2 => "Ring 2".to_string(),
+                s => s.label().to_string(),
+            };
+            let hint = occupant.map(|o| format!("takes off {o}")).unwrap_or_else(|| slot.examples().to_string());
+            crate::picker::PickItem::new(label, hint, n.to_string())
+        })
+        .collect();
+    let mut picker = Picker::new(format!("Wear {name}"), items);
+    picker.selected = Slot::ALL.iter().position(|s| *s == guess).unwrap_or(0);
+    picker
 }
 
 /// Every item and base item enabled by the campaign, for the add picker.

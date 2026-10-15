@@ -309,11 +309,12 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     }
 
     // ---- equipment: armor, shield and item bonuses ----
-    // Equipped inventory lines win over the older `equipped` fields.
+    // Worn and held inventory lines win over the older `equipped` fields;
+    // a shield counts while in hand.
     let equipped: Vec<(EntityId, bool)> = character
         .inventory
         .iter()
-        .filter(|l| l.equipped)
+        .filter(|l| l.equipped || l.hand.is_some())
         .filter_map(|l| Some((resolve_id(lib, l.item.as_deref()?)?, l.attuned)))
         .collect();
     let armor_id = equipped

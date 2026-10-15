@@ -367,3 +367,10 @@ name = "Dueling (Fighting Style)"
 [[feature.effect]]
 target = "attack.one_handed.damage"
 add = "2"
+
+[[feature]]
+id = "feat:Two-Weapon Fighting|XPHB"
+name = "Two-Weapon Fighting (Fighting Style)"
+[[feature.effect]]
+target = "attack.offhand.full_mod"
+set = "1"

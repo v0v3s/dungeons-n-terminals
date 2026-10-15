@@ -246,6 +246,112 @@ pub struct InventoryItem {
     /// Martial Arts rules; unset follows the rules.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub monk_weapon: Option<bool>,
+    /// Where a worn item is worn (with `equipped`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<Slot>,
+    /// A weapon or shield in hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hand: Option<Hand>,
+}
+
+/// Where a worn item goes. Each slot takes one item, except `Other`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Slot {
+    Head,
+    Eyes,
+    Neck,
+    Shoulders,
+    Body,
+    Arms,
+    Hands,
+    Waist,
+    Feet,
+    Ring1,
+    Ring2,
+    Other,
+}
+
+impl Slot {
+    pub const ALL: [Slot; 12] = [
+        Slot::Head,
+        Slot::Eyes,
+        Slot::Neck,
+        Slot::Shoulders,
+        Slot::Body,
+        Slot::Arms,
+        Slot::Hands,
+        Slot::Waist,
+        Slot::Feet,
+        Slot::Ring1,
+        Slot::Ring2,
+        Slot::Other,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Slot::Head => "Head",
+            Slot::Eyes => "Eyes",
+            Slot::Neck => "Neck",
+            Slot::Shoulders => "Shoulders",
+            Slot::Body => "Body",
+            Slot::Arms => "Arms",
+            Slot::Hands => "Hands",
+            Slot::Waist => "Waist",
+            Slot::Feet => "Feet",
+            Slot::Ring1 => "Ring",
+            Slot::Ring2 => "Ring",
+            Slot::Other => "Other",
+        }
+    }
+
+    /// What usually goes there, for the slot picker.
+    pub fn examples(self) -> &'static str {
+        match self {
+            Slot::Head => "helms, hats, circlets",
+            Slot::Eyes => "goggles, lenses",
+            Slot::Neck => "amulets, necklaces, periapts",
+            Slot::Shoulders => "cloaks, capes, mantles",
+            Slot::Body => "armor, robes",
+            Slot::Arms => "bracers",
+            Slot::Hands => "gloves, gauntlets",
+            Slot::Waist => "belts, girdles",
+            Slot::Feet => "boots, slippers",
+            Slot::Ring1 | Slot::Ring2 => "rings",
+            Slot::Other => "anything else (any number)",
+        }
+    }
+}
+
+/// How a weapon or shield is held.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Hand {
+    Main,
+    Off,
+    /// One weapon in both hands (two-handed, or versatile used two-handed).
+    Both,
+    /// Two of the same weapon, one in each hand (two daggers).
+    Pair,
+}
+
+impl Hand {
+    pub fn uses_main(self) -> bool {
+        matches!(self, Hand::Main | Hand::Both | Hand::Pair)
+    }
+
+    pub fn uses_off(self) -> bool {
+        matches!(self, Hand::Off | Hand::Both | Hand::Pair)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Hand::Main => "main hand",
+            Hand::Off => "off hand",
+            Hand::Both => "both hands",
+            Hand::Pair => "one in each hand",
+        }
+    }
 }
 
 fn one() -> i64 {

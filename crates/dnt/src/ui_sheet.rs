@@ -4,6 +4,7 @@ use dnt_data::{view, Library};
 use dnt_rules::builder::{build, FeatureSource};
 use dnt_rules::engine::PartKind;
 use dnt_rules::overlay::{OverlaySet, Recharge};
+use dnt_rules::character::{Hand, Slot};
 use dnt_rules::play;
 use dnt_rules::standard::{ABILITIES, SKILLS};
 use dnt_rules::overlay::resolve_id;
@@ -215,7 +216,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
     frame.render_widget(Paragraph::new(Line::from(spans)), tabs);
 
     match sheet.tab {
-        Tab::Overview => draw_overview(frame, body, sheet, theme),
+        Tab::Overview => draw_overview(frame, body, lib, sheet, theme),
         Tab::Features => draw_features(frame, body, lib, overlays, sheet, theme),
         Tab::Inventory => draw_inventory(frame, body, lib, sheet, theme),
         Tab::Spells => draw_spells(frame, body, lib, sheet, theme),
@@ -262,6 +263,16 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             let block = pane(pane_title(&picker.title, true, theme), true, theme)
                 .padding(Padding::new(2, 2, 1, 0))
                 .title_bottom(Line::styled(hint, theme.dim).right_aligned());
+            let inner = block.inner(rect);
+            frame.render_widget(block, rect);
+            draw_picker(frame, inner, &picker, theme);
+        }
+        Some(Popup::Wear(picker, _)) => {
+            let rect = centered(area, 64.min(area.width), (picker.items.len() as u16 + 7).min(area.height));
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title(&picker.title, true, theme), true, theme)
+                .padding(Padding::new(2, 2, 1, 0))
+                .title_bottom(Line::styled(" enter wear · esc cancel ", theme.dim).right_aligned());
             let inner = block.inner(rect);
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &picker, theme);
@@ -460,7 +471,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 
 /// Row style for an item: highlighted under the cursor.
 /// Attack bonus, damage and range of each weapon and the unarmed strike.
-fn draw_attacks(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
+fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, theme: &Theme) {
     let block = pane(pane_title("Attacks", false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -479,13 +490,40 @@ fn draw_attacks(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
     let name_w = col(&|a| a.name.width(), 6).min(28);
     let dmg_w = col(&|a| damage_of(a).width(), 6);
     let range_w = col(&|a| a.range.width(), 5);
-    let mut lines = vec![Line::from(vec![
-        Span::styled(format!("  {:<name_w$}", "weapon"), theme.label),
+    // What is in hand right now.
+    let ch = sheet.character();
+    let held: Vec<String> = ch
+        .inventory
+        .iter()
+        .filter_map(|l| {
+            let h = l.hand?;
+            let name = crate::characters::line_name(lib, l);
+            Some(match h {
+                Hand::Pair => format!("{name} ×2"),
+                Hand::Both => format!("{name} (two hands)"),
+                _ => name,
+            })
+        })
+        .collect();
+    let mut lines = vec![
+        spread(
+            vec![
+                Span::styled("In hand  ", theme.label),
+                if held.is_empty() { Span::styled("nothing", theme.dim) } else { Span::styled(held.join(" · "), Style::new().add_modifier(Modifier::BOLD)) },
+            ],
+            vec![Span::styled("space main hand · o off hand · S shield ", theme.dim)],
+            width,
+        ),
+        Line::default(),
+    ];
+    lines.push(Line::from(vec![
+        Span::styled(format!("{:<6}", "hand"), theme.label),
+        Span::styled(format!("{:<name_w$}", "weapon"), theme.label),
         Span::styled(format!("{:>4}   ", "hit"), theme.label),
         Span::styled(format!("{:<dmg_w$}", "damage"), theme.label),
         Span::styled(format!("{:<range_w$}", "range"), theme.label),
         Span::styled("notes", theme.label),
-    ])];
+    ]));
     let mut selected = 0;
     for a in attacks {
         let item = Item::Attack(a.slug.clone());
@@ -508,14 +546,32 @@ fn draw_attacks(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
         if !a.properties.is_empty() {
             notes.push(Span::styled(a.properties.join(", "), base.patch(faint)));
         }
-        let weapon_equipped = a.equipped && a.item.is_some();
-        let name_style = if weapon_equipped { base.add_modifier(Modifier::BOLD) } else { base };
+        let in_hand = a.hand.is_some();
+        let name_style = if in_hand { base.add_modifier(Modifier::BOLD) } else if a.item.is_some() { base.patch(faint) } else { base };
         let hit_style = if a.proficient { base.fg(theme.accent).add_modifier(Modifier::BOLD) } else { base.fg(Color::Red) };
+        let hand = match a.hand {
+            Some(Hand::Main) => "main",
+            Some(Hand::Off) => "off",
+            Some(Hand::Both) => "both",
+            Some(Hand::Pair) => "pair",
+            None => "",
+        };
+        // An off-hand weapon shows its off-hand attack.
+        let damage = match (a.hand, ev.get(&format!("attack.{}.offhand", a.slug))) {
+            (Some(Hand::Off), Some(off)) => format!("{off} {}", a.damage_type),
+            _ => damage_of(a),
+        };
+        if let (Some(Hand::Pair), Some(off)) = (a.hand, ev.get(&format!("attack.{}.offhand", a.slug))) {
+            notes.insert(0, Span::styled(format!("off hand {off}  "), base.fg(theme.accent)));
+        }
+        if a.hand == Some(Hand::Off) {
+            notes.insert(0, Span::styled("off-hand attack  ", base.fg(theme.accent)));
+        }
         let mut spans = vec![
-            Span::styled(if weapon_equipped { "◉ " } else { "  " }, base.fg(theme.accent)),
+            Span::styled(format!("{hand:<6}"), base.fg(theme.accent)),
             Span::styled(format!("{:<name_w$}", truncate(&a.name, name_w - 1)), name_style),
             Span::styled(format!("{hit:>4}   "), hit_style),
-            Span::styled(format!("{:<dmg_w$}", damage_of(a)), base),
+            Span::styled(format!("{:<dmg_w$}", damage), base),
             Span::styled(format!("{:<range_w$}", a.range), base.patch(faint)),
         ];
         spans.extend(notes);
@@ -562,7 +618,7 @@ fn pips(left: i64, max: i64, theme: &Theme, base: Style) -> Vec<Span<'static>> {
     spans
 }
 
-fn draw_overview(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
+fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, theme: &Theme) {
     let [abil, _, mid, _, skills] = Layout::horizontal([
         Constraint::Length(34),
         Constraint::Length(1),
@@ -645,7 +701,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
     frame.render_widget(Paragraph::new(lines), inner);
 
     // Middle: combat tiles, HP, resources.
-    let attacks_h = (sheet.build.attacks.len() as u16 + 5).min(16);
+    let attacks_h = (sheet.build.attacks.len() as u16 + 7).min(18);
     let [tiles, _, attacks, _, rest] = Layout::vertical([
         Constraint::Length(5),
         Constraint::Length(1),
@@ -654,7 +710,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
         Constraint::Min(3),
     ])
     .areas(mid);
-    draw_attacks(frame, attacks, sheet, theme);
+    draw_attacks(frame, attacks, lib, sheet, theme);
     let tile_keys = [
         ("ac", "Armor Class", false),
         ("initiative", "Initiative", true),
@@ -1156,8 +1212,15 @@ fn draw_character_note(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &The
 fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, theme: &Theme) {
     use crate::characters::{item_entity, line_name};
     use dnt_rules::equipment;
-    let [list, _, detail] =
-        Layout::horizontal([Constraint::Length(58), Constraint::Length(1), Constraint::Min(30)]).areas(area);
+    let [list, _, gear, _, detail] = Layout::horizontal([
+        Constraint::Length(58),
+        Constraint::Length(1),
+        Constraint::Length(44),
+        Constraint::Length(1),
+        Constraint::Min(30),
+    ])
+    .areas(area);
+    draw_equipment(frame, gear, lib, sheet, theme);
     let ch = &sheet.file.character;
     let block = pane(pane_title("Inventory", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(list);
@@ -1187,13 +1250,18 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
         let faint = if i == sheet.inventory_cursor { theme.muted } else { theme.dim };
         let entity = item_entity(lib, line);
         let needs_attune = entity.is_some_and(|e| equipment::requires_attunement(&lib.entity(e).data));
-        let mark = match (line.equipped, line.attuned) {
-            (_, true) => Span::styled("★ ", base.fg(theme.accent)),
-            (true, _) => Span::styled("◉ ", base.fg(theme.accent)),
+        let mark = match (line.equipped, line.hand.is_some(), line.attuned) {
+            (_, _, true) => Span::styled("★ ", base.fg(theme.accent)),
+            (true, _, _) => Span::styled("◉ ", base.fg(theme.accent)),
+            (_, true, _) => Span::styled("◈ ", base.fg(theme.accent)),
             _ if needs_attune => Span::styled("☆ ", base.patch(faint)),
             _ => Span::styled("  ", base),
         };
-        let mut kind = entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default();
+        let mut kind = match (line.slot.filter(|_| line.equipped), line.hand) {
+            (Some(slot), _) => format!(" {}", slot.label().to_lowercase()),
+            (_, Some(h)) => format!(" {}", h.label()),
+            _ => entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default(),
+        };
         if entity.is_some() && sheet.build.attacks.iter().any(|a| a.item == entity && a.monk_weapon) {
             kind.push_str(" monk weapon");
         }
@@ -1245,7 +1313,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             ]),
             Line::from([vec![Span::styled("Coins      ", theme.label)], coins].concat()),
             Line::from(vec![
-                Span::styled("◉ equipped  ★ attuned  ☆ needs attunement", theme.dim),
+                Span::styled("◉ worn  ◈ in hand  ★ attuned  ☆ needs attunement", theme.dim),
             ]),
         ]),
         totals,
@@ -1267,6 +1335,69 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
         }
         None => {}
     }
+}
+
+/// What is worn in each slot and what is in hand.
+fn draw_equipment(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, theme: &Theme) {
+    use crate::characters::line_name;
+    let ch = &sheet.file.character;
+    let block = pane(pane_title("Equipment", false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let width = inner.width as usize;
+    let cursor = sheet.inventory_cursor;
+    let row = |label: &str, value: Option<(usize, String)>| {
+        let selected = value.as_ref().is_some_and(|(i, _)| *i == cursor);
+        let base = if selected { theme.selected } else { Style::new() };
+        let (text, style) = match &value {
+            Some((i, name)) => {
+                let star = if ch.inventory[*i].attuned { " ★" } else { "" };
+                (format!("{name}{star}"), base)
+            }
+            None => ("—".to_string(), base.patch(theme.dim)),
+        };
+        Line::from(vec![
+            Span::styled(format!("{label:<11}"), if selected { base } else { theme.label }),
+            Span::styled(truncate(&text, width.saturating_sub(12)), style),
+        ])
+        .style(base)
+    };
+    let mut lines = vec![Line::styled("Worn", theme.heading)];
+    for slot in Slot::ALL {
+        let worn: Vec<(usize, String)> = ch
+            .inventory
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.equipped && l.slot == Some(slot))
+            .map(|(i, l)| (i, line_name(lib, l)))
+            .collect();
+        if worn.is_empty() {
+            lines.push(row(slot.label(), None));
+        }
+        for (n, w) in worn.into_iter().enumerate() {
+            lines.push(row(if n == 0 { slot.label() } else { "" }, Some(w)));
+        }
+    }
+    // Worn before slots existed (or edited by hand).
+    for (i, l) in ch.inventory.iter().enumerate().filter(|(_, l)| l.equipped && l.slot.is_none()) {
+        lines.push(row("(no slot)", Some((i, line_name(lib, l)))));
+    }
+    lines.push(Line::default());
+    lines.push(Line::styled("In hand", theme.heading));
+    let in_hand = |main: bool| {
+        ch.inventory
+            .iter()
+            .enumerate()
+            .find(|(_, l)| l.hand.is_some_and(|h| if main { h.uses_main() } else { h.uses_off() }))
+            .map(|(i, l)| (i, line_name(lib, l)))
+    };
+    lines.push(row("Main hand", in_hand(true)));
+    lines.push(row("Off hand", in_hand(false)));
+    lines.push(Line::default());
+    lines.push(Line::styled("space wears, or takes in hand", theme.dim));
+    lines.push(Line::styled("o off hand; switch weapons on", theme.dim));
+    lines.push(Line::styled("the Overview's attack list", theme.dim));
+    frame.render_widget(Paragraph::new(lines), inner);
 }
 
 fn stat_label(sheet: &Sheet, key: &str) -> String {

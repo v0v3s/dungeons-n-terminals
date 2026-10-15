@@ -19,7 +19,7 @@ use dnt_data::view::item_property;
 use dnt_data::{EntityId, Library};
 use serde_json::Value as Json;
 
-use crate::character::Character;
+use crate::character::{Character, Hand};
 use crate::engine::{Effect, Model, Op, StatDef};
 use crate::formula::Formula;
 use crate::value::Value;
@@ -231,7 +231,8 @@ pub struct Attack {
     pub slug: String,
     pub name: String,
     pub item: Option<EntityId>,
-    pub equipped: bool,
+    /// Held in hand (weapons not in hand can still be drawn).
+    pub hand: Option<Hand>,
     pub melee: bool,
     pub proficient: bool,
     /// `5 ft.`, `10 ft.`, `80/320 ft.`, `5 ft. or 20/60 ft.`
@@ -244,6 +245,8 @@ pub struct Attack {
     pub mastery: Option<String>,
     /// Used as a monk weapon (Martial Arts).
     pub monk_weapon: bool,
+    /// Has an off-hand attack (`attack.<slug>.offhand` damage).
+    pub offhand: bool,
     /// Why something is off (no damage dice, needs attunement, …).
     pub notes: Vec<String>,
 }
@@ -310,13 +313,25 @@ pub fn add_attacks(
 ) -> Vec<Attack> {
     let mut attacks = Vec::new();
     let mut seen = Vec::new();
-    // Equipped weapons first, then the rest of what is carried.
-    let mut lines: Vec<_> = character.inventory.iter().collect();
-    lines.sort_by_key(|l| !l.equipped);
-    for line in lines {
-        let Some(id) = line.item.as_deref().and_then(|i| crate::overlay::resolve_id(lib, i)) else { continue };
+    // Two-Weapon Fighting sets this to add the ability modifier off hand.
+    model.stats.push(StatDef::new("attack.offhand.full_mod", "0", "off-hand attacks add no ability modifier"));
+    let weapon_of = |line: &crate::character::InventoryItem| {
+        let id = line.item.as_deref().and_then(|i| crate::overlay::resolve_id(lib, i))?;
         let e = lib.entity(id);
-        let Some(w) = Weapon::from_item(&e.name.to_lowercase(), &e.data) else { continue };
+        Some((id, Weapon::from_item(&e.name.to_lowercase(), &e.data)?))
+    };
+    // Is a weapon (not a shield) held in the off hand?
+    let off_weapon = character.inventory.iter().any(|l| l.hand.is_some_and(Hand::uses_off) && weapon_of(l).is_some());
+    // What is in hand first (main, then off), then the rest of what is carried.
+    let mut lines: Vec<_> = character.inventory.iter().collect();
+    lines.sort_by_key(|l| match l.hand {
+        Some(Hand::Main | Hand::Both | Hand::Pair) => 0,
+        Some(Hand::Off) => 1,
+        None => 2,
+    });
+    for line in lines {
+        let Some((id, w)) = weapon_of(line) else { continue };
+        let e = lib.entity(id);
         let name = line.name.clone().unwrap_or_else(|| e.name.clone());
         if seen.contains(&name) {
             continue;
@@ -331,7 +346,10 @@ pub fn add_attacks(
             mastered.iter().any(|&m| lib.entity(m).name.eq_ignore_ascii_case(&w.base_name) || m == id)
         });
         let monk = martial_arts.is_some_and(|m| line.monk_weapon.unwrap_or_else(|| m.preset(&w)));
-        let mut a = weapon_attack(model, &s, &name, Some(id), line.equipped, &w, prof, attuned_ok, mastery, monk);
+        // Dueling: a one-handed melee weapon and no other weapon in hand.
+        let dueling = line.hand == Some(Hand::Main) && !off_weapon;
+        let held = Held { hand: line.hand, dueling };
+        let mut a = weapon_attack(model, &s, &name, Some(id), held, &w, prof, attuned_ok, mastery, monk);
         if martial_arts.is_none() && line.monk_weapon == Some(true) {
             a.notes.push("marked as a monk weapon, but no Martial Arts".into());
         }
@@ -341,13 +359,21 @@ pub fn add_attacks(
     attacks
 }
 
+/// How a weapon is held.
+#[derive(Clone, Copy)]
+struct Held {
+    hand: Option<Hand>,
+    /// One-handed with no other weapon in hand.
+    dueling: bool,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn weapon_attack(
     model: &mut Model,
     s: &str,
     name: &str,
     item: Option<EntityId>,
-    equipped: bool,
+    held: Held,
     w: &Weapon,
     prof: &WeaponProficiency,
     attuned_ok: bool,
@@ -392,28 +418,14 @@ fn weapon_attack(
     let mut groups = vec!["attack"];
     groups.push(if w.melee { "attack.melee" } else { "attack.ranged" });
     let mut damage_groups = groups.clone();
-    if w.melee && !w.has("2H") {
+    if w.melee && !w.has("2H") && held.dueling {
         damage_groups.push("attack.one_handed");
     }
     for (stat, dice, one_handed) in [(key("damage"), Some(dice), true), (key("versatile"), w.versatile.clone(), false)] {
         let Some(dice) = dice else { continue };
-        let weapon_dice = Formula::parse(&dice).unwrap_or_else(|_| Formula::constant(Value::int(0)));
-        let mut base = (weapon_dice, format!("{name} ({})", if one_handed { "damage dice" } else { "two-handed" }));
-        if monk {
-            // Martial Arts: the Martial Arts die if it is better.
-            let average = |v: Option<Value>| match v {
-                Some(Value::Dice(d)) => d.average(),
-                Some(Value::Num(n)) => n.floor(),
-                _ => 0,
-            };
-            let own = average(base.0.eval(&model.inputs).ok());
-            if let Some(die) = model.inputs.get("class.monk.martial_arts").cloned() {
-                if average(Some(die)) > own {
-                    base = (Formula::parse("class.monk.martial_arts").unwrap(), "Martial Arts die".into());
-                }
-            }
-        }
-        model.stats.push(StatDef { key: stat.clone(), base: base.0, origin: base.1 });
+        let origin = format!("{name} ({})", if one_handed { "damage dice" } else { "two-handed" });
+        let (base, origin) = damage_dice(model, &dice, monk, origin);
+        model.stats.push(StatDef { key: stat.clone(), base, origin });
         model.effects.push(effect(&stat, &key("mod"), label));
         if attuned_ok && magic.1 != 0 {
             model.effects.push(effect(&stat, &magic.1.to_string(), name));
@@ -430,6 +442,31 @@ fn weapon_attack(
     }
     copy_group_effects(model, &groups, "bonus", &key("bonus"));
 
+    // Off hand (the Light property's extra attack): no ability modifier
+    // to damage unless it is negative, or with Two-Weapon Fighting.
+    let offhand = matches!(held.hand, Some(Hand::Off | Hand::Pair));
+    if offhand && !w.has("L") {
+        notes.push("the off-hand attack needs a Light weapon (or Dual Wielder)".into());
+    }
+    if offhand {
+        let stat = key("offhand");
+        let (base, origin) = damage_dice(model, w.dice.as_deref().unwrap_or("0"), monk, format!("{name} (off hand)"));
+        model.stats.push(StatDef { key: stat.clone(), base, origin });
+        let m = key("mod");
+        model.effects.push(effect(
+            &stat,
+            &format!("if(attack.offhand.full_mod > 0, {m}, min({m}, 0))"),
+            "ability (only a penalty off hand, unless Two-Weapon Fighting)",
+        ));
+        if attuned_ok && magic.1 != 0 {
+            model.effects.push(effect(&stat, &magic.1.to_string(), name));
+        }
+        copy_group_effects(model, &groups, "damage", &stat);
+        if w.melee {
+            copy_group_effects_when(model, &["attack.strength"], "damage", &stat, flexible.then_some("mod.str >= mod.dex"));
+        }
+    }
+
     let reach = if w.has("R") { "10 ft." } else { "5 ft." };
     let range = match (w.melee, &w.range) {
         (true, Some(r)) if w.has("T") => format!("{reach} or {r} ft."),
@@ -441,17 +478,37 @@ fn weapon_attack(
         slug: s.to_string(),
         name: name.to_string(),
         item,
-        equipped,
+        hand: held.hand,
         melee: w.melee,
         proficient,
         range,
         damage_type: w.damage_type.clone().unwrap_or_default(),
         has_versatile: w.versatile.is_some(),
         monk_weapon: monk,
+        offhand,
         properties: w.properties.iter().filter(|p| !matches!(p.as_str(), "V")).map(|p| item_property(p).to_string()).collect(),
         mastery,
         notes,
     }
+}
+
+/// A weapon's damage dice, or for a monk weapon the Martial Arts die
+/// when it is better.
+fn damage_dice(model: &Model, dice: &str, monk: bool, origin: String) -> (Formula, String) {
+    let own = Formula::parse(dice).unwrap_or_else(|_| Formula::constant(Value::int(0)));
+    if !monk {
+        return (own, origin);
+    }
+    let average = |v: Option<Value>| match v {
+        Some(Value::Dice(d)) => d.average(),
+        Some(Value::Num(n)) => n.floor(),
+        _ => 0,
+    };
+    let die = model.inputs.get("class.monk.martial_arts").cloned();
+    if die.is_some() && average(die) > average(own.eval(&model.inputs).ok()) {
+        return (Formula::parse("class.monk.martial_arts").unwrap(), "Martial Arts die".into());
+    }
+    (own, origin)
 }
 
 /// The unarmed strike everyone has: Strength + proficiency, 1 + Strength
@@ -467,7 +524,7 @@ fn unarmed(model: &mut Model) -> Attack {
         slug: "unarmed".into(),
         name: "Unarmed Strike".into(),
         item: None,
-        equipped: true,
+        hand: None,
         melee: true,
         proficient: true,
         range: "5 ft.".into(),
@@ -476,6 +533,7 @@ fn unarmed(model: &mut Model) -> Attack {
         properties: Vec::new(),
         mastery: None,
         monk_weapon: false,
+        offhand: false,
         notes: Vec::new(),
     }
 }
@@ -633,6 +691,7 @@ add = "2"
         let lib = library();
         let mut c = character(&["Fighter"], &["Longsword", "Longbow", "Greataxe", "Rapier"]);
         c.feats = vec!["feat:Archery|T".into(), "feat:Dueling|T".into()];
+        c.inventory[0].hand = Some(crate::character::Hand::Main);
         let ev = build(&c, &lib, &overlays()).evaluate();
         assert_eq!(ev.int("attack.longbow.bonus"), Some(6), "Archery");
         assert_eq!(ev.int("attack.longsword.bonus"), Some(5), "Archery is ranged only");
@@ -640,6 +699,30 @@ add = "2"
         assert_eq!(ev.get("attack.longsword.versatile").unwrap().to_string(), "1d10 + 3", "not two-handed");
         assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 3");
 
+    }
+
+    #[test]
+    fn wielding() {
+        use crate::character::Hand;
+        use crate::equipment::wield;
+        let lib = library();
+        let mut c = character(&["Fighter"], &["Longsword", "Dagger", "Greataxe"]);
+        for l in &mut c.inventory {
+            l.equipped = false;
+        }
+        c.inventory[1].quantity = 2;
+        wield(&lib, &mut c, 0, Hand::Main);
+        wield(&lib, &mut c, 1, Hand::Off);
+        assert_eq!((c.inventory[0].hand, c.inventory[1].hand), (Some(Hand::Main), Some(Hand::Off)));
+        // The second dagger into the main hand makes a pair and puts the longsword away.
+        let msg = wield(&lib, &mut c, 1, Hand::Main);
+        assert_eq!((c.inventory[0].hand, c.inventory[1].hand), (None, Some(Hand::Pair)), "{msg}");
+        // A two-handed weapon takes both hands.
+        wield(&lib, &mut c, 2, Hand::Main);
+        assert_eq!((c.inventory[1].hand, c.inventory[2].hand), (None, Some(Hand::Both)));
+        // Again: put away.
+        wield(&lib, &mut c, 2, Hand::Main);
+        assert_eq!(c.inventory[2].hand, None);
     }
 
     #[test]

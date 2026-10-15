@@ -4,7 +4,7 @@
 use dnt_data::{EntityId, Kind, Library, SourceFilter};
 use serde_json::Value as Json;
 
-use crate::character::{Character, InventoryItem};
+use crate::character::{Character, Hand, InventoryItem, Slot};
 use crate::overlay::resolve_id;
 
 /// One entry of a starting-equipment option.
@@ -240,16 +240,193 @@ pub fn auto_equip(lib: &Library, c: &mut Character) {
         let Some(e) = line.item.as_deref().and_then(|id| resolve_id(lib, id)) else { continue };
         match armor_kind(&lib.entity(e).data) {
             Some("shield") if !shield => {
-                line.equipped = true;
+                line.hand = Some(Hand::Off);
                 shield = true;
             }
             Some("light" | "medium" | "heavy") if !armor => {
                 line.equipped = true;
+                line.slot = Some(Slot::Body);
                 armor = true;
             }
             _ => {}
         }
     }
+}
+
+/// Bring older files up to date: equipped weapons and shields are put in
+/// hand, other equipped items get their likely slot. Returns whether
+/// anything changed.
+pub fn normalize(lib: &Library, c: &mut Character) -> bool {
+    let mut changed = false;
+    for i in 0..c.inventory.len() {
+        let line = &c.inventory[i];
+        if !line.equipped || line.slot.is_some() || line.hand.is_some() {
+            continue;
+        }
+        let Some(d) = line_data(lib, line) else { continue };
+        if is_held(d) {
+            let shield = armor_kind(d) == Some("shield");
+            let free = |h: Hand| !c.inventory.iter().any(|l| l.hand.is_some_and(|x| if h == Hand::Main { x.uses_main() } else { x.uses_off() }));
+            let hand = match (shield, free(Hand::Main), free(Hand::Off)) {
+                (true, _, true) => Some(Hand::Off),
+                (false, true, _) => Some(Hand::Main),
+                (false, false, true) => Some(Hand::Off),
+                _ => None,
+            };
+            let line = &mut c.inventory[i];
+            line.equipped = false;
+            line.hand = hand;
+        } else {
+            let name = line_name(lib, line);
+            let mut slot = guess_slot(c, &name, d);
+            if slot != Slot::Other && c.inventory.iter().any(|l| l.equipped && l.slot == Some(slot)) {
+                slot = Slot::Other;
+            }
+            c.inventory[i].slot = Some(slot);
+        }
+        changed = true;
+    }
+    changed
+}
+
+/// The item data of an inventory line.
+fn line_data<'a>(lib: &'a Library, line: &InventoryItem) -> Option<&'a Json> {
+    line.item.as_deref().and_then(|id| resolve_id(lib, id)).map(|e| &lib.entity(e).data)
+}
+
+/// Whether an item is held rather than worn: weapons and shields.
+pub fn is_held(d: &Json) -> bool {
+    armor_kind(d) == Some("shield") || crate::attacks::Weapon::from_item("", d).is_some()
+}
+
+/// The slot an item most likely goes in, from its type and name.
+pub fn guess_slot(c: &Character, name: &str, d: &Json) -> Slot {
+    if matches!(armor_kind(d), Some("light" | "medium" | "heavy")) {
+        return Slot::Body;
+    }
+    let n = name.to_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| n.contains(w));
+    if has(&["ring of", "ring"]) && !has(&["string", "earring"]) {
+        let taken = |s: Slot| c.inventory.iter().any(|l| l.equipped && l.slot == Some(s));
+        return if taken(Slot::Ring1) && !taken(Slot::Ring2) { Slot::Ring2 } else { Slot::Ring1 };
+    }
+    if has(&["cloak", "cape", "mantle", "wings"]) {
+        Slot::Shoulders
+    } else if has(&["boots", "slippers", "shoes", "sandals"]) {
+        Slot::Feet
+    } else if has(&["gloves", "gauntlets"]) {
+        Slot::Hands
+    } else if has(&["bracers", "bracer"]) {
+        Slot::Arms
+    } else if has(&["belt", "girdle"]) {
+        Slot::Waist
+    } else if has(&["amulet", "necklace", "periapt", "medallion", "scarab", "talisman", "brooch"]) {
+        Slot::Neck
+    } else if has(&["goggles", "lenses", "eyes of", "spectacles", "monocle"]) {
+        Slot::Eyes
+    } else if has(&["helm", "hat", "circlet", "headband", "crown", "cap of", "diadem", "mask"]) {
+        Slot::Head
+    } else if has(&["robe", "armor", "mail", "vestments"]) {
+        Slot::Body
+    } else {
+        Slot::Other
+    }
+}
+
+/// Wear inventory line `i` in `slot`, taking off what was there (except in
+/// `Other`). Returns the names of items taken off.
+pub fn wear(lib: &Library, c: &mut Character, i: usize, slot: Slot) -> Vec<String> {
+    let mut off = Vec::new();
+    if slot != Slot::Other {
+        for (j, other) in c.inventory.iter_mut().enumerate() {
+            if j != i && other.equipped && other.slot == Some(slot) {
+                other.equipped = false;
+                other.slot = None;
+                off.push(line_name(lib, other));
+            }
+        }
+    }
+    // Only one suit of armor, wherever it was put.
+    if line_data(lib, &c.inventory[i]).is_some_and(|d| matches!(armor_kind(d), Some("light" | "medium" | "heavy"))) {
+        for j in 0..c.inventory.len() {
+            let other_armor = line_data(lib, &c.inventory[j]).is_some_and(|d| matches!(armor_kind(d), Some("light" | "medium" | "heavy")));
+            if j != i && c.inventory[j].equipped && other_armor {
+                c.inventory[j].equipped = false;
+                c.inventory[j].slot = None;
+                off.push(line_name(lib, &c.inventory[j]));
+            }
+        }
+    }
+    let line = &mut c.inventory[i];
+    line.equipped = true;
+    line.slot = Some(slot);
+    line.hand = None;
+    off
+}
+
+pub fn take_off(c: &mut Character, i: usize) {
+    let line = &mut c.inventory[i];
+    line.equipped = false;
+    line.slot = None;
+}
+
+fn line_name(lib: &Library, line: &InventoryItem) -> String {
+    line.name
+        .clone()
+        .or_else(|| line.item.as_deref().and_then(|id| resolve_id(lib, id)).map(|e| lib.entity(e).name.clone()))
+        .unwrap_or_else(|| "?".into())
+}
+
+/// Take inventory line `i` in `hand`, or put it away if it already is
+/// there. Two-handed weapons take both hands; asking for the other hand on
+/// a held line with two or more items holds a pair. Whatever was in the
+/// hands needed is put away. Returns what happened, for the status line.
+pub fn wield(lib: &Library, c: &mut Character, i: usize, hand: Hand) -> String {
+    let d = line_data(lib, &c.inventory[i]);
+    let name = line_name(lib, &c.inventory[i]);
+    let shield = d.is_some_and(|d| armor_kind(d) == Some("shield"));
+    let two_handed = !shield && d.and_then(|d| crate::attacks::Weapon::from_item("", d)).is_some_and(|w| w.has("2H"));
+    let current = c.inventory[i].hand;
+    let quantity = c.inventory[i].quantity;
+    if current == Some(hand) || (two_handed && current.is_some()) {
+        c.inventory[i].hand = None;
+        return format!("Put away {name}");
+    }
+    let new = match (current, hand) {
+        _ if two_handed => Hand::Both,
+        (Some(Hand::Main), Hand::Off) | (Some(Hand::Off), Hand::Main) if quantity >= 2 && !shield => Hand::Pair,
+        // Asking for the main hand on a pair (or a two-handed grip): just the main hand.
+        (Some(Hand::Pair | Hand::Both), Hand::Main) => Hand::Main,
+        (Some(Hand::Pair | Hand::Both), Hand::Off) => Hand::Off,
+        (_, h) => h,
+    };
+    let mut stowed = Vec::new();
+    for (j, other) in c.inventory.iter_mut().enumerate() {
+        let Some(h) = other.hand.filter(|_| j != i) else { continue };
+        let clash_main = new.uses_main() && h.uses_main();
+        let clash_off = new.uses_off() && h.uses_off();
+        if !clash_main && !clash_off {
+            continue;
+        }
+        // A pair keeps the hand that is still free.
+        other.hand = match h {
+            Hand::Pair if !clash_main => Some(Hand::Main),
+            Hand::Pair if !clash_off => Some(Hand::Off),
+            _ => None,
+        };
+        if other.hand.is_none() {
+            stowed.push(line_name(lib, other));
+        }
+    }
+    let line = &mut c.inventory[i];
+    line.hand = Some(new);
+    line.equipped = false;
+    line.slot = None;
+    let mut msg = format!("{name}: {}", new.label());
+    if !stowed.is_empty() {
+        msg.push_str(&format!(" (put away {})", stowed.join(", ")));
+    }
+    msg
 }
 
 #[cfg(test)]
@@ -302,5 +479,37 @@ mod tests {
         assert_eq!(coins(1550), "15 gp 5 sp");
         assert_eq!(coins(1507), "15 gp 7 cp");
         assert_eq!(coins(50), "5 sp");
+    }
+
+    #[test]
+    fn slots() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"item": [
+            {"name": "Cloak of Protection", "source": "T", "wondrous": true},
+            {"name": "Cloak of Elvenkind", "source": "T", "wondrous": true},
+            {"name": "Ring of Protection", "source": "T"},
+            {"name": "Ring of Warmth", "source": "T"},
+            {"name": "Chain Mail", "source": "T", "type": "HA|T", "ac": 16},
+            {"name": "Bag of Holding", "source": "T", "wondrous": true}
+        ]}));
+        let mut c = Character::default();
+        for n in ["Cloak of Protection", "Cloak of Elvenkind", "Ring of Protection", "Ring of Warmth", "Chain Mail", "Bag of Holding"] {
+            add_item(&mut c, &format!("item:{n}|T"), 1, None);
+        }
+        let guess = |c: &Character, i: usize| {
+            let e = resolve_id(&lib, c.inventory[i].item.as_deref().unwrap()).unwrap();
+            guess_slot(c, &lib.entity(e).name, &lib.entity(e).data)
+        };
+        assert_eq!(guess(&c, 0), Slot::Shoulders);
+        assert_eq!(guess(&c, 4), Slot::Body);
+        assert_eq!(guess(&c, 5), Slot::Other);
+        // One cloak at a time.
+        wear(&lib, &mut c, 0, Slot::Shoulders);
+        assert_eq!(wear(&lib, &mut c, 1, Slot::Shoulders), vec!["Cloak of Protection"]);
+        assert!(!c.inventory[0].equipped && c.inventory[1].equipped);
+        // Two rings: the second goes to the free ring slot.
+        let s = guess(&c, 2);
+        wear(&lib, &mut c, 2, s);
+        assert_eq!(guess(&c, 3), Slot::Ring2);
     }
 }
