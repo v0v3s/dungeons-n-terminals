@@ -422,17 +422,207 @@ pub struct NoteInfo {
     pub meta: BTreeMap<String, String>,
     /// Targets of note links (compendium links excluded).
     pub links: Vec<String>,
+    /// Lowercase tags: frontmatter `tags` and inline `#tags`.
+    pub tags: Vec<String>,
+    /// Lowercase full text, for searching.
+    pub text: String,
+    /// Fenced ```dnt query blocks: (title, query lines).
+    pub queries: Vec<(String, Vec<String>)>,
 }
 
 impl NoteInfo {
-    fn parse(path: &str, text: &str) -> NoteInfo {
+    pub fn parse(path: &str, text: &str) -> NoteInfo {
         let title = path.rsplit('/').next().unwrap_or(path).trim_end_matches(".md").to_string();
+        let meta = frontmatter(text);
+        let mut tags: Vec<String> = meta
+            .get("tags")
+            .map(|t| t.split(',').map(|s| s.trim().trim_start_matches('#').to_lowercase()).filter(|s| !s.is_empty()).collect())
+            .unwrap_or_default();
+        // Inline tags outside fenced code blocks (``` … ```).
+        let mut fenced = false;
+        let prose: String = text
+            .lines()
+            .filter(|l| {
+                if l.trim_start().starts_with("```") {
+                    fenced = !fenced;
+                    return false;
+                }
+                !fenced
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        for word in prose.split(|c: char| c.is_whitespace() || matches!(c, ',' | ';' | '(' | ')')) {
+            if let Some(tag) = word.strip_prefix('#') {
+                let tag = tag.trim_end_matches(['.', ':', '!', '?']);
+                if !tag.is_empty() && tag.chars().all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '/')) {
+                    tags.push(tag.to_lowercase());
+                }
+            }
+        }
+        tags.sort();
+        tags.dedup();
         NoteInfo {
             path: path.to_string(),
             title,
-            meta: frontmatter(text),
+            meta,
             links: links(text).into_iter().filter(|l| l.compendium().is_none()).map(|l| l.target).collect(),
+            tags,
+            text: text.to_lowercase(),
+            queries: query_blocks(text),
         }
+    }
+
+    /// The note's folder (`""` at the top level).
+    pub fn folder(&self) -> &str {
+        self.path.rsplit_once('/').map_or("", |(f, _)| f)
+    }
+}
+
+/// ```dnt blocks: the text after `dnt` is the block's title, each line a query.
+fn query_blocks(text: &str) -> Vec<(String, Vec<String>)> {
+    let mut out = Vec::new();
+    let mut current: Option<(String, Vec<String>)> = None;
+    for line in text.lines() {
+        let t = line.trim();
+        match &mut current {
+            None => {
+                if let Some(rest) = t.strip_prefix("```dnt") {
+                    current = Some((rest.trim().to_string(), Vec::new()));
+                }
+            }
+            Some((_, lines)) => {
+                if t.starts_with("```") {
+                    out.push(current.take().unwrap());
+                } else if !t.is_empty() {
+                    lines.push(t.to_string());
+                }
+            }
+        }
+    }
+    out
+}
+
+/// A note search: `words` (title/path), `#tag`, `"phrase"` (full text),
+/// `key:value` (frontmatter), `@Folder`, `!` to negate any term, plus
+/// `sort:key` / `sort:-key` and `limit:N` for listings.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct NoteQuery {
+    pub words: Vec<String>,
+    terms: Vec<(Term, bool)>,
+    pub sort: Option<(String, bool)>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Term {
+    Tag(String),
+    Text(String),
+    Field(String, String),
+    Folder(String),
+}
+
+impl NoteQuery {
+    pub fn parse(input: &str) -> NoteQuery {
+        let mut q = NoteQuery::default();
+        let mut tokens = Vec::new();
+        let mut cur = String::new();
+        let mut quoted = false;
+        for c in input.chars() {
+            match c {
+                '"' => {
+                    quoted = !quoted;
+                    cur.push(c);
+                }
+                c if c.is_whitespace() && !quoted => {
+                    if !cur.is_empty() {
+                        tokens.push(std::mem::take(&mut cur));
+                    }
+                }
+                c => cur.push(c),
+            }
+        }
+        if !cur.is_empty() {
+            tokens.push(cur);
+        }
+        for tok in tokens {
+            let (neg, body) = match tok.strip_prefix('!') {
+                Some(b) if !b.is_empty() => (true, b.to_string()),
+                _ => (false, tok.clone()),
+            };
+            let lower = body.to_lowercase();
+            let term = if let Some(t) = lower.strip_prefix('#') {
+                (!t.is_empty()).then(|| Term::Tag(t.to_string()))
+            } else if lower.starts_with('"') {
+                let t = lower.trim_matches('"');
+                (!t.is_empty()).then(|| Term::Text(t.to_string()))
+            } else if let Some(f) = body.strip_prefix('@') {
+                (!f.is_empty()).then(|| Term::Folder(f.to_lowercase()))
+            } else if let Some((k, v)) = lower.split_once(':').filter(|(k, _)| !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || c == '_')) {
+                match k {
+                    "sort" => {
+                        let desc = v.starts_with('-');
+                        q.sort = Some((v.trim_start_matches('-').to_string(), desc));
+                        None
+                    }
+                    "limit" => {
+                        q.limit = v.parse().ok();
+                        None
+                    }
+                    _ if v.is_empty() => None,
+                    _ => Some(Term::Field(k.to_string(), v.to_string())),
+                }
+            } else {
+                q.words.push(lower);
+                None
+            };
+            if let Some(t) = term {
+                q.terms.push((t, neg));
+            }
+        }
+        q
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.words.is_empty() && self.terms.is_empty()
+    }
+
+    pub fn matches(&self, n: &NoteInfo) -> bool {
+        let name = format!("{} {}", n.title, n.path).to_lowercase();
+        self.words.iter().all(|w| name.contains(w))
+            && self.terms.iter().all(|(t, neg)| {
+                let hit = match t {
+                    Term::Tag(tag) => n.tags.iter().any(|x| x == tag || x.starts_with(&format!("{tag}/"))),
+                    Term::Text(s) => n.text.contains(s),
+                    Term::Field(k, v) => n.meta.get(k).is_some_and(|x| x.to_lowercase().contains(v)),
+                    Term::Folder(f) => n.folder().to_lowercase().starts_with(f),
+                };
+                hit != *neg
+            })
+    }
+
+    /// Matching notes: ranked by title match (or the query's sort), limited.
+    pub fn run<'a>(&self, index: &'a [NoteInfo]) -> Vec<&'a NoteInfo> {
+        let mut out: Vec<&NoteInfo> = index.iter().filter(|n| self.matches(n)).collect();
+        match &self.sort {
+            Some((key, desc)) => {
+                let k = |n: &NoteInfo| match key.as_str() {
+                    "title" | "name" => n.title.to_lowercase(),
+                    other => n.meta.get(other).cloned().unwrap_or_default().to_lowercase(),
+                };
+                out.sort_by_key(|n| k(n));
+                if *desc {
+                    out.reverse();
+                }
+            }
+            None => {
+                let first = self.words.first().cloned().unwrap_or_default();
+                out.sort_by_key(|n| (!n.title.to_lowercase().starts_with(&first), n.title.to_lowercase()));
+            }
+        }
+        if let Some(l) = self.limit {
+            out.truncate(l);
+        }
+        out
     }
 }
 
@@ -536,6 +726,34 @@ mod tests {
         let back: Vec<&str> = backlinks(&index, strahd).iter().map(|b| b.path.as_str()).collect();
         assert_eq!(back, vec!["Sessions/2026-10-15.md"]);
         assert!(resolve(&index, "NPCs/Strahd").is_some());
+    }
+
+    #[test]
+    fn queries() {
+        let a = NoteInfo::parse("NPCs/Strahd.md", "---\ntype: npc\nstatus: alive\ntags: [npc, villain]\n---\nThe count. #vampire");
+        let b = NoteInfo::parse("NPCs/Ireena.md", "---\ntype: npc\nstatus: alive\n---\nHas two bite marks.");
+        let c = NoteInfo::parse("Sessions/2026-10-15.md", "---\ntype: session\ndate: 2026-10-15\n---\nMet [[Strahd]].");
+        let d = NoteInfo::parse("Sessions/2026-10-08.md", "---\ntype: session\ndate: 2026-10-08\n---\n");
+        let index = vec![a, b, c, d];
+        let titles = |q: &str| NoteQuery::parse(q).run(&index).iter().map(|n| n.title.clone()).collect::<Vec<_>>();
+        assert_eq!(titles("#villain"), vec!["Strahd"]);
+        assert_eq!(titles("#vampire"), vec!["Strahd"], "inline tags count");
+        assert_eq!(titles("\"bite marks\""), vec!["Ireena"]);
+        assert_eq!(titles("type:npc !#villain"), vec!["Ireena"]);
+        assert_eq!(titles("@sessions sort:-date limit:1"), vec!["2026-10-15"]);
+        assert_eq!(titles("str"), vec!["Strahd"]);
+        assert_eq!(index[0].tags, vec!["npc", "vampire", "villain"]);
+    }
+
+    #[test]
+    fn query_blocks_in_notes() {
+        let text = "# Hub\n```dnt Open quests\ntype:quest status:active #quest\n```\n\n```dnt\n@NPCs sort:title\n```\n";
+        let n = NoteInfo::parse("Campaign.md", text);
+        assert!(n.tags.is_empty(), "tags inside query blocks are not tags");
+        assert_eq!(n.queries, vec![
+            ("Open quests".to_string(), vec!["type:quest status:active #quest".to_string()]),
+            (String::new(), vec!["@NPCs sort:title".to_string()]),
+        ]);
     }
 
     #[test]

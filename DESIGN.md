@@ -352,7 +352,19 @@ threads · Next time.
 - Session journal: "new session" creates today's session note.
 - Quick capture hotkey: append a timestamped line to `Inbox.md` (or
   today's session note) from anywhere.
-- Tags (`#npc`, frontmatter `tags`) and full-text search.
+- Search (`/`): words match titles, `#tag` (frontmatter `tags` or
+  inline `#tags`), `"full text"`, `key:value` (frontmatter), `@Folder`,
+  `!` negates, `sort:key`/`sort:-key`, `limit:N`.
+- Query blocks: a fenced block in any note lists matching notes beside it;
+  the hub ships with open quests, recent sessions and people:
+
+  ````
+  ```dnt Open quests
+  @Quests !status:done !status:failed
+  ```
+  ````
+- `:` commands in the editor: `w`, `q`, `wq`/`x`, `e <note>`,
+  `new <name>`, `session`, `inbox`, `hub`, `find <query>`.
 - Character sheet Notes tab shows `Party/<character>.md`.
 
 ## 5. Campaign layer: homebrew, clones and overrides
@@ -431,8 +443,10 @@ enabled for that campaign.
    *M3 done. Next: M4 Notes.*
 4. **M4 Notes** — notes store, default structure and folder order,
    templates, explorer tree, edtui editor, links and backlinks, session
-   journal, quick capture, sheet Notes tab. *Done* (tags/full-text
-   search and a richer hub to follow).
+   journal, quick capture, sheet Notes tab, note search (words, #tag,
+   "full text", key:value, @Folder, !not, sort:, limit:), ```dnt query
+   blocks shown beside a note (the hub's lists are defaults), `:`
+   commands, word-aware wrapping (patched edtui in vendor/). *Done.*
 5. **M5 Campaign layer** — campaign homebrew file and source, clone
    (replace / separate), creator and editor forms (items, spells first),
    compendium markers, inventory shortcut.

@@ -189,7 +189,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("gd", "follow link"),
             ("K", "preview"),
             ("^o", "back"),
-            ("^s", "save"),
+            (":", "command"),
             ("alt+c", "capture"),
         ],
         (Section::Notes, _) => &[

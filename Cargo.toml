@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+exclude = ["vendor/edtui"]
 
 [workspace.package]
 version = "0.1.0"
@@ -11,3 +12,7 @@ license = "MIT"
 dnt-data = { path = "crates/dnt-data" }
 dnt-rules = { path = "crates/dnt-rules" }
 dnt-store = { path = "crates/dnt-store" }
+
+# edtui with word-aware line wrapping (see vendor/edtui/PATCHES.md).
+[patch.crates-io]
+edtui = { path = "vendor/edtui" }

@@ -114,7 +114,7 @@ fn highlights(text: &str, theme: &Theme) -> Vec<Highlight> {
         }
         let style = if front_end.is_some_and(|end| row <= end) {
             theme.dim
-        } else if line.starts_with('#') {
+        } else if is_heading(line) {
             theme.heading
         } else {
             continue;
@@ -139,6 +139,12 @@ fn highlights(text: &str, theme: &Theme) -> Vec<Highlight> {
         });
     }
     out
+}
+
+/// Markdown ATX heading: one to six `#` followed by a space.
+fn is_heading(line: &str) -> bool {
+    let hashes = line.chars().take_while(|c| *c == '#').count();
+    (1..=6).contains(&hashes) && line[hashes..].starts_with(' ')
 }
 
 fn draw_editor(frame: &mut Frame, area: Rect, v: &mut NotesView, theme: &Theme) {
@@ -254,40 +260,113 @@ fn draw_info(frame: &mut Frame, area: Rect, v: &NotesView, theme: &Theme) {
             }
         }
     }
-    if hub {
-        // The campaign overview, generated from frontmatter.
-        let quests: Vec<&notes::NoteInfo> = v
-            .index
-            .iter()
-            .filter(|n| n.path.starts_with("Quests/") && n.meta.get("status").is_none_or(|s| s == "active"))
-            .collect();
-        heading(&mut lines, &format!("Open quests · {}", quests.len()));
-        if quests.is_empty() {
-            lines.push(Line::styled("None yet.", theme.dim));
+    // ```dnt query blocks in the open note; the hub has defaults.
+    let mut blocks: Vec<(String, Vec<String>)> = open.map(|n| n.queries.clone()).unwrap_or_default();
+    if blocks.is_empty() && hub {
+        blocks = vec![
+            ("Open quests".into(), vec!["@Quests !status:done !status:failed".into()]),
+            ("Recent sessions".into(), vec!["@Sessions sort:-title limit:5".into()]),
+            ("People".into(), vec!["@NPCs !status:dead sort:title limit:8".into()]),
+        ];
+    }
+    for (title, queries) in blocks {
+        for q in queries {
+            let results = notes::NoteQuery::parse(&q).run(&v.index);
+            let label = if title.is_empty() { q.clone() } else { title.clone() };
+            heading(&mut lines, &format!("{} · {}", truncate(&label, width.saturating_sub(6)), results.len()));
+            if results.is_empty() {
+                lines.push(Line::styled("Nothing yet.", theme.dim));
+            }
+            for r in results {
+                lines.push(item(&r.title));
+            }
         }
-        for q in quests {
-            lines.push(item(&q.title));
-        }
-        let mut sessions: Vec<&notes::NoteInfo> = v.index.iter().filter(|n| n.path.starts_with("Sessions/")).collect();
-        sessions.sort_by(|a, b| b.title.cmp(&a.title));
-        heading(&mut lines, &format!("Recent sessions · {}", sessions.len()));
-        if sessions.is_empty() {
-            lines.push(Line::styled("Press s for today's session note.", theme.dim));
-        }
-        for s in sessions.iter().take(5) {
-            lines.push(item(&s.title));
-        }
-        let npcs = v.index.iter().filter(|n| n.path.starts_with("NPCs/")).count();
-        let places = v.index.iter().filter(|n| n.path.starts_with("Places/")).count();
-        heading(&mut lines, "Known");
-        lines.push(Line::from(vec![
-            Span::styled(format!("{npcs}"), Style::new().add_modifier(Modifier::BOLD)),
-            Span::styled(" NPCs   ", theme.label),
-            Span::styled(format!("{places}"), Style::new().add_modifier(Modifier::BOLD)),
-            Span::styled(" places", theme.label),
-        ]));
     }
     frame.render_widget(Paragraph::new(lines), inner);
+}
+
+fn draw_search(frame: &mut Frame, area: Rect, v: &NotesView, query: &str, selected: usize, theme: &Theme) {
+    let rect = centered(area, 96, area.height.saturating_sub(6).min(30));
+    frame.render_widget(Clear, rect);
+    let results = notes::NoteQuery::parse(query).run(&v.index);
+    let block = pane(pane_title("Search notes", true, theme), true, theme)
+        .padding(Padding::new(2, 2, 1, 0))
+        .title_bottom(Line::styled(format!(" {} found · enter opens · esc ", results.len()), theme.dim).right_aligned());
+    let inner = block.inner(rect);
+    frame.render_widget(block, rect);
+    let [input, hint, rule, list] =
+        Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(inner);
+    // Colour terms by kind, like the compendium search.
+    let mut spans = vec![Span::styled("❯ ", Style::new().fg(theme.accent))];
+    for (i, tok) in query.split(' ').enumerate() {
+        if i > 0 {
+            spans.push(Span::raw(" "));
+        }
+        let body = tok.trim_start_matches('!');
+        let style = match body.chars().next() {
+            Some('#') => Style::new().fg(theme.facet_tag),
+            Some('"') => Style::new().fg(theme.facet_text),
+            Some('@') => Style::new().fg(theme.facet_source),
+            _ if body.contains(':') => Style::new().fg(theme.facet_level),
+            _ => Style::new().add_modifier(Modifier::BOLD),
+        };
+        spans.push(Span::styled(tok.to_string(), style));
+    }
+    frame.render_widget(Paragraph::new(Line::from(spans)), input);
+    frame.set_cursor_position((input.x + 2 + query.width() as u16, input.y));
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("words", theme.dim),
+            Span::styled("  #", Style::new().fg(theme.facet_tag)),
+            Span::styled("tag", theme.dim),
+            Span::styled("  \"", Style::new().fg(theme.facet_text)),
+            Span::styled("full text\"", theme.dim),
+            Span::styled("  key:", Style::new().fg(theme.facet_level)),
+            Span::styled("value", theme.dim),
+            Span::styled("  @", Style::new().fg(theme.facet_source)),
+            Span::styled("Folder", theme.dim),
+            Span::styled("  !", Style::new().fg(theme.accent)),
+            Span::styled("not   sort:-date  limit:5", theme.dim),
+        ])),
+        hint,
+    );
+    frame.render_widget(Paragraph::new(Line::styled("─".repeat(rule.width as usize), theme.border)), rule);
+
+    // A text term shows the matching line as context.
+    let phrase = query.split('"').nth(1).filter(|p| !p.is_empty()).map(str::to_lowercase);
+    let width = list.width as usize;
+    let height = list.height as usize;
+    let offset = selected.saturating_sub(height.saturating_sub(1));
+    let lines: Vec<Line> = results
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .take(height)
+        .map(|(i, n)| {
+            let base = if i == selected { theme.selected } else { Style::new() };
+            let faint = if i == selected { theme.muted } else { theme.dim };
+            let context = phrase
+                .as_ref()
+                .and_then(|p| n.text.lines().find(|l| l.contains(p.as_str())))
+                .map(|l| format!("  “{}”", truncate(l.trim(), 40)))
+                .unwrap_or_default();
+            let tags = if n.tags.is_empty() { String::new() } else { format!("#{} ", n.tags.join(" #")) };
+            spread(
+                vec![
+                    Span::styled(" ", base),
+                    Span::styled(n.title.clone(), base),
+                    Span::styled(context, base.patch(faint).remove_modifier(Modifier::BOLD)),
+                ],
+                vec![
+                    Span::styled(truncate(&tags, 24), base.fg(theme.facet_tag).remove_modifier(Modifier::BOLD)),
+                    Span::styled(format!(" {} ", n.folder()), base.patch(faint).remove_modifier(Modifier::BOLD)),
+                ],
+                width,
+            )
+            .style(base)
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines), list);
 }
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
@@ -320,7 +399,29 @@ fn draw_popup(frame: &mut Frame, area: Rect, lib: &Library, filter: &SourceFilte
             );
             frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
         }
-        Popup::Find(p) | Popup::CreateFromLink(p, _) => {
+        Popup::Search(query, selected) => draw_search(frame, area, v, query, *selected, theme),
+        Popup::Command(cmd) => {
+            // A vim-style command line over the editor's bottom border.
+            let [_, mid, _, _, _] = Layout::horizontal([
+                Constraint::Length(34),
+                Constraint::Length(1),
+                Constraint::Min(40),
+                Constraint::Length(1),
+                Constraint::Length(36),
+            ])
+            .areas(area);
+            let line = Rect { x: mid.x + 1, y: mid.bottom().saturating_sub(1), width: mid.width.saturating_sub(2), height: 1 };
+            frame.render_widget(Clear, line);
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(":", Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
+                    Span::raw(cmd.clone()),
+                ])),
+                line,
+            );
+            frame.set_cursor_position((line.x + 1 + cmd.width() as u16, line.y));
+        }
+        Popup::CreateFromLink(p, _) => {
             let rect = centered(area, 72, area.height.saturating_sub(6).min(24));
             frame.render_widget(Clear, rect);
             let block = pane(pane_title(&p.title, true, theme), true, theme)

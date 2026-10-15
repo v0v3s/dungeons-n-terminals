@@ -50,7 +50,10 @@ pub enum PromptKind {
 
 pub enum Popup {
     Prompt(PromptKind, String),
-    Find(Box<Picker>),
+    /// Searching notes: query text and selected result.
+    Search(String, usize),
+    /// The editor's `:` command line.
+    Command(String),
     /// Create the missing note a link points to, in a chosen folder.
     CreateFromLink(Box<Picker>, String),
     /// Preview of a link target: a compendium entity, or a note's lines.
@@ -266,11 +269,57 @@ impl NotesView {
                     Action::None
                 }
             },
-            Popup::Find(mut picker) => match picker.key(key) {
-                Some(Picked::One(path)) => self.open(&path, true),
-                _ if key.code == KeyCode::Esc => Action::None,
+            Popup::Search(mut query, mut selected) => {
+                let results = self.search(&query);
+                let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+                match key.code {
+                    KeyCode::Esc => return Action::None,
+                    KeyCode::Enter => {
+                        return match results.get(selected) {
+                            Some(path) => {
+                                let path = path.clone();
+                                self.open(&path, true)
+                            }
+                            None => Action::None,
+                        };
+                    }
+                    KeyCode::Down | KeyCode::Tab => selected = (selected + 1).min(results.len().saturating_sub(1)),
+                    KeyCode::Up | KeyCode::BackTab => selected = selected.saturating_sub(1),
+                    KeyCode::Char('n' | 'j') if ctrl => selected = (selected + 1).min(results.len().saturating_sub(1)),
+                    KeyCode::Char('p' | 'k') if ctrl => selected = selected.saturating_sub(1),
+                    KeyCode::Char('u') if ctrl => {
+                        query.clear();
+                        selected = 0;
+                    }
+                    KeyCode::Backspace => {
+                        query.pop();
+                        selected = 0;
+                    }
+                    KeyCode::Char(c) if !ctrl => {
+                        query.push(c);
+                        selected = 0;
+                    }
+                    _ => {}
+                }
+                self.popup = Some(Popup::Search(query, selected));
+                Action::None
+            }
+            Popup::Command(mut cmd) => match key.code {
+                KeyCode::Esc => Action::None,
+                KeyCode::Enter => self.command(cmd.trim()),
+                KeyCode::Backspace => {
+                    if cmd.pop().is_some() {
+                        self.popup = Some(Popup::Command(cmd));
+                    }
+                    Action::None
+                }
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    cmd.push(c);
+                    self.popup = Some(Popup::Command(cmd));
+                    Action::None
+                }
                 _ => {
-                    self.popup = Some(Popup::Find(picker));
+                    self.popup = Some(Popup::Command(cmd));
                     Action::None
                 }
             },
@@ -416,15 +465,65 @@ impl NotesView {
     }
 
     fn find(&mut self) {
-        let items = self
-            .index
-            .iter()
-            .map(|n| {
-                let folder = n.path.rsplit_once('/').map_or("", |(p, _)| p);
-                PickItem::new(n.title.clone(), folder, n.path.clone())
-            })
-            .collect();
-        self.popup = Some(Popup::Find(Box::new(Picker::new("Find a note", items))));
+        self.popup = Some(Popup::Search(String::new(), 0));
+    }
+
+    /// Paths of notes matching a search query (all notes when empty).
+    pub fn search(&self, query: &str) -> Vec<String> {
+        notes::NoteQuery::parse(query).run(&self.index).into_iter().map(|n| n.path.clone()).collect()
+    }
+
+    /// Run a `:` command from the editor.
+    fn command(&mut self, cmd: &str) -> Action {
+        let (name, arg) = cmd.split_once(' ').map_or((cmd, ""), |(n, a)| (n, a.trim()));
+        match name {
+            "w" | "write" => self.save().map(Action::Status).unwrap_or(Action::Status("No changes".into())),
+            "q" | "quit" | "close" | "wq" | "x" => {
+                let status = self.save();
+                if let Some(o) = self.open.take() {
+                    self.cursors.insert(o.path, o.editor.cursor);
+                }
+                self.focus = Focus::Tree;
+                status.map(Action::Status).unwrap_or(Action::None)
+            }
+            "e" | "edit" | "open" if !arg.is_empty() => match notes::resolve(&self.index, arg) {
+                Some(n) => {
+                    let path = n.path.clone();
+                    self.open(&path, true)
+                }
+                None => Action::Status(format!("No note called {arg} (:new {arg} creates it)")),
+            },
+            "new" | "n" if !arg.is_empty() => {
+                let folder = self.open.as_ref().and_then(|o| o.path.rsplit_once('/').map(|(f, _)| f.to_string())).unwrap_or_default();
+                let vars = self.vars(arg);
+                match self.notes.as_ref().map(|n| n.create(&folder, &vars)) {
+                    Some(Ok(path)) => {
+                        self.reindex();
+                        self.open(&path, true)
+                    }
+                    Some(Err(e)) => Action::Status(format!("Could not create: {e}")),
+                    None => Action::None,
+                }
+            }
+            "session" => {
+                let vars = self.vars("");
+                match self.notes.as_ref().map(|n| n.new_session(&vars)) {
+                    Some(Ok(path)) => {
+                        self.reindex();
+                        self.open(&path, true)
+                    }
+                    _ => Action::None,
+                }
+            }
+            "inbox" => self.open("Inbox.md", true),
+            "hub" | "campaign" => self.open("Campaign.md", true),
+            "find" | "f" | "search" => {
+                self.popup = Some(Popup::Search(arg.to_string(), 0));
+                Action::None
+            }
+            "" => Action::None,
+            other => Action::Status(format!("Unknown command :{other} (w, q, wq, e <note>, new <name>, session, inbox, hub, find)")),
+        }
     }
 
     fn editor_key(&mut self, key: KeyEvent, lib: &Library, filter: &SourceFilter) -> Action {
@@ -456,6 +555,10 @@ impl NotesView {
                     return status.map(Action::Status).unwrap_or(Action::None);
                 }
                 KeyCode::Char('K') => return self.preview(lib, filter),
+                KeyCode::Char(':') => {
+                    self.popup = Some(Popup::Command(String::new()));
+                    return Action::None;
+                }
                 KeyCode::Char('o') if ctrl => {
                     if let Some(prev) = self.back.pop() {
                         return self.open(&prev, false);
