@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use dnt_data::homebrew::{self, CloneMode, Template};
-use dnt_data::{EntityId, Key, Library};
+use dnt_data::{EntityId, Key, Kind, Library};
 use dnt_store::GLOBAL_SOURCE;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
@@ -353,11 +353,33 @@ impl App {
         }
         let from = format!("{}:{}|{}", kind.json_key(), e.name, e.source);
         let to = format!("{}:{}|{GLOBAL_SOURCE}", kind.json_key(), e.name);
-        let moved = self.active_campaign().map(|c| self.store.rewrite_refs(c, &from, &to));
-        self.status = match moved {
-            Some(Ok(n)) if n > 0 => format!("{} is now global homebrew ({n} character file(s) updated)", e.name),
-            Some(Err(err)) => format!("{} is now global homebrew, but updating characters failed: {err}", e.name),
-            _ => format!("{} is now global homebrew, available in every campaign", e.name),
+        let characters = self.active_campaign().map(|c| self.store.rewrite_refs(c, &from, &to)).transpose();
+        // Note links that name the old source: `[[item:X@CoS]]`.
+        self.notes.save();
+        let kind_ok = |tag: &str| Kind::for_tag(tag).contains(&kind) || Kind::from_json_key(tag) == Some(kind);
+        let notes = self
+            .notes
+            .notes
+            .as_ref()
+            .map(|n| n.rewrite_entity_source(&kind_ok, &e.name, &e.source, GLOBAL_SOURCE))
+            .transpose();
+        self.notes.reload_open();
+        self.status = match (characters, notes) {
+            (Ok(c), Ok(n)) => {
+                let mut updated = Vec::new();
+                if let Some(c @ 1..) = c {
+                    updated.push(format!("{c} character file(s)"));
+                }
+                if let Some(n @ 1..) = n {
+                    updated.push(format!("{n} note(s)"));
+                }
+                if updated.is_empty() {
+                    format!("{} is now global homebrew, available in every campaign", e.name)
+                } else {
+                    format!("{} is now global homebrew ({} updated)", e.name, updated.join(" and "))
+                }
+            }
+            (Err(err), _) | (_, Err(err)) => format!("{} is now global homebrew, but updating references failed: {err}", e.name),
         };
         // The characters on disk changed; the open sheet must not save stale refs.
         self.characters.files = self.active_campaign().map(|c| self.store.characters(c).0).unwrap_or_default();

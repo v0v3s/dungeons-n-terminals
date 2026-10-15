@@ -177,6 +177,18 @@ impl NotesView {
         }
     }
 
+    /// Re-read the open note after its file changed on disk (keeping the
+    /// cursor and focus).
+    pub fn reload_open(&mut self) {
+        let Some((path, cursor)) = self.open.as_ref().map(|o| (o.path.clone(), o.editor.cursor)) else { return };
+        let focus = self.focus;
+        self.open = None;
+        self.cursors.insert(path.clone(), cursor);
+        self.open(&path, false);
+        self.focus = focus;
+        self.reindex();
+    }
+
     /// Open a note in the editor (saving the current one first).
     pub fn open(&mut self, path: &str, remember: bool) -> Action {
         let status = self.save();

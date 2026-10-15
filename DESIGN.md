@@ -405,7 +405,8 @@ enabled for that campaign.
   books; dnt writes `homebrew.json` there with the source `Homebrew`,
   which every campaign enables. `P` promotes a campaign entry: it moves
   to the global file and the campaign's character files are pointed at
-  it (`item:X|CoS` → `item:X|Homebrew`). Global entries are edited in
+  it (`item:X|CoS` → `item:X|Homebrew`), as are note links that name the
+  old source (`[[item:X@CoS]]` → `[[item:X@Homebrew]]`). Global entries are edited in
   place. Campaign versions (overrides) stay in their campaign.
 
 ## 6. UX
@@ -462,8 +463,6 @@ enabled for that campaign.
    commands, word-aware wrapping (patched edtui in vendor/). *Done.*
 5. **M5 Campaign layer** — campaign homebrew file and source, clone
    (replace / separate), creator and editor forms (items, spells first),
-   compendium markers, inventory shortcut, global homebrew. *Done*
-   (note links to a promoted entry that name its old source are not
-   rewritten).
+   compendium markers, inventory shortcut, global homebrew. *Done.*
 6. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

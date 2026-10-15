@@ -320,6 +320,29 @@ impl Notes {
         self.write("Inbox.md", &body)
     }
 
+    /// Point `[[kind:Name@from]]` links at another source in every note
+    /// (an entity moved, e.g. promoted to the global homebrew). `kind_ok`
+    /// says whether a link's kind prefix can name the entity. Returns the
+    /// number of notes changed.
+    pub fn rewrite_entity_source(&self, kind_ok: &dyn Fn(&str) -> bool, name: &str, from: &str, to: &str) -> Result<usize> {
+        let mut changed = 0;
+        let mut stack = vec![String::new()];
+        while let Some(folder) = stack.pop() {
+            for e in self.list(&folder) {
+                if e.is_dir {
+                    stack.push(e.path);
+                    continue;
+                }
+                let Ok(text) = self.read(&e.path) else { continue };
+                if let Some(new) = rewrite_link_source(&text, kind_ok, name, from, to) {
+                    self.write(&e.path, &new)?;
+                    changed += 1;
+                }
+            }
+        }
+        Ok(changed)
+    }
+
     /// Every note, recursively, with its parsed metadata.
     pub fn index(&self) -> Vec<NoteInfo> {
         let mut out = Vec::new();
@@ -386,6 +409,35 @@ pub fn links(text: &str) -> Vec<WikiLink> {
         }
     }
     out
+}
+
+/// `text` with `[[kind:Name@from]]` links (any alias kept) pointing at
+/// `to` instead, or `None` when no link matches. Names and sources match
+/// ignoring case.
+pub fn rewrite_link_source(text: &str, kind_ok: &dyn Fn(&str) -> bool, name: &str, from: &str, to: &str) -> Option<String> {
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut out = String::with_capacity(text.len());
+    let mut changed = false;
+    for (i, line) in lines.iter().enumerate() {
+        let mut last = 0;
+        for link in links(line) {
+            let Some((kind, target)) = link.compendium() else { continue };
+            let Some((n, src)) = target.split_once('@') else { continue };
+            if !kind_ok(kind) || !n.trim().eq_ignore_ascii_case(name) || !src.trim().eq_ignore_ascii_case(from) {
+                continue;
+            }
+            out.push_str(&line[last..link.start]);
+            let alias = link.alias.as_ref().map(|a| format!("|{a}")).unwrap_or_default();
+            out.push_str(&format!("[[{kind}:{}@{to}{alias}]]", n.trim()));
+            last = link.end;
+            changed = true;
+        }
+        out.push_str(&line[last..]);
+        if i + 1 < lines.len() {
+            out.push('\n');
+        }
+    }
+    changed.then_some(out)
 }
 
 /// Flat YAML frontmatter: `key: value` and `key: [a, b]` lines between
@@ -768,5 +820,17 @@ mod tests {
         n.capture("19:30", "Ireena knows the burgomaster").unwrap();
         assert!(n.read("Inbox.md").unwrap().ends_with("- 19:30 Ireena knows the burgomaster\n"));
         assert_eq!(file_safe("A/B: c?"), "A-B- c-");
+    }
+
+    #[test]
+    fn link_sources_rewritten() {
+        let ok = |k: &str| k == "item";
+        let text = "Got [[item:Silver Blade@CoS-HB]] and [[item:silver blade@cos-hb|the blade]].\n[[spell:Silver Blade@CoS-HB]] [[item:Silver Blade]]\n";
+        let new = rewrite_link_source(text, &ok, "Silver Blade", "CoS-HB", "Homebrew").unwrap();
+        assert_eq!(
+            new,
+            "Got [[item:Silver Blade@Homebrew]] and [[item:silver blade@Homebrew|the blade]].\n[[spell:Silver Blade@CoS-HB]] [[item:Silver Blade]]\n"
+        );
+        assert_eq!(rewrite_link_source("[[item:Other@CoS-HB]]", &ok, "Silver Blade", "CoS-HB", "Homebrew"), None);
     }
 }
