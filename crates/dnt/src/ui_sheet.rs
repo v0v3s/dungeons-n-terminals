@@ -963,9 +963,21 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
         let selected = i == sheet.spell_cursor;
         let base = if selected { theme.selected } else { Style::new() };
         let faint = if selected { theme.muted } else { theme.dim };
+        let (row, favorite_row) = match row {
+            Row::Favorite(inner) => (&**inner, true),
+            r => (r, false),
+        };
+        // In the Favorites group, say where each spell comes from.
+        let origin = match row {
+            Row::ClassSpell { caster, .. } if favorite_row => Some(data.casters[*caster].name.clone()),
+            Row::GrantSpell { grant, .. } if favorite_row => Some(sheet.build.granted[*grant].origin.clone()),
+            _ => None,
+        };
         let spell_spans = |id: &str, mark: Span<'static>, how: String| {
             let e = resolve_id(lib, id);
             let name = e.map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| id.to_string());
+            let star = ch.spells.favorites.iter().any(|f| f == id);
+
             let mut right = String::new();
             if let Some(e) = e {
                 let lvl = spells::spell_level(lib, e);
@@ -980,8 +992,19 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
             if !how.is_empty() {
                 right = format!("{how} · {right}");
             }
+            if let Some(o) = &origin {
+                right = format!("{right} · {o}");
+            }
+            // The name gets what the details leave (at least 16 columns).
+            let right = truncate(&right, width.saturating_sub(24));
+            let star = star && !favorite_row;
+            let name_w = width.saturating_sub(right.width() + 8 + if star { 2 } else { 0 }).max(16);
+            let mut left = vec![Span::styled("  ", base), mark, Span::styled(truncate(&name, name_w), base)];
+            if star {
+                left.push(Span::styled(" ★", base.fg(theme.accent)));
+            }
             spread(
-                vec![Span::styled("  ", base), mark, Span::styled(truncate(&name, width.saturating_sub(30)), base)],
+                left,
                 vec![Span::styled(format!("{right} "), base.patch(faint).remove_modifier(Modifier::BOLD))],
                 width,
             )
@@ -1051,6 +1074,8 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 };
                 spell_spans(id, Span::styled("◆ ", base.fg(theme.accent)), text)
             }
+            Row::FavoritesHeader => Line::styled("★ Favorites", base.patch(theme.heading)).style(base),
+            Row::Favorite(_) => unreachable!("unwrapped above"),
             Row::GrantChoice { filter, missing, .. } => Line::from(vec![
                 Span::styled("  + ", base.fg(theme.accent)),
                 Span::styled(format!("choose {missing} {}", spells::describe_filter(filter)), base.fg(theme.accent)),
@@ -1069,10 +1094,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
     let block = pane(pane_title("Spell", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
     let inner = block.inner(detail);
     frame.render_widget(block, detail);
-    let id = match data.rows.get(sheet.spell_cursor) {
-        Some(Row::ClassSpell { id, .. } | Row::GrantSpell { id, .. }) => Some(id.clone()),
-        _ => None,
-    };
+    let id = data.rows.get(sheet.spell_cursor).and_then(|r| r.spell_id()).map(str::to_string);
     if let Some(e) = id.and_then(|id| resolve_id(lib, &id)) {
         let mut lines = vec![Line::styled(lib.entity(e).name.clone(), theme.title), Line::default()];
         let doc = view::document(lib, e, &sheet.filter);

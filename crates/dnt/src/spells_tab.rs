@@ -28,6 +28,26 @@ pub enum Row {
     GrantSpell { grant: usize, id: String, how: Grant, chosen_key: Option<String> },
     /// A grant choice with picks still missing.
     GrantChoice { grant: usize, key: String, filter: String, missing: usize, how: Grant },
+    FavoritesHeader,
+    /// A favorite spell, repeated at the top; behaves like its own row.
+    Favorite(Box<Row>),
+}
+
+impl Row {
+    /// The row a favorite stands for (the row itself otherwise).
+    pub fn inner(&self) -> &Row {
+        match self {
+            Row::Favorite(r) => r,
+            r => r,
+        }
+    }
+
+    pub fn spell_id(&self) -> Option<&str> {
+        match self.inner() {
+            Row::ClassSpell { id, .. } | Row::GrantSpell { id, .. } => Some(id),
+            _ => None,
+        }
+    }
 }
 
 pub struct Rows {
@@ -89,7 +109,29 @@ pub fn rows(lib: &Library, ch: &Character, build: &dnt_rules::builder::Build, ev
             }
         }
     }
+    // Favorites first, in the order they were marked.
+    let mut favorites = Vec::new();
+    for fav in &ch.spells.favorites {
+        if let Some(r) = rows.iter().find(|r| r.spell_id() == Some(fav.as_str())) {
+            favorites.push(Row::Favorite(Box::new(r.clone())));
+        }
+    }
+    if !favorites.is_empty() {
+        rows.splice(0..0, std::iter::once(Row::FavoritesHeader).chain(favorites));
+    }
     Rows { casters, rows }
+}
+
+/// Mark or unmark a spell as a favorite; returns whether it is one now.
+pub fn toggle_favorite(ch: &mut Character, id: &str) -> bool {
+    let favs = &mut ch.spells.favorites;
+    if let Some(i) = favs.iter().position(|f| f == id) {
+        favs.remove(i);
+        false
+    } else {
+        favs.push(id.to_string());
+        true
+    }
 }
 
 /// What a spell picker adds to.

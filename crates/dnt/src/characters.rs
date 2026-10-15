@@ -673,7 +673,8 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
     let data = spells_tab::rows(lib, &sheet.file.character, &sheet.build, &sheet.ev);
     let n = data.rows.len();
     let i = sheet.spell_cursor.min(n.saturating_sub(1));
-    let row = data.rows.get(i).cloned();
+    // A favorite acts like the spell's own row.
+    let row = data.rows.get(i).map(|r| r.inner().clone());
     // The casting class the cursor is in (for adding).
     let caster_at = |i: usize| {
         data.rows[..=i.min(n.saturating_sub(1))].iter().rev().find_map(|r| match r {
@@ -733,6 +734,17 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                 if spells_tab::remove(&mut sheet.file.character, &data.casters, r) {
                     return changed(sheet, lib, overlays, "Removed".into());
                 }
+            }
+        }
+        KeyCode::Char('f') => {
+            if let Some(id) = row.as_ref().and_then(|r| r.spell_id()).map(str::to_string) {
+                let name = dnt_rules::overlay::resolve_id(lib, &id).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| id.clone());
+                let on = spells_tab::toggle_favorite(&mut sheet.file.character, &id);
+                // Keep the cursor on the spell as rows move.
+                let rows = spells_tab::rows(lib, &sheet.file.character, &sheet.build, &sheet.ev).rows;
+                let at = rows.iter().position(|r| !matches!(r, Row::Favorite(_)) && r.spell_id() == Some(id.as_str()));
+                sheet.spell_cursor = at.unwrap_or(sheet.spell_cursor);
+                return Action::Save(if on { format!("{name} is a favorite") } else { format!("{name} is no longer a favorite") });
             }
         }
         KeyCode::Char('C') => {

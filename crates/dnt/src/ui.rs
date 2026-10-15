@@ -204,6 +204,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("a", "add"),
                 ("enter", "cast/choose"),
                 ("p", "prepare"),
+                ("f", "favorite"),
                 ("x", "remove"),
                 ("C", "end conc."),
                 ("tab", "tab"),

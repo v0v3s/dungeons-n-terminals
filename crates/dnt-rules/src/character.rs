@@ -317,6 +317,9 @@ pub struct Spells {
     /// keyed by grant (see `Build::granted`).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub chosen: BTreeMap<String, Vec<String>>,
+    /// Spells shown first on the Spells tab.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub favorites: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
