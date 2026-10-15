@@ -1091,7 +1091,8 @@ fn equipment_catalog(lib: &Library, filter: &SourceFilter) -> Vec<crate::picker:
     let mut items: Vec<crate::picker::PickItem> = lib
         .entities()
         .iter()
-        .filter(|e| matches!(e.kind, Kind::Item | Kind::BaseItem | Kind::MagicVariant) && filter.allows(e))
+                // Generic variants ("+1 Weapon") are offered as their specific items.
+        .filter(|e| matches!(e.kind, Kind::Item | Kind::BaseItem) && filter.allows(e))
         .map(|e| {
             let rarity = e
                 .data

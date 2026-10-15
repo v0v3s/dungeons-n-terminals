@@ -390,6 +390,10 @@ fn item_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
     if let Some(w) = d.get("weight").and_then(Value::as_f64) {
         props.push(("Weight", plain(format!("{w} lb."))));
     }
+    // Specific items made from a magic variant: link both halves.
+    if let (Some(base), Some(variant)) = (str_of(d, "baseItem"), str_of(d, "_variant")) {
+        props.push(("Based on", tags::parse(&format!("{{@item {base}}} · {{@item {variant}}}"))));
+    }
     if let Some(cp) = d.get("value").and_then(Value::as_u64) {
         props.push(("Value", plain(format_coins(cp))));
     }

@@ -64,6 +64,8 @@ pub struct Library {
     version_base: HashMap<EntityId, EntityId>,
     /// Entities replaced by a campaign override: their book data.
     originals: HashMap<EntityId, Value>,
+    /// (magic variant, base item) pairs already turned into items.
+    generated_variants: std::collections::HashSet<(EntityId, EntityId)>,
 }
 
 /// Top-level files in a data `data/` directory that hold player-facing content.
@@ -303,6 +305,7 @@ impl Library {
         }
 
         self.expand_versions();
+        self.expand_magic_variants();
         if let Some(lookup) = self.pending_spell_lookup.take() {
             self.attach_spell_classes(&lookup);
         }
@@ -400,6 +403,31 @@ impl Library {
     /// The entity a version was generated from.
     pub fn version_base(&self, id: EntityId) -> Option<EntityId> {
         self.version_base.get(&id).copied()
+    }
+
+    /// Turn generic magic variants ("+1 Weapon", "Flame Tongue") into
+    /// specific items for every base item they apply to ("+1 Longsword"),
+    /// as data does. Existing items with the same name win.
+    fn expand_magic_variants(&mut self) {
+        let variants: Vec<EntityId> = (0..self.entities.len()).filter(|&i| self.entities[i].kind == Kind::MagicVariant).collect();
+        let bases: Vec<EntityId> = (0..self.entities.len()).filter(|&i| self.entities[i].kind == Kind::BaseItem).collect();
+        for &v in &variants {
+            for &b in &bases {
+                if self.generated_variants.contains(&(v, b)) {
+                    continue;
+                }
+                self.generated_variants.insert((v, b));
+                let (vd, bd) = (&self.entities[v].data, &self.entities[b].data);
+                if !variant_applies(vd, bd) {
+                    continue;
+                }
+                let Some(item) = specific_variant(vd, bd, &self.entities[v].name) else { continue };
+                if Key::of_entity(Kind::Item, &item).is_some_and(|k| self.index.contains_key(&k)) {
+                    continue;
+                }
+                self.insert(Kind::Item, item);
+            }
+        }
     }
 
     fn insert(&mut self, kind: Kind, data: Value) {
@@ -582,6 +610,92 @@ fn parse_parallel(files: &[PathBuf]) -> Vec<(PathBuf, Result<Value, LoadError>)>
     })
 }
 
+/// Whether a base item matches a variant's `requires` (any of them, all
+/// of its fields) and none of its `excludes`.
+fn variant_applies(variant: &Value, base: &Value) -> bool {
+    let matches = |field: &str, want: &Value| match (base.get(field), want) {
+        (Some(Value::Array(have)), Value::String(w)) => have.iter().any(|h| {
+            let h = h.as_str().or_else(|| h.get("uid").and_then(Value::as_str)).unwrap_or("");
+            h.eq_ignore_ascii_case(w) || (!w.contains('|') && h.split('|').next().is_some_and(|p| p.eq_ignore_ascii_case(w)))
+        }),
+        (Some(Value::String(h)), Value::String(w)) => h.eq_ignore_ascii_case(w),
+        (Some(h), w) => h == w,
+        (None, Value::Bool(false)) => true,
+        (None, _) => false,
+    };
+    let requires = variant.get("requires").and_then(Value::as_array);
+    let required = requires.is_some_and(|r| {
+        r.iter().any(|req| req.as_object().is_some_and(|o| o.iter().all(|(k, v)| matches(k, v))))
+    });
+    let excluded = variant.get("excludes").and_then(Value::as_object).is_some_and(|ex| {
+        ex.iter().any(|(k, v)| match v {
+            Value::Array(options) => options.iter().any(|o| matches(k, o)),
+            v => matches(k, v),
+        })
+    });
+    required && !excluded
+}
+
+/// A specific item from a variant and a base item: the base's fields with
+/// the variant's `inherits` on top, named `<prefix><base><suffix>`.
+fn specific_variant(variant: &Value, base: &Value, variant_name: &str) -> Option<Value> {
+    let inherits = variant.get("inherits")?.as_object()?;
+    let base_name = base.get("name")?.as_str()?;
+    let base_source = base.get("source")?.as_str()?;
+    let mut out = base.as_object()?.clone();
+    for k in ["srd", "srd52", "basicRules", "basicRules2024", "page", "reprintedAs", "hasFluff", "hasFluffImages", "value", "entries", "otherSources", "referenceSources"] {
+        out.remove(k);
+    }
+    let mut name = base_name.to_string();
+    if let Some(remove) = inherits.get("nameRemove").and_then(Value::as_str) {
+        name = name.replace(remove, "");
+    }
+    let prefix = inherits.get("namePrefix").and_then(Value::as_str).unwrap_or("");
+    let suffix = inherits.get("nameSuffix").and_then(Value::as_str).unwrap_or("");
+    for (k, v) in inherits {
+        if !matches!(k.as_str(), "namePrefix" | "nameSuffix" | "nameRemove") {
+            out.insert(k.clone(), v.clone());
+        }
+    }
+    out.insert("name".into(), Value::String(format!("{prefix}{}{suffix}", name.trim())));
+    out.insert("baseItem".into(), Value::String(format!("{base_name}|{base_source}")));
+    let variant_source = variant.get("source").and_then(Value::as_str).or_else(|| inherits.get("source").and_then(Value::as_str)).unwrap_or("");
+    out.insert("_variant".into(), Value::String(format!("{variant_name}|{variant_source}")));
+    // `{=bonusWeapon}`, `{=dmgType}` in the text become the item's values.
+    let fields = out.clone();
+    if let Some(entries) = out.get_mut("entries") {
+        fill_templates(entries, &fields);
+    }
+    Some(Value::Object(out))
+}
+
+fn fill_templates(v: &mut Value, fields: &serde_json::Map<String, Value>) {
+    match v {
+        Value::String(s) if s.contains("{=") => {
+            let mut out = String::new();
+            let mut rest = s.as_str();
+            while let Some(start) = rest.find("{=") {
+                out.push_str(&rest[..start]);
+                let Some(end) = rest[start..].find('}') else { break };
+                let key = &rest[start + 2..start + end];
+                let value = match (key, fields.get(key)) {
+                    ("dmgType", Some(Value::String(t))) => crate::view::damage_type(t).to_string(),
+                    (_, Some(Value::String(t))) => t.clone(),
+                    (_, Some(other)) => other.to_string(),
+                    (_, None) => String::new(),
+                };
+                out.push_str(&value);
+                rest = &rest[start + end + 1..];
+            }
+            out.push_str(rest);
+            *s = out;
+        }
+        Value::Array(a) => a.iter_mut().for_each(|x| fill_templates(x, fields)),
+        Value::Object(o) => o.values_mut().for_each(|x| fill_templates(x, fields)),
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -654,5 +768,44 @@ mod tests {
         assert_eq!(lib.entity(red).data["resist"], json!(["fire"]));
 
         get(Kind::Feat, "Magic Initiate; Cleric");
+    }
+
+    #[test]
+    fn magic_variants_become_items() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "baseitem": [
+                {"name": "Longsword", "source": "XPHB", "type": "M|XPHB", "weapon": true, "sword": true, "weaponCategory": "martial",
+                 "dmg1": "1d8", "dmgType": "S", "property": ["V|XPHB"], "value": 1500, "weight": 3},
+                {"name": "Net", "source": "XPHB", "type": "R|XPHB", "weapon": true, "net": true, "weaponCategory": "martial"},
+                {"name": "Chain Mail", "source": "XPHB", "type": "HA|XPHB", "armor": true, "ac": 16}
+            ],
+            "magicvariant": [
+                {"name": "+1 Weapon", "requires": [{"weapon": true}], "excludes": {"net": true},
+                 "inherits": {"namePrefix": "+1 ", "source": "XDMG", "rarity": "uncommon", "bonusWeapon": "+1",
+                              "entries": ["A {=bonusWeapon} bonus with this {=dmgType} weapon."]}},
+                {"name": "Flame Tongue", "requires": [{"sword": true}],
+                 "inherits": {"namePrefix": "Flame Tongue ", "source": "XDMG", "rarity": "rare", "reqAttune": true}},
+                {"name": "+2 Armor", "requires": [{"type": "LA|XPHB"}, {"type": "HA|XPHB"}],
+                 "inherits": {"namePrefix": "+2 ", "source": "XDMG", "rarity": "very rare", "bonusAc": "+2"}}
+            ],
+            "item": [{"name": "Flame Tongue Longsword", "source": "XDMG", "rarity": "rare", "entries": ["The real one."]}]
+        }));
+        let get = |n: &str| lib.get(&Key::new(Kind::Item, &[n, "XDMG"])).map(|id| &lib.entity(id).data);
+        let sword = get("+1 Longsword").expect("generated");
+        assert_eq!(sword["bonusWeapon"], "+1");
+        assert_eq!(sword["dmg1"], "1d8", "from the base");
+        assert_eq!(sword["baseItem"], "Longsword|XPHB");
+        assert_eq!(sword["entries"][0], "A +1 bonus with this slashing weapon.");
+        assert!(sword.get("value").is_none());
+        assert!(get("+1 Net").is_none(), "excluded");
+        assert_eq!(get("+2 Chain Mail").unwrap()["bonusAc"], "+2");
+        assert!(get("+2 Longsword").is_none());
+        // A real item of the same name wins.
+        assert_eq!(get("Flame Tongue Longsword").unwrap()["entries"][0], "The real one.");
+        // Loading more data does not duplicate anything.
+        let n = lib.entities().len();
+        lib.load_json(&json!({"spell": []}));
+        assert_eq!(lib.entities().len(), n);
     }
 }
