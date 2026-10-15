@@ -74,6 +74,10 @@ pub struct Character {
     pub subclasses: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub equipped: Equipped,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inventory: Vec<InventoryItem>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub currency: Currency,
     #[serde(default, skip_serializing_if = "is_default")]
     pub state: State,
     /// Manual overrides: stat key → formula (usually just a number).
@@ -215,6 +219,87 @@ pub struct Equipped {
     pub shield: bool,
 }
 
+/// One inventory line: a library item (`item`) or a custom one (`name`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct InventoryItem {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
+    /// Display name; required for custom items, overrides the library name otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub quantity: i64,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub equipped: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub attuned: bool,
+    /// Weight per item in pounds, for custom items.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weight: Option<f64>,
+}
+
+fn one() -> i64 {
+    1
+}
+
+fn is_one(n: &i64) -> bool {
+    *n == 1
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Currency {
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub cp: i64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub sp: i64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub ep: i64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub gp: i64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub pp: i64,
+}
+
+impl Currency {
+    /// Total value in copper pieces.
+    pub fn total_cp(&self) -> i64 {
+        self.cp + self.sp * 10 + self.ep * 50 + self.gp * 100 + self.pp * 1000
+    }
+
+    /// Add an amount in copper as the largest coins (gold, silver, copper).
+    pub fn add_cp(&mut self, cp: i64) {
+        self.gp += cp / 100;
+        self.sp += (cp % 100) / 10;
+        self.cp += cp % 10;
+    }
+
+    /// Apply a change like `+15gp`, `-3 sp`, `20gp` (sets gold) or `+250`
+    /// (gold by default). Returns false if the text cannot be parsed.
+    pub fn apply(&mut self, text: &str) -> bool {
+        let t: String = text.trim().to_lowercase().chars().filter(|c| !c.is_whitespace()).collect();
+        let (sign, rest) = match t.chars().next() {
+            Some('+') => (Some(1), &t[1..]),
+            Some('-') => (Some(-1), &t[1..]),
+            _ => (None, t.as_str()),
+        };
+        let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+        let Ok(n) = digits.parse::<i64>() else { return false };
+        let coin = match &rest[digits.len()..] {
+            "" | "gp" | "g" => &mut self.gp,
+            "sp" | "s" => &mut self.sp,
+            "cp" | "c" => &mut self.cp,
+            "ep" | "e" => &mut self.ep,
+            "pp" | "p" => &mut self.pp,
+            _ => return false,
+        };
+        match sign {
+            Some(s) => *coin = (*coin + s * n).max(0),
+            None => *coin = n,
+        }
+        true
+    }
+}
+
 /// Mutable play state.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct State {
@@ -353,6 +438,21 @@ resources_used = { arcane_recovery = 1 }
         assert_eq!(c.levels[3].hp.amount(8), 5);
         assert_eq!(c.ability_bonus[0].scores["int"], 2);
         assert_eq!(c.state.resources_used["arcane_recovery"], 1);
+    }
+
+    #[test]
+    fn currency() {
+        let mut c = Currency::default();
+        c.add_cp(1550);
+        assert_eq!((c.gp, c.sp, c.cp), (15, 5, 0));
+        assert!(c.apply("+10gp"));
+        assert!(c.apply("-3 sp"));
+        assert!(c.apply("7cp"));
+        assert_eq!((c.gp, c.sp, c.cp), (25, 2, 7));
+        assert!(c.apply("+5"));
+        assert_eq!(c.gp, 30);
+        assert!(!c.apply("lots"));
+        assert_eq!(c.total_cp(), 3027);
     }
 
     #[test]

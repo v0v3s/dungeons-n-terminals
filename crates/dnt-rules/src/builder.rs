@@ -11,6 +11,7 @@ use serde_json::Value as Json;
 use crate::character::Character;
 use crate::class_table::{class_columns, slug, subclass_columns};
 use crate::engine::{Effect, Evaluation, Model, Op, StatDef};
+use crate::equipment;
 use crate::formula::Formula;
 use crate::multiclass::{self, Progression};
 use crate::overlay::{resolve_id, OverlaySet, Resource, Toggle};
@@ -289,29 +290,85 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
-    // ---- equipment and species basics ----
-    if let Some(armor) = character.equipped.armor.as_deref().and_then(|a| resolve(a, &mut warnings)) {
+    // ---- equipment: armor, shield and item bonuses ----
+    // Equipped inventory lines win over the older `equipped` fields.
+    let equipped: Vec<(EntityId, bool)> = character
+        .inventory
+        .iter()
+        .filter(|l| l.equipped)
+        .filter_map(|l| Some((resolve_id(lib, l.item.as_deref()?)?, l.attuned)))
+        .collect();
+    let armor_id = equipped
+        .iter()
+        .map(|(e, _)| *e)
+        .find(|e| matches!(equipment::armor_kind(&lib.entity(*e).data), Some("light" | "medium" | "heavy")))
+        .or_else(|| character.equipped.armor.as_deref().and_then(|a| resolve(a, &mut warnings)));
+    let shield_id = equipped
+        .iter()
+        .map(|(e, _)| *e)
+        .find(|e| equipment::armor_kind(&lib.entity(*e).data) == Some("shield"));
+    let bonus = |e: EntityId, field: &str| -> i64 {
+        let d = &lib.entity(e).data;
+        d.get(field)
+            .or_else(|| d.get("inherits").and_then(|i| i.get(field)))
+            .and_then(Json::as_str)
+            .and_then(|b| b.trim_start_matches('+').parse::<i64>().ok())
+            .unwrap_or(0)
+    };
+    if let Some(armor) = armor_id {
         let d = &lib.entity(armor).data;
-        let category = str_of(d, "type").and_then(|t| t.split('|').next()).unwrap_or("");
-        let cat = match category {
-            "LA" => Some("light"),
-            "MA" => Some("medium"),
-            "HA" => Some("heavy"),
-            _ => None,
-        };
-        match cat {
-            Some(cat) => {
+        match equipment::armor_kind(d) {
+            Some(cat @ ("light" | "medium" | "heavy")) => {
                 model.inputs.insert("armor.none".into(), Value::Bool(false));
                 model.inputs.insert(format!("armor.{cat}"), Value::Bool(true));
-                let ac = d.get("ac").and_then(Json::as_i64).unwrap_or(10);
-                let bonus = str_of(d, "bonusAc").and_then(|b| b.trim_start_matches('+').parse::<i64>().ok()).unwrap_or(0);
-                model.inputs.insert("armor.base".into(), Value::int(ac + bonus));
+                let base = d.get("inherits").unwrap_or(d);
+                let ac = base.get("ac").and_then(Json::as_i64).unwrap_or(10);
+                model.inputs.insert("armor.base".into(), Value::int(ac + bonus(armor, "bonusAc")));
             }
-            None => warnings.push(format!("{} is not armor", lib.entity(armor).name)),
+            _ => warnings.push(format!("{} is not armor", lib.entity(armor).name)),
         }
     }
-    if character.equipped.shield {
-        model.inputs.insert("armor.shield".into(), Value::int(2));
+    match shield_id {
+        Some(s) => {
+            let d = &lib.entity(s).data;
+            let ac = d.get("ac").or_else(|| d.get("inherits").and_then(|i| i.get("ac"))).and_then(Json::as_i64).unwrap_or(2);
+            model.inputs.insert("armor.shield".into(), Value::int(ac + bonus(s, "bonusAc")));
+        }
+        None if character.equipped.shield => {
+            model.inputs.insert("armor.shield".into(), Value::int(2));
+        }
+        None => {}
+    }
+    // Other worn magic items (rings, cloaks, …); attunement items only
+    // work while attuned.
+    for (e, attuned) in &equipped {
+        let d = &lib.entity(*e).data;
+        if equipment::armor_kind(d).is_some() || (equipment::requires_attunement(d) && !attuned) {
+            continue;
+        }
+        let name = lib.entity(*e).name.clone();
+        let mut add = |target: String, n: i64| {
+            model.effects.push(Effect {
+                target,
+                op: Op::Add,
+                value: Formula::constant(Value::int(n)),
+                when: None,
+                origin: name.clone(),
+            });
+        };
+        let (ac, saves) = (bonus(*e, "bonusAc"), bonus(*e, "bonusSavingThrow"));
+        if ac != 0 {
+            add("ac".into(), ac);
+        }
+        if saves != 0 {
+            for (ab, _) in ABILITIES {
+                add(format!("save.{ab}"), saves);
+            }
+        }
+    }
+    let attuned = character.inventory.iter().filter(|l| l.attuned).count();
+    if attuned > 3 {
+        warnings.push(format!("attuned to {attuned} items (the limit is 3)"));
     }
 
     // ---- active features ----
@@ -670,6 +727,36 @@ mod tests {
         c.remove_last_level();
         assert!(c.subclasses.is_empty());
         assert!(c.remove_last_level().is_none());
+    }
+
+    #[test]
+    fn inventory_armor_shield_and_attunement() {
+        use crate::character::InventoryItem;
+        let mut lib = library();
+        lib.load_json(&json!({
+            "baseitem": [
+                {"name": "Chain Mail", "source": "T", "type": "HA", "ac": 16},
+                {"name": "Shield", "source": "T", "type": "S", "ac": 2}
+            ],
+            "item": [{"name": "Ring of Protection", "source": "T", "bonusAc": "+1", "bonusSavingThrow": "+1", "reqAttune": true}]
+        }));
+        let line = |id: &str, attuned: bool| InventoryItem {
+            item: Some(id.into()),
+            quantity: 1,
+            equipped: true,
+            attuned,
+            ..Default::default()
+        };
+        let mut c = character(&["Fighter"]);
+        c.inventory = vec![line("item:Chain Mail|T", false), line("item:Shield|T", false), line("item:Ring of Protection|T", false)];
+        let ev = build(&c, &lib, &OverlaySet::default()).evaluate();
+        assert_eq!(ev.int("ac"), Some(18), "the ring needs attunement");
+        c.inventory[2].attuned = true;
+        let ev = build(&c, &lib, &OverlaySet::default()).evaluate();
+        assert_eq!(ev.int("ac"), Some(19));
+        assert_eq!(ev.int("save.wis"), Some(1));
+        c.inventory[0].equipped = false;
+        assert_eq!(build(&c, &lib, &OverlaySet::default()).evaluate().int("ac"), Some(10 + 2 + 1), "unarmored + shield + ring");
     }
 
     #[test]

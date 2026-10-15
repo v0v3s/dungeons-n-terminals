@@ -2,6 +2,7 @@
 
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::builder::{build, Build};
+use dnt_rules::equipment;
 use dnt_rules::choices::{self, Pending};
 use dnt_rules::character::Character;
 use dnt_rules::overlay::OverlaySet;
@@ -19,15 +20,17 @@ use crate::wizard::{self, Wizard};
 pub enum Tab {
     Overview,
     Features,
+    Inventory,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 2] = [Tab::Overview, Tab::Features];
+    pub const ALL: [Tab; 3] = [Tab::Overview, Tab::Features, Tab::Inventory];
 
     pub fn label(self) -> &'static str {
         match self {
             Tab::Overview => "Overview",
             Tab::Features => "Features",
+            Tab::Inventory => "Inventory",
         }
     }
 }
@@ -70,6 +73,25 @@ pub enum Popup {
     Undo,
     /// Filling in missing class feature choices.
     Fill(Box<Fill>),
+    /// Adding an item from the library.
+    AddItem(Box<Picker>),
+    /// Free text: a custom item's name or a currency change.
+    Text(TextPrompt, String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextPrompt {
+    CustomItem,
+    Currency,
+}
+
+impl TextPrompt {
+    pub fn label(self) -> &'static str {
+        match self {
+            TextPrompt::CustomItem => "Custom item name",
+            TextPrompt::Currency => "Coins (+15gp, -3sp, 20 sets gold)",
+        }
+    }
 }
 
 /// Walks through pending choices one picker at a time.
@@ -110,6 +132,7 @@ pub struct Sheet {
     pub edition: Edition,
     pub tab: Tab,
     pub cursor: usize,
+    pub inventory_cursor: usize,
     pub feature_cursor: usize,
     pub feature_scroll: usize,
     pub popup: Option<Popup>,
@@ -129,6 +152,7 @@ impl Sheet {
             edition,
             tab: Tab::Overview,
             cursor: 0,
+            inventory_cursor: 0,
             feature_cursor: 0,
             feature_scroll: 0,
             popup: None,
@@ -214,7 +238,7 @@ impl Characters {
             || self.wizard.is_some()
             || matches!(
                 self.sheet.as_ref().and_then(|s| s.popup.as_ref()),
-                Some(Popup::Input(..) | Popup::LevelUp(_) | Popup::Fill(_))
+                Some(Popup::Input(..) | Popup::LevelUp(_) | Popup::Fill(_) | Popup::AddItem(_) | Popup::Text(..))
             )
     }
 
@@ -344,6 +368,60 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     None => return changed(sheet, lib, overlays, "All choices made".into()),
                 }
             }
+            Popup::AddItem(mut picker) => {
+                sheet.popup = None;
+                match picker.key(key) {
+                    Some(Picked::One(v)) if v == "custom" => {
+                        sheet.popup = Some(Popup::Text(TextPrompt::CustomItem, String::new()));
+                    }
+                    Some(Picked::One(v)) => {
+                        equipment::add_item(&mut sheet.file.character, &v, 1, None);
+                        let name = dnt_rules::overlay::resolve_id(lib, &v).map(|e| lib.entity(e).name.clone()).unwrap_or(v);
+                        sheet.inventory_cursor = sheet.file.character.inventory.len().saturating_sub(1);
+                        return changed(sheet, lib, overlays, format!("Added {name}"));
+                    }
+                    _ if key.code == KeyCode::Esc => {}
+                    _ => sheet.popup = Some(Popup::AddItem(picker)),
+                }
+                return Action::None;
+            }
+            Popup::Text(prompt, mut text) => {
+                sheet.popup = None;
+                match key.code {
+                    KeyCode::Esc => {}
+                    KeyCode::Enter => {
+                        let c = &mut sheet.file.character;
+                        match prompt {
+                            TextPrompt::CustomItem if !text.trim().is_empty() => {
+                                c.inventory.push(dnt_rules::character::InventoryItem {
+                                    name: Some(text.trim().to_string()),
+                                    quantity: 1,
+                                    ..Default::default()
+                                });
+                                sheet.inventory_cursor = c.inventory.len() - 1;
+                                return changed(sheet, lib, overlays, format!("Added {}", text.trim()));
+                            }
+                            TextPrompt::Currency => {
+                                if c.currency.apply(&text) {
+                                    return changed(sheet, lib, overlays, format!("Coins {}", text.trim()));
+                                }
+                                return Action::Status(format!("Could not read {text:?}: try +15gp, -3sp or 20"));
+                            }
+                            _ => {}
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        text.pop();
+                        sheet.popup = Some(Popup::Text(prompt, text));
+                    }
+                    KeyCode::Char(ch) if !ctrl => {
+                        text.push(ch);
+                        sheet.popup = Some(Popup::Text(prompt, text));
+                    }
+                    _ => sheet.popup = Some(Popup::Text(prompt, text)),
+                }
+                return Action::None;
+            }
             Popup::Undo => {
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
@@ -456,6 +534,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
 
     match sheet.tab {
         Tab::Overview => overview_key(sheet, key, lib, overlays),
+        Tab::Inventory => inventory_key(sheet, key, lib, overlays, filter),
         Tab::Features => {
             let n = sheet.build.features.len();
             match key.code {
@@ -506,6 +585,101 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         _ => {}
     }
     Action::None
+}
+
+fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
+    let n = sheet.file.character.inventory.len();
+    let i = sheet.inventory_cursor.min(n.saturating_sub(1));
+    match key.code {
+        KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.inventory_cursor = (i + 1).min(n - 1),
+        KeyCode::Char('k') | KeyCode::Up => sheet.inventory_cursor = i.saturating_sub(1),
+        KeyCode::Char('a') => {
+            let mut items = vec![crate::picker::PickItem::new("Custom item…", "anything not in the books", "custom")];
+            items.extend(equipment_catalog(lib, filter));
+            sheet.popup = Some(Popup::AddItem(Box::new(Picker::new("Add an item", items))));
+        }
+        KeyCode::Char('g') => sheet.popup = Some(Popup::Text(TextPrompt::Currency, String::new())),
+        KeyCode::Char('+' | '=') if n > 0 => {
+            sheet.file.character.inventory[i].quantity += 1;
+            return changed(sheet, lib, overlays, "Quantity +1".into());
+        }
+        KeyCode::Char('-') if n > 0 => {
+            let line = &mut sheet.file.character.inventory[i];
+            if line.quantity > 1 {
+                line.quantity -= 1;
+                return changed(sheet, lib, overlays, "Quantity -1".into());
+            }
+        }
+        KeyCode::Char('x') if n > 0 => {
+            let removed = sheet.file.character.inventory.remove(i);
+            sheet.inventory_cursor = i.min(n.saturating_sub(2));
+            return changed(sheet, lib, overlays, format!("Removed {}", line_name(lib, &removed)));
+        }
+        KeyCode::Char(' ') if n > 0 => {
+            let kind = item_entity(lib, &sheet.file.character.inventory[i]).and_then(|e| equipment::armor_kind(&lib.entity(e).data));
+            let on = !sheet.file.character.inventory[i].equipped;
+            // Only one armor and one shield can be worn.
+            if on && kind.is_some() {
+                let is_shield = kind == Some("shield");
+                for (j, other) in sheet.file.character.inventory.iter_mut().enumerate() {
+                    let other_kind = item_entity(lib, other).and_then(|e| equipment::armor_kind(&lib.entity(e).data));
+                    if j != i && other.equipped && other_kind.is_some() && (other_kind == Some("shield")) == is_shield {
+                        other.equipped = false;
+                    }
+                }
+            }
+            let line = &mut sheet.file.character.inventory[i];
+            line.equipped = on;
+            let name = line_name(lib, line);
+            return changed(sheet, lib, overlays, format!("{} {name}", if on { "Equipped" } else { "Unequipped" }));
+        }
+        KeyCode::Char('A') if n > 0 => {
+            let line = &mut sheet.file.character.inventory[i];
+            line.attuned = !line.attuned;
+            // An attuned item only works while worn or carried as intended.
+            if line.attuned {
+                line.equipped = true;
+            }
+            let msg = format!("{} {}", if line.attuned { "Attuned to" } else { "No longer attuned to" }, line_name(lib, line));
+            return changed(sheet, lib, overlays, msg);
+        }
+        _ => {}
+    }
+    Action::None
+}
+
+/// Every item and base item enabled by the campaign, for the add picker.
+fn equipment_catalog(lib: &Library, filter: &SourceFilter) -> Vec<crate::picker::PickItem> {
+    use dnt_data::Kind;
+    let mut items: Vec<crate::picker::PickItem> = lib
+        .entities()
+        .iter()
+        .filter(|e| matches!(e.kind, Kind::Item | Kind::BaseItem | Kind::MagicVariant) && filter.allows(e))
+        .map(|e| {
+            let rarity = e
+                .data
+                .get("rarity")
+                .or_else(|| e.data.get("inherits").and_then(|i| i.get("rarity")))
+                .and_then(|r| r.as_str())
+                .filter(|r| !matches!(*r, "none" | "unknown"))
+                .unwrap_or("");
+            crate::picker::PickItem::new(e.name.clone(), format!("{rarity} {}", e.source).trim().to_string(), format!("item:{}|{}", e.name, e.source))
+        })
+        .collect();
+    items.sort_by(|a, b| a.label.cmp(&b.label));
+    items
+}
+
+pub fn item_entity(lib: &Library, line: &dnt_rules::character::InventoryItem) -> Option<dnt_data::EntityId> {
+    dnt_rules::overlay::resolve_id(lib, line.item.as_deref()?)
+}
+
+pub fn line_name(lib: &Library, line: &dnt_rules::character::InventoryItem) -> String {
+    line.name
+        .clone()
+        .or_else(|| item_entity(lib, line).map(|e| lib.entity(e).name.clone()))
+        .or_else(|| line.item.clone())
+        .unwrap_or_else(|| "?".into())
 }
 
 fn toggle(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet) -> Action {

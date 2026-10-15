@@ -137,6 +137,17 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             _ if app.characters.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
             None => &[("j k", "move"), ("enter", "open"), ("n", "new"), ("e", "edit file"), ("1-4", "section"), ("q", "quit")],
             Some(s) if s.popup.is_some() => &[("enter", "confirm"), ("esc", "close")],
+            Some(s) if s.tab == crate::characters::Tab::Inventory => &[
+                ("j k", "move"),
+                ("a", "add"),
+                ("+ -", "qty"),
+                ("x", "remove"),
+                ("space", "equip"),
+                ("A", "attune"),
+                ("g", "coins"),
+                ("tab", "tab"),
+                ("esc", "roster"),
+            ],
             Some(s) if s.tab == crate::characters::Tab::Features => {
                 &[("j k", "feature"), ("J K", "scroll text"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
             }

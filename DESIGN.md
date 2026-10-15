@@ -326,7 +326,14 @@ feature ID and its text as comments; overlays are validated live.
    `_versions` are expanded into entities (2024 lineages/legacies/
    ancestries, Dragonborn colors, feat variants like Magic Initiate;
    Cleric) and offered in the wizard.
-   *Next: starting equipment and the Inventory tab, then Spells.*
+   Starting equipment from class and background packages (2024 A/B/C and
+   2014 per-group a/b), "any martial weapon"-style picks, auto-equip.
+   Inventory tab: items (library or custom), quantity, equip (one armor,
+   one shield), attunement (limit 3 warned), weight vs Str × 15, coins.
+   Equipped armor/shield and worn magic items (bonusAc,
+   bonusSavingThrow; attunement required where stated) feed the stats.
+   *Next: Spells tab (known/prepared spells per class, slots), then M4
+   Notes.*
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
    homebrew polish; later embedded nvim, export.

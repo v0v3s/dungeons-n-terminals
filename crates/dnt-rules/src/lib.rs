@@ -7,6 +7,7 @@ pub mod choices;
 pub mod class_table;
 pub mod standard;
 pub mod engine;
+pub mod equipment;
 pub mod levelup;
 pub mod formula;
 pub mod multiclass;

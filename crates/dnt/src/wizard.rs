@@ -14,6 +14,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use serde_json::Value as Json;
 
 use dnt_rules::choices::{self, Choice};
+use dnt_rules::equipment;
 
 use crate::levelup::choice_picker;
 use crate::picker::{PickItem, Picked, Picker};
@@ -127,8 +128,8 @@ enum Step {
     ClassSkills,
     OriginSkills,
     FeatureChoice,
-    Armor,
-    Shield,
+    Equipment,
+    AnyItem,
     Review,
 }
 
@@ -146,8 +147,8 @@ const ORDER: [Step; 16] = [
     Step::ClassSkills,
     Step::OriginSkills,
     Step::FeatureChoice,
-    Step::Armor,
-    Step::Shield,
+    Step::Equipment,
+    Step::AnyItem,
     Step::Review,
 ];
 
@@ -177,6 +178,12 @@ struct State {
     origin_skill_choices: Vec<(String, origin::SkillGrant)>,
     /// Class feature choices for the first level; `None` until computed.
     feature_choices: Option<Vec<Choice>>,
+    /// Starting-equipment groups still to grant; `None` until computed.
+    equipment: Option<Vec<(String, Vec<equipment::Alternative>)>>,
+    /// The group currently being chosen from.
+    equipment_choice: Option<(String, Vec<equipment::Alternative>)>,
+    /// "Any martial weapon"-style picks still to make: (kind, quantity).
+    any_items: Vec<(String, i64)>,
 }
 
 pub struct Wizard {
@@ -251,6 +258,9 @@ impl Wizard {
             feat_choice: None,
             origin_skill_choices: Vec::new(),
             feature_choices: None,
+            equipment: None,
+            equipment_choice: None,
+            any_items: Vec::new(),
         };
         let mut w = Wizard { state, history: Vec::new() };
         w.enter(Step::Species, lib, filter);
@@ -280,7 +290,7 @@ impl Wizard {
             ("Feats", Step::Feat),
             ("Class", Step::Class),
             ("Skills & features", Step::ClassSkills),
-            ("Equipment", Step::Armor),
+            ("Equipment", Step::Equipment),
             ("Review", Step::Review),
         ]
         .into_iter()
@@ -289,11 +299,24 @@ impl Wizard {
             let next = ORDER
                 .iter()
                 .skip(at + 1)
-                .position(|s| matches!(s, Step::Background | Step::Method | Step::BonusAlternative | Step::Feat | Step::Class | Step::ClassSkills | Step::Armor | Step::Review))
+                .position(|s| matches!(s, Step::Background | Step::Method | Step::BonusAlternative | Step::Feat | Step::Class | Step::ClassSkills | Step::Equipment | Step::Review))
                 .map_or(ORDER.len(), |p| at + 1 + p);
             (label, cur >= next, (at..next).contains(&cur))
         })
         .collect()
+    }
+
+    /// Contents of the highlighted starting-equipment package, if choosing one.
+    pub fn equipment_preview(&self, lib: &Library) -> Option<(String, Vec<String>)> {
+        let View::Pick(p) = &self.state.view else { return None };
+        if self.state.step != Step::Equipment {
+            return None;
+        }
+        let (origin, group) = self.state.equipment_choice.as_ref()?;
+        let i: usize = p.current()?.value.parse().ok()?;
+        let alt = group.get(i)?;
+        let lines = equipment::describe(lib, alt).split(", ").map(str::to_string).collect();
+        Some((format!("{origin} · option {}", alt.key), lines))
     }
 
     /// Entity to preview for the highlighted choice, if any.
@@ -552,37 +575,57 @@ impl Wizard {
                 let Some(choice) = st.feature_choices.as_ref().and_then(|q| q.first()) else { return false };
                 View::Pick(choice_picker(choice, choice.count))
             }
-            Step::Armor => {
-                let mut items = vec![PickItem::new("No armor", "", "none")];
-                let mut armors: Vec<EntityId> = (0..lib.entities().len())
-                    .filter(|&i| {
+            Step::Equipment => {
+                if st.equipment.is_none() {
+                    let mut groups = Vec::new();
+                    for (origin, id) in [("Class", st.class), ("Background", st.background)] {
+                        let Some(id) = id else { continue };
+                        let e = lib.entity(id);
+                        for g in equipment::starting_equipment(e.data.get("startingEquipment")) {
+                            groups.push((format!("{origin} ({})", e.name), g));
+                        }
+                    }
+                    st.equipment = Some(groups);
+                }
+                // Grant groups without a real choice; stop at the first choice.
+                loop {
+                    let Some((origin, group)) = st.equipment.as_mut().and_then(|q| (!q.is_empty()).then(|| q.remove(0))) else {
+                        return self.enter(Step::AnyItem, lib, filter);
+                    };
+                    if group.len() == 1 {
+                        grant_alternative(st, lib, &origin, &group[0]);
+                        continue;
+                    }
+                    let items = group
+                        .iter()
+                        .enumerate()
+                        .map(|(i, alt)| PickItem::new(format!("{}: {}", alt.key, equipment::describe(lib, alt)), "", i.to_string()))
+                        .collect();
+                    st.equipment_choice = Some((origin.clone(), group));
+                    break View::Pick(Picker::new(format!("{origin}: starting equipment"), items));
+                }
+            }
+            Step::AnyItem => {
+                let Some((kind, quantity)) = st.any_items.first().cloned() else { return false };
+                let items: Vec<PickItem> = equipment::items_of_kind(lib, &kind, filter)
+                    .into_iter()
+                    .map(|i| {
                         let e = lib.entity(i);
-                        e.kind == Kind::BaseItem
-                            && filter.allows(e)
-                            && e.data
-                                .get("type")
-                                .and_then(Json::as_str)
-                                .is_some_and(|t| matches!(t.split('|').next(), Some("LA" | "MA" | "HA")))
+                        PickItem::new(e.name.clone(), e.source.clone(), format!("item:{}|{}", e.name, e.source))
                     })
                     .collect();
-                armors.sort_by_key(|&i| (lib.entity(i).data.get("ac").and_then(Json::as_i64).unwrap_or(0), lib.entity(i).name.clone()));
-                items.extend(armors.into_iter().map(|i| {
-                    let e = lib.entity(i);
-                    let ac = e.data.get("ac").and_then(Json::as_i64).unwrap_or(0);
-                    let cat = match e.data.get("type").and_then(Json::as_str).and_then(|t| t.split('|').next()) {
-                        Some("LA") => "light",
-                        Some("MA") => "medium",
-                        _ => "heavy",
-                    };
-                    PickItem::new(e.name.clone(), format!("AC {ac} · {cat} · {}", e.source), format!("item:{}|{}", e.name, e.source))
-                }));
-                View::Pick(Picker::new("Armor (from your starting equipment)", items))
+                let title = format!("Choose {}", equipment::any_label(&kind));
+                if quantity > 1 {
+                    View::Pick(Picker::multi(title, items, quantity as usize))
+                } else {
+                    View::Pick(Picker::new(title, items))
+                }
             }
-            Step::Shield => View::Pick(Picker::new(
-                "Carry a shield?",
-                vec![PickItem::new("No shield", "", "no"), PickItem::new("Shield", "+2 AC", "yes")],
-            )),
-            Step::Review => View::Review,
+            Step::Review => {
+                equipment::auto_equip(lib, &mut st.ch);
+                View::Review
+            }
+
         };
         st.step = step;
         st.view = view;
@@ -703,13 +746,28 @@ impl Wizard {
                     return;
                 }
             }
-            Step::Armor => {
-                st.ch.equipped.armor = (one != "none").then_some(one);
-                st.summary.push(("Armor".into(), label));
+            Step::Equipment => {
+                let (origin, group) = st.equipment_choice.take().expect("equipment choice in progress");
+                let i: usize = one.parse().unwrap_or(0);
+                grant_alternative(st, lib, &origin, &group[i]);
+                if self.enter(Step::AnyItem, lib, filter) || self.enter(Step::Equipment, lib, filter) {
+                    return;
+                }
             }
-            Step::Shield => {
-                st.ch.equipped.shield = one == "yes";
-                st.summary.push(("Shield".into(), label));
+            Step::AnyItem => {
+                let values = match picked {
+                    Picked::One(v) => vec![v],
+                    Picked::Many(vs) => vs,
+                };
+                let (kind, _) = st.any_items.remove(0);
+                for v in &values {
+                    equipment::add_item(&mut st.ch, v, 1, None);
+                }
+                let names: Vec<String> = values.iter().filter_map(|v| resolve_id(lib, v)).map(|e| lib.entity(e).name.clone()).collect();
+                push_merged(&mut st.summary, "Equipment", format!("{} ({})", names.join(", "), equipment::any_label(&kind)));
+                if self.enter(Step::AnyItem, lib, filter) || self.enter(Step::Equipment, lib, filter) {
+                    return;
+                }
             }
             Step::Abilities | Step::Review => {}
         }
@@ -792,6 +850,20 @@ fn queue_alternative(st: &mut State, origin: &str, parts: &[AbilityGrant]) {
         .into_iter()
         .map(|(origin, scores)| AbilityBonus { origin, scores })
         .collect();
+}
+
+/// Grant one starting-equipment alternative and queue its "any …" picks.
+fn grant_alternative(st: &mut State, lib: &Library, origin: &str, alt: &equipment::Alternative) {
+    equipment::grant(&mut st.ch, alt);
+    for e in &alt.entries {
+        if let equipment::Entry::AnyOf { kind, quantity } = e {
+            st.any_items.push((kind.clone(), *quantity));
+        }
+    }
+    let text = equipment::describe(lib, alt);
+    if !text.is_empty() {
+        st.summary.push((origin.to_string(), text));
+    }
 }
 
 /// Append to the summary, joining with an existing line of the same key.

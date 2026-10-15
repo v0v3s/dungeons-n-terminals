@@ -210,7 +210,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         spans.push(Span::styled(format!(" {} ", t.label()), style));
         spans.push(Span::raw(" "));
     }
-    for soon in ["Spells", "Inventory", "Notes"] {
+    for soon in ["Spells", "Notes"] {
         spans.push(Span::styled(format!(" {soon} "), theme.dim));
         spans.push(Span::raw(" "));
     }
@@ -219,6 +219,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
     match sheet.tab {
         Tab::Overview => draw_overview(frame, body, sheet, theme),
         Tab::Features => draw_features(frame, body, lib, overlays, sheet, theme),
+        Tab::Inventory => draw_inventory(frame, body, lib, sheet, theme),
     }
 
     match sheet.popup.clone() {
@@ -253,6 +254,28 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             );
         }
         Some(Popup::LevelUp(flow)) => draw_levelup(frame, area, &flow, theme),
+        Some(Popup::AddItem(picker)) => {
+            let rect = centered(area, 76.min(area.width), area.height.saturating_sub(4).min(26));
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title(&picker.title, true, theme), true, theme)
+                .padding(Padding::new(2, 2, 1, 0))
+                .title_bottom(Line::styled(" type to filter · enter add · esc cancel ", theme.dim).right_aligned());
+            let inner = block.inner(rect);
+            frame.render_widget(block, rect);
+            draw_picker(frame, inner, &picker, theme);
+        }
+        Some(Popup::Text(prompt, text)) => {
+            let rect = centered(area, 56, 5);
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title(prompt.label(), true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
+            let inner = block.inner(rect);
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())]))
+                    .block(block),
+                rect,
+            );
+            frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
+        }
         Some(Popup::Fill(fill)) => {
             let rect = centered(area, 76.min(area.width), area.height.saturating_sub(4).min(26));
             frame.render_widget(Clear, rect);
@@ -775,6 +798,119 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
     frame.render_widget(Paragraph::new(rendered.lines).scroll((sheet.feature_scroll as u16, 0)), inner);
 }
 
+fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, theme: &Theme) {
+    use crate::characters::{item_entity, line_name};
+    use dnt_rules::equipment;
+    let [list, _, detail] =
+        Layout::horizontal([Constraint::Length(58), Constraint::Length(1), Constraint::Min(30)]).areas(area);
+    let ch = &sheet.file.character;
+    let block = pane(pane_title("Inventory", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
+    let inner = block.inner(list);
+    frame.render_widget(block, list);
+    let [items_area, totals] = Layout::vertical([Constraint::Min(3), Constraint::Length(6)]).areas(inner);
+    let width = items_area.width as usize;
+
+    let n = ch.inventory.len();
+    sheet.inventory_cursor = sheet.inventory_cursor.min(n.saturating_sub(1));
+    let mut lines: Vec<Line> = vec![Line::from(vec![
+        Span::styled(format!("{:<width$}", "   item", width = width.saturating_sub(16)), theme.label),
+        Span::styled(format!("{:>5}{:>10} ", "qty", "lb"), theme.label),
+    ])];
+    if n == 0 {
+        lines.push(Line::default());
+        lines.push(Line::from(vec![
+            Span::styled("Empty. Press ", theme.dim),
+            Span::styled(" a ", theme.keycap),
+            Span::styled(" to add an item.", theme.dim),
+        ]));
+    }
+    let mut total_weight = 0.0;
+    for (i, line) in ch.inventory.iter().enumerate() {
+        let w = equipment::weight(lib, line) * line.quantity as f64;
+        total_weight += w;
+        let base = if i == sheet.inventory_cursor { theme.selected } else { Style::new() };
+        let faint = if i == sheet.inventory_cursor { theme.muted } else { theme.dim };
+        let entity = item_entity(lib, line);
+        let needs_attune = entity.is_some_and(|e| equipment::requires_attunement(&lib.entity(e).data));
+        let mark = match (line.equipped, line.attuned) {
+            (_, true) => Span::styled("★ ", base.fg(theme.accent)),
+            (true, _) => Span::styled("◉ ", base.fg(theme.accent)),
+            _ if needs_attune => Span::styled("☆ ", base.patch(faint)),
+            _ => Span::styled("  ", base),
+        };
+        let kind = entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default();
+        let weight = if w > 0.0 { format!("{w:.1}") } else { "—".into() };
+        lines.push(
+            spread(
+                vec![
+                    Span::raw(" "),
+                    mark,
+                    Span::styled(truncate(&line_name(lib, line), width.saturating_sub(26)), base),
+                    Span::styled(kind, base.patch(faint).remove_modifier(Modifier::BOLD)),
+                ],
+                vec![Span::styled(format!("{:>5}{weight:>10} ", line.quantity), base)],
+                width,
+            )
+            .style(base),
+        );
+    }
+    let height = items_area.height as usize;
+    let scroll = (sheet.inventory_cursor + 1).saturating_sub(height.saturating_sub(1));
+    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), items_area);
+
+    // Totals: weight, attunement, coins.
+    let capacity = sheet.ev.int("str").unwrap_or(10) * 15;
+    let attuned = ch.inventory.iter().filter(|l| l.attuned).count();
+    let c = &ch.currency;
+    let coin = |n: i64, label: &str, color: Color| {
+        vec![Span::styled(format!("{n}"), Style::new().fg(color).add_modifier(Modifier::BOLD)), Span::styled(format!(" {label}   "), theme.label)]
+    };
+    let mut coins = Vec::new();
+    for (n, label, color) in [(c.pp, "pp", Color::White), (c.gp, "gp", Color::Yellow), (c.ep, "ep", Color::Gray), (c.sp, "sp", Color::Gray), (c.cp, "cp", Color::Red)] {
+        if n != 0 || label == "gp" {
+            coins.extend(coin(n, label, color));
+        }
+    }
+    let over = total_weight > capacity as f64;
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::styled("─".repeat(width), theme.border),
+            Line::from(vec![
+                Span::styled("Carried    ", theme.label),
+                Span::styled(format!("{total_weight:.1}"), if over { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new().add_modifier(Modifier::BOLD) }),
+                Span::styled(format!(" / {capacity} lb"), theme.muted),
+            ]),
+            Line::from(vec![
+                Span::styled("Attunement ", theme.label),
+                Span::styled(format!("{attuned}"), if attuned > 3 { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new().add_modifier(Modifier::BOLD) }),
+                Span::styled(" / 3", theme.muted),
+            ]),
+            Line::from([vec![Span::styled("Coins      ", theme.label)], coins].concat()),
+            Line::from(vec![
+                Span::styled("◉ equipped  ★ attuned  ☆ needs attunement", theme.dim),
+            ]),
+        ]),
+        totals,
+    );
+
+    // Detail of the selected item.
+    let line = ch.inventory.get(sheet.inventory_cursor);
+    let title = line.map(|l| line_name(lib, l)).unwrap_or_else(|| "Item".into());
+    let block = pane(pane_title(&title, false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
+    let inner = block.inner(detail);
+    frame.render_widget(block, detail);
+    match line.and_then(|l| item_entity(lib, l)) {
+        Some(e) => {
+            let doc = view::document(lib, e, &Default::default());
+            frame.render_widget(Paragraph::new(render::render(&doc, inner.width.min(96), None, theme).lines), inner);
+        }
+        None if line.is_some() => {
+            frame.render_widget(Paragraph::new(Line::styled("A custom item.", theme.dim)), inner);
+        }
+        None => {}
+    }
+}
+
 fn stat_label(sheet: &Sheet, key: &str) -> String {
     if let Some((_, name)) = ABILITIES.iter().find(|(a, _)| *a == key) {
         return name.to_string();
@@ -953,7 +1089,11 @@ pub(crate) fn draw_wizard(frame: &mut Frame, area: Rect, lib: &Library, overlays
     let block = pane(pane_title("Preview", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
     let inner = block.inner(preview);
     frame.render_widget(block, preview);
-    if let Some(e) = w.preview(lib) {
+    if let Some((title, items)) = w.equipment_preview(lib) {
+        let mut lines = vec![Line::styled(title, theme.title), Line::default()];
+        lines.extend(items.into_iter().map(|i| Line::from(vec![Span::styled("•  ", theme.bullet), Span::raw(i)])));
+        frame.render_widget(Paragraph::new(lines), inner);
+    } else if let Some(e) = w.preview(lib) {
         let mut lines = vec![Line::styled(lib.entity(e).name.clone(), theme.title), Line::default()];
         let doc = view::document(lib, e, &Default::default());
         lines.extend(render::render(&doc, inner.width.min(96), None, theme).lines);
