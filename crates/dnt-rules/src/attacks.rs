@@ -331,7 +331,7 @@ pub fn add_attacks(
     };
     // Is a weapon (not a shield) held in the off hand?
     let off_weapon = character.inventory.iter().any(|l| l.hand.is_some_and(Hand::uses_off) && weapon_of(l).is_some());
-    let main_weapon = character.inventory.iter().find(|l| l.hand.is_some_and(Hand::uses_main)).and_then(&weapon_of);
+    let main_weapon = character.inventory.iter().find(|l| l.hand.is_some_and(Hand::uses_main)).and_then(weapon_of);
     let main_light = main_weapon.as_ref().is_some_and(|(_, w)| w.has("L"));
     // Separate melee weapons in each hand (for the 2014 Dual Wielder's AC).
     let off_melee = character.inventory.iter().any(|l| l.hand.is_some_and(Hand::uses_off) && weapon_of(l).is_some_and(|(_, w)| w.melee));
