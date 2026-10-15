@@ -113,15 +113,15 @@ fn main() -> Result<()> {
             }
             if let Some(path) = app.pending_edit.take() {
                 ratatui::restore();
-                let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| "vi".into());
+                let fallback = if cfg!(windows) { "notepad" } else { "vi" };
+                let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| fallback.into());
                 // $EDITOR may carry arguments (`code --wait`), so let the shell split it;
-                // the path is passed as "$1" to survive spaces.
-                let status = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("{editor} \"$1\""))
-                    .arg("dnt")
-                    .arg(&path)
-                    .status();
+                // the path is passed separately ("$1") to survive spaces.
+                let status = if cfg!(windows) {
+                    std::process::Command::new("cmd").arg("/C").arg(format!("{editor} \"{}\"", path.display())).status()
+                } else {
+                    std::process::Command::new("sh").arg("-c").arg(format!("{editor} \"$1\"")).arg("dnt").arg(&path).status()
+                };
                 *terminal = ratatui::init();
                 match status {
                     Ok(_) => app.after_edit(&lib, &path),
