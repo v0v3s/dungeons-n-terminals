@@ -274,7 +274,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &picker, theme);
         }
-        Some(Popup::Wear(picker, _)) | Some(Popup::MoveInto(picker, _)) => {
+        Some(Popup::Wear(picker, _)) | Some(Popup::MoveInto(picker, _)) | Some(Popup::SwapMastery(picker, _)) => {
             let rect = centered(area, 64.min(area.width), (picker.items.len() as u16 + 7).min(area.height));
             frame.render_widget(Clear, rect);
             let block = pane(pane_title(&picker.title, true, theme), true, theme)

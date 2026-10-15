@@ -92,6 +92,8 @@ pub enum Popup {
     Wear(Box<Picker>, usize),
     /// Choosing a container for an inventory line.
     MoveInto(Box<Picker>, usize),
+    /// Swapping a weapon mastery: the mastered weapon being replaced.
+    SwapMastery(Box<Picker>, dnt_data::EntityId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -286,6 +288,7 @@ impl Characters {
                         | Popup::Cast(..)
                         | Popup::Wear(..)
                         | Popup::MoveInto(..)
+                        | Popup::SwapMastery(..)
                 )
             )
     }
@@ -558,6 +561,22 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::None;
             }
+            Popup::SwapMastery(mut picker, old) => {
+                sheet.popup = None;
+                match picker.key(key) {
+                    Some(Picked::One(new)) => {
+                        let from = lib.entity(old).name.clone();
+                        let to = dnt_rules::overlay::resolve_id(lib, &new).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| new.clone());
+                        if choices::swap_mastery(lib, &mut sheet.file.character, old, &new) {
+                            return changed(sheet, lib, overlays, format!("Weapon Mastery: {from} → {to}"));
+                        }
+                        return Action::Status(format!("{from} is not a mastery chosen at a level"));
+                    }
+                    _ if key.code == KeyCode::Esc => {}
+                    _ => sheet.popup = Some(Popup::SwapMastery(picker, old)),
+                }
+                return Action::None;
+            }
             Popup::MoveInto(mut picker, i) => {
                 sheet.popup = None;
                 match picker.key(key) {
@@ -626,7 +645,11 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     } else {
                         report.restored.join(", ")
                     };
-                    return changed(sheet, lib, overlays, format!("{what}: {detail}"));
+                    let mut msg = format!("{what}: {detail}");
+                    if rest == Rest::Long && sheet.build.features.iter().any(|f| f.source == dnt_rules::builder::FeatureSource::Mastery) {
+                        msg.push_str(" · you may swap a Weapon Mastery (r on the Features tab)");
+                    }
+                    return changed(sheet, lib, overlays, msg);
                 }
                 return Action::None;
             }
@@ -725,6 +748,20 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 KeyCode::Char('k') | KeyCode::Up => {
                     sheet.feature_cursor = sheet.feature_cursor.saturating_sub(1);
                     sheet.feature_scroll = 0;
+                }
+                KeyCode::Char('r') => {
+                    let Some(f) = sheet.build.features.get(sheet.feature_cursor) else { return Action::None };
+                    if f.source != dnt_rules::builder::FeatureSource::Mastery {
+                        return Action::Status("r swaps a Weapon Mastery: pick one in the Weapon Mastery group".into());
+                    }
+                    let items: Vec<crate::picker::PickItem> = choices::mastery_swap_options(lib, &sheet.file.character, filter)
+                        .into_iter()
+                        .map(|o| crate::picker::PickItem::new(o.label, o.hint, o.value))
+                        .collect();
+                    let name = lib.entity(f.entity).name.clone();
+                    let picker = Picker::new(format!("Swap the mastery of {name} for…"), items);
+                    sheet.popup = Some(Popup::SwapMastery(Box::new(picker), f.entity));
+                    return Action::None;
                 }
                 KeyCode::Char('J') => sheet.feature_scroll += 1,
                 KeyCode::Char('K') => sheet.feature_scroll = sheet.feature_scroll.saturating_sub(1),

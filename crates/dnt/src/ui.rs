@@ -228,7 +228,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("esc", "roster"),
             ],
             Some(s) if s.tab == crate::characters::Tab::Features => {
-                &[("j k", "feature"), ("J K", "scroll text"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
+                &[("j k", "feature"), ("J K", "scroll text"), ("r", "swap mastery"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
             }
             Some(s) if matches!(s.current_item(), Some(crate::characters::Item::Attack(_))) => &[
                 ("j k", "move"),

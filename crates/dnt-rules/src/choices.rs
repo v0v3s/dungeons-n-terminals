@@ -401,6 +401,25 @@ fn matches_num(v: &Value) -> i64 {
     }
 }
 
+/// Weapons a character could switch a Weapon Mastery to (not already mastered).
+pub fn mastery_swap_options(lib: &Library, c: &Character, filter: &SourceFilter) -> Vec<ChoiceOption> {
+    mastery_weapons(lib, filter, &all_picks(c))
+}
+
+/// Replace a mastered weapon (after a long rest, 2024): the pick that
+/// resolves to `old` becomes `new`. Returns whether one was found.
+pub fn swap_mastery(lib: &Library, c: &mut Character, old: EntityId, new: &str) -> bool {
+    for l in &mut c.levels {
+        if let Some(list) = l.choices.picks.get_mut("Weapon Mastery") {
+            if let Some(v) = list.iter_mut().find(|v| resolve_id(lib, v) == Some(old)) {
+                *v = new.to_string();
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn mastery_weapons(lib: &Library, filter: &SourceFilter, taken: &BTreeSet<String>) -> Vec<ChoiceOption> {
     let mut out: Vec<ChoiceOption> = (0..lib.entities().len())
         .filter(|&i| {
@@ -523,5 +542,25 @@ mod tests {
         assert_eq!(check(&c, "Agonizing Blast", 2).as_deref(), Some("needs a Warlock damage cantrip"));
         c.spells.classes.insert("class:Warlock|T".into(), ClassSpells { cantrips: vec!["spell:Eldritch Blast|T".into()], ..Default::default() });
         assert_eq!(check(&c, "Agonizing Blast", 2), None);
+    }
+
+    #[test]
+    fn mastery_swaps() {
+        use crate::character::Level;
+        let mut lib = Library::new();
+        lib.load_json(&json!({"baseitem": [
+            {"name": "Longsword", "source": "T", "mastery": ["Sap|T"]},
+            {"name": "Greatsword", "source": "T", "mastery": ["Graze|T"]}
+        ]}));
+        let mut c = Character::default();
+        let mut l = Level { class: "class:Fighter|T".into(), hp: Default::default(), choices: Default::default() };
+        l.choices.picks.insert("Weapon Mastery".into(), vec!["item:Longsword|T".into()]);
+        c.levels.push(l);
+        let options = mastery_swap_options(&lib, &c, &SourceFilter::default());
+        assert_eq!(options.iter().map(|o| o.label.as_str()).collect::<Vec<_>>(), ["Greatsword"], "not already mastered");
+        let longsword = lib.get(&dnt_data::Key::new(Kind::BaseItem, &["Longsword", "T"])).unwrap();
+        assert!(swap_mastery(&lib, &mut c, longsword, "item:Greatsword|T"));
+        assert_eq!(c.levels[0].choices.picks["Weapon Mastery"], ["item:Greatsword|T"]);
+        assert!(!swap_mastery(&lib, &mut c, longsword, "item:Greatsword|T"));
     }
 }
