@@ -5,6 +5,7 @@ mod compendium;
 mod levelup;
 mod picker;
 mod render;
+mod spells_tab;
 mod theme;
 mod ui;
 mod ui_sheet;

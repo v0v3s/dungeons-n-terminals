@@ -71,4 +71,37 @@ resources_used = { lay_on_hands = 6, channel_divinity_paladin = 1 }
 slots_used = [1]
 EOF
 
+cat > "$campaign/characters/lyra.toml" <<'EOF'
+name = "Lyra"
+species = "race:Elf; Drow Lineage|XPHB"
+background = "background:Acolyte|XPHB"
+feats = ["feat:Magic Initiate; Cleric|XPHB"]
+
+[abilities]
+str = 8
+dex = 14
+con = 13
+int = 15
+wis = 12
+cha = 10
+
+[[ability_bonus]]
+origin = "Background (Acolyte)"
+int = 2
+wis = 1
+
+[proficiencies]
+skills = ["arcana", "history", "insight", "perception", "religion"]
+
+[[levels]]
+class = "class:Wizard|XPHB"
+[[levels]]
+class = "class:Wizard|XPHB"
+[[levels]]
+class = "class:Wizard|XPHB"
+
+[subclasses]
+"class:Wizard|XPHB" = "subclass:Evoker|Wizard|XPHB|XPHB"
+EOF
+
 echo "sandbox ready: XDG_DATA_HOME=$dir/data XDG_CONFIG_HOME=$dir/config"

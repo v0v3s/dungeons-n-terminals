@@ -13,6 +13,7 @@ use dnt_store::CharacterFile;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::levelup::{self, LevelUp};
+use crate::spells_tab;
 use crate::picker::{Picked, Picker};
 use crate::wizard::{self, Wizard};
 
@@ -20,16 +21,18 @@ use crate::wizard::{self, Wizard};
 pub enum Tab {
     Overview,
     Features,
+    Spells,
     Inventory,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 3] = [Tab::Overview, Tab::Features, Tab::Inventory];
+    pub const ALL: [Tab; 4] = [Tab::Overview, Tab::Features, Tab::Spells, Tab::Inventory];
 
     pub fn label(self) -> &'static str {
         match self {
             Tab::Overview => "Overview",
             Tab::Features => "Features",
+            Tab::Spells => "Spells",
             Tab::Inventory => "Inventory",
         }
     }
@@ -77,6 +80,10 @@ pub enum Popup {
     AddItem(Box<Picker>),
     /// Free text: a custom item's name or a currency change.
     Text(TextPrompt, String),
+    /// Adding spells to a class or a feature grant.
+    SpellPick(Box<Picker>, spells_tab::Target),
+    /// Choosing how to cast a spell.
+    Cast(Box<Picker>, dnt_data::EntityId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,13 +133,14 @@ pub struct Sheet {
     pub file: CharacterFile,
     /// Class feature choices this character is missing.
     pub pending: Vec<Pending>,
-    filter: SourceFilter,
+    pub(crate) filter: SourceFilter,
     pub build: Build,
     pub ev: Evaluation,
     pub edition: Edition,
     pub tab: Tab,
     pub cursor: usize,
     pub inventory_cursor: usize,
+    pub spell_cursor: usize,
     pub feature_cursor: usize,
     pub feature_scroll: usize,
     pub popup: Option<Popup>,
@@ -153,6 +161,7 @@ impl Sheet {
             tab: Tab::Overview,
             cursor: 0,
             inventory_cursor: 0,
+            spell_cursor: 0,
             feature_cursor: 0,
             feature_scroll: 0,
             popup: None,
@@ -238,7 +247,15 @@ impl Characters {
             || self.wizard.is_some()
             || matches!(
                 self.sheet.as_ref().and_then(|s| s.popup.as_ref()),
-                Some(Popup::Input(..) | Popup::LevelUp(_) | Popup::Fill(_) | Popup::AddItem(_) | Popup::Text(..))
+                Some(
+                    Popup::Input(..)
+                        | Popup::LevelUp(_)
+                        | Popup::Fill(_)
+                        | Popup::AddItem(_)
+                        | Popup::Text(..)
+                        | Popup::SpellPick(..)
+                        | Popup::Cast(..)
+                )
             )
     }
 
@@ -422,6 +439,40 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::None;
             }
+            Popup::SpellPick(mut picker, target) => {
+                sheet.popup = None;
+                let ids = match picker.key(key) {
+                    Some(Picked::One(v)) => vec![v],
+                    Some(Picked::Many(vs)) => vs,
+                    None => {
+                        if key.code != KeyCode::Esc {
+                            sheet.popup = Some(Popup::SpellPick(picker, target));
+                        }
+                        return Action::None;
+                    }
+                };
+                let names: Vec<String> = ids
+                    .iter()
+                    .filter_map(|i| dnt_rules::overlay::resolve_id(lib, i))
+                    .map(|e| lib.entity(e).name.clone())
+                    .collect();
+                spells_tab::add(lib, &mut sheet.file.character, &target, ids);
+                return changed(sheet, lib, overlays, format!("Added {}", names.join(", ")));
+            }
+            Popup::Cast(mut picker, spell) => {
+                sheet.popup = None;
+                match picker.key(key) {
+                    Some(Picked::One(how)) => {
+                        return match spells_tab::cast(lib, &mut sheet.file.character, &sheet.ev, spell, &how) {
+                            Ok(msg) => changed(sheet, lib, overlays, msg),
+                            Err(msg) => Action::Status(msg),
+                        };
+                    }
+                    _ if key.code == KeyCode::Esc => {}
+                    _ => sheet.popup = Some(Popup::Cast(picker, spell)),
+                }
+                return Action::None;
+            }
             Popup::Undo => {
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
@@ -535,6 +586,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
     match sheet.tab {
         Tab::Overview => overview_key(sheet, key, lib, overlays),
         Tab::Inventory => inventory_key(sheet, key, lib, overlays, filter),
+        Tab::Spells => spells_key(sheet, key, lib, overlays, filter),
         Tab::Features => {
             let n = sheet.build.features.len();
             match key.code {
@@ -587,12 +639,91 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
     Action::None
 }
 
+fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
+    use spells_tab::Row;
+    let data = spells_tab::rows(lib, &sheet.file.character, &sheet.build, &sheet.ev);
+    let n = data.rows.len();
+    let i = sheet.spell_cursor.min(n.saturating_sub(1));
+    let row = data.rows.get(i).cloned();
+    // The casting class the cursor is in (for adding).
+    let caster_at = |i: usize| {
+        data.rows[..=i.min(n.saturating_sub(1))].iter().rev().find_map(|r| match r {
+            Row::ClassHeader(c) | Row::ClassSpell { caster: c, .. } => Some(*c),
+            _ => None,
+        })
+    };
+    match key.code {
+        KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.spell_cursor = (i + 1).min(n - 1),
+        KeyCode::Char('k') | KeyCode::Up => sheet.spell_cursor = i.saturating_sub(1),
+        KeyCode::Char('g') | KeyCode::Home => sheet.spell_cursor = 0,
+        KeyCode::Char('G') | KeyCode::End => sheet.spell_cursor = n.saturating_sub(1),
+        KeyCode::Char('a') => {
+            let Some(c) = caster_at(i).or((!data.casters.is_empty()).then_some(0)) else {
+                return Action::Status("No spellcasting class".into());
+            };
+            let (picker, target) = spells_tab::class_picker(lib, &sheet.file.character, &data.casters[c], filter);
+            sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
+        }
+        KeyCode::Enter => match row {
+            Some(Row::GrantChoice { key, filter: f, missing, .. }) => {
+                let (picker, target) = spells_tab::grant_picker(lib, &sheet.file.character, &key, &f, missing, filter);
+                sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
+            }
+            Some(Row::ClassHeader(c)) => {
+                let (picker, target) = spells_tab::class_picker(lib, &sheet.file.character, &data.casters[c], filter);
+                sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
+            }
+            Some(Row::ClassSpell { ref id, .. } | Row::GrantSpell { ref id, .. }) => {
+                let Some(spell) = dnt_rules::overlay::resolve_id(lib, id) else { return Action::None };
+                if dnt_rules::spells::spell_level(lib, spell) == 0 {
+                    return Action::Status(format!("{} is a cantrip: no slot needed", lib.entity(spell).name));
+                }
+                // Free (innate) casts first, if the grant has them.
+                if let Some(Row::GrantSpell { how: dnt_rules::spells::Grant::Innate(Some(_)), .. }) = &row {
+                    return match spells_tab::cast(lib, &mut sheet.file.character, &sheet.ev, spell, "free") {
+                        Ok(msg) => changed(sheet, lib, overlays, msg),
+                        Err(msg) => Action::Status(msg),
+                    };
+                }
+                match spells_tab::cast_picker(lib, &sheet.file.character, &sheet.ev, &sheet.build, spell) {
+                    Some(p) => sheet.popup = Some(Popup::Cast(Box::new(p), spell)),
+                    None => return Action::Status("No spell slots".into()),
+                }
+            }
+            _ => {}
+        },
+        KeyCode::Char('p') => {
+            if let Some(r) = &row {
+                if let Some(on) = spells_tab::toggle_prepared(&mut sheet.file.character, &data.casters, r) {
+                    return changed(sheet, lib, overlays, if on { "Prepared".into() } else { "Unprepared".into() });
+                }
+            }
+        }
+        KeyCode::Char('x') => {
+            if let Some(r) = &row {
+                if spells_tab::remove(&mut sheet.file.character, &data.casters, r) {
+                    return changed(sheet, lib, overlays, "Removed".into());
+                }
+            }
+        }
+        KeyCode::Char('C') => {
+            if let Some(name) = sheet.file.character.state.concentration.take() {
+                return changed(sheet, lib, overlays, format!("Stopped concentrating on {name}"));
+            }
+        }
+        _ => {}
+    }
+    Action::None
+}
+
 fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
     let n = sheet.file.character.inventory.len();
     let i = sheet.inventory_cursor.min(n.saturating_sub(1));
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.inventory_cursor = (i + 1).min(n - 1),
         KeyCode::Char('k') | KeyCode::Up => sheet.inventory_cursor = i.saturating_sub(1),
+        KeyCode::Home => sheet.inventory_cursor = 0,
+        KeyCode::Char('G') | KeyCode::End => sheet.inventory_cursor = n.saturating_sub(1),
         KeyCode::Char('a') => {
             let mut items = vec![crate::picker::PickItem::new("Custom item…", "anything not in the books", "custom")];
             items.extend(equipment_catalog(lib, filter));

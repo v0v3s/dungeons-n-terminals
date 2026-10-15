@@ -194,6 +194,7 @@ pub fn long_rest(c: &mut Character, build: &Build, ev: &Evaluation, edition: Edi
     c.state.temp_hp = 0;
     c.state.death_successes = 0;
     c.state.death_failures = 0;
+    c.state.concentration = None;
     if c.state.exhaustion > 0 {
         c.state.exhaustion -= 1;
         report.restored.push("1 exhaustion".into());
@@ -273,6 +274,7 @@ mod tests {
                 resource("rage", Recharge::LongRest, Some("1")),
             ],
             toggles: Vec::new(),
+            granted: Vec::new(),
             warnings: Vec::new(),
         };
         let ev = build.evaluate();

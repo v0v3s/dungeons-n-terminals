@@ -79,6 +79,8 @@ pub struct Character {
     #[serde(default, skip_serializing_if = "is_default")]
     pub currency: Currency,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub spells: Spells,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub state: State,
     /// Manual overrides: stat key → formula (usually just a number).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -300,6 +302,31 @@ impl Currency {
     }
 }
 
+/// Chosen spells. Unlike level choices these change often (daily
+/// preparation), so they live outside the level history.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Spells {
+    /// Per class id.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub classes: BTreeMap<String, ClassSpells>,
+    /// Spells picked for feature grants ("choose 2 Cleric cantrips"),
+    /// keyed by grant (see `Build::granted`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub chosen: BTreeMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ClassSpells {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cantrips: Vec<String>,
+    /// Prepared (or known) leveled spells.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prepared: Vec<String>,
+    /// A Wizard's spellbook.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spellbook: Vec<String>,
+}
+
 /// Mutable play state.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct State {
@@ -328,6 +355,9 @@ pub struct State {
     pub death_successes: i64,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub death_failures: i64,
+    /// Spell being concentrated on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub concentration: Option<String>,
 }
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {

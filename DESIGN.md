@@ -332,8 +332,14 @@ feature ID and its text as comments; overlays are validated live.
    one shield), attunement (limit 3 warned), weight vs Str × 15, coins.
    Equipped armor/shield and worn magic items (bonusAc,
    bonusSavingThrow; attunement required where stated) feed the stats.
-   *Next: Spells tab (known/prepared spells per class, slots), then M4
-   Notes.*
+   Spells tab (dnt-rules::spells): per-class limits (cantrips; 2024
+   prepared tables, 2014 prepared formulas, known tables; Wizard
+   spellbook), max spell level from the class's own slots or pact level,
+   class lists by class name, `additionalSpells` from subclasses,
+   species, backgrounds and feats (always prepared, known, innate with
+   free casts as long-rest resources, and "choose" grants), casting from
+   a chosen slot or pact slot or as a ritual, concentration tracking.
+   *M3 done. Next: M4 Notes.*
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
    homebrew polish; later embedded nvim, export.

@@ -5,6 +5,7 @@ pub mod builtin;
 pub mod character;
 pub mod choices;
 pub mod class_table;
+pub mod spells;
 pub mod standard;
 pub mod engine;
 pub mod equipment;

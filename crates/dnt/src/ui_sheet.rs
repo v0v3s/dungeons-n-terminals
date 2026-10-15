@@ -6,6 +6,7 @@ use dnt_rules::engine::PartKind;
 use dnt_rules::overlay::{OverlaySet, Recharge};
 use dnt_rules::play;
 use dnt_rules::standard::{ABILITIES, SKILLS};
+use dnt_rules::overlay::resolve_id;
 use dnt_rules::{Evaluation, Value};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -21,7 +22,7 @@ use crate::ui::{pane, pane_title, spread, truncate};
 
 pub fn draw(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, c: &mut Characters, theme: &Theme, campaign: Option<&str>) {
     if let Some(w) = &c.wizard {
-        return draw_wizard(frame, area, lib, overlays, w, theme);
+        return draw_wizard(frame, area, lib, overlays, w, &c.filter, theme);
     }
     match c.sheet.as_mut() {
         Some(sheet) => draw_sheet(frame, area, lib, overlays, sheet, theme),
@@ -210,16 +211,15 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         spans.push(Span::styled(format!(" {} ", t.label()), style));
         spans.push(Span::raw(" "));
     }
-    for soon in ["Spells", "Notes"] {
-        spans.push(Span::styled(format!(" {soon} "), theme.dim));
-        spans.push(Span::raw(" "));
-    }
+    // Notes arrive with M4.
+    spans.push(Span::styled(" Notes ", theme.dim));
     frame.render_widget(Paragraph::new(Line::from(spans)), tabs);
 
     match sheet.tab {
         Tab::Overview => draw_overview(frame, body, sheet, theme),
         Tab::Features => draw_features(frame, body, lib, overlays, sheet, theme),
         Tab::Inventory => draw_inventory(frame, body, lib, sheet, theme),
+        Tab::Spells => draw_spells(frame, body, lib, sheet, theme),
     }
 
     match sheet.popup.clone() {
@@ -254,6 +254,18 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             );
         }
         Some(Popup::LevelUp(flow)) => draw_levelup(frame, area, &flow, theme),
+        Some(Popup::SpellPick(picker, _)) | Some(Popup::Cast(picker, _)) => {
+            let rows = picker.items.len() as u16 + 7;
+            let rect = centered(area, 84.min(area.width), area.height.saturating_sub(4).min(28).min(rows.max(10)));
+            frame.render_widget(Clear, rect);
+            let hint = if picker.multi.is_some() { " space toggle · enter add · esc cancel " } else { " type to filter · enter choose · esc cancel " };
+            let block = pane(pane_title(&picker.title, true, theme), true, theme)
+                .padding(Padding::new(2, 2, 1, 0))
+                .title_bottom(Line::styled(hint, theme.dim).right_aligned());
+            let inner = block.inner(rect);
+            frame.render_widget(block, rect);
+            draw_picker(frame, inner, &picker, theme);
+        }
         Some(Popup::AddItem(picker)) => {
             let rect = centered(area, 76.min(area.width), area.height.saturating_sub(4).min(26));
             frame.render_widget(Clear, rect);
@@ -791,11 +803,203 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
     let block = pane(pane_title(&e.name, false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
     let inner = block.inner(detail);
     frame.render_widget(block, detail);
-    let doc = view::document(lib, f.entity, &Default::default());
+    let doc = view::document(lib, f.entity, &sheet.filter);
     let rendered = render::render(&doc, inner.width.min(96), None, theme);
     let max_scroll = rendered.lines.len().saturating_sub(inner.height as usize);
     sheet.feature_scroll = sheet.feature_scroll.min(max_scroll);
     frame.render_widget(Paragraph::new(rendered.lines).scroll((sheet.feature_scroll as u16, 0)), inner);
+}
+
+fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, theme: &Theme) {
+    use crate::spells_tab::{self, Row, Slot};
+    use dnt_rules::spells::{self, Grant};
+    let [bar, _, main] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(3)]).areas(area);
+    let ch = &sheet.file.character;
+    let ev = &sheet.ev;
+
+    // Slots and concentration.
+    let mut spans = vec![Span::styled(" Slots  ", theme.label)];
+    let mut any = false;
+    for l in 1..=9 {
+        let max = play::slot_max(ev, l);
+        if max > 0 {
+            any = true;
+            spans.push(Span::styled(format!("{l} "), theme.muted));
+            spans.extend(pips(play::slots_left(ch, ev, l), max, theme, Style::new()));
+            spans.push(Span::raw("   "));
+        }
+    }
+    let pact = ev.int("pact.slots.max").unwrap_or(0);
+    if pact > 0 {
+        any = true;
+        let level = sheet.build.model.inputs.get("pact.level").map(|v| v.to_string()).unwrap_or_default();
+        spans.push(Span::styled(format!("pact {level} "), theme.muted));
+        spans.extend(pips(pact - ch.state.pact_slots_used, pact, theme, Style::new()));
+        spans.push(Span::raw("   "));
+    }
+    if !any {
+        spans.push(Span::styled("none", theme.dim));
+    }
+    let right = match &ch.state.concentration {
+        Some(c) => vec![
+            Span::styled(" ◎ concentrating on ", Style::new().fg(Color::Magenta)),
+            Span::styled(c.clone(), Style::new().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+            Span::styled("   C to end ", theme.dim),
+        ],
+        None => vec![],
+    };
+    frame.render_widget(Paragraph::new(spread(spans, right, bar.width as usize)), bar);
+
+    let [list, _, detail] = Layout::horizontal([Constraint::Length(64), Constraint::Length(1), Constraint::Min(30)]).areas(main);
+    let block = pane(pane_title("Spells", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
+    let inner = block.inner(list);
+    frame.render_widget(block, list);
+    let data = spells_tab::rows(lib, ch, &sheet.build, ev);
+    let width = inner.width as usize;
+    sheet.spell_cursor = sheet.spell_cursor.min(data.rows.len().saturating_sub(1));
+
+    let count = |have: usize, max: i64, label: &str| {
+        let over = have as i64 > max;
+        vec![
+            Span::styled(format!("{label} "), theme.label),
+            Span::styled(format!("{have}/{max}  "), if over { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new() }),
+        ]
+    };
+    let mut lines: Vec<Line> = Vec::new();
+    if data.rows.is_empty() {
+        lines.push(Line::styled("No spellcasting yet.", theme.muted));
+        lines.push(Line::styled("Spellcasting classes, subclasses and feats like Magic Initiate add spells here.", theme.dim));
+    }
+    for (i, row) in data.rows.iter().enumerate() {
+        let selected = i == sheet.spell_cursor;
+        let base = if selected { theme.selected } else { Style::new() };
+        let faint = if selected { theme.muted } else { theme.dim };
+        let spell_spans = |id: &str, mark: Span<'static>, how: String| {
+            let e = resolve_id(lib, id);
+            let name = e.map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| id.to_string());
+            let mut right = String::new();
+            if let Some(e) = e {
+                let lvl = spells::spell_level(lib, e);
+                right.push_str(&if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
+                if spells::concentration(lib, e) {
+                    right.push_str(" · C");
+                }
+                if spells::ritual(lib, e) {
+                    right.push_str(" · R");
+                }
+            }
+            if !how.is_empty() {
+                right = format!("{how} · {right}");
+            }
+            spread(
+                vec![Span::styled("  ", base), mark, Span::styled(truncate(&name, width.saturating_sub(30)), base)],
+                vec![Span::styled(format!("{right} "), base.patch(faint).remove_modifier(Modifier::BOLD))],
+                width,
+            )
+            .style(base)
+        };
+        let line = match row {
+            Row::ClassHeader(c) => {
+                let caster = &data.casters[*c];
+                let mine = ch.spells.classes.get(&caster.id).cloned().unwrap_or_default();
+                let l = &caster.limits;
+                let mut right = Vec::new();
+                if l.cantrips > 0 {
+                    right.extend(count(mine.cantrips.len(), l.cantrips, "cantrips"));
+                }
+                let label = match l.list {
+                    spells::SpellList::Prepared => "prepared",
+                    spells::SpellList::Known => "known",
+                };
+                right.extend(count(mine.prepared.len(), l.spells, label));
+                if let Some(book) = l.spellbook {
+                    let in_book = mine.spellbook.iter().chain(&mine.prepared).collect::<std::collections::BTreeSet<_>>().len();
+                    right.extend(count(in_book, book, "book"));
+                }
+                if !lines.is_empty() {
+                    lines.push(Line::default());
+                }
+                let dc = stat(ev, &format!("spell.{}.dc", caster.slug));
+                let atk = signed(ev, &format!("spell.{}.attack", caster.slug));
+                lines.push(
+                    spread(
+                        vec![Span::styled(format!("{} {}", caster.name, caster.level), base.patch(theme.heading))],
+                        vec![Span::styled(
+                            format!("DC {dc} · {atk} · up to level {} ", l.max_level),
+                            base.patch(faint).remove_modifier(Modifier::BOLD),
+                        )],
+                        width,
+                    )
+                    .style(base),
+                );
+                // Counts on their own (non-selectable) line.
+                Line::from([vec![Span::raw("  ")], right].concat())
+            }
+            Row::ClassSpell { id, slot, .. } => {
+                let (mark, how) = match slot {
+                    Slot::Cantrip => (Span::styled("◦ ", base.fg(theme.accent)), String::new()),
+                    Slot::Prepared => (Span::styled("● ", base.fg(theme.accent)), String::new()),
+                    Slot::Book => (Span::styled("○ ", base.patch(faint)), "spellbook".to_string()),
+                };
+                spell_spans(id, mark, how)
+            }
+            Row::GrantHeader(g) => {
+                if !lines.is_empty() {
+                    lines.push(Line::default());
+                }
+                Line::styled(sheet.build.granted[*g].origin.clone(), base.patch(theme.heading)).style(base)
+            }
+            Row::GrantSpell { id, how, .. } => {
+                let text = match how {
+                    Grant::Prepared => "always prepared".to_string(),
+                    Grant::Known => "known".to_string(),
+                    Grant::Innate(None) => "at will".to_string(),
+                    Grant::Innate(Some(n)) => {
+                        let name = resolve_id(lib, id).map(|e| lib.entity(e).name.clone()).unwrap_or_default();
+                        let key = format!("innate_{}", dnt_rules::class_table::slug(&name));
+                        format!("{}/{n} free", play::resource_left(ch, ev, &key))
+                    }
+                };
+                spell_spans(id, Span::styled("◆ ", base.fg(theme.accent)), text)
+            }
+            Row::GrantChoice { filter, missing, .. } => Line::from(vec![
+                Span::styled("  + ", base.fg(theme.accent)),
+                Span::styled(format!("choose {missing} {}", spells::describe_filter(filter)), base.fg(theme.accent)),
+                Span::styled("   enter", base.patch(faint)),
+            ])
+            .style(base),
+        };
+        lines.push(line);
+    }
+    let height = inner.height as usize;
+    let cursor_line = lines.iter().position(|l| l.style == theme.selected).unwrap_or(0);
+    let scroll = cursor_line.saturating_sub(height.saturating_sub(3));
+    frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
+
+    // Detail: the selected spell, or how the class prepares spells.
+    let block = pane(pane_title("Spell", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
+    let inner = block.inner(detail);
+    frame.render_widget(block, detail);
+    let id = match data.rows.get(sheet.spell_cursor) {
+        Some(Row::ClassSpell { id, .. } | Row::GrantSpell { id, .. }) => Some(id.clone()),
+        _ => None,
+    };
+    if let Some(e) = id.and_then(|id| resolve_id(lib, &id)) {
+        let mut lines = vec![Line::styled(lib.entity(e).name.clone(), theme.title), Line::default()];
+        let doc = view::document(lib, e, &sheet.filter);
+        lines.extend(render::render(&doc, inner.width.min(96), None, theme).lines);
+        frame.render_widget(Paragraph::new(lines), inner);
+    } else {
+        let help = vec![
+            Line::styled("◦ cantrip   ● prepared/known   ○ in spellbook   ◆ from a feature", theme.dim),
+            Line::default(),
+            Line::from(vec![Span::styled(" a ", theme.keycap), Span::styled(" add a spell to the class under the cursor", theme.dim)]),
+            Line::from(vec![Span::styled(" enter ", theme.keycap), Span::styled(" cast (choose a slot) · pick spells for a feature", theme.dim)]),
+            Line::from(vec![Span::styled(" p ", theme.keycap), Span::styled(" prepare / unprepare a spellbook spell", theme.dim)]),
+            Line::from(vec![Span::styled(" x ", theme.keycap), Span::styled(" remove", theme.dim)]),
+        ];
+        frame.render_widget(Paragraph::new(help), inner);
+    }
 }
 
 fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, theme: &Theme) {
@@ -901,7 +1105,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
     frame.render_widget(block, detail);
     match line.and_then(|l| item_entity(lib, l)) {
         Some(e) => {
-            let doc = view::document(lib, e, &Default::default());
+            let doc = view::document(lib, e, &sheet.filter);
             frame.render_widget(Paragraph::new(render::render(&doc, inner.width.min(96), None, theme).lines), inner);
         }
         None if line.is_some() => {
@@ -983,7 +1187,15 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
 
 // ---- creation wizard ----
 
-pub(crate) fn draw_wizard(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, w: &crate::wizard::Wizard, theme: &Theme) {
+pub(crate) fn draw_wizard(
+    frame: &mut Frame,
+    area: Rect,
+    lib: &Library,
+    overlays: &OverlaySet,
+    w: &crate::wizard::Wizard,
+    filter: &dnt_data::SourceFilter,
+    theme: &Theme,
+) {
     use crate::wizard::{Method, View, POINT_BUY_BUDGET};
     let [steps, _, main, _, preview] = Layout::horizontal([
         Constraint::Length(30),
@@ -1095,7 +1307,7 @@ pub(crate) fn draw_wizard(frame: &mut Frame, area: Rect, lib: &Library, overlays
         frame.render_widget(Paragraph::new(lines), inner);
     } else if let Some(e) = w.preview(lib) {
         let mut lines = vec![Line::styled(lib.entity(e).name.clone(), theme.title), Line::default()];
-        let doc = view::document(lib, e, &Default::default());
+        let doc = view::document(lib, e, filter);
         lines.extend(render::render(&doc, inner.width.min(96), None, theme).lines);
         frame.render_widget(Paragraph::new(lines), inner);
     } else {

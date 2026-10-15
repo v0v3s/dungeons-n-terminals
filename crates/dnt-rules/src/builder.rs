@@ -15,6 +15,7 @@ use crate::equipment;
 use crate::formula::Formula;
 use crate::multiclass::{self, Progression};
 use crate::overlay::{resolve_id, OverlaySet, Resource, Toggle};
+use crate::spells;
 use crate::standard::{self, ABILITIES};
 use crate::value::Value;
 
@@ -62,7 +63,18 @@ pub struct Build {
     /// Resources from overlays, with the feature name they come from.
     pub resources: Vec<(Resource, String)>,
     pub toggles: Vec<(Toggle, String)>,
+    /// Spells and spell choices granted by features.
+    pub granted: Vec<GrantedSpells>,
     pub warnings: Vec<String>,
+}
+
+/// Spells granted by one feature (subclass, species, feat, …).
+#[derive(Debug, Clone)]
+pub struct GrantedSpells {
+    pub origin: String,
+    /// Storage prefix for choices: `<origin id>#<n>` keys `Spells::chosen`.
+    pub key: String,
+    pub grants: Vec<spells::Granted>,
 }
 
 impl Build {
@@ -473,8 +485,62 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     };
     features.sort_by_key(|f| (rank(f.source), f.level));
 
+    // ---- spells granted by features ----
+    let mut granted = Vec::new();
+    let mut sources: Vec<(EntityId, i64)> = classes.iter().filter_map(|c| Some((c.subclass?, c.level))).collect();
+    for f in &features {
+        if matches!(f.source, FeatureSource::Species | FeatureSource::Background | FeatureSource::Feat | FeatureSource::Option) {
+            sources.push((f.entity, total));
+        }
+    }
+    let mut innate: Vec<(Resource, String)> = Vec::new();
+    for (e, level) in sources {
+        let grants = spells::granted_spells(&lib.entity(e).data, level);
+        if grants.is_empty() {
+            continue;
+        }
+        let ent = lib.entity(e);
+        let key = format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source);
+        for (i, g) in grants.iter().enumerate() {
+            // Innate casts per long rest become trackable resources.
+            let (ids, uses) = match g {
+                spells::Granted::Spell { id, grant: spells::Grant::Innate(Some(n)) } => (vec![id.clone()], *n),
+                spells::Granted::Choice { grant: spells::Grant::Innate(Some(n)), .. } => {
+                    (character.spells.chosen.get(&format!("{key}#{i}")).cloned().unwrap_or_default(), *n)
+                }
+                _ => continue,
+            };
+            for id in ids {
+                let Some(s) = resolve_id(lib, &id) else { continue };
+                let name = lib.entity(s).name.clone();
+                innate.push((
+                    Resource {
+                        key: format!("innate_{}", slug(&name)),
+                        name: format!("{name} (free cast)"),
+                        max: Formula::constant(Value::int(uses)),
+                        recharge: crate::overlay::Recharge::LongRest,
+                        short_rest_regain: None,
+                    },
+                    ent.name.clone(),
+                ));
+            }
+        }
+        granted.push(GrantedSpells {
+            origin: ent.name.clone(),
+            key,
+            grants,
+        });
+    }
+    for (r, _) in &innate {
+        model.stats.push(StatDef {
+            key: format!("resource.{}.max", r.key),
+            base: r.max.clone(),
+            origin: r.name.clone(),
+        });
+    }
+
     // ---- overlays ----
-    let mut resources = Vec::new();
+    let mut resources = innate;
     let mut toggles = Vec::new();
     for f in &features {
         for o in overlays.for_entity(&lib.entity(f.entity).key) {
@@ -516,6 +582,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         features,
         resources,
         toggles,
+        granted,
         warnings,
     }
 }
