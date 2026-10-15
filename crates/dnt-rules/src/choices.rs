@@ -104,19 +104,78 @@ pub fn feats_in(lib: &Library, categories: &[String], filter: &SourceFilter, tak
     out
 }
 
-fn prerequisite_level(o: &Json) -> Option<i64> {
-    o.get("prerequisite")?
-        .as_array()?
-        .iter()
-        .filter_map(|p| match p.get("level")? {
-            Json::Number(n) => n.as_i64(),
-            Json::Object(l) => l.get("level").and_then(Json::as_i64),
-            _ => None,
-        })
-        .min()
+/// Every spell the character has: class cantrips and spells, spellbook,
+/// and spells chosen for feature grants.
+fn known_spells(lib: &Library, c: &Character) -> Vec<EntityId> {
+    c.spells
+        .classes
+        .values()
+        .flat_map(|k| k.cantrips.iter().chain(&k.prepared).chain(&k.spellbook))
+        .chain(c.spells.chosen.values().flatten())
+        .filter_map(|id| resolve_id(lib, id))
+        .collect()
 }
 
-fn optional_features(lib: &Library, types: &[String], filter: &SourceFilter, taken: &BTreeSet<String>, class_level: i64) -> Vec<ChoiceOption> {
+/// Why an option's prerequisites are not met, or `None`. data lists
+/// alternatives; all parts of one alternative must hold: a class level,
+/// other options taken (Pact of the Blade), spells known.
+fn unmet_prerequisite(lib: &Library, c: &Character, d: &Json, class_level: i64, filter: &SourceFilter, taken: &BTreeSet<String>) -> Option<String> {
+    let alts = d.get("prerequisite")?.as_array()?;
+    let known = known_spells(lib, c);
+    let mut first_reason = None;
+    for alt in alts {
+        let mut why = Vec::new();
+        let level = match alt.get("level") {
+            Some(Json::Number(n)) => n.as_i64(),
+            Some(Json::Object(l)) => l.get("level").and_then(Json::as_i64),
+            _ => None,
+        };
+        if let Some(l) = level.filter(|l| *l > class_level) {
+            why.push(format!("level {l}"));
+        }
+        for r in alt.get("optionalfeature").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str) {
+            let id = format!("optionalfeature:{r}");
+            let entity = resolve_id(lib, &id);
+            let have = taken.iter().any(|t| resolve_id(lib, t).is_some_and(|e| Some(e) == entity) || t.eq_ignore_ascii_case(&id));
+            if !have {
+                why.push(entity.map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| r.split('|').next().unwrap_or(r).to_string()));
+            }
+        }
+        for sp in alt.get("spell").and_then(Json::as_array).into_iter().flatten() {
+            match sp {
+                Json::String(name) => {
+                    let name = name.split(['#', '|']).next().unwrap_or(name);
+                    if !known.iter().any(|&k| lib.entity(k).name.eq_ignore_ascii_case(name)) {
+                        why.push(dnt_data::view::title_case(name));
+                    }
+                }
+                Json::Object(o) => {
+                    let Some(f) = o.get("choose").and_then(Json::as_str) else { continue };
+                    let options = crate::spells::filter_spells(lib, f, filter);
+                    if !known.iter().any(|k| options.contains(k)) {
+                        let what = o.get("entrySummary").or_else(|| o.get("entry")).and_then(Json::as_str).map(str::to_string);
+                        why.push(what.unwrap_or_else(|| crate::spells::describe_filter(f)));
+                    }
+                }
+                _ => {}
+            }
+        }
+        if why.is_empty() {
+            return None;
+        }
+        first_reason.get_or_insert(format!("needs {}", why.join(", ")));
+    }
+    first_reason
+}
+
+fn optional_features(
+    lib: &Library,
+    c: &Character,
+    types: &[String],
+    filter: &SourceFilter,
+    taken: &BTreeSet<String>,
+    class_level: i64,
+) -> Vec<ChoiceOption> {
     // 2014 options reprinted as 2024 feats (fighting styles) must stay
     // available to 2014 classes, so reprints are not hidden here.
     let filter = SourceFilter {
@@ -132,12 +191,11 @@ fn optional_features(lib: &Library, types: &[String], filter: &SourceFilter, tak
         })
         .map(|i| {
             let e = lib.entity(i);
-            let needs = prerequisite_level(&e.data).filter(|l| *l > class_level);
             ChoiceOption {
                 value: format!("optionalfeature:{}|{}", e.name, e.source),
                 label: e.name.clone(),
                 hint: e.source.clone(),
-                warning: needs.map(|l| format!("needs level {l}")),
+                warning: unmet_prerequisite(lib, c, &e.data, class_level, &filter, taken),
             }
         })
         .filter(|o| !taken.contains(&o.value))
@@ -241,7 +299,7 @@ pub fn level_choices(
                     key: p.get("name").and_then(Json::as_str).unwrap_or("Options").to_string(),
                     kind: ChoiceKind::OptionalFeature,
                     count: new as usize,
-                    options: optional_features(lib, &strs(p.get("featureType")), filter, &taken, level),
+                    options: optional_features(lib, c, &strs(p.get("featureType")), filter, &taken, level),
                 });
             }
         }
@@ -436,5 +494,34 @@ mod tests {
             "classFeature:Protector|Cleric|XPHB|1|XPHB".to_string(),
             "classFeature:Thaumaturge|Cleric|XPHB|1|XPHB".to_string()
         ])]);
+    }
+
+    #[test]
+    fn invocation_prerequisites() {
+        use crate::character::ClassSpells;
+        let mut lib = Library::new();
+        lib.load_json(&serde_json::json!({
+            "optionalfeature": [
+                {"name": "Pact of the Blade", "source": "T", "featureType": ["EI"], "entries": ["x"]},
+                {"name": "Thirsting Blade", "source": "T", "featureType": ["EI"], "entries": ["x"],
+                 "prerequisite": [{"level": {"level": 5, "class": {"name": "Warlock"}}, "optionalfeature": ["pact of the blade|t"]}]},
+                {"name": "Agonizing Blast", "source": "T", "featureType": ["EI"], "entries": ["x"],
+                 "prerequisite": [{"level": {"level": 2, "class": {"name": "Warlock"}},
+                                   "spell": [{"choose": "level=0|class=Warlock", "entrySummary": "a Warlock damage cantrip"}]}]}
+            ],
+            "spell": [{"name": "Eldritch Blast", "source": "T", "level": 0, "entries": ["x"], "classes": {"fromClassList": [{"name": "Warlock", "source": "T"}]}}]
+        }));
+        let filter = SourceFilter::default();
+        let check = |c: &Character, name: &str, level: i64| {
+            let e = lib.get(&dnt_data::Key::new(Kind::OptionalFeature, &[name, "T"])).unwrap();
+            unmet_prerequisite(&lib, c, &lib.entity(e).data, level, &filter, &all_picks(c))
+        };
+        let mut c = Character::default();
+        assert_eq!(check(&c, "Thirsting Blade", 3).as_deref(), Some("needs level 5, Pact of the Blade"));
+        c.options.push("optionalfeature:Pact of the Blade|T".into());
+        assert_eq!(check(&c, "Thirsting Blade", 5), None);
+        assert_eq!(check(&c, "Agonizing Blast", 2).as_deref(), Some("needs a Warlock damage cantrip"));
+        c.spells.classes.insert("class:Warlock|T".into(), ClassSpells { cantrips: vec!["spell:Eldritch Blast|T".into()], ..Default::default() });
+        assert_eq!(check(&c, "Agonizing Blast", 2), None);
     }
 }
