@@ -226,7 +226,7 @@ pub fn spell_school(code: &str) -> &'static str {
     }
 }
 
-fn spell_time(d: &Value) -> String {
+pub(crate) fn spell_time(d: &Value) -> String {
     d.get("time")
         .and_then(Value::as_array)
         .into_iter()
@@ -261,7 +261,7 @@ fn distance(d: &Value) -> String {
     }
 }
 
-fn spell_range(d: &Value) -> String {
+pub(crate) fn spell_range(d: &Value) -> String {
     let Some(range) = d.get("range") else { return String::new() };
     let dist = range.get("distance").map(distance).unwrap_or_default();
     match str_of(range, "type").unwrap_or("") {
@@ -291,7 +291,7 @@ fn spell_components(d: &Value) -> Vec<Span> {
     tags::parse(&parts.join(", "))
 }
 
-fn spell_duration(d: &Value) -> String {
+pub(crate) fn spell_duration(d: &Value) -> String {
     d.get("duration")
         .and_then(Value::as_array)
         .into_iter()
@@ -305,11 +305,16 @@ fn spell_duration(d: &Value) -> String {
                     .into_iter()
                     .flatten()
                     .filter_map(Value::as_str)
+                    .map(|e| match e {
+                        "dispel" => "dispelled",
+                        "trigger" => "triggered",
+                        other => other,
+                    })
                     .collect();
                 if ends.is_empty() {
                     "Permanent".into()
                 } else {
-                    format!("Until {}", ends.join(" or ").replace("trigger", "triggered"))
+                    format!("Until {}", ends.join(" or "))
                 }
             }
             "special" => "Special".into(),
@@ -346,12 +351,13 @@ fn item_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
     if let Some(r) = str_of(d, "rarity").filter(|r| !matches!(*r, "none" | "unknown")) {
         kind.push(r.to_string());
     }
+    let mut kind = kind.join(", ");
     match d.get("reqAttune") {
-        Some(Value::Bool(true)) => kind.push("(requires attunement)".into()),
-        Some(Value::String(s)) => kind.push(format!("(requires attunement {})", tags::strip(s))),
+        Some(Value::Bool(true)) => kind.push_str(" (requires attunement)"),
+        Some(Value::String(s)) => kind.push_str(&format!(" (requires attunement {})", tags::strip(s))),
         _ => {}
     }
-    props.push(("Item", plain(kind.join(", "))));
+    props.push(("Item", plain(kind.trim().to_string())));
 
     if let Some(dmg) = str_of(d, "dmg1") {
         let mut s = format!("{dmg} {}", damage_type(str_of(d, "dmgType").unwrap_or("")));
@@ -389,7 +395,7 @@ fn item_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
     }
 }
 
-fn format_coins(cp: u64) -> String {
+pub(crate) fn format_coins(cp: u64) -> String {
     if cp >= 100 && cp.is_multiple_of(100) {
         format!("{} gp", cp / 100)
     } else if cp >= 10 && cp.is_multiple_of(10) {

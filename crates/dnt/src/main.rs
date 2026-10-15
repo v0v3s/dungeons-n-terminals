@@ -1,4 +1,5 @@
 mod app;
+mod app_homebrew;
 mod campaigns;
 mod characters;
 mod compendium;
@@ -15,7 +16,7 @@ mod ui_editor;
 mod ui_sheet;
 mod wizard;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
@@ -49,6 +50,17 @@ struct Args {
     show_reprinted: bool,
 }
 
+/// The base library: books, global homebrew (`<data>/library/homebrew/`)
+/// and extra homebrew files. Campaign homebrew is layered on a clone of it
+/// (see App::prepare_library).
+fn load_base(data: &Path, extra: &[PathBuf], store: &Store) -> Result<Library> {
+    let mut base = Library::load_data_dir(data).with_context(|| format!("loading {}", data.display()))?;
+    for path in store.global_homebrew_files().iter().chain(extra) {
+        base.load_file(path).with_context(|| format!("loading {}", path.display()))?;
+    }
+    Ok(base)
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     let store = Store::open_default()?;
@@ -71,12 +83,8 @@ fn main() -> Result<()> {
     };
 
     let start = Instant::now();
-    // The base library: books and global homebrew. Campaign homebrew is
-    // layered on a clone of it (see App::prepare_library).
-    let mut base = Library::load_data_dir(&data).with_context(|| format!("loading {}", data.display()))?;
-    for path in config.library.homebrew.iter().chain(&args.homebrew) {
-        base.load_file(path).with_context(|| format!("loading {}", path.display()))?;
-    }
+    let extra: Vec<PathBuf> = config.library.homebrew.iter().chain(&args.homebrew).cloned().collect();
+    let mut base = load_base(&data, &extra, &store)?;
     let mut status = format!("Loaded {} entries in {} ms", base.entities().len(), start.elapsed().as_millis());
     if !base.warnings.is_empty() {
         status.push_str(&format!(" ({} warnings)", base.warnings.len()));
@@ -99,10 +107,6 @@ fn main() -> Result<()> {
                     app.handle_key(&lib, key);
                 }
             }
-            if std::mem::take(&mut app.pending_reload) {
-                lib = app.prepare_library(&base);
-                app.library_reloaded(&lib);
-            }
             if let Some(path) = app.pending_edit.take() {
                 ratatui::restore();
                 let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| "vi".into());
@@ -119,6 +123,17 @@ fn main() -> Result<()> {
                     Ok(_) => app.after_edit(&lib, &path),
                     Err(e) => app.status = format!("Could not run {editor}: {e}"),
                 }
+            }
+            if std::mem::take(&mut app.pending_base_reload) {
+                match load_base(&data, &extra, &app.store) {
+                    Ok(b) => base = b,
+                    Err(e) => app.status = format!("Could not reload the library: {e:#}"),
+                }
+                app.pending_reload = true;
+            }
+            if std::mem::take(&mut app.pending_reload) {
+                lib = app.prepare_library(&base);
+                app.library_reloaded(&lib);
             }
         }
         Ok(())

@@ -67,6 +67,103 @@ pub fn clone_entry(lib: &Library, id: EntityId, source: &str, mode: &CloneMode) 
     Value::Object(entry)
 }
 
+/// Starting points for new entries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Template {
+    Spell,
+    MagicItem,
+    Weapon,
+    Armor,
+    Gear,
+    Feat,
+    OptionalFeature,
+    Background,
+    Species,
+}
+
+impl Template {
+    pub const ALL: &'static [Template] = &[
+        Template::MagicItem,
+        Template::Weapon,
+        Template::Armor,
+        Template::Gear,
+        Template::Spell,
+        Template::Feat,
+        Template::OptionalFeature,
+        Template::Background,
+        Template::Species,
+    ];
+    /// Templates that make items (for the inventory's "Create new item…").
+    pub const ITEMS: &'static [Template] = &[Template::MagicItem, Template::Weapon, Template::Armor, Template::Gear];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Template::Spell => "Spell",
+            Template::MagicItem => "Magic item",
+            Template::Weapon => "Weapon",
+            Template::Armor => "Armor",
+            Template::Gear => "Adventuring gear",
+            Template::Feat => "Feat",
+            Template::OptionalFeature => "Optional feature",
+            Template::Background => "Background",
+            Template::Species => "Species",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Template::Spell => "a 1st-level evocation to start from",
+            Template::MagicItem => "a wondrous item; set rarity and attunement",
+            Template::Weapon => "a simple melee weapon with damage dice",
+            Template::Armor => "light armor with an AC",
+            Template::Gear => "a mundane item with weight and value",
+            Template::Feat => "a general feat",
+            Template::OptionalFeature => "an eldritch invocation, metamagic, maneuver…",
+            Template::Background => "a background description",
+            Template::Species => "a medium species with a 30 ft. speed",
+        }
+    }
+
+    pub fn kind(self) -> Kind {
+        match self {
+            Template::Spell => Kind::Spell,
+            Template::MagicItem | Template::Weapon | Template::Armor | Template::Gear => Kind::Item,
+            Template::Feat => Kind::Feat,
+            Template::OptionalFeature => Kind::OptionalFeature,
+            Template::Background => Kind::Background,
+            Template::Species => Kind::Race,
+        }
+    }
+
+    /// A new entry named `name` in `source`.
+    pub fn entry(self, name: &str, source: &str) -> Value {
+        let mut v = match self {
+            Template::Spell => json!({
+                "level": 1, "school": "V",
+                "time": [{"number": 1, "unit": "action"}],
+                "range": {"type": "point", "distance": {"type": "feet", "amount": 60}},
+                "components": {"v": true, "s": true},
+                "duration": [{"type": "instant"}],
+                "entries": ["Describe what the spell does."]
+            }),
+            Template::MagicItem => json!({"rarity": "uncommon", "wondrous": true, "entries": ["Describe the item."]}),
+            Template::Weapon => json!({
+                "type": "M|XPHB", "rarity": "none", "weapon": true, "weaponCategory": "simple",
+                "dmg1": "1d6", "dmgType": "S", "weight": 2, "value": 500, "entries": ["Describe the weapon."]
+            }),
+            Template::Armor => json!({"type": "LA|XPHB", "rarity": "none", "armor": true, "ac": 11, "weight": 10, "value": 1000}),
+            Template::Gear => json!({"type": "G|XPHB", "rarity": "none", "weight": 1, "value": 100, "entries": ["Describe the item."]}),
+            Template::Feat => json!({"category": "G", "entries": ["Describe the feat."]}),
+            Template::OptionalFeature => json!({"featureType": ["EI"], "entries": ["Describe the feature."]}),
+            Template::Background => json!({"entries": ["Describe the background."]}),
+            Template::Species => json!({"size": ["M"], "speed": 30, "entries": ["Describe the species."]}),
+        };
+        v["name"] = json!(name);
+        v["source"] = json!(source);
+        v
+    }
+}
+
 /// Add an entry to the document's list for `kind`; returns its index.
 pub fn add_entry(doc: &mut Value, kind: Kind, entry: Value) -> usize {
     let list = doc
@@ -442,6 +539,20 @@ mod tests {
         assert!(md.contains("```json"));
         assert_eq!(markdown_to_entries(&md).unwrap(), entries);
         assert!(markdown_to_entries("```json\n{oops\n```").is_err());
+    }
+
+    #[test]
+    fn templates_load() {
+        let mut lib = Library::new();
+        let mut doc = json!({});
+        for t in Template::ALL {
+            add_entry(&mut doc, t.kind(), t.entry(&format!("New {}", t.label()), "CoS-HB"));
+        }
+        lib.load_json(&doc);
+        for t in Template::ALL {
+            let key = Key::of_entity(t.kind(), &t.entry(&format!("New {}", t.label()), "CoS-HB")).unwrap();
+            assert!(lib.get(&key).is_some(), "{t:?}");
+        }
     }
 
     #[test]

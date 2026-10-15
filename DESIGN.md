@@ -387,13 +387,26 @@ enabled for that campaign.
   - **Separate copy**: a new entity under its own name.
 - Compendium marks campaign versions ("Campaign version · changed:
   duration") with a key to view the original.
-- **Editor**: per-kind form for common fields, description written as
-  Markdown in the built-in editor (converted to data entries), raw JSON
-  in `$EDITOR` as an escape hatch (validated on save).
-- Entry points: Compendium `c` clone / `n` new (edit/delete only for
-  campaign entities), Inventory "Create new item…".
-- Entities can be promoted to a global homebrew library
-  (`<data>/library/homebrew/`) to use them in every campaign.
+- **Editor**: the kind's common fields first (then "more fields"), shown
+  and typed in plain words — casting time "1 bonus action", range "Self
+  (15-foot cone)", components "V, S, M (…)", duration "Concentration, up
+  to 1 minute", classes "Wizard, Druid", value "50 gp", attunement "by a
+  wizard" — or picked from a list (level, school, rarity, item type,
+  damage type, weapon and feat category, ritual). Descriptions are
+  Markdown in the built-in editor (converted to data entries), any
+  field can be edited as JSON (`J`), and `E` opens the whole entry in
+  `$EDITOR` (validated on save: still an object, same source; a campaign
+  version keeps its name and `_copy`). A live preview shows the result.
+- Entry points: Compendium `c` clone / `e` edit / `n` new from a template
+  (magic item, weapon, armor, gear, spell, feat, optional feature,
+  background, species), Inventory "Create new item…" (created, added to
+  the character and opened in the editor; esc returns to the sheet).
+- **Global homebrew**: `<data>/library/homebrew/*.json` is loaded with the
+  books; dnt writes `homebrew.json` there with the source `Homebrew`,
+  which every campaign enables. `P` promotes a campaign entry: it moves
+  to the global file and the campaign's character files are pointed at
+  it (`item:X|CoS` → `item:X|Homebrew`). Global entries are edited in
+  place. Campaign versions (overrides) stay in their campaign.
 
 ## 6. UX
 
@@ -449,8 +462,8 @@ enabled for that campaign.
    commands, word-aware wrapping (patched edtui in vendor/). *Done.*
 5. **M5 Campaign layer** — campaign homebrew file and source, clone
    (replace / separate), creator and editor forms (items, spells first),
-   compendium markers, inventory shortcut. *M5a (campaign source,
-   homebrew file, overrides, markers, `o` original) and M5b (clone flow,
-   field editor with Markdown/JSON, revert, delete) done.*
+   compendium markers, inventory shortcut, global homebrew. *Done*
+   (note links to a promoted entry that name its old source are not
+   rewritten).
 6. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

@@ -121,6 +121,8 @@ pub enum Outcome {
     Clone(EntityId),
     /// Edit this campaign entity.
     Edit(EntityId),
+    /// Create a new campaign entity.
+    New,
 }
 
 pub struct Compendium {
@@ -372,6 +374,7 @@ impl Compendium {
                     return Outcome::Edit(id);
                 }
             }
+            KeyCode::Char('n') => return Outcome::New,
             KeyCode::Char('/' | 'i') => self.focus = Focus::Search,
             KeyCode::Char('j') | KeyCode::Down => self.move_selection(lib, 1),
             KeyCode::Char('k') | KeyCode::Up => self.move_selection(lib, -1),

@@ -26,11 +26,16 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
     .areas(frame.area());
     let body = body.inner(Margin::new(1, 0));
 
-    draw_header(frame, header, app, theme);
+    draw_header(frame, header, lib, app, theme);
     match app.section {
         Section::Compendium if app.editor.is_some() => {
             let filter = app.compendium.filter.clone();
-            crate::ui_editor::draw(frame, body, lib, &filter, app.homebrew.as_ref(), app.editor.as_mut().unwrap(), theme)
+            let editor = app.editor.as_mut().unwrap();
+            let doc = match editor.target {
+                crate::entry_editor::Target::Campaign => app.homebrew.as_ref(),
+                crate::entry_editor::Target::Global => app.global_homebrew.as_ref(),
+            };
+            crate::ui_editor::draw(frame, body, lib, &filter, doc, editor, theme)
         }
         Section::Compendium => {
             draw_compendium(frame, body, lib, &mut app.compendium, theme);
@@ -47,6 +52,9 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
             let filter = app.compendium.filter.clone();
             crate::ui_notes::draw(frame, body, lib, &filter, &mut app.notes, theme)
         }
+    }
+    if let Some(flow) = &app.new_flow {
+        crate::ui_editor::draw_new(frame, body, flow, theme);
     }
     draw_footer(frame, footer, app, theme);
     if let Some(text) = &app.capture {
@@ -71,7 +79,7 @@ fn draw_capture(frame: &mut Frame, area: Rect, text: &str, theme: &Theme) {
 
 // ---- chrome ----
 
-fn draw_header(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
+fn draw_header(frame: &mut Frame, area: Rect, lib: &Library, app: &App, theme: &Theme) {
     let mut spans = vec![Span::styled(" dnt ", theme.brand), Span::raw("  ")];
     for (i, s) in Section::ALL.iter().enumerate() {
         if *s == app.section {
@@ -83,7 +91,11 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         spans.push(Span::raw(" "));
     }
 
-    let sources = match &app.compendium.filter.enabled {
+    // Always-on sources (the global homebrew) only count once they exist.
+    let enabled = app.compendium.filter.enabled.as_ref().map(|set| {
+        set.iter().filter(|s| lib.source_info(s).is_some() || !s.eq_ignore_ascii_case(dnt_store::GLOBAL_SOURCE)).collect::<Vec<_>>()
+    });
+    let sources = match &enabled {
         None => "all sources".to_string(),
         Some(set) if set.len() > 5 => format!("{} sources", set.len()),
         Some(set) => {
@@ -109,18 +121,33 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     use crate::entry_editor::Mode as EdMode;
     let hints: &[(&str, &str)] = match (app.section, app.compendium.focus) {
+        _ if app.new_flow.as_ref().is_some_and(|f| f.name.is_some()) => &[("enter", "create"), ("^u", "clear"), ("esc", "back")],
+        _ if app.new_flow.is_some() => &[("j k", "choose"), ("enter", "next"), ("esc", "cancel")],
         (Section::Compendium, _) if app.clone_flow.as_ref().is_some_and(|f| f.name.is_some()) => &[("enter", "create copy"), ("esc", "cancel")],
         (Section::Compendium, _) if app.clone_flow.is_some() => &[("j k", "choose"), ("enter", "clone"), ("esc", "cancel")],
         (Section::Compendium, _) if app.editor.is_some() => match app.editor.as_ref().map(|e| &e.mode) {
             Some(EdMode::Big { .. }) => &[("i", "insert"), ("esc", "normal · save"), ("^s", "save")],
             Some(EdMode::Prompt { .. } | EdMode::AddField(_)) => &[("enter", "set"), ("^u", "clear"), ("esc", "cancel")],
             Some(EdMode::ConfirmDelete) => &[("y", "delete"), ("n", "keep")],
-            _ => &[
+            Some(EdMode::Choose { .. }) => &[("j k", "move"), ("enter", "choose"), ("esc", "cancel")],
+            Some(_) if app.editor.as_ref().is_some_and(|e| e.replaces || e.target == crate::entry_editor::Target::Global) => &[
                 ("j k", "field"),
                 ("enter", "edit"),
                 ("J", "as JSON"),
                 ("x", "revert"),
                 ("a", "add field"),
+                ("E", "$EDITOR"),
+                ("D", "delete"),
+                ("esc", "done"),
+            ],
+            _ => &[
+                ("j k", "field"),
+                ("enter", "edit"),
+                ("J", "as JSON"),
+                ("x", "clear"),
+                ("a", "add field"),
+                ("E", "$EDITOR"),
+                ("P", "make global"),
                 ("D", "delete"),
                 ("esc", "done"),
             ],
@@ -137,7 +164,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("enter", "open"),
             ("/", "search"),
             ("tab", "category"),
-            ("c e", "clone/edit"),
+            ("c e n", "clone/edit/new"),
             ("1-4", "section"),
             ("q", "quit"),
         ],

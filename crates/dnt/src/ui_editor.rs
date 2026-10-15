@@ -1,6 +1,7 @@
 //! Drawing for the homebrew entry editor and the clone choice.
 
-use dnt_data::{homebrew, view, Library, SourceFilter};
+use dnt_data::homebrew::Template;
+use dnt_data::{forms, homebrew, view, Library, SourceFilter};
 use edtui::{EditorMode, EditorTheme, EditorView};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -9,8 +10,8 @@ use ratatui::widgets::{Clear, Padding, Paragraph, Widget};
 use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::CloneFlow;
-use crate::entry_editor::{EntryEditor, Mode, Widget as FieldWidget};
+use crate::app::{CloneFlow, NewFlow};
+use crate::entry_editor::{EntryEditor, Mode, Target, Widget as FieldWidget};
 use crate::render;
 use crate::theme::Theme;
 use crate::ui::{pane, pane_title, spread, truncate};
@@ -19,17 +20,6 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let [row] = Layout::vertical([Constraint::Length(h.min(area.height))]).flex(Flex::Center).areas(area);
     let [rect] = Layout::horizontal([Constraint::Length(w.min(area.width))]).flex(Flex::Center).areas(row);
     rect
-}
-
-/// A short one-line rendering of a JSON value.
-fn preview(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Array(a) if a.iter().all(|x| x.is_string()) => {
-            a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" · ")
-        }
-        other => other.to_string(),
-    }
 }
 
 pub fn draw(
@@ -52,21 +42,31 @@ pub fn draw(
     let [list, _, detail] = Layout::horizontal([left, Constraint::Length(1), Constraint::Min(30)]).areas(area);
 
     let name = id.map(|i| lib.entity(i).name.clone()).unwrap_or_else(|| "(reloading)".into());
-    let what = if ed.replaces { "campaign version" } else { "campaign entry" };
-    let block = pane(pane_title(&format!("Editing {name} · {what}"), true, theme), true, theme)
-        .padding(Padding::new(1, 1, 1, 0));
+    let what = match (ed.target, ed.replaces) {
+        (Target::Global, _) => "global homebrew",
+        (_, true) => "campaign version",
+        _ => "campaign entry",
+    };
+    let block = pane(pane_title(&format!("Editing {name} · {what}"), true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(list);
     frame.render_widget(block, list);
     let width = inner.width as usize;
-    let mut lines = vec![Line::from(vec![
-        Span::styled("● ", Style::new().fg(theme.accent)),
-        Span::styled(
-            if ed.replaces { "changed in this campaign (x reverts to the book)" } else { "stored in the campaign homebrew" },
-            theme.dim,
-        ),
-    ])];
+    let note = match (ed.target, ed.replaces) {
+        (Target::Global, _) => "set in the global homebrew, used by every campaign",
+        (_, true) => "changed in this campaign (x reverts to the book)",
+        _ => "set in the campaign homebrew · P makes it global",
+    };
+    let mut lines = vec![Line::from(vec![Span::styled("● ", Style::new().fg(theme.accent)), Span::styled(note, theme.dim)])];
     lines.push(Line::default());
+    let mut cursor_line = 0;
     for (i, f) in fields.iter().enumerate() {
+        if f.extra && (i == 0 || !fields[i - 1].extra) {
+            lines.push(Line::default());
+            lines.push(Line::styled("  more fields", theme.dim.add_modifier(Modifier::ITALIC)));
+        }
+        if i == ed.cursor {
+            cursor_line = lines.len();
+        }
         let base = if i == ed.cursor { theme.selected } else { Style::new() };
         let faint = if i == ed.cursor { theme.muted } else { theme.dim };
         let mark = if f.changed { Span::styled("● ", base.fg(theme.accent)) } else { Span::styled("  ", base) };
@@ -75,20 +75,18 @@ pub fn draw(
             FieldWidget::Json => "json",
             FieldWidget::Bool => "yes/no",
             FieldWidget::Number => "number",
-            FieldWidget::Text => "",
-        };
-        let value = match (&f.value, f.widget) {
-            (None, _) => "—".to_string(),
-            (Some(v), FieldWidget::Entries) => homebrew::entries_to_markdown(v).split_whitespace().collect::<Vec<_>>().join(" "),
-            (Some(v), _) => preview(v),
+            FieldWidget::Form(format) if forms::choices(format).is_some() => "choice",
+            FieldWidget::Text | FieldWidget::Form(_) => "",
         };
         let value_w = width.saturating_sub(28);
+        let label = if f.changed || i == ed.cursor { base } else { base.patch(theme.label) };
+        let value = if f.value.is_none() { base.patch(theme.dim) } else { base };
         lines.push(
             spread(
                 vec![
                     mark,
-                    Span::styled(format!("{:<18}", truncate(&f.name, 17)), if f.changed || i == ed.cursor { base } else { base.patch(theme.label) }),
-                    Span::styled(truncate(&value, value_w), base),
+                    Span::styled(format!("{:<18}", truncate(&f.name, 17)), label),
+                    Span::styled(truncate(&f.display, value_w), value),
                 ],
                 vec![Span::styled(format!("{kind} "), base.patch(faint).remove_modifier(Modifier::BOLD))],
                 width,
@@ -96,13 +94,20 @@ pub fn draw(
             .style(base),
         );
     }
-    if let Some(e) = &ed.error {
+    if let Some(e) = ed.error.as_ref().filter(|_| matches!(ed.mode, Mode::List)) {
         lines.push(Line::default());
         lines.push(Line::styled(format!("⚠ {e}"), Style::new().fg(Color::Red)));
     }
     let height = inner.height as usize;
-    let scroll = (ed.cursor + 3).saturating_sub(height.saturating_sub(1));
+    let scroll = (cursor_line + 2).saturating_sub(height);
     frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
+    // Popups open just below the selected field, over its value.
+    let row_y = inner.y + (cursor_line - scroll) as u16;
+    let below = |w: u16, h: u16| {
+        let x = (inner.x + 18).min(area.right().saturating_sub(w));
+        let y = if row_y + 1 + h <= area.bottom() { row_y + 1 } else { area.bottom().saturating_sub(h) };
+        Rect::new(x, y, w.min(area.right() - x), h.min(area.height))
+    };
 
     // Live preview of the entity as the campaign sees it.
     let block = pane(pane_title("Preview", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
@@ -129,15 +134,39 @@ pub fn draw(
                 Mode::AddField(text) => ("New field name".to_string(), text.clone()),
                 _ => unreachable!(),
             };
-            let rect = centered(area, 72, 5);
+            let hint = ed.prompt_format(&fields).map(forms::hint).filter(|h| !h.is_empty());
+            let mut body = vec![Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())])];
+            if let Some(h) = hint {
+                body.push(Line::default());
+                body.push(Line::styled(h, theme.dim));
+            }
+            if let Some(e) = &ed.error {
+                body.push(Line::default());
+                body.push(Line::styled(format!("⚠ {e}"), Style::new().fg(Color::Red)));
+            }
+            let rect = below(88, body.len() as u16 + 3);
             frame.render_widget(Clear, rect);
             let block = pane(pane_title(&title, true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
             let inner = block.inner(rect);
-            frame.render_widget(
-                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())])).block(block),
-                rect,
-            );
+            frame.render_widget(Paragraph::new(body).block(block), rect);
             frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
+        }
+        Mode::Choose { field, options, cursor } => {
+            let w = options.iter().map(|(l, _)| l.width()).max().unwrap_or(10) as u16 + 8;
+            let rect = below(w.max(30), options.len() as u16 + 3);
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title(field, true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
+            let current = fields.iter().find(|f| &f.name == field).and_then(|f| f.value.clone());
+            let lines: Vec<Line> = options
+                .iter()
+                .enumerate()
+                .map(|(i, (label, v))| {
+                    let base = if i == *cursor { theme.selected } else { Style::new() };
+                    let mark = if *v == current { "● " } else { "  " };
+                    Line::from(vec![Span::styled(mark, base.fg(theme.accent)), Span::styled(label.clone(), base)]).style(base)
+                })
+                .collect();
+            frame.render_widget(Paragraph::new(lines).block(block), rect);
         }
         Mode::Big { field, editor, json } => {
             let rect = list;
@@ -201,4 +230,46 @@ pub fn draw_clone(frame: &mut Frame, area: Rect, lib: &Library, flow: &CloneFlow
     lines.extend(option(1, "Separate copy…", "A new entry under its own name; the original stays."));
     lines.pop();
     frame.render_widget(Paragraph::new(lines), inner);
+}
+
+pub fn draw_new(frame: &mut Frame, area: Rect, flow: &NewFlow, theme: &Theme) {
+    let title = if flow.for_inventory { "Create a new item" } else { "Create a campaign entry" };
+    if let Some(name) = &flow.name {
+        let t: Template = flow.template();
+        let rect = centered(area, 72, 6);
+        frame.render_widget(Clear, rect);
+        let block = pane(pane_title(&format!("{title} · {}", t.label()), true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
+        let inner = block.inner(rect);
+        let placeholder = format!("New {}", t.label().to_lowercase());
+        let shown = if name.is_empty() { Span::styled(placeholder, theme.dim) } else { Span::raw(name.clone()) };
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::styled("Name", theme.label),
+                Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), shown]),
+            ])
+            .block(block),
+            rect,
+        );
+        frame.set_cursor_position((inner.x + 2 + name.width() as u16, inner.y + 1));
+        return;
+    }
+    let rect = centered(area, 74, flow.templates.len() as u16 + 3);
+    frame.render_widget(Clear, rect);
+    let block = pane(pane_title(title, true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
+    let lines: Vec<Line> = flow
+        .templates
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let base = if i == flow.cursor { theme.selected } else { Style::new() };
+            let faint = if i == flow.cursor { theme.muted } else { theme.dim };
+            Line::from(vec![
+                Span::styled(if i == flow.cursor { "▸ " } else { "  " }, base.fg(theme.accent)),
+                Span::styled(format!("{:<20}", t.label()), base),
+                Span::styled(t.description(), base.patch(faint)),
+            ])
+            .style(base)
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines).block(block), rect);
 }

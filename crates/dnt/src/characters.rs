@@ -228,6 +228,8 @@ pub enum Action {
     Edit(std::path::PathBuf),
     /// Open this character's note in the Notes section.
     OpenNote(String),
+    /// Create a campaign item and add it to the inventory.
+    CreateItem,
 }
 
 pub struct Characters {
@@ -409,6 +411,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     Some(Picked::One(v)) if v == "custom" => {
                         sheet.popup = Some(Popup::Text(TextPrompt::CustomItem, String::new()));
                     }
+                    Some(Picked::One(v)) if v == "create" => return Action::CreateItem,
                     Some(Picked::One(v)) => {
                         equipment::add_item(&mut sheet.file.character, &v, 1, None);
                         let name = dnt_rules::overlay::resolve_id(lib, &v).map(|e| lib.entity(e).name.clone()).unwrap_or(v);
@@ -747,7 +750,10 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
         KeyCode::Home => sheet.inventory_cursor = 0,
         KeyCode::Char('G') | KeyCode::End => sheet.inventory_cursor = n.saturating_sub(1),
         KeyCode::Char('a') => {
-            let mut items = vec![crate::picker::PickItem::new("Custom item…", "anything not in the books", "custom")];
+            let mut items = vec![
+                crate::picker::PickItem::new("Create new item…", "a campaign item with stats", "create"),
+                crate::picker::PickItem::new("Custom item…", "just a name and a weight", "custom"),
+            ];
             items.extend(equipment_catalog(lib, filter));
             sheet.popup = Some(Popup::AddItem(Box::new(Picker::new("Add an item", items))));
         }

@@ -161,6 +161,10 @@ impl Library {
                                     m.insert("_dntName".into(), name.clone());
                                 }
                             }
+                            if kind == Kind::Spell && obj.get("classes").is_some() {
+                                // Re-read from the data when the library finishes loading.
+                                self.spell_classes.remove(&id);
+                            }
                             self.originals.insert(id, original);
                             self.entities[id].data = merged;
                         }
@@ -595,6 +599,7 @@ mod tests {
             "spell": [
                 {"name": "Hunter's Mark", "source": "CoS", "_copy": {"name": "Hunter's Mark", "source": "XPHB"},
                  "_dnt": {"replaces": true}, "level": 2,
+                 "classes": {"fromClassList": [{"name": "Druid", "source": "XPHB"}]},
                  "duration": [{"type": "timed", "duration": {"type": "minute", "amount": 10}, "concentration": true}]},
                 {"name": "Blood Spike", "source": "CoS", "level": 2, "entries": ["Ouch."],
                  "classes": {"fromClassList": [{"name": "Wizard", "source": "XPHB"}]}},
@@ -609,7 +614,8 @@ mod tests {
         assert_eq!(e.data["entries"][0], "Mark a target.", "unchanged fields come from the book");
         assert_eq!(lib.original(id).unwrap()["duration"][0]["duration"]["type"], "hour");
         assert_eq!(e.data["level"], 2, "a spell's level is not part of its identity");
-        assert_eq!(lib.overridden_fields(id), vec!["duration", "level"]);
+        assert_eq!(lib.overridden_fields(id), vec!["classes", "duration", "level"]);
+        assert_eq!(lib.spell_classes(id)[0].name, "Druid");
         assert_eq!(e.data["page"], 289, "book metadata is kept");
         let spike = lib.get(&Key::new(Kind::Spell, &["Blood Spike", "CoS"])).unwrap();
         assert_eq!(lib.spell_classes(spike)[0].name, "Wizard");

@@ -121,7 +121,7 @@ impl Campaign {
     }
 
     /// The source filter this campaign implies. The campaign's own
-    /// homebrew source is always enabled.
+    /// homebrew source and the global homebrew are always enabled.
     pub fn source_filter(&self) -> dnt_data::SourceFilter {
         let mut filter = if self.settings.sources.is_empty() {
             dnt_data::SourceFilter::default()
@@ -130,6 +130,7 @@ impl Campaign {
             if !self.settings.source.is_empty() {
                 sources.push(self.settings.source.clone());
             }
+            sources.push(GLOBAL_SOURCE.to_string());
             dnt_data::SourceFilter::only(&sources)
         };
         filter.hide_reprinted = !self.settings.show_reprinted;
@@ -349,6 +350,14 @@ impl Store {
     }
 }
 
+fn read_json(path: &Path) -> Result<serde_json::Value> {
+    let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+    serde_json::from_str(&text).map_err(|e| StoreError::Json {
+        path: path.to_path_buf(),
+        message: e.to_string(),
+    })
+}
+
 /// A short source abbreviation from a campaign name: `Curse of Strahd` →
 /// `CoS`, `Waterdeep: Dragon Heist` → `WDH`. Small words stay lowercase,
 /// as in data (`CoS`, `ToA`).
@@ -374,7 +383,75 @@ pub fn source_abbreviation(name: &str) -> String {
     }
 }
 
+/// Source of the global homebrew library (`<data>/library/homebrew/`).
+pub const GLOBAL_SOURCE: &str = "Homebrew";
+
 impl Store {
+    pub fn global_homebrew_dir(&self) -> PathBuf {
+        self.data_dir.join("library/homebrew")
+    }
+
+    /// The file dnt writes promoted entries to.
+    pub fn global_homebrew_path(&self) -> PathBuf {
+        self.global_homebrew_dir().join("homebrew.json")
+    }
+
+    /// All global homebrew files (`<data>/library/homebrew/*.json`), sorted.
+    pub fn global_homebrew_files(&self) -> Vec<PathBuf> {
+        let mut files: Vec<PathBuf> = fs::read_dir(self.global_homebrew_dir())
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("json"))
+            .collect();
+        files.sort();
+        files
+    }
+
+    /// The global homebrew document dnt writes to.
+    pub fn global_homebrew(&self) -> Result<serde_json::Value> {
+        let path = self.global_homebrew_path();
+        if !path.exists() {
+            return Ok(serde_json::json!({
+                "_meta": {"sources": [{"json": GLOBAL_SOURCE, "abbreviation": "HB", "full": "Homebrew", "version": "1"}]}
+            }));
+        }
+        read_json(&path)
+    }
+
+    pub fn save_global_homebrew(&self, doc: &serde_json::Value) -> Result<()> {
+        let text = serde_json::to_string_pretty(doc).expect("JSON serialises");
+        write_text(&self.global_homebrew_path(), &(text + "\n"))
+    }
+
+    /// Point a campaign's characters at a moved entity: every quoted
+    /// reference `"from"` (ignoring ASCII case) becomes `"to"`. Returns the
+    /// number of files changed.
+    pub fn rewrite_refs(&self, campaign: &Campaign, from: &str, to: &str) -> Result<usize> {
+        let needle = format!("\"{}\"", from.to_ascii_lowercase());
+        let mut changed = 0;
+        let paths = fs::read_dir(campaign.characters_dir()).into_iter().flatten().flatten().map(|e| e.path());
+        for path in paths.filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml")) {
+            let text = fs::read_to_string(&path).map_err(|source| StoreError::Io { path: path.clone(), source })?;
+            let lower = text.to_ascii_lowercase();
+            if !lower.contains(&needle) {
+                continue;
+            }
+            let mut out = String::with_capacity(text.len());
+            let mut last = 0;
+            for (i, _) in lower.match_indices(&needle) {
+                out.push_str(&text[last..i]);
+                out.push_str(&format!("\"{to}\""));
+                last = i + needle.len();
+            }
+            out.push_str(&text[last..]);
+            write_text(&path, &out)?;
+            changed += 1;
+        }
+        Ok(changed)
+    }
+
     /// The campaign's homebrew document (an empty one with the campaign's
     /// source if the file does not exist yet).
     pub fn homebrew(&self, campaign: &Campaign) -> Result<serde_json::Value> {
@@ -389,11 +466,7 @@ impl Store {
                 }]}
             }));
         }
-        let text = fs::read_to_string(&path).map_err(|source| StoreError::Io { path: path.clone(), source })?;
-        serde_json::from_str(&text).map_err(|e| StoreError::Json {
-            path,
-            message: e.to_string(),
-        })
+        read_json(&path)
     }
 
     pub fn save_homebrew(&self, campaign: &Campaign, doc: &serde_json::Value) -> Result<()> {
@@ -576,5 +649,23 @@ mod tests {
         };
         let f = c.source_filter();
         assert!(f.source_enabled("xphb") && !f.source_enabled("PHB") && f.hide_reprinted);
+        assert!(f.source_enabled("homebrew"), "the global homebrew is always on");
+    }
+
+    #[test]
+    fn global_homebrew_and_refs() {
+        let (_tmp, store) = store();
+        let doc = store.global_homebrew().unwrap();
+        assert_eq!(doc["_meta"]["sources"][0]["json"], GLOBAL_SOURCE);
+        store.save_global_homebrew(&doc).unwrap();
+        assert_eq!(store.global_homebrew_files(), vec![store.global_homebrew_path()]);
+
+        let camp = store.create_campaign(CampaignSettings { name: "C".into(), ..Default::default() }).unwrap();
+        let ch = Character { name: "A".into(), feats: vec!["feat:Lucky|XPHB".into(), "feat:Grim|C".into()], ..Default::default() };
+        let file = store.create_character(&camp, ch).unwrap();
+        assert_eq!(store.rewrite_refs(&camp, "feat:grim|c", "feat:Grim|Homebrew").unwrap(), 1);
+        let again = store.load_character(&file.path).unwrap();
+        assert_eq!(again.character.feats, vec!["feat:Lucky|XPHB", "feat:Grim|Homebrew"]);
+        assert_eq!(store.rewrite_refs(&camp, "feat:grim|c", "x").unwrap(), 0);
     }
 }
