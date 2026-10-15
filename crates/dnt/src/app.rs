@@ -50,6 +50,8 @@ pub struct App {
     pub overlays: OverlaySet,
     /// A file to open in $EDITOR; handled by the main loop.
     pub pending_edit: Option<PathBuf>,
+    /// The library must be rebuilt (campaign switched, homebrew changed).
+    pub pending_reload: bool,
     pub status: String,
     pub quit: bool,
     store: Store,
@@ -93,11 +95,52 @@ impl App {
             capture: None,
             overlays,
             pending_edit: None,
+            pending_reload: false,
             status,
             quit: false,
             store,
             config,
         }
+    }
+
+    /// Build the library for the active campaign: the base library plus the
+    /// campaign's homebrew (giving the campaign a source if it has none).
+    pub fn prepare_library(&mut self, base: &Library) -> Library {
+        let mut lib = base.clone();
+        let Some(i) = self.active else { return lib };
+        let taken = |s: &str| base.source_info(s).is_some();
+        if let Err(e) = self.store.ensure_source(&mut self.campaigns.list[i], &taken) {
+            self.status = format!("Could not save campaign: {e}");
+        }
+        match self.store.homebrew(&self.campaigns.list[i]) {
+            Ok(doc) => {
+                let problems = lib.apply_campaign(&doc);
+                if let Some(p) = problems.first() {
+                    self.status = format!("Campaign homebrew: {p}");
+                }
+            }
+            Err(e) => self.status = format!("Campaign homebrew: {e}"),
+        }
+        lib
+    }
+
+    /// Refresh everything derived from the library after it was rebuilt.
+    pub fn library_reloaded(&mut self, lib: &Library) {
+        let filter = self
+            .override_filter
+            .clone()
+            .or_else(|| self.active_campaign().map(|c| c.source_filter()))
+            .unwrap_or_default();
+        let (category, query) = (self.compendium.category, self.compendium.query.clone());
+        self.compendium = Compendium::new(lib, filter.clone());
+        self.compendium.restore(lib, category, query);
+        let (selected, pane) = (self.campaigns.selected, self.campaigns.pane);
+        let list = std::mem::take(&mut self.campaigns.list);
+        self.campaigns = Campaigns::new(lib, list);
+        self.campaigns.selected = selected;
+        self.campaigns.pane = pane;
+        self.characters.filter = filter;
+        self.characters.refresh(lib, &self.overlays);
     }
 
     /// Re-read the character file after it was edited externally.
@@ -302,6 +345,8 @@ impl App {
             self.status = format!("Active campaign: {name}");
         }
         self.apply_filter(lib);
+        // The library carries the active campaign's homebrew.
+        self.pending_reload = true;
         let filter = self.characters.filter.clone();
         self.characters = Characters::new(self.store.characters(&self.campaigns.list[index]).0);
         self.characters.filter = filter;

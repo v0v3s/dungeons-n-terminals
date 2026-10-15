@@ -48,7 +48,7 @@ pub struct ClassRef {
     pub source: String,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Library {
     entities: Vec<Entity>,
     index: HashMap<Key, EntityId>,
@@ -62,6 +62,8 @@ pub struct Library {
     /// Base entity → its generated `_versions` (lineages, feat variants, …).
     versions: HashMap<EntityId, Vec<EntityId>>,
     version_base: HashMap<EntityId, EntityId>,
+    /// Entities replaced by a campaign override: their book data.
+    originals: HashMap<EntityId, Value>,
 }
 
 /// Top-level files in a data `data/` directory that hold player-facing content.
@@ -120,6 +122,87 @@ impl Library {
         }
         lib.finish();
         Ok(lib)
+    }
+
+    /// Load a campaign's homebrew. Entities marked `"_dnt": {"replaces":
+    /// true}` with a `_copy` patch the entity they copy *in place* (same
+    /// key), so every lookup gets the campaign version; the book data is
+    /// kept for [`Library::original`]. Everything else loads as normal
+    /// homebrew. Returns problems found.
+    pub fn apply_campaign(&mut self, json: &Value) -> Vec<String> {
+        let mut problems = Vec::new();
+        let mut rest = json.clone();
+        if let Some(top) = rest.as_object_mut() {
+            for (key, list) in top.iter_mut() {
+                let (Some(kind), Some(list)) = (Kind::from_json_key(key), list.as_array_mut()) else { continue };
+                list.retain(|obj| {
+                    let replaces = obj.get("_dnt").and_then(|d| d.get("replaces")).and_then(Value::as_bool) == Some(true);
+                    if !replaces {
+                        return true;
+                    }
+                    let base = obj.get("_copy").and_then(|m| Key::of_entity(kind, m)).and_then(|k| self.get(&k));
+                    match base {
+                        Some(id) => {
+                            let original = self.originals.get(&id).cloned().unwrap_or_else(|| self.entities[id].data.clone());
+                            // An override keeps everything it does not change
+                            // (page, srd flags, …), unlike a plain `_copy`.
+                            let mut patch = obj.clone();
+                            patch["_copy"]["_preserve"]["*"] = Value::Bool(true);
+                            let mut merged = copy::merge(&original, &patch);
+                            if let Some(m) = merged.as_object_mut() {
+                                // Keep the original identity so ids keep resolving.
+                                for k in ["name", "source", "className", "classSource", "level", "shortName", "subclassShortName", "subclassSource"] {
+                                    match original.get(k) {
+                                        Some(v) => m.insert(k.to_string(), v.clone()),
+                                        None => m.remove(k),
+                                    };
+                                }
+                                if let Some(name) = obj.get("name").filter(|n| Some(*n) != original.get("name")) {
+                                    m.insert("_dntName".into(), name.clone());
+                                }
+                            }
+                            self.originals.insert(id, original);
+                            self.entities[id].data = merged;
+                        }
+                        None => problems.push(format!(
+                            "override of a missing {}: {}",
+                            kind.json_key(),
+                            obj.get("_copy").map(|c| c.to_string()).unwrap_or_default()
+                        )),
+                    }
+                    false
+                });
+            }
+        }
+        self.load_json(&rest);
+        problems
+    }
+
+    /// The book version of an entity a campaign override replaced.
+    pub fn original(&self, id: EntityId) -> Option<&Value> {
+        self.originals.get(&id)
+    }
+
+    /// Top-level fields an override changed (empty if not overridden).
+    pub fn overridden_fields(&self, id: EntityId) -> Vec<String> {
+        let Some(orig) = self.originals.get(&id) else { return Vec::new() };
+        let cur = &self.entities[id].data;
+        let mut keys: Vec<String> = cur
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter(|(k, v)| !k.starts_with('_') && orig.get(*k) != Some(*v))
+            .map(|(k, _)| k.clone())
+            .collect();
+        keys.extend(
+            orig.as_object()
+                .into_iter()
+                .flatten()
+                .filter(|(k, _)| !k.starts_with('_') && cur.get(*k).is_none())
+                .map(|(k, _)| k.clone()),
+        );
+        keys.sort();
+        keys
     }
 
     /// Load an in-memory data-shaped document (e.g. homebrew, or test data).
@@ -218,6 +301,29 @@ impl Library {
         self.expand_versions();
         if let Some(lookup) = self.pending_spell_lookup.take() {
             self.attach_spell_classes(&lookup);
+        }
+        // Homebrew spells list their classes inline.
+        for id in 0..self.entities.len() {
+            if self.entities[id].kind != Kind::Spell || self.spell_classes.contains_key(&id) {
+                continue;
+            }
+            let classes: Vec<ClassRef> = self.entities[id]
+                .data
+                .get("classes")
+                .and_then(|c| c.get("fromClassList"))
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|c| {
+                    Some(ClassRef {
+                        name: c.get("name")?.as_str()?.to_string(),
+                        source: c.get("source").and_then(Value::as_str).unwrap_or("PHB").to_string(),
+                    })
+                })
+                .collect();
+            if !classes.is_empty() {
+                self.spell_classes.insert(id, classes);
+            }
         }
     }
 
@@ -476,6 +582,38 @@ fn parse_parallel(files: &[PathBuf]) -> Vec<(PathBuf, Result<Value, LoadError>)>
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn campaign_overrides_patch_in_place() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"spell": [{"name": "Hunter's Mark", "source": "XPHB", "level": 1, "page": 289,
+            "duration": [{"type": "timed", "duration": {"type": "hour", "amount": 1}, "concentration": true}],
+            "entries": ["Mark a target."]}]}));
+        let id = lib.get(&Key::new(Kind::Spell, &["Hunter's Mark", "XPHB"])).unwrap();
+        let problems = lib.apply_campaign(&json!({
+            "_meta": {"sources": [{"json": "CoS", "full": "Curse of Strahd"}]},
+            "spell": [
+                {"name": "Hunter's Mark", "source": "CoS", "_copy": {"name": "Hunter's Mark", "source": "XPHB"},
+                 "_dnt": {"replaces": true},
+                 "duration": [{"type": "timed", "duration": {"type": "minute", "amount": 10}, "concentration": true}]},
+                {"name": "Blood Spike", "source": "CoS", "level": 2, "entries": ["Ouch."],
+                 "classes": {"fromClassList": [{"name": "Wizard", "source": "XPHB"}]}},
+                {"name": "Nope", "source": "CoS", "_copy": {"name": "Missing", "source": "XPHB"}, "_dnt": {"replaces": true}}
+            ]
+        }));
+        assert_eq!(problems.len(), 1);
+        // Same id and key; campaign data.
+        let e = lib.entity(id);
+        assert_eq!((e.name.as_str(), e.source.as_str()), ("Hunter's Mark", "XPHB"));
+        assert_eq!(e.data["duration"][0]["duration"]["type"], "minute");
+        assert_eq!(e.data["entries"][0], "Mark a target.", "unchanged fields come from the book");
+        assert_eq!(lib.original(id).unwrap()["duration"][0]["duration"]["type"], "hour");
+        assert_eq!(lib.overridden_fields(id), vec!["duration"]);
+        assert_eq!(e.data["page"], 289, "book metadata is kept");
+        let spike = lib.get(&Key::new(Kind::Spell, &["Blood Spike", "CoS"])).unwrap();
+        assert_eq!(lib.spell_classes(spike)[0].name, "Wizard");
+        assert_eq!(lib.source_info("cos").unwrap().name, "Curse of Strahd");
+    }
 
     #[test]
     fn versions_named_and_templated() {

@@ -11,14 +11,20 @@ use crate::tags::{self, Span, Style};
 /// The full document for an entity. Related entities (e.g. a class's
 /// subclasses) are limited to those `filter` allows.
 pub fn document(lib: &Library, id: EntityId, filter: &SourceFilter) -> Vec<Block> {
+    document_of(lib, id, &lib.entity(id).data, filter)
+}
+
+/// The document for an entity rendered from `data` (e.g. the book version
+/// of an entity a campaign overrides).
+pub fn document_of(lib: &Library, id: EntityId, data: &Value, filter: &SourceFilter) -> Vec<Block> {
     let e = lib.entity(id);
-    let d = &e.data;
+    let d = data;
     let mut out = Vec::new();
 
     let mut props: Vec<(&str, Vec<Span>)> = Vec::new();
     let mut lines = Vec::new();
     match e.kind {
-        Kind::Spell => spell_props(lib, id, filter, &mut props),
+        Kind::Spell => spell_props(lib, id, d, filter, &mut props),
         Kind::Item | Kind::BaseItem | Kind::ItemGroup | Kind::MagicVariant => item_props(d, &mut props),
         Kind::Race | Kind::Subrace => race_props(d, &mut props),
         Kind::Background => background_props(d, &mut props),
@@ -174,8 +180,7 @@ pub fn title_case(s: &str) -> String {
 
 // ---- spells ----
 
-fn spell_props(lib: &Library, id: EntityId, filter: &SourceFilter, props: &mut Vec<(&'static str, Vec<Span>)>) {
-    let d = &lib.entity(id).data;
+fn spell_props(lib: &Library, id: EntityId, d: &Value, filter: &SourceFilter, props: &mut Vec<(&'static str, Vec<Span>)>) {
     let level = d.get("level").and_then(Value::as_u64).unwrap_or(0);
     let school = spell_school(str_of(d, "school").unwrap_or(""));
     let ritual = d.get("meta").and_then(|m| m.get("ritual")).and_then(Value::as_bool) == Some(true);

@@ -95,6 +95,8 @@ pub enum Focus {
 pub struct DetailView {
     pub entity: EntityId,
     pub doc: Vec<Block>,
+    /// Showing the book version of a campaign override.
+    pub original: bool,
     pub scroll: usize,
     pub focused_link: Option<usize>,
 }
@@ -104,6 +106,7 @@ impl DetailView {
         DetailView {
             entity,
             doc: view::document(lib, entity, filter),
+            original: false,
             scroll: 0,
             focused_link: None,
         }
@@ -167,6 +170,13 @@ impl Compendium {
         c.recount(lib);
         c.refilter(lib);
         c
+    }
+
+    /// Restore the category and query after a rebuild.
+    pub fn restore(&mut self, lib: &Library, category: Category, query: String) {
+        self.category = category;
+        self.query = query;
+        self.refilter(lib);
     }
 
     /// Show an entity in the detail pane (e.g. from a note link).
@@ -389,6 +399,20 @@ impl Compendium {
             KeyCode::PageUp => detail.scroll = detail.scroll.saturating_sub(half * 2),
             KeyCode::Char('g') | KeyCode::Home => detail.scroll = 0,
             KeyCode::Char('G') | KeyCode::End => detail.scroll = max_scroll,
+            KeyCode::Char('o') if !ctrl => {
+                // Toggle the book version of a campaign override.
+                let Some(orig) = lib.original(detail.entity) else {
+                    return Outcome::Status("Not a campaign version".into());
+                };
+                detail.original = !detail.original;
+                detail.doc = if detail.original {
+                    view::document_of(lib, detail.entity, orig, &self.filter)
+                } else {
+                    view::document(lib, detail.entity, &self.filter)
+                };
+                detail.scroll = 0;
+                detail.focused_link = None;
+            }
             KeyCode::Tab | KeyCode::Char('n') => self.cycle_link(1),
             KeyCode::BackTab | KeyCode::Char('N') => self.cycle_link(-1),
             KeyCode::Enter => return self.follow_link(lib),

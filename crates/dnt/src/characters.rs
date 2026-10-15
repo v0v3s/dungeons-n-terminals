@@ -276,6 +276,14 @@ impl Characters {
         }
     }
 
+    /// Rebuild an open sheet against a rebuilt library.
+    pub fn refresh(&mut self, lib: &Library, overlays: &OverlaySet) {
+        if let Some(sheet) = self.sheet.as_mut() {
+            sheet.filter = self.filter.clone();
+            sheet.rebuild(lib, overlays);
+        }
+    }
+
     /// Reload the open sheet after its file changed on disk (e.g. edited).
     pub fn reload(&mut self, file: CharacterFile, lib: &Library, overlays: &OverlaySet) {
         if let Some(i) = self.files.iter().position(|f| f.path == file.path) {

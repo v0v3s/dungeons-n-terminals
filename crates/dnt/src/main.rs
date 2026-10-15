@@ -69,13 +69,15 @@ fn main() -> Result<()> {
     };
 
     let start = Instant::now();
-    let mut lib = Library::load_data_dir(&data).with_context(|| format!("loading {}", data.display()))?;
+    // The base library: books and global homebrew. Campaign homebrew is
+    // layered on a clone of it (see App::prepare_library).
+    let mut base = Library::load_data_dir(&data).with_context(|| format!("loading {}", data.display()))?;
     for path in config.library.homebrew.iter().chain(&args.homebrew) {
-        lib.load_file(path).with_context(|| format!("loading {}", path.display()))?;
+        base.load_file(path).with_context(|| format!("loading {}", path.display()))?;
     }
-    let mut status = format!("Loaded {} entries in {} ms", lib.entities().len(), start.elapsed().as_millis());
-    if !lib.warnings.is_empty() {
-        status.push_str(&format!(" ({} warnings)", lib.warnings.len()));
+    let mut status = format!("Loaded {} entries in {} ms", base.entities().len(), start.elapsed().as_millis());
+    if !base.warnings.is_empty() {
+        status.push_str(&format!(" ({} warnings)", base.warnings.len()));
     }
 
     let override_filter = (!args.sources.is_empty()).then(|| SourceFilter {
@@ -83,7 +85,9 @@ fn main() -> Result<()> {
         ..SourceFilter::only(&args.sources)
     });
 
-    let mut app = App::new(&lib, store, config, override_filter, status);
+    let mut app = App::new(&base, store, config, override_filter, status);
+    let mut lib = app.prepare_library(&base);
+    app.library_reloaded(&lib);
     let theme = theme::Theme::default();
     ratatui::run(|terminal| -> Result<()> {
         while !app.quit {
@@ -92,6 +96,10 @@ fn main() -> Result<()> {
                 if key.kind == KeyEventKind::Press {
                     app.handle_key(&lib, key);
                 }
+            }
+            if std::mem::take(&mut app.pending_reload) {
+                lib = app.prepare_library(&base);
+                app.library_reloaded(&lib);
             }
             if let Some(path) = app.pending_edit.take() {
                 ratatui::restore();

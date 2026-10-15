@@ -26,6 +26,8 @@ pub enum StoreError {
     Serialize { what: String, source: toml::ser::Error },
     #[error("{path}: {message}")]
     Character { path: PathBuf, message: String },
+    #[error("{path}: {message}")]
+    Json { path: PathBuf, message: String },
     #[error("no campaign named {0:?}")]
     NoSuchCampaign(String),
     #[error("could not determine the user's data/config directories")]
@@ -80,6 +82,9 @@ pub struct CampaignSettings {
     pub show_reprinted: bool,
     #[serde(default, skip_serializing_if = "NotesSettings::is_empty")]
     pub notes: NotesSettings,
+    /// Source abbreviation of this campaign's homebrew (e.g. `CoS`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -111,12 +116,21 @@ impl Campaign {
         self.dir.join("notes")
     }
 
-    /// The source filter this campaign implies.
+    pub fn homebrew_path(&self) -> PathBuf {
+        self.dir.join("homebrew.json")
+    }
+
+    /// The source filter this campaign implies. The campaign's own
+    /// homebrew source is always enabled.
     pub fn source_filter(&self) -> dnt_data::SourceFilter {
         let mut filter = if self.settings.sources.is_empty() {
             dnt_data::SourceFilter::default()
         } else {
-            dnt_data::SourceFilter::only(&self.settings.sources)
+            let mut sources = self.settings.sources.clone();
+            if !self.settings.source.is_empty() {
+                sources.push(self.settings.source.clone());
+            }
+            dnt_data::SourceFilter::only(&sources)
         };
         filter.hide_reprinted = !self.settings.show_reprinted;
         filter
@@ -335,6 +349,79 @@ impl Store {
     }
 }
 
+/// A short source abbreviation from a campaign name: `Curse of Strahd` →
+/// `CoS`, `Waterdeep: Dragon Heist` → `WDH`. Small words stay lowercase,
+/// as in data (`CoS`, `ToA`).
+pub fn source_abbreviation(name: &str) -> String {
+    const SMALL: &[&str] = &["of", "the", "and", "a", "an", "in", "on", "to", "for"];
+    let abbr: String = name
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .enumerate()
+        .map(|(i, w)| {
+            let c = w.chars().next().unwrap();
+            if i > 0 && SMALL.contains(&w.to_lowercase().as_str()) {
+                c.to_ascii_lowercase()
+            } else {
+                c.to_ascii_uppercase()
+            }
+        })
+        .collect();
+    if abbr.is_empty() {
+        "HB".into()
+    } else {
+        abbr
+    }
+}
+
+impl Store {
+    /// The campaign's homebrew document (an empty one with the campaign's
+    /// source if the file does not exist yet).
+    pub fn homebrew(&self, campaign: &Campaign) -> Result<serde_json::Value> {
+        let path = campaign.homebrew_path();
+        if !path.exists() {
+            return Ok(serde_json::json!({
+                "_meta": {"sources": [{
+                    "json": campaign.settings.source,
+                    "abbreviation": campaign.settings.source,
+                    "full": format!("{} (campaign)", campaign.settings.name),
+                    "version": "1"
+                }]}
+            }));
+        }
+        let text = fs::read_to_string(&path).map_err(|source| StoreError::Io { path: path.clone(), source })?;
+        serde_json::from_str(&text).map_err(|e| StoreError::Json {
+            path,
+            message: e.to_string(),
+        })
+    }
+
+    pub fn save_homebrew(&self, campaign: &Campaign, doc: &serde_json::Value) -> Result<()> {
+        let text = serde_json::to_string_pretty(doc).expect("JSON serialises");
+        write_text(&campaign.homebrew_path(), &(text + "\n"))
+    }
+
+    /// Give a campaign a homebrew source abbreviation if it has none, avoiding
+    /// `taken` ones (lowercase). Returns whether it changed.
+    pub fn ensure_source(&self, campaign: &mut Campaign, taken: &dyn Fn(&str) -> bool) -> Result<bool> {
+        if !campaign.settings.source.is_empty() {
+            return Ok(false);
+        }
+        // Campaign names often match their adventure's source (CoS):
+        // then use `CoS-HB`, then `CoS-HB2`, …
+        let base = source_abbreviation(&campaign.settings.name);
+        let mut abbr = base.clone();
+        let mut n = 1;
+        while taken(&abbr.to_lowercase()) {
+            abbr = if n == 1 { format!("{base}-HB") } else { format!("{base}-HB{n}") };
+            n += 1;
+        }
+        campaign.settings.source = abbr;
+        self.save_campaign(campaign)?;
+        Ok(true)
+    }
+}
+
 /// Lowercase ASCII slug: `Curse of Strahd!` → `curse-of-strahd`.
 pub fn slugify(name: &str) -> String {
     let mut out = String::new();
@@ -395,6 +482,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path().join("data"), dir.path().join("config/config.toml"));
         (dir, store)
+    }
+
+    #[test]
+    fn abbreviations() {
+        assert_eq!(source_abbreviation("Curse of Strahd"), "CoS");
+        assert_eq!(source_abbreviation("Waterdeep: Dragon Heist"), "WDH");
+        assert_eq!(source_abbreviation("tomb of annihilation"), "ToA");
+        assert_eq!(source_abbreviation("!!!"), "HB");
     }
 
     #[test]

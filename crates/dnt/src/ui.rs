@@ -497,13 +497,22 @@ fn draw_detail(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium,
         ])),
         title,
     );
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(e.kind.label(), Style::new().fg(color)),
-            Span::styled(format!("  ·  {source}{page}"), theme.dim),
-        ])),
-        subtitle,
-    );
+    let mut sub = vec![
+        Span::styled(e.kind.label(), Style::new().fg(color)),
+        Span::styled(format!("  ·  {source}{page}"), theme.dim),
+    ];
+    let changed = lib.overridden_fields(detail.entity);
+    if lib.original(detail.entity).is_some() {
+        if detail.original {
+            sub.push(Span::styled("   book version ", theme.keycap));
+            sub.push(Span::styled("  o shows the campaign version", theme.dim));
+        } else {
+            sub.push(Span::styled("   campaign version ", theme.category_active));
+            let what = if changed.is_empty() { String::new() } else { format!(" changed: {}", changed.join(", ")) };
+            sub.push(Span::styled(format!("{what}  · o shows the original"), theme.dim));
+        }
+    }
+    frame.render_widget(Paragraph::new(Line::from(sub)), subtitle);
 
     let text_area = Rect {
         width: body.width.min(READING_WIDTH),

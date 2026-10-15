@@ -33,7 +33,9 @@ pub fn merge(base: &Value, copy: &Value) -> Value {
 
     let mut out: Map<String, Value> = base
         .iter()
-        .filter(|(k, _)| !NOT_INHERITED.contains(&k.as_str()) || preserve.is_some_and(|p| p.contains_key(*k)))
+        .filter(|(k, _)| {
+            !NOT_INHERITED.contains(&k.as_str()) || preserve.is_some_and(|p| p.contains_key(*k) || p.contains_key("*"))
+        })
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     for (k, v) in copy {
