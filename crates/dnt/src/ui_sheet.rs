@@ -499,6 +499,9 @@ fn draw_attacks(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
         for n in &a.notes {
             notes.push(Span::styled(format!("{n}  "), base.fg(Color::Red)));
         }
+        if a.monk_weapon {
+            notes.push(Span::styled("monk weapon  ", base.fg(theme.accent)));
+        }
         if let Some(m) = &a.mastery {
             notes.push(Span::styled(format!("mastery: {m}  "), base.fg(theme.accent)));
         }
@@ -1190,7 +1193,10 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             _ if needs_attune => Span::styled("☆ ", base.patch(faint)),
             _ => Span::styled("  ", base),
         };
-        let kind = entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default();
+        let mut kind = entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default();
+        if entity.is_some() && sheet.build.attacks.iter().any(|a| a.item == entity && a.monk_weapon) {
+            kind.push_str(" monk weapon");
+        }
         let weight = if w > 0.0 { format!("{w:.1}") } else { "—".into() };
         lines.push(
             spread(

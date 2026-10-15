@@ -774,6 +774,25 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             sheet.popup = Some(Popup::AddItem(Box::new(Picker::new("Add an item", items))));
         }
         KeyCode::Char('g') => sheet.popup = Some(Popup::Text(TextPrompt::Currency, String::new())),
+        KeyCode::Char('m') if n > 0 => {
+            // Mark or unmark a monk weapon; back to the rules when they agree.
+            let line = &sheet.file.character.inventory[i];
+            let Some(e) = item_entity(lib, line) else { return Action::None };
+            let ent = lib.entity(e);
+            let Some(w) = dnt_rules::attacks::Weapon::from_item(&ent.name.to_lowercase(), &ent.data) else {
+                return Action::Status(format!("{} is not a weapon", ent.name));
+            };
+            let preset = sheet.build.martial_arts.is_some_and(|m| m.preset(&w));
+            let now = !line.monk_weapon.unwrap_or(preset);
+            let name = ent.name.clone();
+            sheet.file.character.inventory[i].monk_weapon = (now != preset).then_some(now);
+            let msg = match (now, sheet.build.martial_arts.is_some()) {
+                (true, true) => format!("{name} is a monk weapon"),
+                (true, false) => format!("{name} is marked as a monk weapon (it counts once you have Martial Arts)"),
+                (false, _) => format!("{name} is not a monk weapon"),
+            };
+            return changed(sheet, lib, overlays, msg);
+        }
         KeyCode::Char('+' | '=') if n > 0 => {
             sheet.file.character.inventory[i].quantity += 1;
             return changed(sheet, lib, overlays, "Quantity +1".into());

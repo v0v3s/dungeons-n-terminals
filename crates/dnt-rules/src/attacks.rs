@@ -195,8 +195,32 @@ impl Weapon {
         })
     }
 
-    fn has(&self, code: &str) -> bool {
+    pub fn has(&self, code: &str) -> bool {
         self.properties.iter().any(|p| p == code)
+    }
+}
+
+/// The Monk's Martial Arts: which weapons are monk weapons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MartialArts {
+    /// 2024 rules (simple melee and Light martial melee weapons) rather
+    /// than 2014 (shortswords and simple melee weapons that are neither
+    /// two-handed nor heavy).
+    pub rules_2024: bool,
+}
+
+impl MartialArts {
+    /// Whether the rules make this weapon a monk weapon.
+    pub fn preset(&self, w: &Weapon) -> bool {
+        if !w.melee {
+            return false;
+        }
+        let simple = w.category.as_deref() == Some("simple");
+        if self.rules_2024 {
+            simple || (w.category.as_deref() == Some("martial") && w.has("L"))
+        } else {
+            w.base_name == "shortsword" || (simple && !w.has("2H") && !w.has("H"))
+        }
     }
 }
 
@@ -218,6 +242,8 @@ pub struct Attack {
     pub properties: Vec<String>,
     /// The weapon's mastery property, if the character has mastered it.
     pub mastery: Option<String>,
+    /// Used as a monk weapon (Martial Arts).
+    pub monk_weapon: bool,
     /// Why something is off (no damage dice, needs attunement, …).
     pub notes: Vec<String>,
 }
@@ -280,6 +306,7 @@ pub fn add_attacks(
     character: &Character,
     prof: &WeaponProficiency,
     mastered: &[EntityId],
+    martial_arts: Option<MartialArts>,
 ) -> Vec<Attack> {
     let mut attacks = Vec::new();
     let mut seen = Vec::new();
@@ -303,7 +330,12 @@ pub fn add_attacks(
         let mastery = w.mastery.clone().filter(|_| {
             mastered.iter().any(|&m| lib.entity(m).name.eq_ignore_ascii_case(&w.base_name) || m == id)
         });
-        attacks.push(weapon_attack(model, &s, &name, Some(id), line.equipped, &w, prof, attuned_ok, mastery));
+        let monk = martial_arts.is_some_and(|m| line.monk_weapon.unwrap_or_else(|| m.preset(&w)));
+        let mut a = weapon_attack(model, &s, &name, Some(id), line.equipped, &w, prof, attuned_ok, mastery, monk);
+        if martial_arts.is_none() && line.monk_weapon == Some(true) {
+            a.notes.push("marked as a monk weapon, but no Martial Arts".into());
+        }
+        attacks.push(a);
     }
     attacks.push(unarmed(model));
     attacks
@@ -320,13 +352,17 @@ fn weapon_attack(
     prof: &WeaponProficiency,
     attuned_ok: bool,
     mastery: Option<String>,
+    monk: bool,
 ) -> Attack {
     let key = |part: &str| format!("attack.{s}.{part}");
     let finesse = w.has("F");
-    let (ability, label) = match (finesse, w.melee) {
-        (true, _) => ("max(mod.str, mod.dex)", "Strength or Dexterity (finesse)"),
-        (false, true) => ("mod.str", "Strength"),
-        (false, false) => ("mod.dex", "Dexterity"),
+    // Finesse and monk weapons use the better of Strength and Dexterity.
+    let flexible = finesse || monk;
+    let (ability, label) = match (monk, finesse, w.melee) {
+        (true, _, _) => ("max(mod.str, mod.dex)", "Strength or Dexterity (Martial Arts)"),
+        (_, true, _) => ("max(mod.str, mod.dex)", "Strength or Dexterity (finesse)"),
+        (_, false, true) => ("mod.str", "Strength"),
+        (_, false, false) => ("mod.dex", "Dexterity"),
     };
     model.stats.push(StatDef::new(&key("mod"), ability, label));
     let proficient = prof.covers(w);
@@ -361,11 +397,23 @@ fn weapon_attack(
     }
     for (stat, dice, one_handed) in [(key("damage"), Some(dice), true), (key("versatile"), w.versatile.clone(), false)] {
         let Some(dice) = dice else { continue };
-        model.stats.push(StatDef {
-            key: stat.clone(),
-            base: Formula::parse(&dice).unwrap_or_else(|_| Formula::constant(Value::int(0))),
-            origin: format!("{name} ({})", if one_handed { "damage dice" } else { "two-handed" }),
-        });
+        let weapon_dice = Formula::parse(&dice).unwrap_or_else(|_| Formula::constant(Value::int(0)));
+        let mut base = (weapon_dice, format!("{name} ({})", if one_handed { "damage dice" } else { "two-handed" }));
+        if monk {
+            // Martial Arts: the Martial Arts die if it is better.
+            let average = |v: Option<Value>| match v {
+                Some(Value::Dice(d)) => d.average(),
+                Some(Value::Num(n)) => n.floor(),
+                _ => 0,
+            };
+            let own = average(base.0.eval(&model.inputs).ok());
+            if let Some(die) = model.inputs.get("class.monk.martial_arts").cloned() {
+                if average(Some(die)) > own {
+                    base = (Formula::parse("class.monk.martial_arts").unwrap(), "Martial Arts die".into());
+                }
+            }
+        }
+        model.stats.push(StatDef { key: stat.clone(), base: base.0, origin: base.1 });
         model.effects.push(effect(&stat, &key("mod"), label));
         if attuned_ok && magic.1 != 0 {
             model.effects.push(effect(&stat, &magic.1.to_string(), name));
@@ -374,7 +422,7 @@ fn weapon_attack(
         copy_group_effects(model, &groups, "damage", &stat);
         // Strength-based attacks (Rage): melee weapons, and finesse ones
         // when Strength is the better ability.
-        match (w.melee, finesse) {
+        match (w.melee, flexible) {
             (true, false) => copy_group_effects(model, &["attack.strength"], "damage", &stat),
             (_, true) => copy_group_effects_when(model, &["attack.strength"], "damage", &stat, Some("mod.str >= mod.dex")),
             _ => {}
@@ -399,6 +447,7 @@ fn weapon_attack(
         range,
         damage_type: w.damage_type.clone().unwrap_or_default(),
         has_versatile: w.versatile.is_some(),
+        monk_weapon: monk,
         properties: w.properties.iter().filter(|p| !matches!(p.as_str(), "V")).map(|p| item_property(p).to_string()).collect(),
         mastery,
         notes,
@@ -426,6 +475,7 @@ fn unarmed(model: &mut Model) -> Attack {
         has_versatile: false,
         properties: Vec::new(),
         mastery: None,
+        monk_weapon: false,
         notes: Vec::new(),
     }
 }
@@ -611,11 +661,76 @@ add = "2"
             origin: "Rage".into(),
         });
         let prof = super::weapon_proficiency(&lib, &c, &[], &[]);
-        super::add_attacks(&mut model, &lib, &c, &prof, &[]);
+        super::add_attacks(&mut model, &lib, &c, &prof, &[], None);
         let ev = model.evaluate();
         assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 5", "Strength melee");
         assert_eq!(ev.get("attack.longbow.damage").unwrap().to_string(), "1d8 + 2", "not ranged");
         assert_eq!(ev.get("attack.rapier.damage").unwrap().to_string(), "1d8 + 5", "finesse using Strength");
         assert_eq!(ev.get("attack.unarmed.damage").unwrap().to_string(), "6");
+    }
+
+    fn monk_library() -> Library {
+        let mut lib = library();
+        lib.load_json(&json!({
+            "class": [{"name": "Monk", "source": "XPHB", "hd": {"faces": 8}, "proficiency": ["str", "dex"],
+                "startingProficiencies": {"weapons": ["simple",
+                    "Martial weapons that have the {@filter Light|items|type=martial weapon|property=light} property"]},
+                "classTableGroups": [{"colLabels": ["Martial Arts"], "rows": [[{"type": "dice", "toRoll": [{"number": 1, "faces": 6}]}]]}],
+                "classFeatures": ["Martial Arts|Monk|XPHB|1"]}],
+            "classFeature": [{"name": "Martial Arts", "source": "XPHB", "className": "Monk", "classSource": "XPHB", "level": 1, "entries": ["x"]}],
+            "baseitem": [
+                {"name": "Shortsword", "source": "T", "type": "M|T", "weaponCategory": "martial", "weapon": true,
+                 "property": ["F|T", "L|T"], "dmg1": "1d6", "dmgType": "P"}
+            ],
+            "item": [
+                {"name": "Nunchaku", "source": "HB", "type": "M|XPHB", "weaponCategory": "simple", "weapon": true, "dmg1": "1d4", "dmgType": "B"}
+            ]
+        }));
+        lib
+    }
+
+    fn monk(items: &[&str]) -> Character {
+        let mut c = Character { name: "M".into(), ..Character::default() };
+        c.abilities.str = 10;
+        c.abilities.dex = 16;
+        c.levels = vec![Level { class: "class:Monk|XPHB".into(), hp: Default::default(), choices: Default::default() }];
+        c.inventory = items
+            .iter()
+            .map(|i| InventoryItem { item: Some(format!("item:{i}")), equipped: true, ..Default::default() })
+            .collect();
+        c
+    }
+
+    #[test]
+    fn monk_weapons() {
+        let lib = monk_library();
+        let c = monk(&["Nunchaku|HB", "Shortsword|T", "Longsword|T"]);
+        let b = build(&c, &lib, &OverlaySet::default());
+        assert_eq!(b.martial_arts, Some(super::MartialArts { rules_2024: true }));
+        let ev = b.evaluate();
+        let by = |n: &str| b.attacks.iter().find(|a| a.name == n).unwrap();
+        // A homebrew simple melee weapon is a monk weapon: Dex, and the
+        // Martial Arts die (1d6) beats its own 1d4.
+        assert!(by("Nunchaku").monk_weapon);
+        assert_eq!(ev.int("attack.nunchaku.bonus"), Some(3 + 2));
+        assert_eq!(ev.get("attack.nunchaku.damage").unwrap().to_string(), "1d6 + 3");
+        // Light martial weapons are monk weapons in 2024.
+        assert!(by("Shortsword").monk_weapon && by("Shortsword").proficient);
+        // A Longsword is not (and not proficient).
+        assert!(!by("Longsword").monk_weapon);
+        assert_eq!(ev.get("attack.longsword.damage").unwrap().to_string(), "1d8");
+
+        // Marking overrides the rules either way.
+        let mut c = monk(&["Nunchaku|HB", "Longsword|T"]);
+        c.inventory[0].monk_weapon = Some(false);
+        c.inventory[1].monk_weapon = Some(true);
+        let b = build(&c, &lib, &OverlaySet::default());
+        let ev = b.evaluate();
+        assert_eq!(ev.get("attack.nunchaku.damage").unwrap().to_string(), "1d4", "Strength +0, own die");
+        assert_eq!(ev.get("attack.longsword.damage").unwrap().to_string(), "1d8 + 3", "Dex, its own bigger die");
+
+        // Without Martial Arts nothing is a monk weapon.
+        let fighter = build(&character(&["Fighter"], &["Dagger"]), &library(), &OverlaySet::default());
+        assert!(!fighter.attacks[0].monk_weapon && fighter.martial_arts.is_none());
     }
 }

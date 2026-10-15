@@ -473,7 +473,13 @@ enabled for that campaign.
    ranged weapons Dex, magic weapons add `bonusWeapon`. Overlays target
    `attack.ranged.bonus` (Archery), `attack.one_handed.damage` (Dueling),
    `attack.strength.damage` (Rage), `attack.unarmed.*` (Martial Arts).
-   *Done* (not yet: attack cantrips, generic "+1 Weapon" variants without
-   a base weapon, Great Weapon Fighting rerolls, Monk weapons with Dex).
+   Monk weapons (with Martial Arts): 2024 simple melee and Light martial
+   melee weapons, 2014 shortswords and simple melee weapons that are not
+   two-handed or heavy — or any weapon marked with `m` in the inventory
+   (`monk_weapon = true/false` overrides the rules either way) — use the
+   better of Str and Dex and the Martial Arts die when it is bigger.
+   Favorite spells (`f`) are listed first on the Spells tab.
+   *Done* (not yet: generic "+1 Weapon" variants without a base weapon,
+   Great Weapon Fighting rerolls).
 7. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

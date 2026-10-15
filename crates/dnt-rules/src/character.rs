@@ -242,6 +242,10 @@ pub struct InventoryItem {
     /// Weight per item in pounds, for custom items.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weight: Option<f64>,
+    /// Counts as a monk weapon (`true`) or not (`false`) regardless of the
+    /// Martial Arts rules; unset follows the rules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monk_weapon: Option<bool>,
 }
 
 fn one() -> i64 {

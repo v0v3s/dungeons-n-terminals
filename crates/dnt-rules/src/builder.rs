@@ -69,6 +69,8 @@ pub struct Build {
     /// Weapon attacks (carried weapons and the unarmed strike).
     pub attacks: Vec<attacks::Attack>,
     pub weapon_proficiency: attacks::WeaponProficiency,
+    /// The Monk's Martial Arts, if the character has it.
+    pub martial_arts: Option<attacks::MartialArts>,
     pub warnings: Vec<String>,
 }
 
@@ -563,7 +565,12 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         .collect();
     let weapon_proficiency = attacks::weapon_proficiency(lib, character, &class_entities, &proficiency_sources);
     let mastered: Vec<EntityId> = features.iter().filter(|f| f.source == FeatureSource::Mastery).map(|f| f.entity).collect();
-    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered);
+    let martial_arts = features.iter().find_map(|f| {
+        let e = lib.entity(f.entity);
+        let monk = e.data.get("className").and_then(Json::as_str) == Some("Monk");
+        (e.kind == Kind::ClassFeature && monk && e.name == "Martial Arts").then(|| attacks::MartialArts { rules_2024: e.source == "XPHB" })
+    });
+    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, martial_arts);
 
     // ---- state that feeds stats, and overrides ----
     for (k, on) in &character.state.toggles {
@@ -600,6 +607,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         granted,
         attacks,
         weapon_proficiency,
+        martial_arts,
         warnings,
     }
 }
