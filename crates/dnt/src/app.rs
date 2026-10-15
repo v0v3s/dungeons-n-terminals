@@ -63,6 +63,8 @@ pub struct App {
     pub global_homebrew: Option<serde_json::Value>,
     /// Section to return to when the editor closes.
     pub editor_return: Option<Section>,
+    /// The help screen, while open.
+    pub help: Option<crate::help::Help>,
     /// A homebrew entry being edited in $EDITOR (a temporary file).
     pub entry_edit_file: Option<PathBuf>,
     pub overlays: OverlaySet,
@@ -119,6 +121,7 @@ impl App {
             homebrew: None,
             global_homebrew: None,
             editor_return: None,
+            help: None,
             entry_edit_file: None,
             overlays,
             pending_edit: None,
@@ -191,6 +194,22 @@ impl App {
         self.active.and_then(|i| self.campaigns.list.get(i))
     }
 
+    /// Which screen the help is about.
+    fn help_context(&self) -> crate::help::Context {
+        use crate::help::Context;
+        match self.section {
+            Section::Compendium if self.editor.is_some() => Context::EntryEditor,
+            Section::Compendium => Context::Compendium,
+            Section::Campaigns => Context::Campaigns,
+            Section::Characters => match (&self.characters.wizard, &self.characters.sheet) {
+                (Some(_), _) => Context::Wizard,
+                (None, None) => Context::Roster,
+                (None, Some(s)) => Context::Sheet(s.tab),
+            },
+            Section::Notes => Context::Notes,
+        }
+    }
+
     fn wants_text(&self) -> bool {
         if self.capture.is_some()
             || self.clone_flow.is_some()
@@ -214,6 +233,24 @@ impl App {
             return;
         }
         let alt = key.modifiers.contains(KeyModifiers::ALT);
+        // Help: F1 anywhere, ? when not typing.
+        if let Some(h) = self.help.as_mut() {
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('q' | '?') | KeyCode::F(1) => self.help = None,
+                KeyCode::Char('j') | KeyCode::Down => h.scroll = h.scroll.saturating_add(1),
+                KeyCode::Char('k') | KeyCode::Up => h.scroll = h.scroll.saturating_sub(1),
+                KeyCode::Char('d') | KeyCode::PageDown | KeyCode::Char(' ') => h.scroll = h.scroll.saturating_add(15),
+                KeyCode::Char('u') | KeyCode::PageUp => h.scroll = h.scroll.saturating_sub(15),
+                KeyCode::Char('g') | KeyCode::Home => h.scroll = 0,
+                KeyCode::Char('G') | KeyCode::End => h.scroll = u16::MAX,
+                _ => {}
+            }
+            return;
+        }
+        if key.code == KeyCode::F(1) || (key.code == KeyCode::Char('?') && self.capture.is_none() && !self.wants_text()) {
+            self.help = Some(crate::help::Help { scroll: 0, context: self.help_context() });
+            return;
+        }
         if let Some(text) = self.capture.as_mut() {
             match key.code {
                 KeyCode::Esc => self.capture = None,

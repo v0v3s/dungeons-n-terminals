@@ -546,4 +546,7 @@ enabled for that campaign.
     (`mul`, after adds and before caps). The last rolls show under hit
     points; `N` also writes them into the latest session note (`## Rolls`).
     Spell rows show their damage or healing at their level.
-11. **Later** — embedded nvim (the built-in editor is enough for now).
+11. **Help** — `?` (F1 while typing) shows the current screen's keys,
+    those that work everywhere, and every other screen; a README covers
+    setup, files, rules and development. *Done.*
+12. **Later** — embedded nvim (the built-in editor is enough for now).

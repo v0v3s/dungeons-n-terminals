@@ -805,7 +805,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             let d = crate::export::character(lib, sheet);
             return Action::Export(sheet.file.slug.clone(), crate::export::to_markdown(&d), crate::export::to_html(&d));
         }
-        KeyCode::Char('u') => {
+        KeyCode::Char('u') if !ctrl => {
             let flow = LevelUp::start(lib, &sheet.file.character, &sheet.ev, filter);
             sheet.popup = Some(Popup::LevelUp(Box::new(flow)));
             return Action::None;
@@ -917,7 +917,7 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         KeyCode::Char('k') | KeyCode::Up => sheet.cursor = sheet.cursor.saturating_sub(1),
         KeyCode::Char('g') => sheet.cursor = 0,
         KeyCode::Char('G') => sheet.cursor = n.saturating_sub(1),
-        KeyCode::Char('?') | KeyCode::Enter => {
+        KeyCode::Enter => {
             let key = match items.get(sheet.cursor) {
                 Some(Item::Stat(k)) => Some(k.clone()),
                 Some(Item::Resource(k)) => Some(format!("resource.{k}.max")),

@@ -5,6 +5,7 @@ mod characters;
 mod compendium;
 mod entry_editor;
 mod export;
+mod help;
 mod levelup;
 mod notes_view;
 mod overlay_editor;

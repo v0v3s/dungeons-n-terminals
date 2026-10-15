@@ -1,0 +1,144 @@
+# Dungeons & Terminals
+
+`dnt` is a D&D 5e companion for players, in the terminal: a compendium,
+character sheets that do the maths, dice, campaign notes and campaign
+homebrew. It reads the rules from a local [data](https://github.com/data/dnd-data)
+data checkout and works with the 2024 and the 2014 rules.
+
+- **Compendium** — fuzzy search over spells, classes, species, feats,
+  items and rules, with filters (`@XPHB #spell ^3 *fire "concentration"`),
+  links you can follow, and every specific magic item (+1 Longsword,
+  Flame Tongue Greatsword).
+- **Characters** — a creation wizard, multiclassing and level-ups with
+  every choice, and a sheet that explains each number: abilities, skills,
+  attacks (proficiency, finesse, magic bonuses, fighting styles, monk
+  weapons, two weapons), extra damage on a hit, resources, spell slots,
+  spells with their damage, equipment slots and hands, containers.
+- **Play** — roll checks, saves, attacks, damage and spells from the
+  sheet, with advantage, critical hits, conditions and exhaustion; rest,
+  take damage, track concentration; the rolls can go into the session
+  note.
+- **Notes** — a campaign notebook in Markdown with links (`[[Strahd]]`,
+  `[[spell:Fireball]]`), backlinks, session notes, quick capture and
+  live query blocks.
+- **Homebrew** — clone any entry into the campaign (replacing the book
+  version or as a copy), edit it in forms, create new items and spells,
+  and share them across campaigns.
+- **Rules** — automate class features, feats and species with small
+  TOML rules, written and checked from inside the app.
+- **Export** — a character sheet as Markdown or a printable page (PDF
+  from the browser).
+
+## Getting started
+
+You need [Rust](https://rustup.rs) and a copy of the data data:
+
+```sh
+git clone --depth 1 https://github.com/data/dnd-data.git ~/dnd-data
+git clone https://github.com/v0v3s/dungeons-n-terminals.git
+cd dungeons-n-terminals
+cargo build --release
+./target/release/dnt --data ~/dnd-data
+```
+
+The data path is remembered, so afterwards `dnt` is enough. On the first
+run you land in **Campaigns** (`4`): press `n` to create one, choose its
+sources with `space` (or a preset with `p`), and press `enter` on it to
+make it active. Then go to **Characters** (`2`) and press `n`.
+
+Press `?` on any screen for its keys (F1 works while typing too).
+
+### Command line
+
+| Option | |
+| --- | --- |
+| `--data PATH` | the data checkout (or its `data/`); also `DNT_DATA` |
+| `--homebrew FILE` | load a homebrew JSON file for this run (repeatable) |
+| `--sources XPHB,XDMG` | use these sources instead of the campaign's |
+| `--show-reprinted` | with `--sources`: keep entries that were reprinted |
+
+## Where things are
+
+Everything is plain files you can read, edit and back up:
+
+```
+~/.config/dnt/config.toml            the data path and the last campaign
+~/.local/share/dnt/
+  campaigns/<campaign>/
+    campaign.toml                    name, sources, notes order
+    characters/<name>.toml           one file per character
+    homebrew.json                    the campaign's homebrew (data format)
+    notes/                           Markdown notes (Sessions/, NPCs/, …)
+    exports/                         exported sheets
+  library/
+    homebrew/*.json                  homebrew shared by every campaign
+    overlays/*.toml                  your rules for features
+  templates/*.md                     your note templates (override the defaults)
+```
+
+(On macOS both are under `~/Library/Application Support/dnt`. The
+`XDG_DATA_HOME` and `XDG_CONFIG_HOME` variables move them on Linux.)
+
+`e` on a character opens its file in `$EDITOR`; changes are read back when
+you return. Homebrew files are standard data homebrew, so data and
+other tools can load them too.
+
+## Rules (overlays)
+
+A sheet knows a feature's numbers when there are rules for it. dnt ships
+rules for many 2024 features (Rage, Sneak Attack, fighting styles, Lay on
+Hands, Wild Shape, species traits, …); features with rules show `auto` in
+the Features tab. For anything else, press `O` on the feature to write
+its rules; the check pane shows what they change on the character as you
+type. A rule file looks like this:
+
+```toml
+[[feature]]
+id = "classFeature:Brutal Strike|Barbarian|XPHB|9"
+
+[[feature.resource]]
+key = "brutal_strike"
+name = "Brutal Strike"
+max = "prof"
+recharge = "long_rest"
+
+[[feature.effect]]
+target = "rider.brutal_strike"        # extra damage on a hit
+set = "if(class.barbarian.level >= 17, 2d10, 1d10)"
+origin = "Brutal Strike: with Reckless Attack"
+```
+
+Targets include `ac`, `speed`, `hp.max`, `initiative`, `save.dex`,
+`skill.stealth`, `attack.bonus`, `attack.melee.damage`,
+`attack.ranged.bonus`, `attack.heavy.damage`, `rider.<key>` and
+`resource.<key>.max`; effects `add`, `set`, `max`, `min` or `mul`, with an
+optional `when` condition. Your file for a feature replaces dnt's
+built-in rules for it.
+
+## Development
+
+The workspace has four crates:
+
+- `dnt-data` — loading data data, entities, search, rendering entries
+- `dnt-rules` — the rules engine, characters, attacks, spells, dice
+- `dnt-store` — campaigns, characters, notes and homebrew on disk
+- `dnt` — the terminal app (ratatui)
+
+```sh
+cargo test                                   # all crates
+cargo run --example check_overlays -p dnt-rules -- ~/dnd-data
+scripts/sandbox.sh /tmp/dnt-sandbox ~/dnd-data
+XDG_DATA_HOME=/tmp/dnt-sandbox/data XDG_CONFIG_HOME=/tmp/dnt-sandbox/config cargo run -p dnt
+```
+
+The sandbox script makes a throwaway campaign with sample characters, so
+you can try things without touching your own data. `vendor/edtui` is a
+patched copy of the edtui editor (word-aware wrapping; see its
+`PATCHES.md`). The design notes are in [DESIGN.md](DESIGN.md).
+
+dnt is a fan project and not affiliated with Wizards of the Coast; it
+ships no game content and reads the data you provide.
+
+## License
+
+MIT

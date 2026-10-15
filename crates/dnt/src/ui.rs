@@ -57,6 +57,9 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
         crate::ui_editor::draw_new(frame, body, flow, theme);
     }
     draw_footer(frame, footer, app, theme);
+    if let Some(h) = app.help.as_mut() {
+        crate::help::draw(frame, body, h, theme);
+    }
     if let Some(text) = &app.capture {
         draw_capture(frame, frame.area(), text, theme);
     }
@@ -241,7 +244,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("space", "main hand"),
                 ("o b", "off/both hands"),
                 ("S", "shield"),
-                ("?", "breakdown"),
+                ("enter", "breakdown"),
                 ("d h t", "dmg/heal/temp"),
                 ("esc", "roster"),
             ],
@@ -251,7 +254,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("r R", "roll/save"),
                 ("v", "adv/dis"),
                 ("C", "conditions"),
-                ("?", "breakdown"),
+                ("enter", "breakdown"),
                 ("d h t", "dmg/heal/temp"),
                 ("s L", "rests"),
                 ("u U", "level up/undo"),
@@ -284,7 +287,9 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         ],
     };
     let mut spans = vec![Span::raw(" ")];
-    for (key, what) in hints {
+    let help = [("?", "help")];
+    let hints = if app.help.is_some() { &[][..] } else { hints };
+    for (key, what) in hints.iter().chain(if app.help.is_some() { &[][..] } else { &help[..] }) {
         spans.push(Span::styled(format!(" {key} "), theme.keycap));
         spans.push(Span::styled(format!(" {what}   "), theme.dim));
     }
