@@ -512,6 +512,10 @@ enabled for that campaign.
    class level); Mystic Arcanum choices (level 6–9 Warlock spells, a free
    cast per long rest each); cantrip and prepared/known limits enforced
    (Wizard spellbooks are open), "N spells to choose" on the sheet and
-   after a level-up.
+   after a level-up; invocation prerequisites (level, other options such
+   as Pact of the Blade, spells such as a damaging Warlock cantrip) warn
+   in the picker; Weapon Masteries are swapped with `r` on the Features
+   tab; Great Weapon Fighting is noted on two-handed melee attacks (the
+   sheet does not roll dice).
 8. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,
    export.

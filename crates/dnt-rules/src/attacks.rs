@@ -232,6 +232,16 @@ pub struct DualWielder {
     pub rules_2024: bool,
 }
 
+/// Features that change how attacks work, found by the builder.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AttackFeatures {
+    pub martial_arts: Option<MartialArts>,
+    pub dual_wielder: Option<DualWielder>,
+    /// Great Weapon Fighting: `true` for 2024 (1s and 2s count as 3s),
+    /// `false` for 2014 (reroll 1s and 2s).
+    pub great_weapon: Option<bool>,
+}
+
 /// One attack on the sheet.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attack {
@@ -317,9 +327,9 @@ pub fn add_attacks(
     character: &Character,
     prof: &WeaponProficiency,
     mastered: &[EntityId],
-    martial_arts: Option<MartialArts>,
-    dual_wielder: Option<DualWielder>,
+    features: AttackFeatures,
 ) -> Vec<Attack> {
+    let AttackFeatures { martial_arts, dual_wielder, great_weapon } = features;
     let mut attacks = Vec::new();
     let mut seen = Vec::new();
     // Two-Weapon Fighting sets this to add the ability modifier off hand.
@@ -367,6 +377,17 @@ pub fn add_attacks(
         let mut a = weapon_attack(model, &s, &name, Some(id), held, &w, prof, attuned_ok, mastery, monk);
         if martial_arts.is_none() && line.monk_weapon == Some(true) {
             a.notes.push("marked as a monk weapon, but no Martial Arts".into());
+        }
+        // Great Weapon Fighting: melee weapons used with both hands.
+        if let Some(rules_2024) = great_weapon {
+            if w.melee && (w.has("2H") || w.has("V")) {
+                let what = if w.has("2H") { "" } else { " (two-handed)" };
+                a.notes.push(if rules_2024 {
+                    format!("Great Weapon Fighting{what}: 1s and 2s on damage dice count as 3s")
+                } else {
+                    format!("Great Weapon Fighting{what}: reroll 1s and 2s on damage dice once")
+                });
+            }
         }
         // The off-hand extra attack: Light weapons, or Dual Wielder.
         if a.offhand {
@@ -634,7 +655,8 @@ mod tests {
                  "weaponCategory": "martial", "property": ["V|T"], "dmg1": "1d8", "dmgType": "S", "dmg2": "1d10", "bonusWeapon": "+1"}
             ],
             "feat": [{"name": "Archery", "source": "T", "entries": ["x"]}, {"name": "Dueling", "source": "T", "entries": ["x"]},
-                     {"name": "Dual Wielder", "source": "XPHB", "entries": ["x"]}, {"name": "Dual Wielder", "source": "T", "entries": ["x"]}]
+                     {"name": "Dual Wielder", "source": "XPHB", "entries": ["x"]}, {"name": "Dual Wielder", "source": "T", "entries": ["x"]},
+                     {"name": "Great Weapon Fighting", "source": "XPHB", "entries": ["x"]}]
         }));
         lib
     }
@@ -752,6 +774,18 @@ add = "2"
     }
 
     #[test]
+    fn great_weapon_fighting() {
+        let lib = library();
+        let mut c = character(&["Fighter"], &["Greataxe", "Longsword", "Rapier", "Longbow"]);
+        c.feats = vec!["feat:Great Weapon Fighting|XPHB".into()];
+        let b = build(&c, &lib, &OverlaySet::default());
+        let notes = |n: &str| b.attacks.iter().find(|a| a.name == n).unwrap().notes.join(" ");
+        assert!(notes("Greataxe").contains("count as 3s"));
+        assert!(notes("Longsword").contains("(two-handed)"), "versatile");
+        assert!(notes("Rapier").is_empty() && !notes("Longbow").contains("Great Weapon"));
+    }
+
+    #[test]
     fn wielding() {
         use crate::character::Hand;
         use crate::equipment::wield;
@@ -794,7 +828,7 @@ add = "2"
             origin: "Rage".into(),
         });
         let prof = super::weapon_proficiency(&lib, &c, &[], &[]);
-        super::add_attacks(&mut model, &lib, &c, &prof, &[], None, None);
+        super::add_attacks(&mut model, &lib, &c, &prof, &[], Default::default());
         let ev = model.evaluate();
         assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 5", "Strength melee");
         assert_eq!(ev.get("attack.longbow.damage").unwrap().to_string(), "1d8 + 2", "not ranged");

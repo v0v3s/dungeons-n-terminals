@@ -597,7 +597,13 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         let e = lib.entity(f.entity);
         (e.kind == Kind::Feat && e.name == "Dual Wielder").then(|| attacks::DualWielder { rules_2024: e.source == "XPHB" })
     });
-    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, martial_arts, dual_wielder);
+    let great_weapon = features.iter().find_map(|f| {
+        let e = lib.entity(f.entity);
+        // A 2024 feat, or a 2014 fighting style (an optional feature).
+        (matches!(e.kind, Kind::Feat | Kind::OptionalFeature) && e.name == "Great Weapon Fighting").then(|| e.source == "XPHB")
+    });
+    let found = attacks::AttackFeatures { martial_arts, dual_wielder, great_weapon };
+    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, found);
 
     // ---- state that feeds stats, and overrides ----
     for (k, on) in &character.state.toggles {
