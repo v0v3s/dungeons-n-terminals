@@ -211,8 +211,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         spans.push(Span::styled(format!(" {} ", t.label()), style));
         spans.push(Span::raw(" "));
     }
-    // Notes arrive with M4.
-    spans.push(Span::styled(" Notes ", theme.dim));
+
     frame.render_widget(Paragraph::new(Line::from(spans)), tabs);
 
     match sheet.tab {
@@ -220,6 +219,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         Tab::Features => draw_features(frame, body, lib, overlays, sheet, theme),
         Tab::Inventory => draw_inventory(frame, body, lib, sheet, theme),
         Tab::Spells => draw_spells(frame, body, lib, sheet, theme),
+        Tab::Notes => draw_character_note(frame, body, sheet, theme),
     }
 
     match sheet.popup.clone() {
@@ -1000,6 +1000,43 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
         ];
         frame.render_widget(Paragraph::new(help), inner);
     }
+}
+
+fn draw_character_note(frame: &mut Frame, area: Rect, sheet: &Sheet, theme: &Theme) {
+    let block = pane(pane_title(&format!("Party/{}", sheet.character().name), true, theme), true, theme)
+        .padding(Padding::new(2, 2, 1, 0))
+        .title_bottom(Line::styled(" enter edits in Notes ", theme.dim).right_aligned());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let text = sheet.note_path().and_then(|p| std::fs::read_to_string(p).ok());
+    let Some(text) = text else {
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::styled("No notes for this character yet.", theme.muted),
+                Line::default(),
+                Line::from(vec![
+                    Span::styled(" enter ", theme.keycap),
+                    Span::styled("  create one from the character template (backstory, bonds, goals)", theme.dim),
+                ]),
+            ]),
+            inner,
+        );
+        return;
+    };
+    // Show the body without frontmatter, with headings styled.
+    let mut lines = Vec::new();
+    let mut in_front = text.starts_with("---");
+    for (i, line) in text.lines().enumerate() {
+        if in_front {
+            if i > 0 && line.trim() == "---" {
+                in_front = false;
+            }
+            continue;
+        }
+        let style = if line.starts_with('#') { theme.heading } else { Style::new() };
+        lines.push(Line::styled(line.to_string(), style));
+    }
+    frame.render_widget(Paragraph::new(lines).wrap(ratatui::widgets::Wrap { trim: false }), inner);
 }
 
 fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, theme: &Theme) {

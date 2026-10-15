@@ -431,7 +431,8 @@ enabled for that campaign.
    *M3 done. Next: M4 Notes.*
 4. **M4 Notes** — notes store, default structure and folder order,
    templates, explorer tree, edtui editor, links and backlinks, session
-   journal, quick capture, sheet Notes tab.
+   journal, quick capture, sheet Notes tab. *Done* (tags/full-text
+   search and a richer hub to follow).
 5. **M5 Campaign layer** — campaign homebrew file and source, clone
    (replace / separate), creator and editor forms (items, spells first),
    compendium markers, inventory shortcut.

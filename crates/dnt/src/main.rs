@@ -3,11 +3,13 @@ mod campaigns;
 mod characters;
 mod compendium;
 mod levelup;
+mod notes_view;
 mod picker;
 mod render;
 mod spells_tab;
 mod theme;
 mod ui;
+mod ui_notes;
 mod ui_sheet;
 mod wizard;
 

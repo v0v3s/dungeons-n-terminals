@@ -23,10 +23,11 @@ pub enum Tab {
     Features,
     Spells,
     Inventory,
+    Notes,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 4] = [Tab::Overview, Tab::Features, Tab::Spells, Tab::Inventory];
+    pub const ALL: [Tab; 5] = [Tab::Overview, Tab::Features, Tab::Spells, Tab::Inventory, Tab::Notes];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -34,6 +35,7 @@ impl Tab {
             Tab::Features => "Features",
             Tab::Spells => "Spells",
             Tab::Inventory => "Inventory",
+            Tab::Notes => "Notes",
         }
     }
 }
@@ -147,6 +149,12 @@ pub struct Sheet {
 }
 
 impl Sheet {
+    /// Path of this character's note (`notes/Party/<name>.md`).
+    pub fn note_path(&self) -> Option<std::path::PathBuf> {
+        let campaign = self.file.path.parent()?.parent()?;
+        Some(campaign.join("notes/Party").join(format!("{}.md", dnt_store::notes::file_safe(&self.file.character.name))))
+    }
+
     pub fn new(file: CharacterFile, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Sheet {
         let build = build(&file.character, lib, overlays);
         let ev = build.evaluate();
@@ -218,6 +226,8 @@ pub enum Action {
     Create(Box<Character>),
     /// Open the character file in $EDITOR.
     Edit(std::path::PathBuf),
+    /// Open this character's note in the Notes section.
+    OpenNote(String),
 }
 
 pub struct Characters {
@@ -587,6 +597,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
         Tab::Overview => overview_key(sheet, key, lib, overlays),
         Tab::Inventory => inventory_key(sheet, key, lib, overlays, filter),
         Tab::Spells => spells_key(sheet, key, lib, overlays, filter),
+        Tab::Notes => match key.code {
+            KeyCode::Enter | KeyCode::Char('i') => Action::OpenNote(sheet.file.character.name.clone()),
+            _ => Action::None,
+        },
         Tab::Features => {
             let n = sheet.build.features.len();
             match key.code {

@@ -169,6 +169,15 @@ impl Compendium {
         c
     }
 
+    /// Show an entity in the detail pane (e.g. from a note link).
+    pub fn show(&mut self, lib: &Library, id: EntityId) {
+        let next = DetailView::new(lib, id, &self.filter);
+        if let Some(prev) = self.detail.replace(next) {
+            self.history.push(prev);
+        }
+        self.focus = Focus::Detail;
+    }
+
     pub fn set_filter(&mut self, lib: &Library, filter: SourceFilter) {
         self.filter = filter;
         self.recount(lib);

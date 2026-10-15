@@ -34,22 +34,30 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
             let campaign = app.active.map(|i| app.campaigns.list[i].settings.name.clone());
             crate::ui_sheet::draw(frame, body, lib, &app.overlays, &mut app.characters, theme, campaign.as_deref())
         }
-        Section::Notes => draw_placeholder(
-            frame,
-            body,
-            "Notes",
-            "M4",
-            &[
-                "Campaign-scoped Markdown notes in a file tree",
-                "Vim-style editor",
-                "[[Note]] and [[spell:Fireball]] links, followed with gd",
-                "Session journal and quick capture",
-                "Tags and full-text search",
-            ],
-            theme,
-        ),
+        Section::Notes => {
+            let filter = app.compendium.filter.clone();
+            crate::ui_notes::draw(frame, body, lib, &filter, &mut app.notes, theme)
+        }
     }
     draw_footer(frame, footer, app, theme);
+    if let Some(text) = &app.capture {
+        draw_capture(frame, frame.area(), text, theme);
+    }
+}
+
+fn draw_capture(frame: &mut Frame, area: Rect, text: &str, theme: &Theme) {
+    let [row] = Layout::vertical([Constraint::Length(5)]).flex(Flex::Center).areas(area);
+    let [rect] = Layout::horizontal([Constraint::Length(72.min(area.width))]).flex(Flex::Center).areas(row);
+    frame.render_widget(Clear, rect);
+    let block = pane(pane_title("Quick capture → Inbox", true, theme), true, theme)
+        .padding(Padding::new(2, 2, 1, 0))
+        .title_bottom(Line::styled(" enter saves · esc cancels ", theme.dim).right_aligned());
+    let inner = block.inner(rect);
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.to_string())])).block(block),
+        rect,
+    );
+    frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
 }
 
 // ---- chrome ----
@@ -174,7 +182,27 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("esc", "roster"),
             ],
         },
-        _ => &[("1-4", "section"), ("q", "quit")],
+        (Section::Notes, _) if app.notes.popup.is_some() => &[("enter", "confirm"), ("esc", "cancel")],
+        (Section::Notes, _) if app.notes.focus == crate::notes_view::Focus::Editor => &[
+            ("esc", "save & tree"),
+            ("i", "insert"),
+            ("gd", "follow link"),
+            ("K", "preview"),
+            ("^o", "back"),
+            ("^s", "save"),
+            ("alt+c", "capture"),
+        ],
+        (Section::Notes, _) => &[
+            ("j k", "move"),
+            ("enter", "open"),
+            ("a A", "note/folder"),
+            ("s", "session"),
+            ("r d", "rename/delete"),
+            ("J K", "move folder"),
+            ("/", "find"),
+            ("i c", "inbox/hub"),
+            ("alt+c", "capture"),
+        ],
     };
     let mut spans = vec![Span::raw(" ")];
     for (key, what) in hints {
@@ -507,29 +535,6 @@ fn draw_detail(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium,
 }
 
 // ---- other sections ----
-
-fn draw_placeholder(frame: &mut Frame, area: Rect, title: &str, milestone: &str, items: &[&str], theme: &Theme) {
-    let width = items.iter().map(|i| i.width()).max().unwrap_or(20) as u16 + 10;
-    let height = items.len() as u16 + 6;
-    let [row] = Layout::vertical([Constraint::Length(height)]).flex(Flex::Center).areas(area);
-    let [rect] = Layout::horizontal([Constraint::Length(width.min(area.width))]).flex(Flex::Center).areas(row);
-
-    let mut lines = vec![
-        Line::from(vec![
-            Span::styled(format!(" {milestone} "), theme.keycap),
-            Span::styled("  coming soon", theme.dim),
-        ]),
-        Line::default(),
-    ];
-    lines.extend(
-        items
-            .iter()
-            .map(|i| Line::from(vec![Span::styled("•  ", theme.bullet), Span::raw(i.to_string())])),
-    );
-    let block = pane(pane_title(title, true, theme), false, theme).padding(Padding::new(3, 3, 1, 1));
-    frame.render_widget(Clear, rect);
-    frame.render_widget(Paragraph::new(lines).block(block), rect);
-}
 
 fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let [left, _, right] =

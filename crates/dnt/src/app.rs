@@ -12,6 +12,7 @@ use dnt_rules::overlay::{Overlay, OverlaySet};
 use crate::campaigns::{Action, Campaigns};
 use crate::characters::{self, Characters};
 use crate::compendium::{Compendium, Outcome};
+use crate::notes_view::{self, NotesView};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
@@ -43,6 +44,9 @@ pub struct App {
     /// Sources forced from the command line, overriding the campaign.
     pub override_filter: Option<SourceFilter>,
     pub characters: Characters,
+    pub notes: NotesView,
+    /// Quick capture text, while the capture box is open.
+    pub capture: Option<String>,
     pub overlays: OverlaySet,
     /// A file to open in $EDITOR; handled by the main loop.
     pub pending_edit: Option<PathBuf>,
@@ -73,6 +77,7 @@ impl App {
             status = format!("{problems} overlay problem(s) — run the check_overlays example");
         }
         let files = active.map(|i| store.characters(&list[i]).0).unwrap_or_default();
+        let notes = notes_for(&store, active.map(|i| &list[i]));
         let mut campaigns = Campaigns::new(lib, list);
         campaigns.selected = active.unwrap_or(0);
         let mut characters = Characters::new(files);
@@ -84,6 +89,8 @@ impl App {
             active,
             override_filter,
             characters,
+            notes,
+            capture: None,
             overlays,
             pending_edit: None,
             status,
@@ -109,11 +116,14 @@ impl App {
     }
 
     fn wants_text(&self) -> bool {
+        if self.capture.is_some() {
+            return true;
+        }
         match self.section {
             Section::Compendium => self.compendium.wants_text(),
             Section::Campaigns => self.campaigns.wants_text(),
             Section::Characters => self.characters.wants_text(),
-            _ => false,
+            Section::Notes => self.notes.wants_text(),
         }
     }
 
@@ -124,6 +134,32 @@ impl App {
             return;
         }
         let alt = key.modifiers.contains(KeyModifiers::ALT);
+        if let Some(text) = self.capture.as_mut() {
+            match key.code {
+                KeyCode::Esc => self.capture = None,
+                KeyCode::Enter => {
+                    let text = std::mem::take(text);
+                    self.capture = None;
+                    if !text.trim().is_empty() {
+                        self.status = self.notes.capture(&text);
+                    }
+                }
+                KeyCode::Backspace => {
+                    text.pop();
+                }
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => text.push(c),
+                _ => {}
+            }
+            return;
+        }
+        if alt && key.code == KeyCode::Char('c') {
+            if self.notes.notes.is_some() {
+                self.capture = Some(String::new());
+            } else {
+                self.status = "Quick capture needs an active campaign".into();
+            }
+            return;
+        }
         if !self.wants_text() || alt {
             if let KeyCode::Char(c @ '1'..='9') = key.code {
                 if let Some(&s) = Section::ALL.get(c as usize - '1' as usize) {
@@ -148,8 +184,27 @@ impl App {
                 self.character_action(lib, action);
             }
             Section::Notes => {
-                if key.code == KeyCode::Char('q') {
+                if key.code == KeyCode::Char('q') && !self.notes.wants_text() {
+                    let _ = self.notes.save();
                     self.quit = true;
+                    return;
+                }
+                let filter = self.compendium.filter.clone();
+                match self.notes.handle_key(key, lib, &filter) {
+                    notes_view::Action::None => {}
+                    notes_view::Action::Status(s) => self.status = s,
+                    notes_view::Action::Compendium(e) => {
+                        self.section = Section::Compendium;
+                        self.compendium.show(lib, e);
+                    }
+                    notes_view::Action::Order(order) => {
+                        if let Some(i) = self.active {
+                            self.campaigns.list[i].settings.notes.order = order;
+                            if let Err(e) = self.store.save_campaign(&self.campaigns.list[i]) {
+                                self.status = format!("Could not save folder order: {e}");
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -202,6 +257,13 @@ impl App {
             A::Quit => self.quit = true,
             A::Status(s) => self.status = s,
             A::Edit(path) => self.pending_edit = Some(path),
+            A::OpenNote(name) => {
+                self.section = Section::Notes;
+                self.status = match self.notes.open_character(&name) {
+                    notes_view::Action::Status(s) => s,
+                    _ => format!("Notes for {name}"),
+                };
+            }
             A::Save(status) => {
                 if let Some(sheet) = &self.characters.sheet {
                     match self.store.save_character(&sheet.file) {
@@ -243,6 +305,8 @@ impl App {
         let filter = self.characters.filter.clone();
         self.characters = Characters::new(self.store.characters(&self.campaigns.list[index]).0);
         self.characters.filter = filter;
+        let _ = self.notes.save();
+        self.notes = notes_for(&self.store, Some(&self.campaigns.list[index]));
     }
 
     fn apply_filter(&mut self, lib: &Library) {
@@ -270,4 +334,11 @@ fn load_overlays(store: &Store, lib: &Library) -> (OverlaySet, usize) {
         }
     }
     (set, problems)
+}
+
+fn notes_for(store: &Store, campaign: Option<&dnt_store::Campaign>) -> NotesView {
+    match campaign {
+        Some(c) => NotesView::new(store.notes(c).ok(), c.settings.name.clone()),
+        None => NotesView::new(None, String::new()),
+    }
 }

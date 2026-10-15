@@ -11,6 +11,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+pub mod notes;
+
 use dnt_rules::character::Character;
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +51,9 @@ pub struct Config {
     /// Slug of the campaign opened at startup.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_campaign: Option<String>,
+    /// Default notes folder order for new campaigns.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes_order: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -73,6 +78,21 @@ pub struct CampaignSettings {
     /// Show originals even when their reprint is enabled.
     #[serde(default)]
     pub show_reprinted: bool,
+    #[serde(default, skip_serializing_if = "NotesSettings::is_empty")]
+    pub notes: NotesSettings,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct NotesSettings {
+    /// Top-level folder order in the notes tree.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub order: Vec<String>,
+}
+
+impl NotesSettings {
+    fn is_empty(&self) -> bool {
+        self.order.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -208,7 +228,26 @@ impl Store {
             fs::create_dir_all(&dir).map_err(|source| StoreError::Io { path: dir, source })?;
         }
         self.save_campaign(&campaign)?;
+        self.notes(&campaign)?;
         Ok(campaign)
+    }
+
+    /// The campaign's notes, created with the default structure if empty.
+    pub fn notes(&self, campaign: &Campaign) -> Result<notes::Notes> {
+        let config = self.load_config().unwrap_or_default();
+        let order = if !campaign.settings.notes.order.is_empty() {
+            campaign.settings.notes.order.clone()
+        } else if !config.notes_order.is_empty() {
+            config.notes_order.clone()
+        } else {
+            notes::DEFAULT_FOLDERS.iter().map(|s| s.to_string()).collect()
+        };
+        let n = notes::Notes::new(campaign.notes_dir(), self.data_dir.join("templates"), order);
+        n.scaffold(&notes::Vars {
+            campaign: campaign.settings.name.clone(),
+            ..Default::default()
+        })?;
+        Ok(n)
     }
 
     pub fn save_campaign(&self, campaign: &Campaign) -> Result<()> {
@@ -423,6 +462,7 @@ mod tests {
                 homebrew: vec![],
             },
             last_campaign: Some("cos".into()),
+            notes_order: vec![],
         };
         store.save_config(&config).unwrap();
         assert_eq!(store.load_config().unwrap(), config);
