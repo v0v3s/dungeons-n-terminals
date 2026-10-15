@@ -172,11 +172,16 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
     .areas(area);
 
     let ch = sheet.character();
-    let warn = if sheet.build.warnings.is_empty() {
-        vec![]
-    } else {
-        vec![Span::styled(format!("⚠ {} warning(s) ", sheet.build.warnings.len()), Style::new().fg(Color::Yellow))]
-    };
+    let mut warn = Vec::new();
+    if !sheet.pending.is_empty() {
+        warn.push(Span::styled(format!(" {} choice(s) to make ", sheet.pending.len()), theme.category_active));
+        warn.push(Span::styled("  press ", theme.dim));
+        warn.push(Span::styled(" c ", theme.keycap));
+        warn.push(Span::raw("   "));
+    }
+    if !sheet.build.warnings.is_empty() {
+        warn.push(Span::styled(format!("⚠ {} warning(s) ", sheet.build.warnings.len()), Style::new().fg(Color::Yellow)));
+    }
     frame.render_widget(
         Paragraph::new(vec![
             spread(
@@ -248,6 +253,23 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             );
         }
         Some(Popup::LevelUp(flow)) => draw_levelup(frame, area, &flow, theme),
+        Some(Popup::Fill(fill)) => {
+            let rect = centered(area, 76.min(area.width), area.height.saturating_sub(4).min(26));
+            frame.render_widget(Clear, rect);
+            let remaining = fill.queue.len();
+            let block = pane(pane_title(&fill.picker.title, true, theme), true, theme)
+                .padding(Padding::new(2, 2, 1, 0))
+                .title_bottom(
+                    Line::styled(
+                        format!(" {remaining} choice(s) left · enter choose · esc stop "),
+                        theme.dim,
+                    )
+                    .right_aligned(),
+                );
+            let inner = block.inner(rect);
+            frame.render_widget(block, rect);
+            draw_picker(frame, inner, &fill.picker, theme);
+        }
         Some(Popup::Undo) => {
             let rect = centered(area, 52, 5);
             frame.render_widget(Clear, rect);
@@ -707,6 +729,7 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
             FeatureSource::Background => "Background".into(),
             FeatureSource::Feat => "Feats".into(),
             FeatureSource::Option => "Options".into(),
+            FeatureSource::Mastery => "Weapon Mastery".into(),
         };
         if group != last_group {
             if !lines.is_empty() {

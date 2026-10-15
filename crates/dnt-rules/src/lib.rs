@@ -3,6 +3,7 @@
 pub mod builder;
 pub mod builtin;
 pub mod character;
+pub mod choices;
 pub mod class_table;
 pub mod standard;
 pub mod engine;

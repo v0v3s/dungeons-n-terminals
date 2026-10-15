@@ -172,7 +172,7 @@ pub fn feat_options(lib: &Library, perk: LevelPerk, filter: &SourceFilter) -> Ve
                 (_, Some(c)) => c == "G",
             }
         })
-        .filter(|(_, e)| e.name != "Ability Score Improvement")
+        .filter(|(i, e)| e.name != "Ability Score Improvement" && lib.versions_of(*i).is_empty())
         .map(|(i, _)| i)
         .collect();
     feats.sort_by(|&a, &b| lib.entity(a).name.cmp(&lib.entity(b).name));

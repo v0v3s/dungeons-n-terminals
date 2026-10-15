@@ -148,6 +148,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("d h t", "dmg/heal/temp"),
                 ("s L", "rests"),
                 ("u U", "level up/undo"),
+                ("c", "choices"),
                 ("e", "edit"),
                 ("esc", "roster"),
             ],

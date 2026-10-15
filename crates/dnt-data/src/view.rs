@@ -602,12 +602,11 @@ fn background_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
             if !spans.is_empty() {
                 spans.push(Span::plain(", "));
             }
-            // Keys look like `magic initiate; cleric|xphb`: the part after `;`
-            // names a variant and is not part of the feat's name.
+            // Keys like `magic initiate; cleric|xphb` name a feat version
+            // (expanded from `_versions`); display it as "Magic Initiate (Cleric)".
             let (name, source) = f.split_once('|').unwrap_or((f, ""));
-            let base = name.split(';').next().unwrap_or(name).trim();
             let display = title_case(&name.replace("; ", " (")) + if name.contains(';') { ")" } else { "" };
-            spans.extend(tags::parse(&format!("{{@feat {base}|{source}|{display}}}")));
+            spans.extend(tags::parse(&format!("{{@feat {name}|{source}|{display}}}")));
         }
         props.push(("Feat", spans));
     }

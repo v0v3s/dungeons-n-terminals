@@ -75,13 +75,15 @@ impl App {
         let files = active.map(|i| store.characters(&list[i]).0).unwrap_or_default();
         let mut campaigns = Campaigns::new(lib, list);
         campaigns.selected = active.unwrap_or(0);
+        let mut characters = Characters::new(files);
+        characters.filter = filter.clone();
         App {
             section,
             compendium: Compendium::new(lib, filter),
             campaigns,
             active,
             override_filter,
-            characters: Characters::new(files),
+            characters,
             overlays,
             pending_edit: None,
             status,
@@ -238,7 +240,9 @@ impl App {
             self.status = format!("Active campaign: {name}");
         }
         self.apply_filter(lib);
+        let filter = self.characters.filter.clone();
         self.characters = Characters::new(self.store.characters(&self.campaigns.list[index]).0);
+        self.characters.filter = filter;
     }
 
     fn apply_filter(&mut self, lib: &Library) {
@@ -247,6 +251,7 @@ impl App {
             return;
         }
         let filter = self.active_campaign().map(|c| c.source_filter()).unwrap_or_default();
+        self.characters.filter = filter.clone();
         self.compendium.set_filter(lib, filter);
     }
 }

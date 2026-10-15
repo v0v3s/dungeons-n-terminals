@@ -317,8 +317,16 @@ feature ID and its text as comments; overlays are validated live.
    (fixed, choose, 2024 weighted), origin feats, class, level-1 subclass,
    class and origin skills, armor and shield, review with live preview;
    Esc steps back.
-   *Next: level-1 feature choices (fighting style, divine order, weapon
-   mastery, expertise), Spells and Inventory tabs.*
+   Class feature choices (dnt-rules::choices) in the wizard and level-up:
+   2024 Fighting Style feats (`featProgression`), invocations/maneuvers/
+   metamagic (`optionalfeatureProgression`), option blocks inside
+   features (Divine Order, Hunter's Prey, Pact Boon), Expertise and
+   Weapon Mastery; stored per level in `picks`. Missing choices on
+   existing characters are flagged and filled with `c`.
+   `_versions` are expanded into entities (2024 lineages/legacies/
+   ancestries, Dragonborn colors, feat variants like Magic Initiate;
+   Cleric) and offered in the wizard.
+   *Next: starting equipment and the Inventory tab, then Spells.*
 4. **M4 Notes** — explorer tree, edtui editor, links, session journal.
 5. **M5** — level-up, multiclassing, inventory depth, overlay authoring flow,
    homebrew polish; later embedded nvim, export.

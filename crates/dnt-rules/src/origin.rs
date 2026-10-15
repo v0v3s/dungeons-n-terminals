@@ -144,10 +144,10 @@ pub fn feat_grant(v: Option<&Json>) -> FeatGrant {
                     .collect();
                 g.choose = Some((cats, v.get("count").and_then(Json::as_u64).unwrap_or(1) as usize));
             } else if v.as_bool() == Some(true) && !k.starts_with("any") {
-                // `magic initiate; cleric|xphb`: the part after `;` names a variant.
+                // `magic initiate; cleric|xphb` names a version of the feat
+                // (expanded from `_versions` by the library).
                 let (name, source) = k.split_once('|').unwrap_or((k, "phb"));
-                let base = name.split(';').next().unwrap_or(name).trim();
-                g.fixed.push(format!("feat:{base}|{source}"));
+                g.fixed.push(format!("feat:{}|{source}", name.trim()));
             }
         }
     }
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn feats() {
         let acolyte = feat_grant(Some(&json!([{"magic initiate; cleric|xphb": true}])));
-        assert_eq!(acolyte.fixed, vec!["feat:magic initiate|xphb"]);
+        assert_eq!(acolyte.fixed, vec!["feat:magic initiate; cleric|xphb"]);
         let human = feat_grant(Some(&json!([{"anyFromCategory": {"category": ["O"], "count": 1}}])));
         assert_eq!(human.choose, Some((vec!["O".to_string()], 1)));
     }

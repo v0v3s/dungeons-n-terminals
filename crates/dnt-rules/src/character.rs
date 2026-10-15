@@ -161,11 +161,16 @@ pub struct LevelChoices {
     /// A feat taken instead of (or as part of) an ASI.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feat: Option<String>,
+    /// Class feature choices, keyed by choice: `"Fighting Style" =
+    /// ["feat:Defense|XPHB"]`, `Expertise = ["stealth", "perception"]`,
+    /// `"Weapon Mastery" = ["item:Longsword|XPHB"]`, …
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub picks: BTreeMap<String, Vec<String>>,
 }
 
 impl LevelChoices {
     pub fn is_empty(&self) -> bool {
-        self.ability.is_empty() && self.feat.is_none()
+        self.ability.is_empty() && self.feat.is_none() && self.picks.is_empty()
     }
 }
 

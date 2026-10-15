@@ -2,6 +2,7 @@
 
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::builder::{build, Build};
+use dnt_rules::choices::{self, Pending};
 use dnt_rules::character::Character;
 use dnt_rules::overlay::OverlaySet;
 use dnt_rules::play::{self, Edition};
@@ -11,6 +12,7 @@ use dnt_store::CharacterFile;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::levelup::{self, LevelUp};
+use crate::picker::{Picked, Picker};
 use crate::wizard::{self, Wizard};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +68,30 @@ pub enum Popup {
     LevelUp(Box<LevelUp>),
     /// Confirm removing the most recent level.
     Undo,
+    /// Filling in missing class feature choices.
+    Fill(Box<Fill>),
+}
+
+/// Walks through pending choices one picker at a time.
+#[derive(Debug, Clone)]
+pub struct Fill {
+    pub queue: Vec<Pending>,
+    pub picker: Picker,
+    pub done: usize,
+}
+
+impl Fill {
+    fn new(queue: Vec<Pending>) -> Option<Fill> {
+        let first = queue.first()?;
+        let picker = fill_picker(first);
+        Some(Fill { queue, picker, done: 0 })
+    }
+}
+
+fn fill_picker(p: &Pending) -> Picker {
+    let mut picker = levelup::choice_picker(&p.choice, p.missing);
+    picker.title = format!("{} ({} {})", picker.title, p.class_name, p.class_level);
+    picker
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,6 +102,9 @@ pub enum Rest {
 
 pub struct Sheet {
     pub file: CharacterFile,
+    /// Class feature choices this character is missing.
+    pub pending: Vec<Pending>,
+    filter: SourceFilter,
     pub build: Build,
     pub ev: Evaluation,
     pub edition: Edition,
@@ -87,11 +116,13 @@ pub struct Sheet {
 }
 
 impl Sheet {
-    pub fn new(file: CharacterFile, lib: &Library, overlays: &OverlaySet) -> Sheet {
+    pub fn new(file: CharacterFile, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Sheet {
         let build = build(&file.character, lib, overlays);
         let ev = build.evaluate();
         let edition = Edition::of(&build, lib);
         Sheet {
+            pending: choices::pending(lib, &file.character, filter),
+            filter: filter.clone(),
             file,
             build,
             ev,
@@ -107,6 +138,7 @@ impl Sheet {
     fn rebuild(&mut self, lib: &Library, overlays: &OverlaySet) {
         self.build = build(&self.file.character, lib, overlays);
         self.ev = self.build.evaluate();
+        self.pending = choices::pending(lib, &self.file.character, &self.filter);
     }
 
     pub fn character(&self) -> &Character {
@@ -161,6 +193,8 @@ pub struct Characters {
     pub sheet: Option<Sheet>,
     pub name_input: Option<String>,
     pub wizard: Option<Wizard>,
+    /// The active campaign's source filter.
+    pub filter: SourceFilter,
 }
 
 impl Characters {
@@ -171,19 +205,23 @@ impl Characters {
             sheet: None,
             name_input: None,
             wizard: None,
+            filter: SourceFilter::default(),
         }
     }
 
     pub fn wants_text(&self) -> bool {
         self.name_input.is_some()
             || self.wizard.is_some()
-            || matches!(self.sheet.as_ref().and_then(|s| s.popup.as_ref()), Some(Popup::Input(..) | Popup::LevelUp(_)))
+            || matches!(
+                self.sheet.as_ref().and_then(|s| s.popup.as_ref()),
+                Some(Popup::Input(..) | Popup::LevelUp(_) | Popup::Fill(_))
+            )
     }
 
     pub fn open(&mut self, index: usize, lib: &Library, overlays: &OverlaySet) {
         if let Some(file) = self.files.get(index).cloned() {
             self.selected = index;
-            self.sheet = Some(Sheet::new(file, lib, overlays));
+            self.sheet = Some(Sheet::new(file, lib, overlays, &self.filter));
         }
     }
 
@@ -277,6 +315,34 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     }
                 }
                 return Action::None;
+            }
+            Popup::Fill(mut fill) => {
+                sheet.popup = None;
+                let values = match fill.picker.key(key) {
+                    Some(Picked::One(v)) => vec![v],
+                    Some(Picked::Many(vs)) => vs,
+                    None => {
+                        if key.code != KeyCode::Esc {
+                            sheet.popup = Some(Popup::Fill(fill));
+                        }
+                        return Action::None;
+                    }
+                };
+                let p = fill.queue.remove(0);
+                if let Some(level) = sheet.file.character.levels.get_mut(p.level_index) {
+                    level.choices.picks.entry(p.choice.key.clone()).or_default().extend(values);
+                }
+                fill.done += 1;
+                // Recompute: earlier picks change what remains available.
+                sheet.rebuild(lib, overlays);
+                match Fill::new(sheet.pending.clone()) {
+                    Some(mut next) => {
+                        next.done = fill.done;
+                        sheet.popup = Some(Popup::Fill(Box::new(next)));
+                        return Action::Save(format!("{} chosen", p.choice.key));
+                    }
+                    None => return changed(sheet, lib, overlays, "All choices made".into()),
+                }
             }
             Popup::Undo => {
                 sheet.popup = None;
@@ -372,6 +438,13 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
         KeyCode::Char('u') => {
             let flow = LevelUp::start(lib, &sheet.file.character, &sheet.ev, filter);
             sheet.popup = Some(Popup::LevelUp(Box::new(flow)));
+            return Action::None;
+        }
+        KeyCode::Char('c') => {
+            match Fill::new(sheet.pending.clone()) {
+                Some(fill) => sheet.popup = Some(Popup::Fill(Box::new(fill))),
+                None => return Action::Status("No choices pending".into()),
+            }
             return Action::None;
         }
         KeyCode::Char('U') if !sheet.file.character.levels.is_empty() => {

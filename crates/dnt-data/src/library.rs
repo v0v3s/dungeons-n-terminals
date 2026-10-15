@@ -59,6 +59,9 @@ pub struct Library {
     /// Entities ingested but not yet indexed (awaiting `_copy` resolution).
     pending: Vec<(Kind, Value)>,
     pending_spell_lookup: Option<Value>,
+    /// Base entity → its generated `_versions` (lineages, feat variants, …).
+    versions: HashMap<EntityId, Vec<EntityId>>,
+    version_base: HashMap<EntityId, EntityId>,
 }
 
 /// Top-level files in a data `data/` directory that hold player-facing content.
@@ -212,9 +215,81 @@ impl Library {
             self.warnings.push(format!("{kind}: unresolved _copy for {name}"));
         }
 
+        self.expand_versions();
         if let Some(lookup) = self.pending_spell_lookup.take() {
             self.attach_spell_classes(&lookup);
         }
+    }
+
+    /// Generate entities for `_versions`: either named versions with a
+    /// `_mod`, or an `_abstract` template filled in by `_implementations`
+    /// (`{{color}}` → `Black`, …). Each version is a copy of its base.
+    fn expand_versions(&mut self) {
+        let bases: Vec<EntityId> = (0..self.entities.len())
+            .filter(|i| self.entities[*i].data.get("_versions").is_some() && !self.versions.contains_key(i))
+            .collect();
+        for base in bases {
+            let kind = self.entities[base].kind;
+            let base_data = self.entities[base].data.clone();
+            let mut variants = Vec::new();
+            for v in base_data.get("_versions").and_then(Value::as_array).into_iter().flatten() {
+                match (v.get("_abstract"), v.get("_implementations").and_then(Value::as_array)) {
+                    (Some(abs), Some(impls)) => {
+                        for imp in impls {
+                            let mut text = abs.to_string();
+                            for (var, val) in imp.get("_variables").and_then(Value::as_object).into_iter().flatten() {
+                                let val = match val {
+                                    Value::String(s) => serde_json::to_string(s).unwrap_or_default().trim_matches('"').to_string(),
+                                    other => other.to_string(),
+                                };
+                                text = text.replace(&format!("{{{{{var}}}}}"), &val);
+                            }
+                            let Ok(mut filled) = serde_json::from_str::<Value>(&text) else { continue };
+                            if let (Some(f), Some(i)) = (filled.as_object_mut(), imp.as_object()) {
+                                for (k, val) in i.iter().filter(|(k, _)| *k != "_variables") {
+                                    f.insert(k.clone(), val.clone());
+                                }
+                            }
+                            variants.push(filled);
+                        }
+                    }
+                    _ => variants.push(v.clone()),
+                }
+            }
+            let mut ids = Vec::new();
+            for variant in variants {
+                let Some(obj) = variant.as_object() else { continue };
+                let mut copy: serde_json::Map<String, Value> =
+                    obj.iter().filter(|(k, _)| *k != "_mod").map(|(k, v)| (k.clone(), v.clone())).collect();
+                let mut meta = serde_json::Map::new();
+                if let Some(m) = obj.get("_mod") {
+                    meta.insert("_mod".into(), m.clone());
+                }
+                copy.insert("_copy".into(), Value::Object(meta));
+                let mut merged = copy::merge(&base_data, &Value::Object(copy));
+                if let Some(o) = merged.as_object_mut() {
+                    o.remove("_versions");
+                    o.insert("_versionOf".into(), Value::String(self.entities[base].name.clone()));
+                }
+                let before = self.entities.len();
+                self.insert(kind, merged);
+                if self.entities.len() > before {
+                    ids.push(before);
+                    self.version_base.insert(before, base);
+                }
+            }
+            self.versions.insert(base, ids);
+        }
+    }
+
+    /// Versions generated from an entity's `_versions` (empty if none).
+    pub fn versions_of(&self, id: EntityId) -> &[EntityId] {
+        self.versions.get(&id).map(Vec::as_slice).unwrap_or_default()
+    }
+
+    /// The entity a version was generated from.
+    pub fn version_base(&self, id: EntityId) -> Option<EntityId> {
+        self.version_base.get(&id).copied()
     }
 
     fn insert(&mut self, kind: Kind, data: Value) {
@@ -395,4 +470,44 @@ fn parse_parallel(files: &[PathBuf]) -> Vec<(PathBuf, Result<Value, LoadError>)>
             .collect();
         handles.into_iter().flat_map(|h| h.join().expect("parser thread panicked")).collect()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn versions_named_and_templated() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "race": [
+                {"name": "Elf", "source": "T", "speed": 30, "entries": [{"type": "entries", "name": "Elven Lineage", "entries": ["Choose."]}],
+                 "_versions": [{"name": "Elf; Drow Lineage", "source": "T", "darkvision": 120,
+                    "_mod": {"entries": {"mode": "replaceArr", "replace": "Elven Lineage",
+                        "items": {"type": "entries", "name": "Elven Lineage (Drow)", "entries": ["Drow."]}}}}]},
+                {"name": "Dragonborn", "source": "T", "entries": ["Breath: {{x}}"],
+                 "_versions": [{"_abstract": {"name": "Dragonborn ({{color}})", "source": "T",
+                    "_mod": {"entries": {"mode": "appendArr", "items": "Resist {{damageType}}."}}},
+                  "_implementations": [{"_variables": {"color": "Red", "damageType": "Fire"}, "resist": ["fire"]}]}]}
+            ],
+            "feat": [{"name": "Magic Initiate", "source": "T", "entries": ["Pick a list."],
+                "_versions": [{"name": "Magic Initiate; Cleric", "source": "T"}]}]
+        }));
+        let get = |kind, name: &str| lib.get(&Key::new(kind, &[name, "T"])).unwrap_or_else(|| panic!("{name} missing"));
+        let elf = get(Kind::Race, "Elf");
+        let drow = get(Kind::Race, "Elf; Drow Lineage");
+        assert_eq!(lib.versions_of(elf), &[drow]);
+        assert_eq!(lib.version_base(drow), Some(elf));
+        assert_eq!(lib.entity(drow).data["darkvision"], 120);
+        assert_eq!(lib.entity(drow).data["speed"], 30, "inherits from the base");
+        assert_eq!(lib.entity(drow).data["entries"][0]["name"], "Elven Lineage (Drow)");
+        assert!(lib.entity(drow).data.get("_versions").is_none());
+
+        let red = get(Kind::Race, "Dragonborn (Red)");
+        assert_eq!(lib.entity(red).data["entries"][1], "Resist Fire.");
+        assert_eq!(lib.entity(red).data["resist"], json!(["fire"]));
+
+        get(Kind::Feat, "Magic Initiate; Cleric");
+    }
 }

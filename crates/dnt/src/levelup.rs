@@ -3,7 +3,9 @@
 
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::character::{Character, HitPoints, HpMethod, Level, LevelChoices};
+use dnt_rules::choices::{self, Choice};
 use dnt_rules::levelup::{self, LevelPerk};
+use dnt_rules::overlay::resolve_id;
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::Evaluation;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
@@ -33,6 +35,8 @@ pub struct LevelUp {
     asi_left: Vec<i64>,
     perk: LevelPerk,
     pub summary: Vec<String>,
+    /// Feature choices still to make; `None` until computed.
+    feature_choices: Option<Vec<Choice>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -43,6 +47,7 @@ enum Step {
     Asi,
     AsiAbility,
     Feat,
+    Choice,
 }
 
 pub enum Outcome {
@@ -84,6 +89,7 @@ impl LevelUp {
             asi_left: Vec::new(),
             perk: LevelPerk::None,
             summary: Vec::new(),
+            feature_choices: None,
         }
     }
 
@@ -115,8 +121,24 @@ impl LevelUp {
                 Outcome::Continue
             }
             Stage::Pick(picker) => {
-                let Some(Picked::One(value)) = picker.key(key) else { return Outcome::Continue };
-                let label = picker.current().map(|i| i.label.clone()).unwrap_or_default();
+                let values = match picker.key(key) {
+                    Some(Picked::One(v)) => vec![v],
+                    Some(Picked::Many(vs)) => vs,
+                    None => return Outcome::Continue,
+                };
+                let labels: Vec<String> = values
+                    .iter()
+                    .filter_map(|v| picker.items.iter().find(|i| &i.value == v).map(|i| i.label.clone()))
+                    .collect();
+                if self.step == Step::Choice {
+                    let choice = self.feature_choices.as_mut().map(|q| q.remove(0)).expect("choice in progress");
+                    self.summary.push(format!("{}: {}", choice.key, labels.join(", ")));
+                    self.choices.picks.entry(choice.key).or_default().extend(values);
+                    self.next_choice(lib, c, filter);
+                    return Outcome::Continue;
+                }
+                let value = values.into_iter().next().unwrap_or_default();
+                let label = labels.into_iter().next().unwrap_or_default();
                 self.chosen(value, label, lib, c, ev, filter);
                 Outcome::Continue
             }
@@ -177,7 +199,7 @@ impl LevelUp {
                 *self.choices.ability.entry(value.clone()).or_default() += n;
                 self.summary.push(format!("+{n} {}", tidy(&label)));
                 if self.asi_left.is_empty() {
-                    self.stage = Stage::Confirm;
+                    self.next_choice(lib, c, filter);
                 } else {
                     self.ability_stage(ev);
                 }
@@ -185,8 +207,34 @@ impl LevelUp {
             Step::Feat => {
                 self.summary.push(format!("Feat: {label}"));
                 self.choices.feat = Some(value);
-                self.stage = Stage::Confirm;
+                self.next_choice(lib, c, filter);
             }
+            Step::Choice => {}
+        }
+    }
+
+    /// Ask the next class feature choice, or move to confirmation.
+    fn next_choice(&mut self, lib: &Library, c: &Character, filter: &SourceFilter) {
+        if self.feature_choices.is_none() {
+            let (Some(class), Some(class_id)) = (self.class_entity, self.class.clone()) else {
+                self.stage = Stage::Confirm;
+                return;
+            };
+            let subclass = self
+                .subclass
+                .clone()
+                .or_else(|| c.subclasses.get(&class_id).cloned())
+                .and_then(|s| resolve_id(lib, &s));
+            let skills = c.proficiencies.skills.clone();
+            let found = choices::level_choices(lib, c, class, subclass, self.new_level, filter, &skills);
+            self.feature_choices = Some(found.into_iter().filter(|ch| !ch.options.is_empty()).collect());
+        }
+        match self.feature_choices.as_ref().and_then(|q| q.first()) {
+            Some(choice) => {
+                self.step = Step::Choice;
+                self.stage = Stage::Pick(choice_picker(choice, choice.count));
+            }
+            None => self.stage = Stage::Confirm,
         }
     }
 
@@ -210,13 +258,13 @@ impl LevelUp {
         self.stage = Stage::Pick(Picker::new("Hit points for this level", items));
     }
 
-    fn after_hp(&mut self, lib: &Library, _c: &Character, filter: &SourceFilter) {
+    fn after_hp(&mut self, lib: &Library, c: &Character, filter: &SourceFilter) {
         self.perk = self
             .class_entity
             .map(|e| levelup::perk_at(&lib.entity(e).data, self.new_level))
             .unwrap_or(LevelPerk::None);
         match self.perk {
-            LevelPerk::None => self.stage = Stage::Confirm,
+            LevelPerk::None => self.next_choice(lib, c, filter),
             LevelPerk::EpicBoon => self.feat_stage(lib, filter),
             LevelPerk::Asi => {
                 let items = vec![
@@ -280,4 +328,23 @@ impl LevelUp {
 /// Collapse the column padding used in picker labels.
 fn tidy(label: &str) -> String {
     label.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A picker for a class feature choice (multi-select when more than one).
+pub fn choice_picker(choice: &Choice, count: usize) -> Picker {
+    let items: Vec<PickItem> = choice
+        .options
+        .iter()
+        .map(|o| PickItem {
+            label: o.label.clone(),
+            hint: o.hint.clone(),
+            warning: o.warning.clone(),
+            value: o.value.clone(),
+        })
+        .collect();
+    if count > 1 {
+        Picker::multi(format!("{}: choose {count}", choice.key), items, count)
+    } else {
+        Picker::new(format!("{}: choose one", choice.key), items)
+    }
 }

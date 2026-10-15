@@ -13,6 +13,9 @@ use dnt_rules::standard::{ABILITIES, SKILLS};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use serde_json::Value as Json;
 
+use dnt_rules::choices::{self, Choice};
+
+use crate::levelup::choice_picker;
 use crate::picker::{PickItem, Picked, Picker};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,12 +126,13 @@ enum Step {
     Subclass,
     ClassSkills,
     OriginSkills,
+    FeatureChoice,
     Armor,
     Shield,
     Review,
 }
 
-const ORDER: [Step; 15] = [
+const ORDER: [Step; 16] = [
     Step::Species,
     Step::Subspecies,
     Step::Background,
@@ -141,6 +145,7 @@ const ORDER: [Step; 15] = [
     Step::Subclass,
     Step::ClassSkills,
     Step::OriginSkills,
+    Step::FeatureChoice,
     Step::Armor,
     Step::Shield,
     Step::Review,
@@ -170,6 +175,8 @@ struct State {
     bonuses: BTreeMap<String, BTreeMap<String, i64>>,
     feat_choice: Option<Vec<String>>,
     origin_skill_choices: Vec<(String, origin::SkillGrant)>,
+    /// Class feature choices for the first level; `None` until computed.
+    feature_choices: Option<Vec<Choice>>,
 }
 
 pub struct Wizard {
@@ -243,6 +250,7 @@ impl Wizard {
             bonuses: BTreeMap::new(),
             feat_choice: None,
             origin_skill_choices: Vec::new(),
+            feature_choices: None,
         };
         let mut w = Wizard { state, history: Vec::new() };
         w.enter(Step::Species, lib, filter);
@@ -271,7 +279,7 @@ impl Wizard {
             ("Ability increases", Step::BonusAlternative),
             ("Feats", Step::Feat),
             ("Class", Step::Class),
-            ("Skills", Step::ClassSkills),
+            ("Skills & features", Step::ClassSkills),
             ("Equipment", Step::Armor),
             ("Review", Step::Review),
         ]
@@ -291,7 +299,9 @@ impl Wizard {
     /// Entity to preview for the highlighted choice, if any.
     pub fn preview(&self, lib: &Library) -> Option<EntityId> {
         match &self.state.view {
-            View::Pick(p) => p.current().and_then(|i| resolve_id(lib, &i.value)),
+            View::Pick(p) => p
+                .current()
+                .and_then(|i| resolve_id(lib, i.value.strip_prefix("version:").unwrap_or(&i.value))),
             _ => None,
         }
     }
@@ -363,10 +373,12 @@ impl Wizard {
     fn enter(&mut self, step: Step, lib: &Library, filter: &SourceFilter) -> bool {
         let st = &mut self.state;
         let view = match step {
-            Step::Species => View::Pick(Picker::new(
-                "Choose a species",
-                entity_items(lib, Kind::Race, filter, |i| format!("race:{}|{}", lib.entity(i).name, lib.entity(i).source)),
-            )),
+            Step::Species => {
+                let mut items = entity_items(lib, Kind::Race, filter, |i| format!("race:{}|{}", lib.entity(i).name, lib.entity(i).source));
+                // Lineages/ancestries are chosen in the next step.
+                items.retain(|it| resolve_id(lib, &it.value).is_none_or(|e| lib.version_base(e).is_none()));
+                View::Pick(Picker::new("Choose a species", items))
+            }
             Step::Subspecies => {
                 let Some(sp) = st.species else { return false };
                 let race = lib.entity(sp);
@@ -380,11 +392,17 @@ impl Wizard {
                     })
                     .map(|i| PickItem::new(lib.entity(i).name.clone(), lib.entity(i).source.clone(), format!("race:{}|{}", lib.entity(i).name, lib.entity(i).source)))
                     .collect();
+                // Versions: 2024 lineages, legacies and ancestries.
+                items.extend(lib.versions_of(sp).iter().map(|&v| {
+                    let e = lib.entity(v);
+                    PickItem::new(e.name.clone(), e.source.clone(), format!("version:race:{}|{}", e.name, e.source))
+                }));
                 if items.is_empty() {
                     return false;
                 }
                 items.sort_by(|a, b| a.label.cmp(&b.label));
-                View::Pick(Picker::new(format!("Choose a {} subrace", race.name), items))
+                let what = if lib.versions_of(sp).is_empty() { "subrace" } else { "lineage" };
+                View::Pick(Picker::new(format!("{}: choose a {what}", race.name), items))
             }
             Step::Background => View::Pick(Picker::new(
                 "Choose a background",
@@ -452,6 +470,7 @@ impl Wizard {
                     for f in grant.fixed {
                         // Store the canonical id (`feat:Magic Initiate|XPHB`).
                         let Some(e) = resolve_id(lib, &f) else { continue };
+                        // `feat:magic initiate; cleric|xphb` names a version of the feat.
                         let id = levelup::feat_id(lib, e);
                         if !st.ch.feats.contains(&id) {
                             st.summary.push(("Feat".into(), name_of(lib, Some(e))));
@@ -520,6 +539,19 @@ impl Wizard {
                 let Some((from, g)) = st.origin_skill_choices.first().cloned() else { return false };
                 skill_picker(&st.ch, &format!("{from}: choose {} skill(s)", g.count), &g)
             }
+            Step::FeatureChoice => {
+                if st.feature_choices.is_none() {
+                    let Some(class) = st.class else { return false };
+                    let subclass = st.ch.subclasses.values().next().and_then(|s| resolve_id(lib, s));
+                    let mut before = st.ch.clone();
+                    before.levels.clear();
+                    let skills = st.ch.proficiencies.skills.clone();
+                    let found = choices::level_choices(lib, &before, class, subclass, 1, filter, &skills);
+                    st.feature_choices = Some(found.into_iter().filter(|c| !c.options.is_empty()).collect());
+                }
+                let Some(choice) = st.feature_choices.as_ref().and_then(|q| q.first()) else { return false };
+                View::Pick(choice_picker(choice, choice.count))
+            }
             Step::Armor => {
                 let mut items = vec![PickItem::new("No armor", "", "none")];
                 let mut armors: Vec<EntityId> = (0..lib.entities().len())
@@ -571,9 +603,16 @@ impl Wizard {
                 st.summary.push(("Species".into(), label));
             }
             Step::Subspecies => {
-                st.subspecies = resolve_id(lib, &one);
-                st.ch.subspecies = Some(one);
-                st.summary.push(("Subrace".into(), label));
+                if let Some(id) = one.strip_prefix("version:") {
+                    // A version is a complete species: it replaces the base.
+                    st.species = resolve_id(lib, id);
+                    st.ch.species = Some(id.to_string());
+                    st.summary.push(("Lineage".into(), label));
+                } else {
+                    st.subspecies = resolve_id(lib, &one);
+                    st.ch.subspecies = Some(one);
+                    st.summary.push(("Subrace".into(), label));
+                }
             }
             Step::Background => {
                 st.background = resolve_id(lib, &one);
@@ -643,6 +682,24 @@ impl Wizard {
                 };
                 st.summary.push((format!("Skills ({from})"), names));
                 if step == Step::OriginSkills && self.enter(Step::OriginSkills, lib, filter) {
+                    return;
+                }
+            }
+            Step::FeatureChoice => {
+                let values = match picked {
+                    Picked::One(v) => vec![v],
+                    Picked::Many(vs) => vs,
+                };
+                let choice = st.feature_choices.as_mut().map(|q| q.remove(0)).expect("choice in progress");
+                let names: Vec<String> = values
+                    .iter()
+                    .filter_map(|v| choice.options.iter().find(|o| &o.value == v).map(|o| o.label.clone()))
+                    .collect();
+                st.summary.push((choice.key.clone(), names.join(", ")));
+                if let Some(level) = st.ch.levels.first_mut() {
+                    level.choices.picks.entry(choice.key).or_default().extend(values);
+                }
+                if self.enter(Step::FeatureChoice, lib, filter) {
                     return;
                 }
             }

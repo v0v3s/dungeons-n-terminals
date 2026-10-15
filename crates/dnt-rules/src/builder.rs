@@ -41,6 +41,8 @@ pub enum FeatureSource {
     Background,
     Feat,
     Option,
+    /// A weapon whose mastery property the character can use.
+    Mastery,
 }
 
 #[derive(Debug, Clone)]
@@ -112,8 +114,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
-    // ---- per-level choices: ASIs and feats ----
+    // ---- per-level choices: ASIs, feats and feature picks ----
     let mut level_feats: Vec<String> = Vec::new();
+    // (class id, pick value) for picks that become features.
+    let mut level_picks: Vec<(String, String)> = Vec::new();
+    let mut expertise: Vec<String> = Vec::new();
     let mut counts: BTreeMap<&str, i64> = BTreeMap::new();
     for l in &character.levels {
         let n = counts.entry(&l.class).or_default();
@@ -130,6 +135,13 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             });
         }
         level_feats.extend(l.choices.feat.iter().cloned());
+        for (key, values) in &l.choices.picks {
+            if key == "Expertise" {
+                expertise.extend(values.iter().cloned());
+            } else {
+                level_picks.extend(values.iter().map(|v| (l.class.clone(), v.clone())));
+            }
+        }
     }
 
     // ---- classes ----
@@ -183,10 +195,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             }
         }
     }
+    let all_expertise: Vec<String> = character.proficiencies.expertise.iter().cloned().chain(expertise).collect();
     for (list, mult) in [
         (&character.proficiencies.half, standard::half()),
         (&character.proficiencies.skills, Value::int(1)),
-        (&character.proficiencies.expertise, Value::int(2)),
+        (&all_expertise, Value::int(2)),
     ] {
         for s in list {
             let key = slug(s);
@@ -348,14 +361,6 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
         i += 1;
     }
-    // Keep nested features next to their class/subclass, ordered by level.
-    let rank = |s: FeatureSource| match s {
-        FeatureSource::Class(ci) => ci * 2,
-        FeatureSource::Subclass(ci) => ci * 2 + 1,
-        _ => usize::MAX,
-    };
-    features.sort_by_key(|f| (rank(f.source), f.level));
-
     let singles = [
         (character.species.as_deref(), FeatureSource::Species),
         (character.subspecies.as_deref(), FeatureSource::Species),
@@ -371,6 +376,24 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             }
         }
     }
+    // Picked sub-features join their class's features; feats, optional
+    // features and weapon masteries get their own groups.
+    for (class_id, value) in &level_picks {
+        let Some(e) = resolve_id(lib, value) else {
+            warnings.push(format!("not in the library (or not enabled): {value}"));
+            continue;
+        };
+        let ci = classes.iter().position(|c| &c.id == class_id);
+        let source = match (lib.entity(e).kind, ci) {
+            (Kind::ClassFeature, Some(ci)) => FeatureSource::Class(ci),
+            (Kind::SubclassFeature, Some(ci)) => FeatureSource::Subclass(ci),
+            (Kind::Feat, _) => FeatureSource::Feat,
+            (Kind::BaseItem | Kind::Item, _) => FeatureSource::Mastery,
+            _ => FeatureSource::Option,
+        };
+        let level = lib.entity(e).data.get("level").and_then(Json::as_i64).unwrap_or(0);
+        features.push(ActiveFeature { entity: e, source, level });
+    }
     let all_feats: Vec<String> = character.feats.iter().cloned().chain(level_feats).collect();
     for (list, source) in [(&all_feats, FeatureSource::Feat), (&character.options, FeatureSource::Option)] {
         for id in list {
@@ -379,6 +402,19 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             }
         }
     }
+
+    // Group features: each class then its subclass (by level), then
+    // species, background, feats, options and weapon masteries.
+    let rank = |s: FeatureSource| match s {
+        FeatureSource::Class(ci) => ci * 2,
+        FeatureSource::Subclass(ci) => ci * 2 + 1,
+        FeatureSource::Species => 10_000,
+        FeatureSource::Background => 10_001,
+        FeatureSource::Feat => 10_002,
+        FeatureSource::Option => 10_003,
+        FeatureSource::Mastery => 10_004,
+    };
+    features.sort_by_key(|f| (rank(f.source), f.level));
 
     // ---- overlays ----
     let mut resources = Vec::new();
@@ -432,6 +468,8 @@ fn collect_refs(v: &Json, out: &mut Vec<(Kind, String)>) {
         Json::Array(a) => a.iter().for_each(|x| collect_refs(x, out)),
         Json::Object(o) => {
             match o.get("type").and_then(Json::as_str) {
+                // Options are chosen, not all granted; picks are added separately.
+                Some("options") => return,
                 Some("refClassFeature") => {
                     if let Some(r) = o.get("classFeature").and_then(Json::as_str) {
                         out.push((Kind::ClassFeature, r.to_string()));
