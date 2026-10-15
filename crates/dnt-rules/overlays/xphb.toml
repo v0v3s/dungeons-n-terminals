@@ -369,6 +369,14 @@ target = "attack.one_handed.damage"
 add = "2"
 
 [[feature]]
+id = "feat:Dual Wielder|PHB"
+name = "Dual Wielder (2014)"
+[[feature.effect]]
+target = "ac"
+add = "1"
+when = "hands.two_melee"
+
+[[feature]]
 id = "feat:Two-Weapon Fighting|XPHB"
 name = "Two-Weapon Fighting (Fighting Style)"
 [[feature.effect]]

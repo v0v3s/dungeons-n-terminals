@@ -571,7 +571,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         let monk = e.data.get("className").and_then(Json::as_str) == Some("Monk");
         (e.kind == Kind::ClassFeature && monk && e.name == "Martial Arts").then(|| attacks::MartialArts { rules_2024: e.source == "XPHB" })
     });
-    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, martial_arts);
+    let dual_wielder = features.iter().find_map(|f| {
+        let e = lib.entity(f.entity);
+        (e.kind == Kind::Feat && e.name == "Dual Wielder").then(|| attacks::DualWielder { rules_2024: e.source == "XPHB" })
+    });
+    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, martial_arts, dual_wielder);
 
     // ---- state that feeds stats, and overrides ----
     for (k, on) in &character.state.toggles {

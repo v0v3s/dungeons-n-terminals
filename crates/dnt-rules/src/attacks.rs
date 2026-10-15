@@ -224,6 +224,14 @@ impl MartialArts {
     }
 }
 
+/// The Dual Wielder feat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DualWielder {
+    /// 2024: the main weapon must be Light, the off-hand one any melee
+    /// weapon without Two-Handed. 2014: any one-handed melee weapons.
+    pub rules_2024: bool,
+}
+
 /// One attack on the sheet.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attack {
@@ -310,6 +318,7 @@ pub fn add_attacks(
     prof: &WeaponProficiency,
     mastered: &[EntityId],
     martial_arts: Option<MartialArts>,
+    dual_wielder: Option<DualWielder>,
 ) -> Vec<Attack> {
     let mut attacks = Vec::new();
     let mut seen = Vec::new();
@@ -322,6 +331,12 @@ pub fn add_attacks(
     };
     // Is a weapon (not a shield) held in the off hand?
     let off_weapon = character.inventory.iter().any(|l| l.hand.is_some_and(Hand::uses_off) && weapon_of(l).is_some());
+    let main_weapon = character.inventory.iter().find(|l| l.hand.is_some_and(Hand::uses_main)).and_then(|l| weapon_of(l));
+    let main_light = main_weapon.as_ref().is_some_and(|(_, w)| w.has("L"));
+    // Separate melee weapons in each hand (for the 2014 Dual Wielder's AC).
+    let off_melee = character.inventory.iter().any(|l| l.hand.is_some_and(Hand::uses_off) && weapon_of(l).is_some_and(|(_, w)| w.melee));
+    let two_melee = main_weapon.as_ref().is_some_and(|(_, w)| w.melee) && off_melee;
+    model.inputs.insert("hands.two_melee".into(), Value::Bool(two_melee));
     // What is in hand first (main, then off), then the rest of what is carried.
     let mut lines: Vec<_> = character.inventory.iter().collect();
     lines.sort_by_key(|l| match l.hand {
@@ -352,6 +367,24 @@ pub fn add_attacks(
         let mut a = weapon_attack(model, &s, &name, Some(id), held, &w, prof, attuned_ok, mastery, monk);
         if martial_arts.is_none() && line.monk_weapon == Some(true) {
             a.notes.push("marked as a monk weapon, but no Martial Arts".into());
+        }
+        // The off-hand extra attack: Light weapons, or Dual Wielder.
+        if a.offhand {
+            let one_handed_melee = w.melee && !w.has("2H");
+            let (ok, why) = match dual_wielder {
+                None => (w.has("L") && main_light, "the off-hand attack needs Light weapons in both hands (or Dual Wielder)"),
+                Some(d) if d.rules_2024 => (
+                    one_handed_melee && main_light,
+                    "Dual Wielder: the main weapon must be Light, this one a melee weapon without Two-Handed",
+                ),
+                Some(_) => (
+                    one_handed_melee && main_weapon.as_ref().is_some_and(|(_, m)| m.melee && !m.has("2H")),
+                    "Dual Wielder: both weapons must be one-handed melee weapons",
+                ),
+            };
+            if !ok {
+                a.notes.push(why.into());
+            }
         }
         attacks.push(a);
     }
@@ -445,9 +478,6 @@ fn weapon_attack(
     // Off hand (the Light property's extra attack): no ability modifier
     // to damage unless it is negative, or with Two-Weapon Fighting.
     let offhand = matches!(held.hand, Some(Hand::Off | Hand::Pair));
-    if offhand && !w.has("L") {
-        notes.push("the off-hand attack needs a Light weapon (or Dual Wielder)".into());
-    }
     if offhand {
         let stat = key("offhand");
         let (base, origin) = damage_dice(model, w.dice.as_deref().unwrap_or("0"), monk, format!("{name} (off hand)"));
@@ -603,7 +633,8 @@ mod tests {
                 {"name": "Longsword +1", "source": "T", "baseItem": "longsword|T", "type": "M|T", "rarity": "uncommon",
                  "weaponCategory": "martial", "property": ["V|T"], "dmg1": "1d8", "dmgType": "S", "dmg2": "1d10", "bonusWeapon": "+1"}
             ],
-            "feat": [{"name": "Archery", "source": "T", "entries": ["x"]}, {"name": "Dueling", "source": "T", "entries": ["x"]}]
+            "feat": [{"name": "Archery", "source": "T", "entries": ["x"]}, {"name": "Dueling", "source": "T", "entries": ["x"]},
+                     {"name": "Dual Wielder", "source": "XPHB", "entries": ["x"]}, {"name": "Dual Wielder", "source": "T", "entries": ["x"]}]
         }));
         lib
     }
@@ -702,6 +733,25 @@ add = "2"
     }
 
     #[test]
+    fn dual_wielding() {
+        use crate::character::Hand;
+        let lib = library();
+        let held = |feat: Option<&str>, main: &str, off: &str| {
+            let mut c = character(&["Fighter"], &[main, off]);
+            c.inventory[0].hand = Some(Hand::Main);
+            c.inventory[1].hand = Some(Hand::Off);
+            c.feats = feat.into_iter().map(str::to_string).collect();
+            let b = build(&c, &lib, &OverlaySet::default());
+            b.attacks.iter().find(|a| a.offhand).unwrap().notes.clone()
+        };
+        assert!(!held(None, "Dagger", "Rapier").is_empty(), "Rapier is not Light");
+        assert!(held(Some("feat:Dual Wielder|XPHB"), "Dagger", "Rapier").is_empty(), "2024: Light main, any one-handed off");
+        assert!(!held(Some("feat:Dual Wielder|XPHB"), "Rapier", "Dagger").is_empty(), "2024: the main weapon must be Light");
+        assert!(held(Some("feat:Dual Wielder|T"), "Rapier", "Longsword").is_empty(), "2014: any one-handed melee");
+        assert!(!held(Some("feat:Dual Wielder|T"), "Rapier", "Greataxe").is_empty());
+    }
+
+    #[test]
     fn wielding() {
         use crate::character::Hand;
         use crate::equipment::wield;
@@ -744,7 +794,7 @@ add = "2"
             origin: "Rage".into(),
         });
         let prof = super::weapon_proficiency(&lib, &c, &[], &[]);
-        super::add_attacks(&mut model, &lib, &c, &prof, &[], None);
+        super::add_attacks(&mut model, &lib, &c, &prof, &[], None, None);
         let ev = model.evaluate();
         assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 5", "Strength melee");
         assert_eq!(ev.get("attack.longbow.damage").unwrap().to_string(), "1d8 + 2", "not ranged");
