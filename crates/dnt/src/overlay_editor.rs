@@ -199,7 +199,8 @@ mod tests {
         ed.check(&lib, &c, &overlays, &current);
         assert!(ed.errors.is_empty() && ed.changes.is_empty(), "the template changes nothing: {:?}", ed.errors);
 
-        ed.editor = EditorState::new(Lines::from("[[feature]]\nid = \"feat:Stout|T\"\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"5\"\n"));
+        ed.editor =
+            EditorState::new(Lines::from("[[feature]]\nid = \"feat:Stout|T\"\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"5\"\n"));
         ed.check(&lib, &c, &overlays, &current);
         assert_eq!(ed.changes, ["speed: 30 → 35"]);
 

@@ -36,19 +36,11 @@ pub struct Span {
 
 impl Span {
     pub fn plain(text: impl Into<String>) -> Span {
-        Span {
-            text: text.into(),
-            style: Style::default(),
-            link: None,
-        }
+        Span { text: text.into(), style: Style::default(), link: None }
     }
 
     pub fn styled(text: impl Into<String>, style: Style) -> Span {
-        Span {
-            text: text.into(),
-            style,
-            link: None,
-        }
+        Span { text: text.into(), style, link: None }
     }
 }
 
@@ -159,25 +151,17 @@ fn emit_tag(inner: &str, style: Style, out: &mut Vec<Span>) {
             };
             out.push(Span::styled(text, with(|s| s.mechanic = true)));
         }
-        "dc" => out.push(Span::styled(
-            format!("DC {}", nth(1).unwrap_or(first)),
-            with(|s| s.mechanic = true),
-        )),
+        "dc" => out.push(Span::styled(format!("DC {}", nth(1).unwrap_or(first)), with(|s| s.mechanic = true))),
         "atk" | "atkr" => out.push(Span::styled(attack_label(first), with(|s| s.italic = true))),
         "h" => out.push(Span::styled("Hit: ", with(|s| s.italic = true))),
         "m" => out.push(Span::styled("Miss: ", with(|s| s.italic = true))),
         _ => {
             if let Some(kind) = Kind::for_tag(tag).first() {
-                let display_idx = crate::id::Key::from_ref(*kind, tag, &parts)
-                    .and_then(|(_, d)| d)
-                    .unwrap_or(2);
+                let display_idx = crate::id::Key::from_ref(*kind, tag, &parts).and_then(|(_, d)| d).unwrap_or(2);
                 let display = nth(display_idx).unwrap_or(first);
                 let mut spans = Vec::new();
                 parse_into(display, style, &mut spans);
-                let link = Link {
-                    tag: tag.to_string(),
-                    args: body.to_string(),
-                };
+                let link = Link { tag: tag.to_string(), args: body.to_string() };
                 for mut s in spans {
                     s.link = Some(link.clone());
                     out.push(s);

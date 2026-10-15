@@ -13,12 +13,7 @@ pub struct PickItem {
 
 impl PickItem {
     pub fn new(label: impl Into<String>, hint: impl Into<String>, value: impl Into<String>) -> PickItem {
-        PickItem {
-            label: label.into(),
-            hint: hint.into(),
-            warning: None,
-            value: value.into(),
-        }
+        PickItem { label: label.into(), hint: hint.into(), warning: None, value: value.into() }
     }
 }
 
@@ -40,14 +35,7 @@ pub enum Picked {
 
 impl Picker {
     pub fn new(title: impl Into<String>, items: Vec<PickItem>) -> Picker {
-        Picker {
-            title: title.into(),
-            items,
-            query: String::new(),
-            selected: 0,
-            multi: None,
-            checked: Vec::new(),
-        }
+        Picker { title: title.into(), items, query: String::new(), selected: 0, multi: None, checked: Vec::new() }
     }
 
     pub fn multi(title: impl Into<String>, items: Vec<PickItem>, count: usize) -> Picker {

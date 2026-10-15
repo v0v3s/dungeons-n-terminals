@@ -33,9 +33,7 @@ pub fn merge(base: &Value, copy: &Value) -> Value {
 
     let mut out: Map<String, Value> = base
         .iter()
-        .filter(|(k, _)| {
-            !NOT_INHERITED.contains(&k.as_str()) || preserve.is_some_and(|p| p.contains_key(*k) || p.contains_key("*"))
-        })
+        .filter(|(k, _)| !NOT_INHERITED.contains(&k.as_str()) || preserve.is_some_and(|p| p.contains_key(*k) || p.contains_key("*")))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     for (k, v) in copy {
@@ -99,8 +97,14 @@ fn apply_mod(root: &mut Value, prop: &str, op: &Value) {
                 set_path(base, path, value.clone());
             }
         }
-        "appendArr" | "prependArr" | "insertArr" | "appendIfNotExistsArr" | "replaceArr" | "replaceOrAppendArr"
-        | "removeArr" | "renameArr" => {
+        "appendArr"
+        | "prependArr"
+        | "insertArr"
+        | "appendIfNotExistsArr"
+        | "replaceArr"
+        | "replaceOrAppendArr"
+        | "removeArr"
+        | "renameArr" => {
             let arr = entry_or_default(root, prop, Value::Array(Vec::new()));
             if !arr.is_array() {
                 *arr = Value::Array(vec![arr.take()]);
@@ -190,11 +194,7 @@ fn find_index(arr: &[Value], selector: &Value) -> Option<usize> {
                 .case_insensitive(o.get("flags").and_then(Value::as_str).is_some_and(|f| f.contains('i')))
                 .build()
                 .ok()?;
-            arr.iter().position(|v| {
-                v.as_str()
-                    .or_else(|| v.get("name").and_then(Value::as_str))
-                    .is_some_and(|s| re.is_match(s))
-            })
+            arr.iter().position(|v| v.as_str().or_else(|| v.get("name").and_then(Value::as_str)).is_some_and(|s| re.is_match(s)))
         }
         _ => None,
     }
@@ -212,16 +212,17 @@ fn replace_txt(target: &mut Value, op: &Value) {
     };
     // JS replacement syntax `$1` matches the regex crate's; `$&` does not.
     let with = with.replace("$&", "${0}");
-    let props: Vec<&str> = op
-        .get("props")
-        .and_then(Value::as_array)
-        .map(|p| p.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
-    walk_strings(target, &mut |s| {
-        if re.is_match(s) {
-            *s = re.replace_all(s, with.as_str()).into_owned();
-        }
-    }, &props);
+    let props: Vec<&str> =
+        op.get("props").and_then(Value::as_array).map(|p| p.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+    walk_strings(
+        target,
+        &mut |s| {
+            if re.is_match(s) {
+                *s = re.replace_all(s, with.as_str()).into_owned();
+            }
+        },
+        &props,
+    );
 }
 
 fn walk_strings(v: &mut Value, f: &mut dyn FnMut(&mut String), extra_props: &[&str]) {
@@ -230,9 +231,7 @@ fn walk_strings(v: &mut Value, f: &mut dyn FnMut(&mut String), extra_props: &[&s
         Value::Array(a) => a.iter_mut().for_each(|x| walk_strings(x, f, extra_props)),
         Value::Object(o) => {
             for (k, x) in o.iter_mut() {
-                if matches!(k.as_str(), "entries" | "entry" | "items" | "headerEntries" | "rows")
-                    || extra_props.contains(&k.as_str())
-                {
+                if matches!(k.as_str(), "entries" | "entry" | "items" | "headerEntries" | "rows") || extra_props.contains(&k.as_str()) {
                     walk_strings(x, f, extra_props);
                 }
             }

@@ -27,21 +27,12 @@ struct Run {
 }
 
 pub fn render(blocks: &[Block], width: u16, focused_link: Option<usize>, theme: &Theme) -> Rendered {
-    let mut r = Renderer {
-        width: width.max(10) as usize,
-        lines: Vec::new(),
-        links: Vec::new(),
-        focused: focused_link,
-        theme,
-    };
+    let mut r = Renderer { width: width.max(10) as usize, lines: Vec::new(), links: Vec::new(), focused: focused_link, theme };
     r.blocks(blocks, &[], &[]);
     while r.lines.last().is_some_and(|l| l.spans.is_empty()) {
         r.lines.pop();
     }
-    Rendered {
-        lines: r.lines,
-        links: r.links,
-    }
+    Rendered { lines: r.lines, links: r.links }
 }
 
 struct Renderer<'t> {
@@ -97,17 +88,9 @@ impl Renderer<'_> {
             });
             prev = s.link.as_ref();
             if let Some(n) = link {
-                style = if Some(n) == self.focused {
-                    style.patch(self.theme.link_focused)
-                } else {
-                    style.patch(self.theme.link)
-                };
+                style = if Some(n) == self.focused { style.patch(self.theme.link_focused) } else { style.patch(self.theme.link) };
             }
-            out.push(Run {
-                text: s.text.clone(),
-                style,
-                link,
-            });
+            out.push(Run { text: s.text.clone(), style, link });
         }
         out
     }
@@ -252,10 +235,7 @@ impl Renderer<'_> {
                 let border = self.theme.inset_border;
                 let indent_w: usize = rest.iter().map(|s| s.content.width()).sum();
                 let inner_w = self.width.saturating_sub(indent_w + 2);
-                let title_text: String = title
-                    .as_ref()
-                    .map(|t| t.iter().map(|s| s.text.as_str()).collect())
-                    .unwrap_or_default();
+                let title_text: String = title.as_ref().map(|t| t.iter().map(|s| s.text.as_str()).collect()).unwrap_or_default();
                 let mut top = rest.to_vec();
                 top.push(Span::styled("╭─", border));
                 if !title_text.is_empty() {
@@ -312,20 +292,13 @@ impl Renderer<'_> {
             }
             Block::Properties(props) => {
                 // Two aligned columns: dim labels, then values.
-                let label_of = |spans: &[DocSpan]| {
-                    spans
-                        .first()
-                        .map(|s| s.text.trim_end_matches([':', ' ']).to_string())
-                        .unwrap_or_default()
-                };
+                let label_of =
+                    |spans: &[DocSpan]| spans.first().map(|s| s.text.trim_end_matches([':', ' ']).to_string()).unwrap_or_default();
                 let label_w = props.iter().map(|p| label_of(p).width()).max().unwrap_or(0);
                 let hang: Vec<Span<'static>> = with(rest, Span::raw(" ".repeat(label_w + 2)));
                 for (i, spans) in props.iter().enumerate() {
                     let label = label_of(spans);
-                    let lead = with(
-                        if i == 0 { first } else { rest },
-                        Span::styled(format!("{label:<label_w$}  "), self.theme.label),
-                    );
+                    let lead = with(if i == 0 { first } else { rest }, Span::styled(format!("{label:<label_w$}  "), self.theme.label));
                     let runs = self.runs(spans.get(1..).unwrap_or_default(), Style::default());
                     self.wrap(runs, &lead, &hang);
                 }
@@ -350,14 +323,8 @@ impl Renderer<'_> {
             self.wrap(runs, indent, indent);
         }
         let text_w = |spans: &[DocSpan]| spans.iter().map(|s| s.text.width()).sum::<usize>();
-        let word_w = |spans: &[DocSpan]| {
-            spans
-                .iter()
-                .flat_map(|s| s.text.split_whitespace())
-                .map(UnicodeWidthStr::width)
-                .max()
-                .unwrap_or(0)
-        };
+        let word_w =
+            |spans: &[DocSpan]| spans.iter().flat_map(|s| s.text.split_whitespace()).map(UnicodeWidthStr::width).max().unwrap_or(0);
         // Natural width (no wrapping) and minimum width (longest word) per column.
         let mut natural = vec![1usize; ncols];
         let mut minimum = vec![1usize; ncols];
@@ -377,11 +344,7 @@ impl Renderer<'_> {
             let base: usize = minimum.iter().sum();
             let spare = avail.saturating_sub(base);
             let want: usize = natural.iter().zip(&minimum).map(|(n, m)| n - m).sum::<usize>().max(1);
-            natural
-                .iter()
-                .zip(&minimum)
-                .map(|(n, m)| m + (n - m) * spare / want)
-                .collect()
+            natural.iter().zip(&minimum).map(|(n, m)| m + (n - m) * spare / want).collect()
         };
 
         let header_style = self.theme.table_header;
@@ -403,13 +366,8 @@ impl Renderer<'_> {
         for (c, &w) in widths.iter().enumerate() {
             let first_new = self.links.len();
             let runs = cells.get(c).map(|cell| self.runs(cell, style)).unwrap_or_default();
-            let mut sub = Renderer {
-                width: w,
-                lines: Vec::new(),
-                links: std::mem::take(&mut self.links),
-                focused: self.focused,
-                theme: self.theme,
-            };
+            let mut sub =
+                Renderer { width: w, lines: Vec::new(), links: std::mem::take(&mut self.links), focused: self.focused, theme: self.theme };
             sub.wrap(runs, &[], &[]);
             // Lines of links inside the cell are relative to the row; rebase them.
             for (_, line) in sub.links[first_new..].iter_mut() {

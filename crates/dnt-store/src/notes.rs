@@ -72,10 +72,7 @@ pub struct Notes {
 }
 
 fn io_err(path: &Path) -> impl FnOnce(io::Error) -> StoreError + '_ {
-    move |source| StoreError::Io {
-        path: path.to_path_buf(),
-        source,
-    }
+    move |source| StoreError::Io { path: path.to_path_buf(), source }
 }
 
 /// Characters not allowed in note file names.
@@ -91,11 +88,7 @@ pub fn file_safe(title: &str) -> String {
 
 impl Notes {
     pub fn new(root: impl Into<PathBuf>, global_templates: impl Into<PathBuf>, order: Vec<String>) -> Notes {
-        Notes {
-            root: root.into(),
-            global_templates: global_templates.into(),
-            order,
-        }
+        Notes { root: root.into(), global_templates: global_templates.into(), order }
     }
 
     pub fn abs(&self, rel: &str) -> PathBuf {
@@ -103,9 +96,7 @@ impl Notes {
     }
 
     fn has_notes(&self) -> bool {
-        fs::read_dir(&self.root)
-            .map(|mut d| d.any(|e| e.is_ok_and(|e| !e.file_name().to_string_lossy().starts_with('.'))))
-            .unwrap_or(false)
+        fs::read_dir(&self.root).map(|mut d| d.any(|e| e.is_ok_and(|e| !e.file_name().to_string_lossy().starts_with('.')))).unwrap_or(false)
     }
 
     /// Create the default structure if the notes folder is empty.
@@ -157,9 +148,7 @@ impl Notes {
             other => other,
         };
         // A user folder without its own template uses the generic one.
-        let custom = [self.root.join(".templates"), self.global_templates.clone()]
-            .iter()
-            .any(|d| d.join(format!("{name}.md")).is_file());
+        let custom = [self.root.join(".templates"), self.global_templates.clone()].iter().any(|d| d.join(format!("{name}.md")).is_file());
         if custom || TEMPLATES.iter().any(|(n, _)| *n == name) {
             self.template(name)
         } else {
@@ -182,11 +171,7 @@ impl Notes {
             if e.path().is_dir() {
                 dirs.push(Entry { path, name, is_dir: true });
             } else if name.ends_with(".md") {
-                files.push(Entry {
-                    path,
-                    name: name.trim_end_matches(".md").to_string(),
-                    is_dir: false,
-                });
+                files.push(Entry { path, name: name.trim_end_matches(".md").to_string(), is_dir: false });
             }
         }
         let rank = |name: &str| self.order.iter().position(|o| o == name).unwrap_or(usize::MAX);
@@ -262,10 +247,7 @@ impl Notes {
 
     /// Create today's session note, named by date.
     pub fn new_session(&self, vars: &Vars) -> Result<String> {
-        let vars = Vars {
-            title: vars.date.clone(),
-            ..vars.clone()
-        };
+        let vars = Vars { title: vars.date.clone(), ..vars.clone() };
         self.create("Sessions", &vars)
     }
 
@@ -291,10 +273,7 @@ impl Notes {
         };
         let to = self.abs(&to_rel);
         if to.exists() {
-            return Err(StoreError::Io {
-                path: to,
-                source: io::Error::new(io::ErrorKind::AlreadyExists, "already exists"),
-            });
+            return Err(StoreError::Io { path: to, source: io::Error::new(io::ErrorKind::AlreadyExists, "already exists") });
         }
         fs::rename(&from, &to).map_err(io_err(&from))?;
         Ok(to_rel)
@@ -420,13 +399,7 @@ pub fn links(text: &str) -> Vec<WikiLink> {
                 None => (inner.trim().to_string(), None),
             };
             if !target.is_empty() {
-                out.push(WikiLink {
-                    target,
-                    alias,
-                    line: line_no,
-                    start,
-                    end,
-                });
+                out.push(WikiLink { target, alias, line: line_no, start, end });
             }
             rest = end;
         }
@@ -632,7 +605,9 @@ impl NoteQuery {
                 (!t.is_empty()).then(|| Term::Text(t.to_string()))
             } else if let Some(f) = body.strip_prefix('@') {
                 (!f.is_empty()).then(|| Term::Folder(f.to_lowercase()))
-            } else if let Some((k, v)) = lower.split_once(':').filter(|(k, _)| !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || c == '_')) {
+            } else if let Some((k, v)) =
+                lower.split_once(':').filter(|(k, _)| !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || c == '_'))
+            {
                 match k {
                     "sort" => {
                         let desc = v.starts_with('-');
@@ -705,10 +680,7 @@ impl NoteQuery {
 /// path (`NPCs/Strahd`).
 pub fn resolve<'a>(index: &'a [NoteInfo], target: &str) -> Option<&'a NoteInfo> {
     let t = target.trim().trim_end_matches(".md").to_lowercase();
-    index
-        .iter()
-        .find(|n| n.path.trim_end_matches(".md").to_lowercase() == t)
-        .or_else(|| index.iter().find(|n| n.title.to_lowercase() == t))
+    index.iter().find(|n| n.path.trim_end_matches(".md").to_lowercase() == t).or_else(|| index.iter().find(|n| n.title.to_lowercase() == t))
 }
 
 /// Notes linking to `note`.
@@ -731,12 +703,7 @@ mod tests {
     }
 
     fn vars(title: &str) -> Vars {
-        Vars {
-            title: title.into(),
-            date: "2026-10-15".into(),
-            campaign: "Curse of Strahd".into(),
-            character: String::new(),
-        }
+        Vars { title: title.into(), date: "2026-10-15".into(), campaign: "Curse of Strahd".into(), character: String::new() }
     }
 
     #[test]
@@ -825,10 +792,13 @@ mod tests {
         let text = "# Hub\n```dnt Open quests\ntype:quest status:active #quest\n```\n\n```dnt\n@NPCs sort:title\n```\n";
         let n = NoteInfo::parse("Campaign.md", text);
         assert!(n.tags.is_empty(), "tags inside query blocks are not tags");
-        assert_eq!(n.queries, vec![
-            ("Open quests".to_string(), vec!["type:quest status:active #quest".to_string()]),
-            (String::new(), vec!["@NPCs sort:title".to_string()]),
-        ]);
+        assert_eq!(
+            n.queries,
+            vec![
+                ("Open quests".to_string(), vec!["type:quest status:active #quest".to_string()]),
+                (String::new(), vec!["@NPCs sort:title".to_string()]),
+            ]
+        );
     }
 
     #[test]

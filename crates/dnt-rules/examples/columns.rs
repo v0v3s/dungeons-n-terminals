@@ -10,11 +10,7 @@ fn main() {
     let path = args.next().expect("usage: columns <data dir> [SOURCE]");
     let source = args.next().unwrap_or_else(|| "XPHB".into());
     let lib = Library::load_data_dir(path.as_ref()).expect("load");
-    for e in lib
-        .entities()
-        .iter()
-        .filter(|e| e.kind == Kind::Class && e.source.eq_ignore_ascii_case(&source))
-    {
+    for e in lib.entities().iter().filter(|e| e.kind == Kind::Class && e.source.eq_ignore_ascii_case(&source)) {
         let cols: Vec<String> = class_columns(&e.data)
             .iter()
             .filter(|c| !c.var.contains(".slots."))

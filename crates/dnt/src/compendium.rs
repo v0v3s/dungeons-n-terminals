@@ -103,13 +103,7 @@ pub struct DetailView {
 
 impl DetailView {
     fn new(lib: &Library, entity: EntityId, filter: &SourceFilter) -> DetailView {
-        DetailView {
-            entity,
-            doc: view::document(lib, entity, filter),
-            original: false,
-            scroll: 0,
-            focused_link: None,
-        }
+        DetailView { entity, doc: view::document(lib, entity, filter), original: false, scroll: 0, focused_link: None }
     }
 }
 
@@ -224,11 +218,7 @@ impl Compendium {
 
     fn research(&mut self, lib: &Library) {
         let query = Query::parse(&self.query);
-        let candidates = if query.terms.is_empty() {
-            self.visible.clone()
-        } else {
-            self.facets.filter(lib, &query, &self.visible)
-        };
+        let candidates = if query.terms.is_empty() { self.visible.clone() } else { self.facets.filter(lib, &query, &self.visible) };
         self.results = self.searcher.search(lib, &query.name, &candidates);
         self.suggestions = match self.partial_facet() {
             Some((facet, partial)) => {
@@ -467,11 +457,7 @@ impl Compendium {
                 match (delta > 0, on_screen) {
                     (true, Some(i)) => i,
                     (true, None) => 0,
-                    (false, _) => self
-                        .detail_links
-                        .iter()
-                        .rposition(|(_, line)| *line < top + self.detail_height)
-                        .unwrap_or(n - 1),
+                    (false, _) => self.detail_links.iter().rposition(|(_, line)| *line < top + self.detail_height).unwrap_or(n - 1),
                 }
             }
         };

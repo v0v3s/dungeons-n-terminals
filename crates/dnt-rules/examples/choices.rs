@@ -28,8 +28,15 @@ fn main() {
         let choices = level_choices(&lib, &Character::default(), class, subclass, level, &filter, &skills);
         let text: Vec<String> = choices
             .iter()
-            .map(|c| format!("{} ×{} [{} options: {}…]", c.key, c.count, c.options.len(),
-                c.options.iter().take(3).map(|o| o.label.as_str()).collect::<Vec<_>>().join(", ")))
+            .map(|c| {
+                format!(
+                    "{} ×{} [{} options: {}…]",
+                    c.key,
+                    c.count,
+                    c.options.len(),
+                    c.options.iter().take(3).map(|o| o.label.as_str()).collect::<Vec<_>>().join(", ")
+                )
+            })
             .collect();
         println!("{} {level}: {}", lib.entity(class).name, if text.is_empty() { "—".into() } else { text.join(" | ") });
     }

@@ -169,11 +169,8 @@ impl App {
         if let Err(err) = self.save_doc(Target::Campaign, doc) {
             return self.status = err;
         }
-        self.status = if replaces {
-            format!("{} now has a campaign version", e.name)
-        } else {
-            format!("Created a campaign copy of {}", e.name)
-        };
+        self.status =
+            if replaces { format!("{} now has a campaign version", e.name) } else { format!("Created a campaign copy of {}", e.name) };
         self.open_editor(EntryEditor::new(key, e.kind, replaces, Target::Campaign));
     }
 
@@ -357,12 +354,7 @@ impl App {
         // Note links that name the old source: `[[item:X@CoS]]`.
         self.notes.save();
         let kind_ok = |tag: &str| Kind::for_tag(tag).contains(&kind) || Kind::from_json_key(tag) == Some(kind);
-        let notes = self
-            .notes
-            .notes
-            .as_ref()
-            .map(|n| n.rewrite_entity_source(&kind_ok, &e.name, &e.source, GLOBAL_SOURCE))
-            .transpose();
+        let notes = self.notes.notes.as_ref().map(|n| n.rewrite_entity_source(&kind_ok, &e.name, &e.source, GLOBAL_SOURCE)).transpose();
         self.notes.reload_open();
         self.status = match (characters, notes) {
             (Ok(c), Ok(n)) => {

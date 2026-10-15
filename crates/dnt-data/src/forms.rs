@@ -70,8 +70,8 @@ pub fn hint(format: Format) -> &'static str {
 const SCHOOLS: &[&str] = &["A", "C", "D", "E", "V", "I", "N", "T"];
 const RARITIES: &[&str] = &["none", "common", "uncommon", "rare", "very rare", "legendary", "artifact", "varies", "unknown"];
 const ITEM_TYPES: &[&str] = &[
-    "G|XPHB", "M|XPHB", "R|XPHB", "A|XPHB", "LA|XPHB", "MA|XPHB", "HA|XPHB", "S|XPHB", "SCF|XPHB", "P|XPHB", "SC|XPHB",
-    "RD|XDMG", "RG|XDMG", "WD|XDMG", "INS|XPHB", "AT|XPHB", "T|XPHB", "GS|XPHB", "FD|XPHB", "TG|XDMG", "$G|XDMG",
+    "G|XPHB", "M|XPHB", "R|XPHB", "A|XPHB", "LA|XPHB", "MA|XPHB", "HA|XPHB", "S|XPHB", "SCF|XPHB", "P|XPHB", "SC|XPHB", "RD|XDMG",
+    "RG|XDMG", "WD|XDMG", "INS|XPHB", "AT|XPHB", "T|XPHB", "GS|XPHB", "FD|XPHB", "TG|XDMG", "$G|XDMG",
 ];
 const DAMAGE_TYPES: &[&str] = &["B", "P", "S", "A", "C", "F", "O", "L", "N", "I", "Y", "R", "T"];
 const FEAT_CATEGORIES: &[&str] = &["O", "G", "FS", "EB"];
@@ -80,15 +80,14 @@ const FEAT_CATEGORIES: &[&str] = &["O", "G", "FS", "EB"];
 /// the field).
 pub fn choices(format: Format) -> Option<Vec<(String, Option<Value>)>> {
     Some(match format {
-        Format::SpellLevel => (0..=9u64)
-            .map(|l| (if l == 0 { "Cantrip".to_string() } else { format!("Level {l}") }, Some(json!(l))))
-            .collect(),
+        Format::SpellLevel => {
+            (0..=9u64).map(|l| (if l == 0 { "Cantrip".to_string() } else { format!("Level {l}") }, Some(json!(l)))).collect()
+        }
         Format::School => SCHOOLS.iter().map(|s| (view::spell_school(s).to_string(), Some(json!(s)))).collect(),
         Format::Ritual => vec![("Not a ritual".into(), None), ("Ritual".into(), Some(json!({"ritual": true})))],
-        Format::Rarity => RARITIES
-            .iter()
-            .map(|r| (if *r == "none" { "none (mundane)".to_string() } else { r.to_string() }, Some(json!(r))))
-            .collect(),
+        Format::Rarity => {
+            RARITIES.iter().map(|r| (if *r == "none" { "none (mundane)".to_string() } else { r.to_string() }, Some(json!(r)))).collect()
+        }
         Format::ItemType => std::iter::once(("— none (wondrous item or other)".to_string(), None))
             .chain(ITEM_TYPES.iter().map(|t| (view::item_type(t.split('|').next().unwrap()).to_string(), Some(json!(t)))))
             .collect(),

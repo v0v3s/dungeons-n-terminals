@@ -56,26 +56,15 @@ pub fn starting_equipment(v: Option<&Json>) -> Vec<Vec<Alternative>> {
 fn entry(e: &Json) -> Option<Entry> {
     let item_id = |s: &str| format!("item:{s}");
     Some(match e {
-        Json::String(s) => Entry::Item {
-            id: item_id(s),
-            quantity: 1,
-            name: None,
-        },
+        Json::String(s) => Entry::Item { id: item_id(s), quantity: 1, name: None },
         Json::Object(o) => {
             let quantity = o.get("quantity").and_then(Json::as_i64).unwrap_or(1);
             if let Some(i) = o.get("item").and_then(Json::as_str) {
-                Entry::Item {
-                    id: item_id(i),
-                    quantity,
-                    name: o.get("displayName").and_then(Json::as_str).map(str::to_string),
-                }
+                Entry::Item { id: item_id(i), quantity, name: o.get("displayName").and_then(Json::as_str).map(str::to_string) }
             } else if let Some(v) = o.get("value").and_then(Json::as_i64) {
                 Entry::Coins(v)
             } else if let Some(t) = o.get("equipmentType").and_then(Json::as_str) {
-                Entry::AnyOf {
-                    kind: t.to_string(),
-                    quantity,
-                }
+                Entry::AnyOf { kind: t.to_string(), quantity }
             } else {
                 Entry::Special(o.get("special").and_then(Json::as_str)?.to_string())
             }
@@ -156,7 +145,9 @@ pub fn describe(lib: &Library, alt: &Alternative) -> String {
                 }
             }
             Entry::Coins(cp) => coins(*cp),
-            Entry::AnyOf { kind, quantity } if *quantity > 1 => format!("{quantity} × {}", any_label(kind).trim_start_matches("a ").trim_start_matches("an ")),
+            Entry::AnyOf { kind, quantity } if *quantity > 1 => {
+                format!("{quantity} × {}", any_label(kind).trim_start_matches("a ").trim_start_matches("an "))
+            }
             Entry::AnyOf { kind, .. } => any_label(kind).to_string(),
             Entry::Special(s) => s.clone(),
         })
@@ -181,11 +172,7 @@ pub fn grant(c: &mut Character, alt: &Alternative) {
         match e {
             Entry::Item { id, quantity, name } => add_item(c, id, *quantity, name.clone()),
             Entry::Coins(cp) => c.currency.add_cp(*cp),
-            Entry::Special(s) => c.inventory.push(InventoryItem {
-                name: Some(s.clone()),
-                quantity: 1,
-                ..Default::default()
-            }),
+            Entry::Special(s) => c.inventory.push(InventoryItem { name: Some(s.clone()), quantity: 1, ..Default::default() }),
             Entry::AnyOf { .. } => {}
         }
     }
@@ -195,12 +182,7 @@ pub fn grant(c: &mut Character, alt: &Alternative) {
 pub fn add_item(c: &mut Character, id: &str, quantity: i64, name: Option<String>) {
     match c.inventory.iter_mut().find(|i| i.item.as_deref() == Some(id) && i.name == name) {
         Some(line) => line.quantity += quantity,
-        None => c.inventory.push(InventoryItem {
-            item: Some(id.to_string()),
-            name,
-            quantity,
-            ..Default::default()
-        }),
+        None => c.inventory.push(InventoryItem { item: Some(id.to_string()), name, quantity, ..Default::default() }),
     }
 }
 
@@ -492,7 +474,8 @@ pub fn normalize(lib: &Library, c: &mut Character) -> bool {
         let Some(d) = line_data(lib, line) else { continue };
         if is_held(d) {
             let shield = armor_kind(d) == Some("shield");
-            let free = |h: Hand| !c.inventory.iter().any(|l| l.hand.is_some_and(|x| if h == Hand::Main { x.uses_main() } else { x.uses_off() }));
+            let free =
+                |h: Hand| !c.inventory.iter().any(|l| l.hand.is_some_and(|x| if h == Hand::Main { x.uses_main() } else { x.uses_off() }));
             let hand = match (shield, free(Hand::Main), free(Hand::Off)) {
                 (true, _, true) => Some(Hand::Off),
                 (false, true, _) => Some(Hand::Main),

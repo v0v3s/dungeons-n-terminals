@@ -17,13 +17,8 @@ use crate::theme::Theme;
 const READING_WIDTH: u16 = 96;
 
 pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
-    let [header, _, body, footer] = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(3),
-        Constraint::Length(1),
-    ])
-    .areas(frame.area());
+    let [header, _, body, footer] =
+        Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(3), Constraint::Length(1)]).areas(frame.area());
     let body = body.inner(Margin::new(1, 0));
 
     draw_header(frame, header, lib, app, theme);
@@ -126,7 +121,9 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     let hints: &[(&str, &str)] = match (app.section, app.compendium.focus) {
         _ if app.new_flow.as_ref().is_some_and(|f| f.name.is_some()) => &[("enter", "create"), ("^u", "clear"), ("esc", "back")],
         _ if app.new_flow.is_some() => &[("j k", "choose"), ("enter", "next"), ("esc", "cancel")],
-        (Section::Compendium, _) if app.clone_flow.as_ref().is_some_and(|f| f.name.is_some()) => &[("enter", "create copy"), ("esc", "cancel")],
+        (Section::Compendium, _) if app.clone_flow.as_ref().is_some_and(|f| f.name.is_some()) => {
+            &[("enter", "create copy"), ("esc", "cancel")]
+        }
         (Section::Compendium, _) if app.clone_flow.is_some() => &[("j k", "choose"), ("enter", "clone"), ("esc", "cancel")],
         (Section::Compendium, _) if app.editor.is_some() => match app.editor.as_ref().map(|e| &e.mode) {
             Some(EdMode::Big { .. }) => &[("i", "insert"), ("esc", "normal · save"), ("^s", "save")],
@@ -155,13 +152,9 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("esc", "done"),
             ],
         },
-        (Section::Compendium, Focus::Search) => &[
-            ("↑↓", "move"),
-            ("enter", "open"),
-            ("tab", "complete · category"),
-            ("^u", "clear"),
-            ("esc", "list"),
-        ],
+        (Section::Compendium, Focus::Search) => {
+            &[("↑↓", "move"), ("enter", "open"), ("tab", "complete · category"), ("^u", "clear"), ("esc", "list")]
+        }
         (Section::Compendium, Focus::List) => &[
             ("j k", "move"),
             ("enter", "open"),
@@ -171,33 +164,20 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("1-4", "section"),
             ("q", "quit"),
         ],
-        (Section::Compendium, Focus::Detail) => &[
-            ("j k", "scroll"),
-            ("tab n", "next link"),
-            ("enter", "follow"),
-            ("bksp", "back"),
-            ("esc", "list"),
-        ],
+        (Section::Compendium, Focus::Detail) => {
+            &[("j k", "scroll"), ("tab n", "next link"), ("enter", "follow"), ("bksp", "back"), ("esc", "list")]
+        }
         (Section::Campaigns, _) if app.campaigns.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
         (Section::Campaigns, _) if app.campaigns.filtering => &[("enter", "done"), ("esc", "clear")],
-        (Section::Campaigns, _) if app.campaigns.pane == Pane::Campaigns => &[
-            ("j k", "move"),
-            ("enter", "activate"),
-            ("n", "new"),
-            ("tab", "sources"),
-            ("1-4", "section"),
-            ("q", "quit"),
-        ],
-        (Section::Campaigns, _) => &[
-            ("j k", "move"),
-            ("space", "toggle"),
-            ("p", "preset"),
-            ("a", "all"),
-            ("r", "reprints"),
-            ("/", "filter"),
-            ("tab", "campaigns"),
-        ],
-        (Section::Characters, _) if app.characters.wizard.is_some() => &[("enter", "choose"), ("esc", "back a step"), ("alt+1-4", "section")],
+        (Section::Campaigns, _) if app.campaigns.pane == Pane::Campaigns => {
+            &[("j k", "move"), ("enter", "activate"), ("n", "new"), ("tab", "sources"), ("1-4", "section"), ("q", "quit")]
+        }
+        (Section::Campaigns, _) => {
+            &[("j k", "move"), ("space", "toggle"), ("p", "preset"), ("a", "all"), ("r", "reprints"), ("/", "filter"), ("tab", "campaigns")]
+        }
+        (Section::Characters, _) if app.characters.wizard.is_some() => {
+            &[("enter", "choose"), ("esc", "back a step"), ("alt+1-4", "section")]
+        }
         (Section::Characters, _) => match app.characters.sheet.as_ref() {
             _ if app.characters.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
             None => &[("j k", "move"), ("enter", "open"), ("n", "new"), ("e", "edit file"), ("1-4", "section"), ("q", "quit")],
@@ -234,9 +214,16 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("tab", "tab"),
                 ("esc", "roster"),
             ],
-            Some(s) if s.tab == crate::characters::Tab::Features => {
-                &[("j k", "feature"), ("J K", "scroll text"), ("O", "edit rules"), ("r", "swap mastery"), ("u U", "level up/undo"), ("tab", "tab"), ("e", "edit"), ("esc", "roster")]
-            }
+            Some(s) if s.tab == crate::characters::Tab::Features => &[
+                ("j k", "feature"),
+                ("J K", "scroll text"),
+                ("O", "edit rules"),
+                ("r", "swap mastery"),
+                ("u U", "level up/undo"),
+                ("tab", "tab"),
+                ("e", "edit"),
+                ("esc", "roster"),
+            ],
             Some(s) if matches!(s.current_item(), Some(crate::characters::Item::Attack(_))) => &[
                 ("j k", "move"),
                 ("r", "roll"),
@@ -328,11 +315,9 @@ pub(crate) fn spread(mut left: Vec<Span<'static>>, right: Vec<Span<'static>>, wi
 // ---- compendium ----
 
 fn draw_compendium(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium, theme: &Theme) {
-    let [tabs, _, main] =
-        Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(3)]).areas(area);
+    let [tabs, _, main] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(3)]).areas(area);
     let list_w = (main.width * 2 / 7).clamp(32, 56);
-    let [left, _, right] =
-        Layout::horizontal([Constraint::Length(list_w), Constraint::Length(1), Constraint::Min(20)]).areas(main);
+    let [left, _, right] = Layout::horizontal([Constraint::Length(list_w), Constraint::Length(1), Constraint::Min(20)]).areas(main);
 
     draw_categories(frame, tabs, c, theme);
     draw_browser(frame, left, lib, c, theme);
@@ -340,11 +325,8 @@ fn draw_compendium(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compend
 }
 
 fn draw_categories(frame: &mut Frame, area: Rect, c: &Compendium, theme: &Theme) {
-    let with_counts: usize = Category::ORDER
-        .iter()
-        .zip(&c.category_counts)
-        .map(|(cat, n)| cat.label().width() + n.to_string().width() + 4)
-        .sum();
+    let with_counts: usize =
+        Category::ORDER.iter().zip(&c.category_counts).map(|(cat, n)| cat.label().width() + n.to_string().width() + 4).sum();
     let show_counts = with_counts + 10 <= area.width as usize;
     let mut spans = Vec::new();
     for (cat, count) in Category::ORDER.iter().zip(&c.category_counts) {
@@ -406,13 +388,8 @@ fn draw_browser(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let [input, hint, rule, list] = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(1),
-    ])
-    .areas(inner);
+    let [input, hint, rule, list] =
+        Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(inner);
 
     // Input line.
     let searching = c.focus == Focus::Search;
@@ -494,15 +471,8 @@ fn draw_browser(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium
             };
             let marker = if selected && focused { Span::styled("▌", theme.selection_marker) } else { Span::styled(" ", base) };
             let line = spread(
-                vec![
-                    marker,
-                    Span::styled(format!("{glyph} "), base.fg(color).remove_modifier(Modifier::BOLD)),
-                    Span::styled(name, base),
-                ],
-                vec![Span::styled(
-                    meta,
-                    base.patch(if selected { theme.muted } else { theme.dim }).remove_modifier(Modifier::BOLD),
-                )],
+                vec![marker, Span::styled(format!("{glyph} "), base.fg(color).remove_modifier(Modifier::BOLD)), Span::styled(name, base)],
+                vec![Span::styled(meta, base.patch(if selected { theme.muted } else { theme.dim }).remove_modifier(Modifier::BOLD))],
                 width,
             );
             line.style(base)
@@ -567,13 +537,8 @@ fn draw_detail(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium,
     let source = lib.source_info(&e.source).map_or(e.source.as_str(), |s| s.name.as_str());
     let page = e.data.get("page").and_then(|p| p.as_u64()).map(|p| format!(" · p. {p}")).unwrap_or_default();
     let (glyph, color) = kind_glyph(e.kind);
-    let [title, subtitle, _, body] = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(1),
-    ])
-    .areas(inner);
+    let [title, subtitle, _, body] =
+        Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(inner);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(format!("{glyph} "), Style::new().fg(color)),
@@ -581,10 +546,7 @@ fn draw_detail(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium,
         ])),
         title,
     );
-    let mut sub = vec![
-        Span::styled(e.kind.label(), Style::new().fg(color)),
-        Span::styled(format!("  ·  {source}{page}"), theme.dim),
-    ];
+    let mut sub = vec![Span::styled(e.kind.label(), Style::new().fg(color)), Span::styled(format!("  ·  {source}{page}"), theme.dim)];
     let changed = lib.overridden_fields(detail.entity);
     if lib.original(detail.entity).is_some() {
         if detail.original {
@@ -598,10 +560,7 @@ fn draw_detail(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium,
     }
     frame.render_widget(Paragraph::new(Line::from(sub)), subtitle);
 
-    let text_area = Rect {
-        width: body.width.min(READING_WIDTH),
-        ..body
-    };
+    let text_area = Rect { width: body.width.min(READING_WIDTH), ..body };
     let link_focus = if focused { detail.focused_link } else { None };
     let rendered = render::render(&detail.doc, text_area.width, link_focus, theme);
     c.detail_height = text_area.height as usize;
@@ -630,8 +589,7 @@ fn draw_detail(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium,
 // ---- other sections ----
 
 fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
-    let [left, _, right] =
-        Layout::horizontal([Constraint::Length(36), Constraint::Length(1), Constraint::Min(30)]).areas(area);
+    let [left, _, right] = Layout::horizontal([Constraint::Length(36), Constraint::Length(1), Constraint::Min(30)]).areas(area);
     let c = &mut app.campaigns;
 
     // Campaign list.
@@ -654,10 +612,7 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         };
         let marker = if active { "◈ " } else { "  " };
         let line = spread(
-            vec![
-                Span::styled(marker, base.fg(theme.accent)),
-                Span::styled(camp.settings.name.clone(), base),
-            ],
+            vec![Span::styled(marker, base.fg(theme.accent)), Span::styled(camp.settings.name.clone(), base)],
             vec![Span::styled(if active { "active " } else { "" }, base.patch(theme.dim))],
             width,
         );
@@ -691,11 +646,7 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let summary_text = if campaign.settings.sources.is_empty() {
         "all sources".to_string()
     } else {
-        c.summary(campaign)
-            .iter()
-            .map(|(g, n)| format!("{g} {n}"))
-            .collect::<Vec<_>>()
-            .join(" · ")
+        c.summary(campaign).iter().map(|(g, n)| format!("{g} {n}")).collect::<Vec<_>>().join(" · ")
     };
     let block = pane(pane_title(&format!("Books · {}", campaign.settings.name), focused, theme), focused, theme)
         .title_bottom(Line::from(Span::styled(format!(" {summary_text} "), theme.dim)).right_aligned())
@@ -703,8 +654,7 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let inner = block.inner(right);
     frame.render_widget(block, right);
 
-    let [info, _, list_area] =
-        Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(inner);
+    let [info, _, list_area] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(inner);
     let next_preset = PRESETS[c.preset % PRESETS.len()].0;
     let reprints = if campaign.settings.show_reprinted { "shown" } else { "hidden" };
     let mut info_spans = vec![

@@ -2,12 +2,12 @@
 
 use dnt_data::{view, Library};
 use dnt_rules::builder::{build, FeatureSource};
-use dnt_rules::engine::PartKind;
-use dnt_rules::overlay::{OverlaySet, Recharge};
 use dnt_rules::character::{Hand, Slot};
+use dnt_rules::engine::PartKind;
+use dnt_rules::overlay::resolve_id;
+use dnt_rules::overlay::{OverlaySet, Recharge};
 use dnt_rules::play;
 use dnt_rules::standard::{ABILITIES, SKILLS};
-use dnt_rules::overlay::resolve_id;
 use dnt_rules::{Evaluation, Value};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -21,7 +21,15 @@ use crate::render;
 use crate::theme::Theme;
 use crate::ui::{pane, pane_title, spread, truncate};
 
-pub fn draw(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, c: &mut Characters, theme: &Theme, campaign: Option<&str>) {
+pub fn draw(
+    frame: &mut Frame,
+    area: Rect,
+    lib: &Library,
+    overlays: &OverlaySet,
+    c: &mut Characters,
+    theme: &Theme,
+    campaign: Option<&str>,
+) {
     if let Some(w) = &c.wizard {
         return draw_wizard(frame, area, lib, overlays, w, &c.filter, theme);
     }
@@ -42,8 +50,7 @@ fn draw_roster(
     theme: &Theme,
     campaign: Option<&str>,
 ) {
-    let [left, _, right] =
-        Layout::horizontal([Constraint::Length(40), Constraint::Length(1), Constraint::Min(30)]).areas(area);
+    let [left, _, right] = Layout::horizontal([Constraint::Length(40), Constraint::Length(1), Constraint::Min(30)]).areas(area);
     let block = pane(pane_title("Characters", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(left);
     frame.render_widget(block, left);
@@ -90,11 +97,8 @@ fn draw_roster(
     let b = build(&file.character, lib, overlays);
     let ev = b.evaluate();
     let ch = &file.character;
-    let mut lines = vec![
-        Line::styled(ch.name.clone(), theme.title),
-        Line::styled(identity(lib, ch, &b.class_summary()), theme.muted),
-        Line::default(),
-    ];
+    let mut lines =
+        vec![Line::styled(ch.name.clone(), theme.title), Line::styled(identity(lib, ch, &b.class_summary()), theme.muted), Line::default()];
     let hp = format!("{}/{}", play::current_hp(ch, &ev), play::max_hp(&ev));
     for (label, value) in [
         ("Hit Points", hp),
@@ -134,11 +138,8 @@ fn draw_roster(
 }
 
 fn identity(lib: &Library, ch: &dnt_rules::character::Character, classes: &str) -> String {
-    let name_of = |id: &Option<String>| {
-        id.as_deref()
-            .and_then(|id| dnt_rules::overlay::resolve_id(lib, id))
-            .map(|e| lib.entity(e).name.clone())
-    };
+    let name_of =
+        |id: &Option<String>| id.as_deref().and_then(|id| dnt_rules::overlay::resolve_id(lib, id)).map(|e| lib.entity(e).name.clone());
     let mut parts: Vec<String> = [name_of(&ch.species), name_of(&ch.background)].into_iter().flatten().collect();
     if !classes.is_empty() {
         parts.push(classes.to_string());
@@ -165,13 +166,8 @@ fn signed(ev: &Evaluation, key: &str) -> String {
 // ---- sheet ----
 
 fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, sheet: &mut Sheet, theme: &Theme) {
-    let [header, tabs, _, body] = Layout::vertical([
-        Constraint::Length(2),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(5),
-    ])
-    .areas(area);
+    let [header, tabs, _, body] =
+        Layout::vertical([Constraint::Length(2), Constraint::Length(1), Constraint::Length(1), Constraint::Min(5)]).areas(area);
 
     let ch = sheet.character();
     let mut warn = Vec::new();
@@ -265,7 +261,10 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             lines.push(
                 Line::from(vec![
                     Span::styled(format!("  {:<15}", "Exhaustion"), base),
-                    Span::styled(format!("{lvl}  "), base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        format!("{lvl}  "),
+                        base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(what, base.patch(theme.dim)),
                 ])
                 .style(base),
@@ -279,8 +278,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             let block = pane(pane_title(prompt.label(), true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
             let inner = block.inner(rect);
             frame.render_widget(
-                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())]))
-                    .block(block),
+                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())])).block(block),
                 rect,
             );
             frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
@@ -307,7 +305,11 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             let rows = picker.items.len() as u16 + 7;
             let rect = centered(area, 84.min(area.width), area.height.saturating_sub(4).min(28).min(rows.max(10)));
             frame.render_widget(Clear, rect);
-            let hint = if picker.multi.is_some() { " space toggle · enter add · esc cancel " } else { " type to filter · enter choose · esc cancel " };
+            let hint = if picker.multi.is_some() {
+                " space toggle · enter add · esc cancel "
+            } else {
+                " type to filter · enter choose · esc cancel "
+            };
             let block = pane(pane_title(&picker.title, true, theme), true, theme)
                 .padding(Padding::new(2, 2, 1, 0))
                 .title_bottom(Line::styled(hint, theme.dim).right_aligned());
@@ -341,8 +343,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             let block = pane(pane_title(prompt.label(), true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
             let inner = block.inner(rect);
             frame.render_widget(
-                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())]))
-                    .block(block),
+                Paragraph::new(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())])).block(block),
                 rect,
             );
             frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
@@ -353,13 +354,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             let remaining = fill.queue.len();
             let block = pane(pane_title(&fill.picker.title, true, theme), true, theme)
                 .padding(Padding::new(2, 2, 1, 0))
-                .title_bottom(
-                    Line::styled(
-                        format!(" {remaining} choice(s) left · enter choose · esc stop "),
-                        theme.dim,
-                    )
-                    .right_aligned(),
-                );
+                .title_bottom(Line::styled(format!(" {remaining} choice(s) left · enter choose · esc stop "), theme.dim).right_aligned());
             let inner = block.inner(rect);
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &fill.picker, theme);
@@ -449,11 +444,7 @@ fn draw_levelup(frame: &mut Frame, area: Rect, flow: &crate::levelup::LevelUp, t
 /// A filter line, a rule and the (optionally multi-select) item list.
 pub(crate) fn draw_picker(frame: &mut Frame, body: Rect, p: &crate::picker::Picker, theme: &Theme) {
     let [input, rule, list] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(body);
-    let shown = if p.query.is_empty() {
-        Span::styled("type to filter", theme.dim)
-    } else {
-        Span::raw(p.query.clone())
-    };
+    let shown = if p.query.is_empty() { Span::styled("type to filter", theme.dim) } else { Span::raw(p.query.clone()) };
     let mut input_spans = vec![Span::styled("❯ ", Style::new().fg(theme.accent)), shown];
     if let Some(n) = p.multi {
         input_spans.push(Span::raw("   "));
@@ -557,7 +548,11 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
         spread(
             vec![
                 Span::styled("In hand  ", theme.label),
-                if held.is_empty() { Span::styled("nothing", theme.dim) } else { Span::styled(held.join(" · "), Style::new().add_modifier(Modifier::BOLD)) },
+                if held.is_empty() {
+                    Span::styled("nothing", theme.dim)
+                } else {
+                    Span::styled(held.join(" · "), Style::new().add_modifier(Modifier::BOLD))
+                },
             ],
             match sheet.roller.next {
                 dnt_rules::roll::Advantage::Normal => vec![Span::styled("r roll · space main · o off · b both · S shield ", theme.dim)],
@@ -598,7 +593,13 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
             notes.push(Span::styled(a.properties.join(", "), base.patch(faint)));
         }
         let in_hand = a.hand.is_some();
-        let name_style = if in_hand { base.add_modifier(Modifier::BOLD) } else if a.item.is_some() { base.patch(faint) } else { base };
+        let name_style = if in_hand {
+            base.add_modifier(Modifier::BOLD)
+        } else if a.item.is_some() {
+            base.patch(faint)
+        } else {
+            base
+        };
         let hit_style = if a.proficient { base.fg(theme.accent).add_modifier(Modifier::BOLD) } else { base.fg(Color::Red) };
         let hand = match a.hand {
             Some(Hand::Main) => "main",
@@ -659,7 +660,10 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
                 Span::raw("      "),
                 Span::styled(format!("+{v} "), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
                 Span::styled(name.to_string(), Style::new().add_modifier(Modifier::BOLD)),
-                Span::styled(if rest.is_empty() { String::new() } else { format!("  {}", truncate(rest, width.saturating_sub(name.width() + 20))) }, theme.dim),
+                Span::styled(
+                    if rest.is_empty() { String::new() } else { format!("  {}", truncate(rest, width.saturating_sub(name.width() + 20))) },
+                    theme.dim,
+                ),
             ]));
         }
     }
@@ -702,10 +706,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     let block = pane(pane_title("Abilities", false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(abil);
     frame.render_widget(block, abil);
-    let mut lines = vec![Line::from(vec![
-        Span::styled(format!("{:<13}", ""), theme.label),
-        Span::styled("score  mod save", theme.label),
-    ])];
+    let mut lines = vec![Line::from(vec![Span::styled(format!("{:<13}", ""), theme.label), Span::styled("score  mod save", theme.label)])];
     for (a, name) in ABILITIES {
         let item = Item::Stat(a.to_string());
         let base = row_style(sheet, &item, theme);
@@ -882,10 +883,16 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
                 Span::styled(format!("{label:<12}"), theme.label),
                 Span::styled(format!("{}  ", r.title), head),
                 Span::styled(r.result.clone(), colour),
-                Span::styled(format!("  {}", truncate(&r.detail, width.saturating_sub(r.title.width() + r.result.width() + 18))), theme.dim),
+                Span::styled(
+                    format!("  {}", truncate(&r.detail, width.saturating_sub(r.title.width() + r.result.width() + 18))),
+                    theme.dim,
+                ),
             ]));
             for e in &r.extra {
-                lines.push(Line::styled(format!("{:<12}{}", "", truncate(e, width.saturating_sub(12))), if n == 0 { Style::new() } else { theme.dim }));
+                lines.push(Line::styled(
+                    format!("{:<12}{}", "", truncate(e, width.saturating_sub(12))),
+                    if n == 0 { Style::new() } else { theme.dim },
+                ));
             }
         }
     }
@@ -950,17 +957,17 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
             let mut spans = vec![Span::styled(format!("{:<22}", format!("Pact (level {level})")), base)];
             spans.extend(pips(left, pact, theme, base));
             lines.push(
-                spread(spans, vec![Span::styled(format!("{left}/{pact}  "), base), Span::styled("short rest", base.patch(theme.dim))], width)
-                    .style(base),
+                spread(
+                    spans,
+                    vec![Span::styled(format!("{left}/{pact}  "), base), Span::styled("short rest", base.patch(theme.dim))],
+                    width,
+                )
+                .style(base),
             );
         }
     }
 
-    let dice: Vec<i64> = sheet
-        .items()
-        .into_iter()
-        .filter_map(|i| if let Item::HitDie(f) = i { Some(f) } else { None })
-        .collect();
+    let dice: Vec<i64> = sheet.items().into_iter().filter_map(|i| if let Item::HitDie(f) = i { Some(f) } else { None }).collect();
     if !dice.is_empty() {
         section(&mut lines, "Hit dice");
         for f in dice {
@@ -1005,8 +1012,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
 }
 
 fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySet, sheet: &mut Sheet, theme: &Theme) {
-    let [list, _, detail] =
-        Layout::horizontal([Constraint::Length(42), Constraint::Length(1), Constraint::Min(30)]).areas(area);
+    let [list, _, detail] = Layout::horizontal([Constraint::Length(42), Constraint::Length(1), Constraint::Min(30)]).areas(area);
     let block = pane(pane_title("Features", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(list);
     frame.render_widget(block, list);
@@ -1021,10 +1027,9 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
                 let c = &sheet.build.classes[ci];
                 format!("{} {}", c.name, c.level)
             }
-            FeatureSource::Subclass(ci) => sheet.build.classes[ci]
-                .subclass
-                .map(|s| lib.entity(s).name.clone())
-                .unwrap_or_else(|| "Subclass".into()),
+            FeatureSource::Subclass(ci) => {
+                sheet.build.classes[ci].subclass.map(|s| lib.entity(s).name.clone()).unwrap_or_else(|| "Subclass".into())
+            }
             FeatureSource::Species => "Species".into(),
             FeatureSource::Background => "Background".into(),
             FeatureSource::Feat => "Feats".into(),
@@ -1127,7 +1132,10 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
         let over = have as i64 > max;
         vec![
             Span::styled(format!("{label} "), theme.label),
-            Span::styled(format!("{have}/{max}  "), if over { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new() }),
+            Span::styled(
+                format!("{have}/{max}  "),
+                if over { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new() },
+            ),
         ]
     };
     let mut lines: Vec<Line> = Vec::new();
@@ -1169,7 +1177,10 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 };
                 let dice = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() });
                 if let Some(d) = &dice {
-                    right.push_str(&format!("{d} {} · ", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
+                    right.push_str(&format!(
+                        "{d} {} · ",
+                        if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }
+                    ));
                 }
                 right.push_str(&if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
                 if spells::concentration(lib, e) {
@@ -1193,12 +1204,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
             if star {
                 left.push(Span::styled(" ★", base.fg(theme.accent)));
             }
-            spread(
-                left,
-                vec![Span::styled(format!("{right} "), base.patch(faint).remove_modifier(Modifier::BOLD))],
-                width,
-            )
-            .style(base)
+            spread(left, vec![Span::styled(format!("{right} "), base.patch(faint).remove_modifier(Modifier::BOLD))], width).style(base)
         };
         let line = match row {
             Row::ClassHeader(c) => {
@@ -1295,7 +1301,10 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
             Line::styled("◦ cantrip   ● prepared/known   ○ in spellbook   ◆ from a feature", theme.dim),
             Line::default(),
             Line::from(vec![Span::styled(" a ", theme.keycap), Span::styled(" add a spell to the class under the cursor", theme.dim)]),
-            Line::from(vec![Span::styled(" enter ", theme.keycap), Span::styled(" cast (choose a slot) · pick spells for a feature", theme.dim)]),
+            Line::from(vec![
+                Span::styled(" enter ", theme.keycap),
+                Span::styled(" cast (choose a slot) · pick spells for a feature", theme.dim),
+            ]),
             Line::from(vec![Span::styled(" p ", theme.keycap), Span::styled(" prepare / unprepare a spellbook spell", theme.dim)]),
             Line::from(vec![Span::styled(" x ", theme.keycap), Span::styled(" remove", theme.dim)]),
         ];
@@ -1430,18 +1439,14 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             mark,
             Span::raw(indent),
             Span::styled(fold, base.fg(theme.accent)),
-            Span::styled(truncate(&line_name(lib, line), name_w), if container.is_some() { base.add_modifier(Modifier::BOLD) } else { base }),
+            Span::styled(
+                truncate(&line_name(lib, line), name_w),
+                if container.is_some() { base.add_modifier(Modifier::BOLD) } else { base },
+            ),
             Span::styled(kind, base.patch(faint).remove_modifier(Modifier::BOLD)),
         ];
         left.extend(fill);
-        lines.push(
-            spread(
-                left,
-                vec![Span::styled(format!("{:>5}{weight:>10} ", line.quantity), base)],
-                width,
-            )
-            .style(base),
-        );
+        lines.push(spread(left, vec![Span::styled(format!("{:>5}{weight:>10} ", line.quantity), base)], width).style(base));
     }
     let height = items_area.height as usize;
     let scroll = (cursor_row + 1).saturating_sub(height);
@@ -1452,10 +1457,19 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
     let attuned = ch.inventory.iter().filter(|l| l.attuned).count();
     let c = &ch.currency;
     let coin = |n: i64, label: &str, color: Color| {
-        vec![Span::styled(format!("{n}"), Style::new().fg(color).add_modifier(Modifier::BOLD)), Span::styled(format!(" {label}   "), theme.label)]
+        vec![
+            Span::styled(format!("{n}"), Style::new().fg(color).add_modifier(Modifier::BOLD)),
+            Span::styled(format!(" {label}   "), theme.label),
+        ]
     };
     let mut coins = Vec::new();
-    for (n, label, color) in [(c.pp, "pp", Color::White), (c.gp, "gp", Color::Yellow), (c.ep, "ep", Color::Gray), (c.sp, "sp", Color::Gray), (c.cp, "cp", Color::Red)] {
+    for (n, label, color) in [
+        (c.pp, "pp", Color::White),
+        (c.gp, "gp", Color::Yellow),
+        (c.ep, "ep", Color::Gray),
+        (c.sp, "sp", Color::Gray),
+        (c.cp, "cp", Color::Red),
+    ] {
         if n != 0 || label == "gp" {
             coins.extend(coin(n, label, color));
         }
@@ -1466,18 +1480,26 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             Line::styled("─".repeat(width), theme.border),
             Line::from(vec![
                 Span::styled("Carried    ", theme.label),
-                Span::styled(format!("{total_weight:.1}"), if over { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new().add_modifier(Modifier::BOLD) }),
+                Span::styled(
+                    format!("{total_weight:.1}"),
+                    if over { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new().add_modifier(Modifier::BOLD) },
+                ),
                 Span::styled(format!(" / {capacity} lb"), theme.muted),
             ]),
             Line::from(vec![
                 Span::styled("Attunement ", theme.label),
-                Span::styled(format!("{attuned}"), if attuned > 3 { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::new().add_modifier(Modifier::BOLD) }),
+                Span::styled(
+                    format!("{attuned}"),
+                    if attuned > 3 {
+                        Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::new().add_modifier(Modifier::BOLD)
+                    },
+                ),
                 Span::styled(" / 3", theme.muted),
             ]),
             Line::from([vec![Span::styled("Coins      ", theme.label)], coins].concat()),
-            Line::from(vec![
-                Span::styled("◉ worn  ◈ in hand  ★ attuned  ☆ needs attunement", theme.dim),
-            ]),
+            Line::from(vec![Span::styled("◉ worn  ◈ in hand  ★ attuned  ☆ needs attunement", theme.dim)]),
         ]),
         totals,
     );
@@ -1514,9 +1536,10 @@ fn draw_overlay_editor(frame: &mut Frame, area: Rect, ed: &mut crate::overlay_ed
         EditorMode::Search => " SEARCH ",
         EditorMode::Normal => " NORMAL ",
     };
-    let block = pane(pane_title(&format!("Rules for {}", ed.name), true, theme), true, theme)
-        .padding(Padding::new(1, 1, 1, 0))
-        .title_bottom(Line::from(vec![Span::styled(" esc saves · ctrl-q discards ", theme.dim), Span::styled(mode, theme.keycap)]).right_aligned());
+    let block =
+        pane(pane_title(&format!("Rules for {}", ed.name), true, theme), true, theme).padding(Padding::new(1, 1, 1, 0)).title_bottom(
+            Line::from(vec![Span::styled(" esc saves · ctrl-q discards ", theme.dim), Span::styled(mode, theme.keycap)]).right_aligned(),
+        );
     let inner = block.inner(left);
     frame.render_widget(block, left);
     let editor_theme = EditorTheme::default()
@@ -1716,11 +1739,7 @@ fn breakdown_lines(sheet: &Sheet, key: &str, theme: &Theme) -> Vec<Line<'static>
     }
     lines.push(Line::default());
     for p in &result.parts {
-        let (mark, style) = if p.applied {
-            ("✓", Style::new().fg(theme.accent))
-        } else {
-            ("·", theme.dim)
-        };
+        let (mark, style) = if p.applied { ("✓", Style::new().fg(theme.accent)) } else { ("·", theme.dim) };
         let kind = match p.kind {
             PartKind::Base => "base",
             PartKind::Add => "add",
@@ -1780,7 +1799,16 @@ pub(crate) fn draw_wizard(
         };
         lines.push(Line::from(vec![
             Span::styled(mark, style),
-            Span::styled(label, if current { style } else if done { Style::new() } else { theme.dim }),
+            Span::styled(
+                label,
+                if current {
+                    style
+                } else if done {
+                    Style::new()
+                } else {
+                    theme.dim
+                },
+            ),
         ]));
     }
     lines.push(Line::default());
@@ -1850,10 +1878,7 @@ pub(crate) fn draw_wizard(
                 }
             }
             lines.push(Line::default());
-            lines.push(Line::from(vec![
-                Span::styled(" enter ", theme.keycap),
-                Span::styled(" create the character", theme.dim),
-            ]));
+            lines.push(Line::from(vec![Span::styled(" enter ", theme.keycap), Span::styled(" create the character", theme.dim)]));
             frame.render_widget(Paragraph::new(lines), inner);
         }
     }

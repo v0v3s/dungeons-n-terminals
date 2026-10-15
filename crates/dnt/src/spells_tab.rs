@@ -23,11 +23,26 @@ pub enum Slot {
 pub enum Row {
     /// A casting class: index into the casters list.
     ClassHeader(usize),
-    ClassSpell { caster: usize, id: String, slot: Slot },
+    ClassSpell {
+        caster: usize,
+        id: String,
+        slot: Slot,
+    },
     GrantHeader(usize),
-    GrantSpell { grant: usize, id: String, how: Grant, chosen_key: Option<String> },
+    GrantSpell {
+        grant: usize,
+        id: String,
+        how: Grant,
+        chosen_key: Option<String>,
+    },
     /// A grant choice with picks still missing.
-    GrantChoice { grant: usize, key: String, filter: String, missing: usize, how: Grant },
+    GrantChoice {
+        grant: usize,
+        key: String,
+        filter: String,
+        missing: usize,
+        how: Grant,
+    },
     FavoritesHeader,
     /// A favorite spell, repeated at the top; behaves like its own row.
     Favorite(Box<Row>),
@@ -89,7 +104,9 @@ pub fn rows(lib: &Library, ch: &Character, build: &dnt_rules::builder::Build, ev
         rows.push(Row::GrantHeader(gi));
         for (i, grant) in g.grants.iter().enumerate() {
             match grant {
-                Granted::Spell { id, grant } => rows.push(Row::GrantSpell { grant: gi, id: id.clone(), how: grant.clone(), chosen_key: None }),
+                Granted::Spell { id, grant } => {
+                    rows.push(Row::GrantSpell { grant: gi, id: id.clone(), how: grant.clone(), chosen_key: None })
+                }
                 Granted::Choice { filter, count, grant } => {
                     let key = format!("{}#{i}", g.key);
                     let chosen = ch.spells.chosen.get(&key).cloned().unwrap_or_default();
@@ -170,8 +187,14 @@ pub fn toggle_favorite(ch: &mut Character, id: &str) -> bool {
 pub enum Target {
     /// A casting class; cantrips and leveled spells sort themselves (to the
     /// spellbook for Wizards).
-    Class { caster: usize, class_id: String, wizard: bool },
-    Grant { key: String },
+    Class {
+        caster: usize,
+        class_id: String,
+        wizard: bool,
+    },
+    Grant {
+        key: String,
+    },
 }
 
 fn spell_item(lib: &Library, e: EntityId) -> PickItem {
@@ -203,15 +226,18 @@ pub fn class_picker(lib: &Library, ch: &Character, c: &Caster, filter: &SourceFi
     let what = if wizard { "cantrip or spellbook spell" } else { "spell" };
     (
         Picker::new(format!("{} {}: add a {what}", c.name, c.level), items),
-        Target::Class {
-            caster: c.class_index,
-            class_id: c.id.clone(),
-            wizard,
-        },
+        Target::Class { caster: c.class_index, class_id: c.id.clone(), wizard },
     )
 }
 
-pub fn grant_picker(lib: &Library, ch: &Character, key: &str, filter_text: &str, missing: usize, filter: &SourceFilter) -> (Picker, Target) {
+pub fn grant_picker(
+    lib: &Library,
+    ch: &Character,
+    key: &str,
+    filter_text: &str,
+    missing: usize,
+    filter: &SourceFilter,
+) -> (Picker, Target) {
     let chosen = ch.spells.chosen.get(key).cloned().unwrap_or_default();
     let items: Vec<PickItem> = spells::filter_spells(lib, filter_text, filter)
         .into_iter()
@@ -225,12 +251,19 @@ pub fn grant_picker(lib: &Library, ch: &Character, key: &str, filter_text: &str,
 
 /// Add picked spells to the character, within the class's limits
 /// (cantrips, prepared or known spells; a Wizard's spellbook has none).
-pub fn add(lib: &Library, ch: &mut Character, target: &Target, ids: Vec<String>, limits: Option<&spells::ClassLimits>) -> Result<(), String> {
+pub fn add(
+    lib: &Library,
+    ch: &mut Character,
+    target: &Target,
+    ids: Vec<String>,
+    limits: Option<&spells::ClassLimits>,
+) -> Result<(), String> {
     match target {
         Target::Class { class_id, wizard, .. } => {
             let entry = ch.spells.classes.entry(class_id.clone()).or_default();
             if let Some(l) = limits {
-                let new_cantrips = ids.iter().filter(|id| resolve_id(lib, id).is_some_and(|e| spells::spell_level(lib, e) == 0)).count() as i64;
+                let new_cantrips =
+                    ids.iter().filter(|id| resolve_id(lib, id).is_some_and(|e| spells::spell_level(lib, e) == 0)).count() as i64;
                 let new_spells = ids.len() as i64 - new_cantrips;
                 if new_cantrips > 0 && entry.cantrips.len() as i64 + new_cantrips > l.cantrips {
                     return Err(format!("Cantrips {}/{}: remove one first (x)", entry.cantrips.len(), l.cantrips));

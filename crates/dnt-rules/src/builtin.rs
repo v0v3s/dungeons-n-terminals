@@ -13,15 +13,9 @@ pub fn overlays() -> (OverlaySet, Vec<Diagnostic>) {
         match Overlay::parse(text) {
             Ok((overlay, d)) => {
                 set.add(overlay);
-                diags.extend(d.into_iter().map(|d| Diagnostic {
-                    location: format!("{name}: {}", d.location),
-                    message: d.message,
-                }));
+                diags.extend(d.into_iter().map(|d| Diagnostic { location: format!("{name}: {}", d.location), message: d.message }));
             }
-            Err(e) => diags.push(Diagnostic {
-                location: name.to_string(),
-                message: e,
-            }),
+            Err(e) => diags.push(Diagnostic { location: name.to_string(), message: e }),
         }
     }
     (set, diags)

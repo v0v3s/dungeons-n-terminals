@@ -44,13 +44,7 @@ pub fn document_of(lib: &Library, id: EntityId, data: &Value, filter: &SourceFil
         if value.is_empty() {
             continue;
         }
-        let mut spans = vec![Span::styled(
-            format!("{label}: "),
-            Style {
-                bold: true,
-                ..Style::default()
-            },
-        )];
+        let mut spans = vec![Span::styled(format!("{label}: "), Style { bold: true, ..Style::default() })];
         spans.extend(value);
         lines.push(spans);
     }
@@ -70,18 +64,11 @@ pub fn document_of(lib: &Library, id: EntityId, data: &Value, filter: &SourceFil
     match e.kind {
         Kind::Class => {
             out.push(Block::Table(class_table(d)));
-            let subs: Vec<EntityId> = lib
-                .subclasses_of(id)
-                .into_iter()
-                .filter(|&s| filter.source_enabled(&lib.entity(s).source))
-                .collect();
+            let subs: Vec<EntityId> = lib.subclasses_of(id).into_iter().filter(|&s| filter.source_enabled(&lib.entity(s).source)).collect();
             if !subs.is_empty() {
                 let title = str_of(d, "subclassTitle").unwrap_or("Subclass");
                 let plural = if title.ends_with('s') { "es" } else { "s" };
-                out.push(Block::Heading {
-                    level: 1,
-                    text: vec![Span::plain(format!("{title}{plural}"))],
-                });
+                out.push(Block::Heading { level: 1, text: vec![Span::plain(format!("{title}{plural}"))] });
                 let items = subs
                     .into_iter()
                     .map(|s| {
@@ -98,10 +85,7 @@ pub fn document_of(lib: &Library, id: EntityId, data: &Value, filter: &SourceFil
         }
         Kind::Subclass => {
             if let Some(features) = d.get("subclassFeatures").and_then(Value::as_array) {
-                out.push(Block::Heading {
-                    level: 1,
-                    text: vec![Span::plain("Features")],
-                });
+                out.push(Block::Heading { level: 1, text: vec![Span::plain("Features")] });
                 let items = features
                     .iter()
                     .filter_map(feature_ref)
@@ -126,19 +110,11 @@ fn str_of<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 fn source_span(source: &str) -> Span {
-    Span::styled(
-        format!("  {source}"),
-        Style {
-            muted: true,
-            ..Style::default()
-        },
-    )
+    Span::styled(format!("  {source}"), Style { muted: true, ..Style::default() })
 }
 
 fn feature_ref(v: &Value) -> Option<&str> {
-    v.as_str()
-        .or_else(|| str_of(v, "classFeature"))
-        .or_else(|| str_of(v, "subclassFeature"))
+    v.as_str().or_else(|| str_of(v, "classFeature")).or_else(|| str_of(v, "subclassFeature"))
 }
 
 fn plain(s: impl Into<String>) -> Vec<Span> {
@@ -184,11 +160,7 @@ fn spell_props(lib: &Library, id: EntityId, d: &Value, filter: &SourceFilter, pr
     let level = d.get("level").and_then(Value::as_u64).unwrap_or(0);
     let school = spell_school(str_of(d, "school").unwrap_or(""));
     let ritual = d.get("meta").and_then(|m| m.get("ritual")).and_then(Value::as_bool) == Some(true);
-    let mut header = if level == 0 {
-        format!("{school} Cantrip")
-    } else {
-        format!("{}-level {school}", ordinal(level))
-    };
+    let mut header = if level == 0 { format!("{school} Cantrip") } else { format!("{}-level {school}", ordinal(level)) };
     if ritual {
         header.push_str(" (ritual)");
     }
@@ -526,10 +498,7 @@ fn race_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
 
 fn ability_bonus(v: &Value) -> String {
     let Some(o) = v.as_object() else { return String::new() };
-    let mut parts: Vec<String> = o
-        .iter()
-        .filter_map(|(k, n)| Some(format!("{} {:+}", title_case(k), n.as_i64()?)))
-        .collect();
+    let mut parts: Vec<String> = o.iter().filter_map(|(k, n)| Some(format!("{} {:+}", title_case(k), n.as_i64()?))).collect();
     if let Some(choose) = o.get("choose") {
         if let Some(from) = choose.get("from").and_then(Value::as_array) {
             let count = choose.get("count").and_then(Value::as_u64).unwrap_or(1);
@@ -537,14 +506,8 @@ fn ability_bonus(v: &Value) -> String {
             let from: Vec<String> = from.iter().filter_map(Value::as_str).map(title_case).collect();
             parts.push(format!("choose {count} of {} {amount:+}", from.join(", ")));
         } else if let Some(w) = choose.get("weighted") {
-            let from: Vec<String> = w
-                .get("from")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(Value::as_str)
-                .map(title_case)
-                .collect();
+            let from: Vec<String> =
+                w.get("from").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(title_case).collect();
             let weights: Vec<String> = w
                 .get("weights")
                 .and_then(Value::as_array)
@@ -574,14 +537,8 @@ fn proficiency_list(v: &Value) -> String {
                 .map(|(k, _)| title_case(&tags::strip(k.split('|').next().unwrap_or(k))))
                 .collect();
             if let Some(choose) = o.get("choose") {
-                let from: Vec<String> = choose
-                    .get("from")
-                    .and_then(Value::as_array)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(Value::as_str)
-                    .map(title_case)
-                    .collect();
+                let from: Vec<String> =
+                    choose.get("from").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(title_case).collect();
                 let n = choose.get("count").and_then(Value::as_u64).unwrap_or(1);
                 parts.push(format!("choose {n} from {}", from.join(", ")));
             }
@@ -599,11 +556,7 @@ fn background_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
         let s: Vec<String> = ab.iter().map(ability_bonus).filter(|s| !s.is_empty()).collect();
         props.push(("Ability Scores", plain(s.join("; or "))));
     }
-    for (key, label) in [
-        ("skillProficiencies", "Skills"),
-        ("toolProficiencies", "Tools"),
-        ("languageProficiencies", "Languages"),
-    ] {
+    for (key, label) in [("skillProficiencies", "Skills"), ("toolProficiencies", "Tools"), ("languageProficiencies", "Languages")] {
         if let Some(v) = d.get(key) {
             props.push((label, plain(proficiency_list(v))));
         }
@@ -730,9 +683,7 @@ fn prerequisites(list: &[Value]) -> String {
                         .join(", "),
                     "pact" => format!("Pact of the {}", v.as_str().unwrap_or("?")),
                     "patron" => format!("{} patron", v.as_str().unwrap_or("?")),
-                    "spellcasting" | "spellcasting2020" | "spellcastingFeature" => {
-                        "The ability to cast at least one spell".into()
-                    }
+                    "spellcasting" | "spellcasting2020" | "spellcastingFeature" => "The ability to cast at least one spell".into(),
                     "proficiency" => v
                         .as_array()
                         .into_iter()
@@ -775,11 +726,8 @@ fn class_props(d: &Value, props: &mut Vec<(&'static str, Vec<Span>)>) {
         props.push(("Hit Die", plain(format!("d{hd}"))));
     }
     if let Some(pa) = d.get("primaryAbility").and_then(Value::as_array) {
-        let s: Vec<String> = pa
-            .iter()
-            .filter_map(Value::as_object)
-            .map(|o| o.keys().map(|k| ability_name(k)).collect::<Vec<_>>().join(" and "))
-            .collect();
+        let s: Vec<String> =
+            pa.iter().filter_map(Value::as_object).map(|o| o.keys().map(|k| ability_name(k)).collect::<Vec<_>>().join(" and ")).collect();
         props.push(("Primary Ability", plain(s.join(" or "))));
     }
     if let Some(saves) = d.get("proficiency").and_then(Value::as_array) {
@@ -813,12 +761,7 @@ pub fn class_table(d: &Value) -> Table {
     let mut columns: Vec<Vec<Vec<Span>>> = Vec::new();
     for group in d.get("classTableGroups").and_then(Value::as_array).into_iter().flatten() {
         let labels = group.get("colLabels").and_then(Value::as_array).cloned().unwrap_or_default();
-        let rows = group
-            .get("rows")
-            .or_else(|| group.get("rowsSpellProgression"))
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
+        let rows = group.get("rows").or_else(|| group.get("rowsSpellProgression")).and_then(Value::as_array).cloned().unwrap_or_default();
         for (ci, label) in labels.iter().enumerate() {
             header.push(label.as_str().map(tags::parse).unwrap_or_default());
             columns.push(
@@ -858,20 +801,12 @@ pub fn class_table(d: &Value) -> Table {
 
     let rows = (0..20)
         .map(|lvl| {
-            let mut row = vec![
-                plain(ordinal(lvl as u64 + 1)),
-                plain(format!("+{}", 2 + lvl / 4)),
-                features[lvl].clone(),
-            ];
+            let mut row = vec![plain(ordinal(lvl as u64 + 1)), plain(format!("+{}", 2 + lvl / 4)), features[lvl].clone()];
             row.extend(columns.iter().map(|c| c[lvl].clone()));
             row
         })
         .collect();
-    Table {
-        caption: Some(plain(format!("The {class_name}"))),
-        header,
-        rows,
-    }
+    Table { caption: Some(plain(format!("The {class_name}"))), header, rows }
 }
 
 #[cfg(test)]

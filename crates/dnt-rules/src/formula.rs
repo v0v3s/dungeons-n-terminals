@@ -34,18 +34,13 @@ pub struct Error {
 
 impl Error {
     fn new(message: impl Into<String>, span: Span) -> Error {
-        Error {
-            message: message.into(),
-            span,
-        }
+        Error { message: message.into(), span }
     }
 
     /// Render the error with a caret line under the offending source.
     pub fn display(&self, source: &str) -> String {
         let start = source[..self.span.start.min(source.len())].chars().count();
-        let len = source
-            .get(self.span.clone())
-            .map_or(1, |s| s.chars().count().max(1));
+        let len = source.get(self.span.clone()).map_or(1, |s| s.chars().count().max(1));
         format!("{}\n{source}\n{}{}", self.message, " ".repeat(start), "^".repeat(len))
     }
 }
@@ -97,9 +92,7 @@ fn lex(src: &str) -> Result<Vec<(Tok, Span)>, Error> {
             while i < bytes.len() && bytes[i].is_ascii_digit() {
                 i += 1;
             }
-            let n: i64 = src[start..i]
-                .parse()
-                .map_err(|_| Error::new("number too large", start..i))?;
+            let n: i64 = src[start..i].parse().map_err(|_| Error::new("number too large", start..i))?;
             // `2d6`
             if i < bytes.len() && bytes[i] == b'd' && i + 1 < bytes.len() && bytes[i + 1].is_ascii_digit() {
                 i += 1;
@@ -252,10 +245,7 @@ impl Parser<'_> {
 
     fn bin(op: BinOp, l: Expr, r: Expr) -> Expr {
         let span = l.span.start..r.span.end;
-        Expr {
-            kind: ExprKind::Bin(op, Box::new(l), Box::new(r)),
-            span,
-        }
+        Expr { kind: ExprKind::Bin(op, Box::new(l), Box::new(r)), span }
     }
 
     fn or(&mut self) -> Result<Expr, Error> {
@@ -281,10 +271,7 @@ impl Parser<'_> {
         if self.eat(&Tok::Not) {
             let e = self.not()?;
             let span = start..e.span.end;
-            return Ok(Expr {
-                kind: ExprKind::Not(Box::new(e)),
-                span,
-            });
+            return Ok(Expr { kind: ExprKind::Not(Box::new(e)), span });
         }
         self.cmp()
     }
@@ -338,10 +325,7 @@ impl Parser<'_> {
         if self.eat(&Tok::Minus) {
             let e = self.unary()?;
             let span = start..e.span.end;
-            return Ok(Expr {
-                kind: ExprKind::Neg(Box::new(e)),
-                span,
-            });
+            return Ok(Expr { kind: ExprKind::Neg(Box::new(e)), span });
         }
         self.primary()
     }
@@ -372,15 +356,9 @@ impl Parser<'_> {
                         }
                     }
                     let end = self.toks[self.pos - 1].1.end;
-                    Ok(Expr {
-                        kind: ExprKind::Call(name, args),
-                        span: span.start..end,
-                    })
+                    Ok(Expr { kind: ExprKind::Call(name, args), span: span.start..end })
                 } else {
-                    Ok(Expr {
-                        kind: ExprKind::Var(name),
-                        span,
-                    })
+                    Ok(Expr { kind: ExprKind::Var(name), span })
                 }
             }
             Tok::LParen => {
@@ -403,10 +381,7 @@ impl Parser<'_> {
                     }
                 }
                 let end = self.toks[self.pos - 1].1.end;
-                Ok(Expr {
-                    kind: ExprKind::Map(entries),
-                    span: span.start..end,
-                })
+                Ok(Expr { kind: ExprKind::Map(entries), span: span.start..end })
             }
             _ => Err(Error::new("expected a value", span)),
         }
@@ -429,30 +404,17 @@ impl fmt::Display for Formula {
 impl Formula {
     pub fn parse(source: &str) -> Result<Formula, Error> {
         let toks = lex(source)?;
-        let mut p = Parser {
-            toks: &toks,
-            pos: 0,
-            len: source.len(),
-        };
+        let mut p = Parser { toks: &toks, pos: 0, len: source.len() };
         let expr = p.or()?;
         if p.pos < toks.len() {
             return Err(Error::new("unexpected input after the formula", p.span()));
         }
-        Ok(Formula {
-            source: source.to_string(),
-            expr,
-        })
+        Ok(Formula { source: source.to_string(), expr })
     }
 
     /// A formula that is just a constant.
     pub fn constant(v: Value) -> Formula {
-        Formula {
-            source: v.to_string(),
-            expr: Expr {
-                kind: ExprKind::Lit(v),
-                span: 0..0,
-            },
-        }
+        Formula { source: v.to_string(), expr: Expr { kind: ExprKind::Lit(v), span: 0..0 } }
     }
 
     /// Every variable this formula reads, including the implicit ones read
@@ -513,8 +475,7 @@ impl Env for std::collections::HashMap<String, Value> {
 // ---- evaluation ----
 
 fn num(v: &Value, span: &Span) -> Result<Num, Error> {
-    v.as_num()
-        .ok_or_else(|| Error::new(format!("expected a number, found {}", v.type_name()), span.clone()))
+    v.as_num().ok_or_else(|| Error::new(format!("expected a number, found {}", v.type_name()), span.clone()))
 }
 
 fn int(v: &Value, span: &Span) -> Result<i64, Error> {
@@ -527,16 +488,13 @@ fn int(v: &Value, span: &Span) -> Result<i64, Error> {
 }
 
 fn boolean(v: &Value, span: &Span) -> Result<bool, Error> {
-    v.as_bool()
-        .ok_or_else(|| Error::new(format!("expected true/false, found {}", v.type_name()), span.clone()))
+    v.as_bool().ok_or_else(|| Error::new(format!("expected true/false, found {}", v.type_name()), span.clone()))
 }
 
 fn eval(e: &Expr, env: &dyn Env) -> Result<Value, Error> {
     match &e.kind {
         ExprKind::Lit(v) => Ok(v.clone()),
-        ExprKind::Var(name) => env
-            .var(name)
-            .ok_or_else(|| Error::new(format!("unknown variable `{name}`"), e.span.clone())),
+        ExprKind::Var(name) => env.var(name).ok_or_else(|| Error::new(format!("unknown variable `{name}`"), e.span.clone())),
         ExprKind::Map(entries) => {
             let mut out = Vec::with_capacity(entries.len());
             for (k, v) in entries {
@@ -569,12 +527,7 @@ fn eval(e: &Expr, env: &dyn Env) -> Result<Value, Error> {
 
 fn binary(op: BinOp, lv: Value, rv: Value, l: &Expr, r: &Expr, span: &Span) -> Result<Value, Error> {
     use Value::{Dice as D, Num as N};
-    let mismatch = || {
-        Error::new(
-            format!("cannot apply `{}` to {} and {}", op_symbol(op), lv.type_name(), rv.type_name()),
-            span.clone(),
-        )
-    };
+    let mismatch = || Error::new(format!("cannot apply `{}` to {} and {}", op_symbol(op), lv.type_name(), rv.type_name()), span.clone());
     Ok(match (op, &lv, &rv) {
         (BinOp::Add, N(a), N(b)) => N(*a + *b),
         (BinOp::Sub, N(a), N(b)) => N(*a - *b),
@@ -664,10 +617,7 @@ fn call(name: &str, args: &[Expr], env: &dyn Env, span: &Span) -> Result<Value, 
         _ => {
             let vals: Vec<Value> = args.iter().map(|a| eval(a, env)).collect::<Result<_, _>>()?;
             builtin(name, &vals, args, span)
-                .or_else(|| {
-                    env.call(name, &vals)
-                        .map(|r| r.map_err(|m| Error::new(m, span.clone())))
-                })
+                .or_else(|| env.call(name, &vals).map(|r| r.map_err(|m| Error::new(m, span.clone()))))
                 .unwrap_or_else(|| Err(Error::new(format!("unknown function `{name}`"), span.clone())))
         }
     }

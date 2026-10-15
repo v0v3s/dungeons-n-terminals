@@ -12,10 +12,7 @@ pub struct Searcher {
 
 impl Default for Searcher {
     fn default() -> Self {
-        Searcher {
-            matcher: Matcher::new(Config::DEFAULT),
-            buf: Vec::new(),
-        }
+        Searcher { matcher: Matcher::new(Config::DEFAULT), buf: Vec::new() }
     }
 }
 

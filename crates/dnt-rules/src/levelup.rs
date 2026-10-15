@@ -19,19 +19,11 @@ pub enum LevelPerk {
 }
 
 fn feature_refs(class: &Json) -> impl Iterator<Item = (&str, bool)> {
-    class
-        .get("classFeatures")
-        .and_then(Json::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|f| match f {
-            Json::String(s) => Some((s.as_str(), false)),
-            Json::Object(o) => Some((
-                o.get("classFeature")?.as_str()?,
-                o.get("gainSubclassFeature").and_then(Json::as_bool) == Some(true),
-            )),
-            _ => None,
-        })
+    class.get("classFeatures").and_then(Json::as_array).into_iter().flatten().filter_map(|f| match f {
+        Json::String(s) => Some((s.as_str(), false)),
+        Json::Object(o) => Some((o.get("classFeature")?.as_str()?, o.get("gainSubclassFeature").and_then(Json::as_bool) == Some(true))),
+        _ => None,
+    })
 }
 
 fn ref_level(r: &str) -> Option<i64> {
@@ -105,20 +97,10 @@ pub fn class_options(lib: &Library, c: &Character, ev: &Evaluation, filter: &Sou
     for (id, level) in &current {
         let Some(entity) = crate::overlay::resolve_id(lib, id) else { continue };
         let e = lib.entity(entity);
-        out.push(ClassOption {
-            id: id.clone(),
-            entity,
-            name: e.name.clone(),
-            source: e.source.clone(),
-            level: *level,
-            warning: None,
-        });
+        out.push(ClassOption { id: id.clone(), entity, name: e.name.clone(), source: e.source.clone(), level: *level, warning: None });
     }
     // To multiclass, both the new class and every current class must qualify.
-    let current_unmet: Vec<String> = out
-        .iter()
-        .filter_map(|o| unmet(o.entity).map(|w| format!("{}: {w}", o.name)))
-        .collect();
+    let current_unmet: Vec<String> = out.iter().filter_map(|o| unmet(o.entity).map(|w| format!("{}: {w}", o.name))).collect();
     let mut others: Vec<ClassOption> = lib
         .entities()
         .iter()
@@ -150,10 +132,7 @@ pub fn class_options(lib: &Library, c: &Character, ev: &Evaluation, filter: &Sou
 
 /// Subclasses of a class enabled by `filter`.
 pub fn subclass_options(lib: &Library, class: EntityId, filter: &SourceFilter) -> Vec<EntityId> {
-    lib.subclasses_of(class)
-        .into_iter()
-        .filter(|&s| filter.allows(lib.entity(s)))
-        .collect()
+    lib.subclasses_of(class).into_iter().filter(|&s| filter.allows(lib.entity(s))).collect()
 }
 
 /// Feats for an ASI or Epic Boon choice. 2024 feats are limited to the

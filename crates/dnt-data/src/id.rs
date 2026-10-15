@@ -17,10 +17,7 @@ pub struct Key {
 
 impl Key {
     pub fn new(kind: Kind, parts: &[&str]) -> Key {
-        Key {
-            kind,
-            path: parts.join("|").to_lowercase(),
-        }
+        Key { kind, path: parts.join("|").to_lowercase() }
     }
 
     /// Build the key for an entity from its JSON object.
@@ -30,22 +27,11 @@ impl Key {
         let name = display_name(kind, obj)?;
         let source = entity_source(obj)?;
         Some(match kind {
-            Kind::ClassFeature => Key::new(
-                kind,
-                &[&name, s("className")?, s("classSource")?, &num("level")?, source],
-            ),
+            Kind::ClassFeature => Key::new(kind, &[&name, s("className")?, s("classSource")?, &num("level")?, source]),
             Kind::Subclass => Key::new(kind, &[s("shortName")?, s("className")?, s("classSource")?, source]),
             Kind::SubclassFeature => Key::new(
                 kind,
-                &[
-                    &name,
-                    s("className")?,
-                    s("classSource")?,
-                    s("subclassShortName")?,
-                    s("subclassSource")?,
-                    &num("level")?,
-                    source,
-                ],
+                &[&name, s("className")?, s("classSource")?, s("subclassShortName")?, s("subclassSource")?, &num("level")?, source],
             ),
             _ => Key::new(kind, &[&name, source]),
         })
@@ -76,10 +62,7 @@ impl Key {
                 let class_source = part(2).unwrap_or("PHB");
                 let sub_source = part(4).unwrap_or("PHB");
                 let source = part(6).unwrap_or(sub_source);
-                (
-                    Key::new(kind, &[name, part(1)?, class_source, part(3)?, sub_source, part(5)?, source]),
-                    Some(7),
-                )
+                (Key::new(kind, &[name, part(1)?, class_source, part(3)?, sub_source, part(5)?, source]), Some(7))
             }
             _ => (Key::new(kind, &[name, part(1).unwrap_or(default_src)]), Some(2)),
         })
@@ -88,9 +71,7 @@ impl Key {
 
 /// An entity's source. Magic variants keep theirs under `inherits`.
 pub fn entity_source(obj: &Value) -> Option<&str> {
-    obj.get("source")
-        .or_else(|| obj.get("inherits").and_then(|i| i.get("source")))
-        .and_then(Value::as_str)
+    obj.get("source").or_else(|| obj.get("inherits").and_then(|i| i.get("source"))).and_then(Value::as_str)
 }
 
 /// The human-facing name of an entity. Subraces are shown as
@@ -119,12 +100,9 @@ mod tests {
 
     #[test]
     fn subclass_feature_defaults() {
-        let (key, display) = Key::from_ref(
-            Kind::SubclassFeature,
-            "subclassFeature",
-            &["School of Abjuration", "Wizard", "", "Abjuration", "", "2"],
-        )
-        .unwrap();
+        let (key, display) =
+            Key::from_ref(Kind::SubclassFeature, "subclassFeature", &["School of Abjuration", "Wizard", "", "Abjuration", "", "2"])
+                .unwrap();
         assert_eq!(key.path, "school of abjuration|wizard|phb|abjuration|phb|2|phb");
         assert_eq!(display, Some(7));
     }

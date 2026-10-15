@@ -64,13 +64,7 @@ pub fn class_limits(class: &Json, level: i64, max_level: i64, mods: &dyn Fn(&str
         .get("spellsKnownProgressionFixed")
         .and_then(Json::as_array)
         .map(|a| a.iter().take(level.max(0) as usize).filter_map(Json::as_i64).sum());
-    ClassLimits {
-        cantrips,
-        spells,
-        list,
-        spellbook,
-        max_level,
-    }
+    ClassLimits { cantrips, spells, list, spellbook, max_level }
 }
 
 /// A spellcasting class of a character, with its limits.
@@ -236,9 +230,16 @@ pub enum Grant {
 /// A spell or a choice of spells granted by a feature.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Granted {
-    Spell { id: String, grant: Grant },
+    Spell {
+        id: String,
+        grant: Grant,
+    },
     /// Pick `count` spells matching a filter like `level=0|class=Cleric`.
-    Choice { filter: String, count: usize, grant: Grant },
+    Choice {
+        filter: String,
+        count: usize,
+        grant: Grant,
+    },
 }
 
 fn refs(v: &Json, grant: &Grant, out: &mut Vec<Granted>) {
@@ -248,10 +249,7 @@ fn refs(v: &Json, grant: &Grant, out: &mut Vec<Granted>) {
                 // `dancing lights|xphb#c`: `#c` marks a cantrip.
                 let s = s.split('#').next().unwrap_or(s);
                 let (name, source) = s.split_once('|').unwrap_or((s, "phb"));
-                out.push(Granted::Spell {
-                    id: format!("spell:{name}|{source}"),
-                    grant: grant.clone(),
-                });
+                out.push(Granted::Spell { id: format!("spell:{name}|{source}"), grant: grant.clone() });
             }
             Json::Object(o) => {
                 if let Some(f) = o.get("choose").and_then(Json::as_str) {
@@ -269,9 +267,7 @@ fn refs(v: &Json, grant: &Grant, out: &mut Vec<Granted>) {
 
 /// Levels in a by-level map that apply at `level` (`_` always applies).
 fn applicable(map: &serde_json::Map<String, Json>, level: i64) -> impl Iterator<Item = &Json> {
-    map.iter()
-        .filter(move |(k, _)| k == &"_" || k.trim_end_matches('e').parse::<i64>().is_ok_and(|l| l <= level))
-        .map(|(_, v)| v)
+    map.iter().filter(move |(k, _)| k == &"_" || k.trim_end_matches('e').parse::<i64>().is_ok_and(|l| l <= level)).map(|(_, v)| v)
 }
 
 /// Spells granted by an entity's `additionalSpells` at `level` (class level
@@ -338,9 +334,7 @@ pub fn filter_spells(lib: &Library, filter_text: &str, filter: &SourceFilter) ->
             let school = e.data.get("school").and_then(Json::as_str).unwrap_or("").to_lowercase();
             levels.as_ref().is_none_or(|l| l.contains(&lvl))
                 && schools.as_ref().is_none_or(|s| s.contains(&school))
-                && classes
-                    .as_ref()
-                    .is_none_or(|c| lib.spell_classes(i).iter().any(|sc| c.contains(&sc.name.to_lowercase())))
+                && classes.as_ref().is_none_or(|c| lib.spell_classes(i).iter().any(|sc| c.contains(&sc.name.to_lowercase())))
         })
         .collect();
     out.sort_by(|&a, &b| spell_level(lib, a).cmp(&spell_level(lib, b)).then(lib.entity(a).name.cmp(&lib.entity(b).name)));
@@ -360,10 +354,7 @@ pub fn describe_filter(filter_text: &str) -> String {
         .get("school")
         .map(|s| s.split('/').map(|c| dnt_data::view::spell_school(&c.to_uppercase())).collect::<Vec<_>>().join("/"))
         .unwrap_or_default();
-    let levels: Vec<i64> = parts
-        .get("level")
-        .map(|l| l.split('/').filter_map(|x| x.parse().ok()).collect())
-        .unwrap_or_default();
+    let levels: Vec<i64> = parts.get("level").map(|l| l.split('/').filter_map(|x| x.parse().ok()).collect()).unwrap_or_default();
     let what = match levels.as_slice() {
         [0] => "cantrip".to_string(),
         [] => "spell".to_string(),

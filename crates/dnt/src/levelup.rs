@@ -68,12 +68,7 @@ impl LevelUp {
                 } else {
                     format!("New class: {}", o.name)
                 };
-                PickItem {
-                    label,
-                    hint: o.source,
-                    warning: o.warning,
-                    value: o.id,
-                }
+                PickItem { label, hint: o.source, warning: o.warning, value: o.id }
             })
             .collect();
         let title = if c.levels.is_empty() { "First level: choose a class" } else { "Level up: choose a class" };
@@ -126,10 +121,8 @@ impl LevelUp {
                     Some(Picked::Many(vs)) => vs,
                     None => return Outcome::Continue,
                 };
-                let labels: Vec<String> = values
-                    .iter()
-                    .filter_map(|v| picker.items.iter().find(|i| &i.value == v).map(|i| i.label.clone()))
-                    .collect();
+                let labels: Vec<String> =
+                    values.iter().filter_map(|v| picker.items.iter().find(|i| &i.value == v).map(|i| i.label.clone())).collect();
                 if self.step == Step::Choice {
                     let choice = self.feature_choices.as_mut().map(|q| q.remove(0)).expect("choice in progress");
                     self.summary.push(format!("{}: {}", choice.key, labels.join(", ")));
@@ -153,9 +146,7 @@ impl LevelUp {
                 self.class_entity = entity;
                 self.summary.push(format!("Class: {}", label));
                 self.class = Some(value.clone());
-                let due = entity
-                    .and_then(|e| levelup::subclass_level(&lib.entity(e).data))
-                    .is_some_and(|l| l == self.new_level);
+                let due = entity.and_then(|e| levelup::subclass_level(&lib.entity(e).data)).is_some_and(|l| l == self.new_level);
                 if due && !c.subclasses.contains_key(&value) {
                     let items: Vec<PickItem> = levelup::subclass_options(lib, entity.unwrap(), filter)
                         .into_iter()
@@ -220,11 +211,7 @@ impl LevelUp {
                 self.stage = Stage::Confirm;
                 return;
             };
-            let subclass = self
-                .subclass
-                .clone()
-                .or_else(|| c.subclasses.get(&class_id).cloned())
-                .and_then(|s| resolve_id(lib, &s));
+            let subclass = self.subclass.clone().or_else(|| c.subclasses.get(&class_id).cloned()).and_then(|s| resolve_id(lib, &s));
             let skills = c.proficiencies.skills.clone();
             let found = choices::level_choices(lib, c, class, subclass, self.new_level, filter, &skills);
             self.feature_choices = Some(found.into_iter().filter(|ch| !ch.options.is_empty()).collect());
@@ -239,10 +226,8 @@ impl LevelUp {
     }
 
     fn hp_stage(&mut self, lib: &Library, c: &Character, filter: &SourceFilter) {
-        let faces = self
-            .class_entity
-            .and_then(|e| lib.entity(e).data.get("hd").and_then(|h| h.get("faces")).and_then(|f| f.as_i64()))
-            .unwrap_or(8);
+        let faces =
+            self.class_entity.and_then(|e| lib.entity(e).data.get("hd").and_then(|h| h.get("faces")).and_then(|f| f.as_i64())).unwrap_or(8);
         if c.levels.is_empty() {
             // The first character level always gets the maximum.
             self.summary.push(format!("Hit points: {faces} (maximum at 1st level)"));
@@ -259,10 +244,7 @@ impl LevelUp {
     }
 
     fn after_hp(&mut self, lib: &Library, c: &Character, filter: &SourceFilter) {
-        self.perk = self
-            .class_entity
-            .map(|e| levelup::perk_at(&lib.entity(e).data, self.new_level))
-            .unwrap_or(LevelPerk::None);
+        self.perk = self.class_entity.map(|e| levelup::perk_at(&lib.entity(e).data, self.new_level)).unwrap_or(LevelPerk::None);
         match self.perk {
             LevelPerk::None => self.next_choice(lib, c, filter),
             LevelPerk::EpicBoon => self.feat_stage(lib, filter),
@@ -313,11 +295,7 @@ impl LevelUp {
     /// Apply the finished level-up to the character.
     pub fn apply(self, c: &mut Character) -> String {
         let Some(class) = self.class else { return "Nothing chosen".into() };
-        c.levels.push(Level {
-            class: class.clone(),
-            hp: self.hp,
-            choices: self.choices,
-        });
+        c.levels.push(Level { class: class.clone(), hp: self.hp, choices: self.choices });
         if let Some(s) = self.subclass {
             c.subclasses.insert(class, s);
         }
@@ -335,12 +313,7 @@ pub fn choice_picker(choice: &Choice, count: usize) -> Picker {
     let items: Vec<PickItem> = choice
         .options
         .iter()
-        .map(|o| PickItem {
-            label: o.label.clone(),
-            hint: o.hint.clone(),
-            warning: o.warning.clone(),
-            value: o.value.clone(),
-        })
+        .map(|o| PickItem { label: o.label.clone(), hint: o.hint.clone(), warning: o.warning.clone(), value: o.value.clone() })
         .collect();
     if count > 1 {
         Picker::multi(format!("{}: choose {count}", choice.key), items, count)

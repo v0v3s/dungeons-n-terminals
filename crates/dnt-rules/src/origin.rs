@@ -43,14 +43,7 @@ pub fn skill_grant(v: Option<&Json>) -> SkillGrant {
     for (k, v) in first {
         match (k.as_str(), v) {
             ("choose", Json::Object(c)) => {
-                g.from = c
-                    .get("from")
-                    .and_then(Json::as_array)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(Json::as_str)
-                    .filter_map(known)
-                    .collect();
+                g.from = c.get("from").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str).filter_map(known).collect();
                 g.count = c.get("count").and_then(Json::as_u64).unwrap_or(1) as usize;
             }
             ("any", n) => g.count = n.as_u64().unwrap_or(1) as usize,
@@ -66,21 +59,23 @@ pub fn skill_grant(v: Option<&Json>) -> SkillGrant {
 pub enum AbilityGrant {
     Fixed(BTreeMap<String, i64>),
     /// Increase `count` different abilities from `from` by `amount` each.
-    Choose { from: Vec<String>, count: usize, amount: i64 },
+    Choose {
+        from: Vec<String>,
+        count: usize,
+        amount: i64,
+    },
     /// Distribute `weights` (e.g. +2 and +1) among different abilities of `from`.
-    Weighted { from: Vec<String>, weights: Vec<i64> },
+    Weighted {
+        from: Vec<String>,
+        weights: Vec<i64>,
+    },
 }
 
 /// Parse an `ability` array: each element is an alternative, made of fixed
 /// increases and/or choices.
 pub fn ability_grants(v: Option<&Json>) -> Vec<Vec<AbilityGrant>> {
     let strings = |v: Option<&Json>| -> Vec<String> {
-        v.and_then(Json::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(Json::as_str)
-            .map(str::to_string)
-            .collect()
+        v.and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str).map(str::to_string).collect()
     };
     v.and_then(Json::as_array)
         .into_iter()
@@ -88,10 +83,7 @@ pub fn ability_grants(v: Option<&Json>) -> Vec<Vec<AbilityGrant>> {
         .filter_map(Json::as_object)
         .map(|alt| {
             let mut parts = Vec::new();
-            let fixed: BTreeMap<String, i64> = alt
-                .iter()
-                .filter_map(|(k, v)| Some((k.clone(), v.as_i64()?)))
-                .collect();
+            let fixed: BTreeMap<String, i64> = alt.iter().filter_map(|(k, v)| Some((k.clone(), v.as_i64()?))).collect();
             if !fixed.is_empty() {
                 parts.push(AbilityGrant::Fixed(fixed));
             }
@@ -99,13 +91,7 @@ pub fn ability_grants(v: Option<&Json>) -> Vec<Vec<AbilityGrant>> {
                 if let Some(w) = c.get("weighted") {
                     parts.push(AbilityGrant::Weighted {
                         from: strings(w.get("from")),
-                        weights: w
-                            .get("weights")
-                            .and_then(Json::as_array)
-                            .into_iter()
-                            .flatten()
-                            .filter_map(Json::as_i64)
-                            .collect(),
+                        weights: w.get("weights").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_i64).collect(),
                     });
                 } else {
                     parts.push(AbilityGrant::Choose {
@@ -134,14 +120,8 @@ pub fn feat_grant(v: Option<&Json>) -> FeatGrant {
     for alt in v.and_then(Json::as_array).into_iter().flatten().take(1).filter_map(Json::as_object) {
         for (k, v) in alt {
             if k == "anyFromCategory" {
-                let cats = v
-                    .get("category")
-                    .and_then(Json::as_array)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(Json::as_str)
-                    .map(str::to_string)
-                    .collect();
+                let cats =
+                    v.get("category").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str).map(str::to_string).collect();
                 g.choose = Some((cats, v.get("count").and_then(Json::as_u64).unwrap_or(1) as usize));
             } else if v.as_bool() == Some(true) && !k.starts_with("any") {
                 // `magic initiate; cleric|xphb` names a version of the feat

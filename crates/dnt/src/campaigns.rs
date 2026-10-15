@@ -74,12 +74,7 @@ impl Campaigns {
                 }
             })
             .collect();
-        let rank = |g: &str| {
-            GROUP_ORDER
-                .iter()
-                .position(|o| group_label(o) == g)
-                .unwrap_or(GROUP_ORDER.len())
-        };
+        let rank = |g: &str| GROUP_ORDER.iter().position(|o| group_label(o) == g).unwrap_or(GROUP_ORDER.len());
         sources.sort_by(|a, b| rank(&a.group).cmp(&rank(&b.group)).then(a.name.cmp(&b.name)));
         Campaigns {
             list,

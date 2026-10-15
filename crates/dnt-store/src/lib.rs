@@ -40,10 +40,7 @@ pub type Result<T> = std::result::Result<T, StoreError>;
 pub const PRESETS: &[(&str, &[&str])] = &[
     ("2024 Core", &["XPHB", "XDMG", "XMM"]),
     ("2014 Core", &["PHB", "DMG", "MM"]),
-    (
-        "2014 Core + Supplements",
-        &["PHB", "DMG", "MM", "XGE", "TCE", "MPMM", "FTD", "SCAG", "BMT"],
-    ),
+    ("2014 Core + Supplements", &["PHB", "DMG", "MM", "XGE", "TCE", "MPMM", "FTD", "SCAG", "BMT"]),
 ];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -161,10 +158,7 @@ impl Store {
     }
 
     pub fn open(data_dir: impl Into<PathBuf>, config_path: impl Into<PathBuf>) -> Store {
-        Store {
-            data_dir: data_dir.into(),
-            config_path: config_path.into(),
-        }
+        Store { data_dir: data_dir.into(), config_path: config_path.into() }
     }
 
     pub fn config_path(&self) -> &Path {
@@ -218,11 +212,7 @@ impl Store {
         if !file.is_file() {
             return Err(StoreError::NoSuchCampaign(slug.to_string()));
         }
-        Ok(Campaign {
-            slug: slug.to_string(),
-            settings: read_toml(&file)?,
-            dir,
-        })
+        Ok(Campaign { slug: slug.to_string(), settings: read_toml(&file)?, dir })
     }
 
     /// Create a campaign with a unique slug derived from its name.
@@ -234,11 +224,7 @@ impl Store {
             slug = format!("{base}-{n}");
             n += 1;
         }
-        let campaign = Campaign {
-            dir: self.campaigns_dir().join(&slug),
-            slug,
-            settings,
-        };
+        let campaign = Campaign { dir: self.campaigns_dir().join(&slug), slug, settings };
         for dir in [campaign.characters_dir(), campaign.notes_dir()] {
             fs::create_dir_all(&dir).map_err(|source| StoreError::Io { path: dir, source })?;
         }
@@ -258,10 +244,7 @@ impl Store {
             notes::DEFAULT_FOLDERS.iter().map(|s| s.to_string()).collect()
         };
         let n = notes::Notes::new(campaign.notes_dir(), self.data_dir.join("templates"), order);
-        n.scaffold(&notes::Vars {
-            campaign: campaign.settings.name.clone(),
-            ..Default::default()
-        })?;
+        n.scaffold(&notes::Vars { campaign: campaign.settings.name.clone(), ..Default::default() })?;
         Ok(n)
     }
 
@@ -297,19 +280,9 @@ impl Store {
     }
 
     pub fn load_character(&self, path: &Path) -> Result<CharacterFile> {
-        let text = fs::read_to_string(path).map_err(|source| StoreError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        let character = Character::from_toml(&text).map_err(|message| StoreError::Character {
-            path: path.to_path_buf(),
-            message,
-        })?;
-        Ok(CharacterFile {
-            slug: path.file_stem().unwrap_or_default().to_string_lossy().into_owned(),
-            path: path.to_path_buf(),
-            character,
-        })
+        let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+        let character = Character::from_toml(&text).map_err(|message| StoreError::Character { path: path.to_path_buf(), message })?;
+        Ok(CharacterFile { slug: path.file_stem().unwrap_or_default().to_string_lossy().into_owned(), path: path.to_path_buf(), character })
     }
 
     /// Save a new character under a unique slug derived from its name.
@@ -322,11 +295,7 @@ impl Store {
             slug = format!("{base}-{n}");
             n += 1;
         }
-        let file = CharacterFile {
-            path: dir.join(format!("{slug}.toml")),
-            slug,
-            character,
-        };
+        let file = CharacterFile { path: dir.join(format!("{slug}.toml")), slug, character };
         self.save_character(&file)?;
         Ok(file)
     }
@@ -370,10 +339,7 @@ impl Store {
 
 fn read_json(path: &Path) -> Result<serde_json::Value> {
     let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
-    serde_json::from_str(&text).map_err(|e| StoreError::Json {
-        path: path.to_path_buf(),
-        message: e.to_string(),
-    })
+    serde_json::from_str(&text).map_err(|e| StoreError::Json { path: path.to_path_buf(), message: e.to_string() })
 }
 
 /// A short source abbreviation from a campaign name: `Curse of Strahd` →
@@ -532,31 +498,19 @@ pub fn slugify(name: &str) -> String {
 }
 
 fn read_toml<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    let text = fs::read_to_string(path).map_err(|source| StoreError::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    toml::from_str(&text).map_err(|source| StoreError::Parse {
-        path: path.to_path_buf(),
-        source,
-    })
+    let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+    toml::from_str(&text).map_err(|source| StoreError::Parse { path: path.to_path_buf(), source })
 }
 
 fn write_toml<T: Serialize>(path: &Path, value: &T, what: &str) -> Result<()> {
-    let text = toml::to_string_pretty(value).map_err(|source| StoreError::Serialize {
-        what: what.to_string(),
-        source,
-    })?;
+    let text = toml::to_string_pretty(value).map_err(|source| StoreError::Serialize { what: what.to_string(), source })?;
     write_text(path, &text)
 }
 
 /// Write via a temporary file and rename, so a crash never leaves a
 /// half-written file.
 fn write_text(path: &Path, text: &str) -> Result<()> {
-    let io_err = |source| StoreError::Io {
-        path: path.to_path_buf(),
-        source,
-    };
+    let io_err = |source| StoreError::Io { path: path.to_path_buf(), source };
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(io_err)?;
     }
@@ -593,11 +547,8 @@ mod tests {
     #[test]
     fn campaign_roundtrip() {
         let (_tmp, store) = store();
-        let settings = CampaignSettings {
-            name: "Curse of Strahd".into(),
-            sources: vec!["XPHB".into(), "XDMG".into()],
-            ..Default::default()
-        };
+        let settings =
+            CampaignSettings { name: "Curse of Strahd".into(), sources: vec!["XPHB".into(), "XDMG".into()], ..Default::default() };
         let c = store.create_campaign(settings.clone()).unwrap();
         assert_eq!(c.slug, "curse-of-strahd");
         assert!(c.characters_dir().is_dir() && c.notes_dir().is_dir());
@@ -614,16 +565,8 @@ mod tests {
     #[test]
     fn character_roundtrip() {
         let (_tmp, store) = store();
-        let camp = store
-            .create_campaign(CampaignSettings {
-                name: "C".into(),
-                ..Default::default()
-            })
-            .unwrap();
-        let ch = Character {
-            name: "Elara Moonwhisper".into(),
-            ..Default::default()
-        };
+        let camp = store.create_campaign(CampaignSettings { name: "C".into(), ..Default::default() }).unwrap();
+        let ch = Character { name: "Elara Moonwhisper".into(), ..Default::default() };
         let a = store.create_character(&camp, ch.clone()).unwrap();
         let b = store.create_character(&camp, ch).unwrap();
         assert_eq!(a.slug, "elara-moonwhisper");
@@ -643,10 +586,7 @@ mod tests {
         let (_tmp, store) = store();
         assert_eq!(store.load_config().unwrap(), Config::default());
         let config = Config {
-            library: LibraryConfig {
-                path: Some("/data/dnd".into()),
-                homebrew: vec![],
-            },
+            library: LibraryConfig { path: Some("/data/dnd".into()), homebrew: vec![] },
             last_campaign: Some("cos".into()),
             notes_order: vec![],
         };
@@ -659,11 +599,7 @@ mod tests {
         let c = Campaign {
             slug: "x".into(),
             dir: "/x".into(),
-            settings: CampaignSettings {
-                name: "X".into(),
-                sources: vec!["XPHB".into()],
-                ..Default::default()
-            },
+            settings: CampaignSettings { name: "X".into(), sources: vec!["XPHB".into()], ..Default::default() },
         };
         let f = c.source_filter();
         assert!(f.source_enabled("xphb") && !f.source_enabled("PHB") && f.hide_reprinted);

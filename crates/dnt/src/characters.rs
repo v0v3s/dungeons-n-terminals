@@ -2,9 +2,9 @@
 
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::builder::{build, Build};
-use dnt_rules::equipment;
-use dnt_rules::choices::{self, Pending};
 use dnt_rules::character::{Character, Hand, Slot};
+use dnt_rules::choices::{self, Pending};
+use dnt_rules::equipment;
 use dnt_rules::overlay::OverlaySet;
 use dnt_rules::play::{self, Edition};
 use dnt_rules::standard::{ABILITIES, SKILLS};
@@ -13,8 +13,8 @@ use dnt_store::CharacterFile;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::levelup::{self, LevelUp};
-use crate::spells_tab;
 use crate::picker::{Picked, Picker};
+use crate::spells_tab;
 use crate::wizard::{self, Wizard};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -286,14 +286,7 @@ impl Characters {
     }
 
     pub fn new(files: Vec<CharacterFile>) -> Characters {
-        Characters {
-            files,
-            selected: 0,
-            sheet: None,
-            name_input: None,
-            wizard: None,
-            filter: SourceFilter::default(),
-        }
+        Characters { files, selected: 0, sheet: None, name_input: None, wizard: None, filter: SourceFilter::default() }
     }
 
     pub fn wants_text(&self) -> bool {
@@ -426,7 +419,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let gaps = spells_tab::spell_gaps(&sheet.file.character, &casters);
                         if !gaps.is_empty() {
                             if let Action::Save(_) = action {
-                                return Action::Save(format!("{status} · to choose on the Spells tab: {}", spells_tab::describe_gaps(&gaps)));
+                                return Action::Save(format!(
+                                    "{status} · to choose on the Spells tab: {}",
+                                    spells_tab::describe_gaps(&gaps)
+                                ));
                             }
                         }
                         return action;
@@ -478,7 +474,8 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         if c.inventory.len() > before {
                             c.inventory[before].inside = inside;
                             sheet.inventory_cursor = before;
-                        } else if let Some(at) = c.inventory.iter().position(|l| l.item.as_deref() == Some(v.as_str()) && l.name.is_none()) {
+                        } else if let Some(at) = c.inventory.iter().position(|l| l.item.as_deref() == Some(v.as_str()) && l.name.is_none())
+                        {
                             sheet.inventory_cursor = at;
                         }
                         let name = dnt_rules::overlay::resolve_id(lib, &v).map(|e| lib.entity(e).name.clone()).unwrap_or(v);
@@ -558,11 +555,8 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         return Action::None;
                     }
                 };
-                let names: Vec<String> = ids
-                    .iter()
-                    .filter_map(|i| dnt_rules::overlay::resolve_id(lib, i))
-                    .map(|e| lib.entity(e).name.clone())
-                    .collect();
+                let names: Vec<String> =
+                    ids.iter().filter_map(|i| dnt_rules::overlay::resolve_id(lib, i)).map(|e| lib.entity(e).name.clone()).collect();
                 let casters = dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev);
                 let limits = match &target {
                     spells_tab::Target::Class { class_id, .. } => casters.iter().find(|c| &c.id == class_id).map(|c| &c.limits),
@@ -656,7 +650,8 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 match picker.key(key) {
                     Some(Picked::One(new)) => {
                         let from = lib.entity(old).name.clone();
-                        let to = dnt_rules::overlay::resolve_id(lib, &new).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| new.clone());
+                        let to =
+                            dnt_rules::overlay::resolve_id(lib, &new).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| new.clone());
                         if choices::swap_mastery(lib, &mut sheet.file.character, old, &new) {
                             return changed(sheet, lib, overlays, format!("Weapon Mastery: {from} → {to}"));
                         }
@@ -730,11 +725,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         Rest::Long => play::long_rest(&mut sheet.file.character, &sheet.build, &sheet.ev, sheet.edition),
                     };
                     let what = if rest == Rest::Short { "Short rest" } else { "Long rest" };
-                    let detail = if report.restored.is_empty() {
-                        "nothing to restore".to_string()
-                    } else {
-                        report.restored.join(", ")
-                    };
+                    let detail = if report.restored.is_empty() { "nothing to restore".to_string() } else { report.restored.join(", ") };
                     let mut msg = format!("{what}: {detail}");
                     if rest == Rest::Long && sheet.build.features.iter().any(|f| f.source == dnt_rules::builder::FeatureSource::Mastery) {
                         msg.push_str(" · you may swap a Weapon Mastery (r on the Features tab)");
@@ -944,7 +935,9 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         }
         KeyCode::Char('N') => {
             sheet.roller.to_notes = !sheet.roller.to_notes;
-            return Action::Status(if sheet.roller.to_notes { "Rolls go into the latest session note" } else { "Rolls stay on the sheet" }.into());
+            return Action::Status(
+                if sheet.roller.to_notes { "Rolls go into the latest session note" } else { "Rolls stay on the sheet" }.into(),
+            );
         }
         KeyCode::Char('C') => {
             sheet.popup = Some(Popup::Conditions(0));
@@ -1097,7 +1090,8 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
     // Moving follows the tree (containers, then their contents).
     let order: Vec<usize> = equipment::tree(&sheet.file.character, &sheet.folded).into_iter().map(|(l, _)| l).collect();
     let pos = order.iter().position(|&l| l == i).unwrap_or(0);
-    let is_container = |sheet: &Sheet, i: usize| sheet.file.character.inventory.get(i).is_some_and(|l| equipment::container(lib, l).is_some());
+    let is_container =
+        |sheet: &Sheet, i: usize| sheet.file.character.inventory.get(i).is_some_and(|l| equipment::container(lib, l).is_some());
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.inventory_cursor = order[(pos + 1).min(order.len() - 1)],
         KeyCode::Char('k') | KeyCode::Up if n > 0 => sheet.inventory_cursor = order[pos.saturating_sub(1)],
@@ -1148,7 +1142,11 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
                     (Some(cap), w) => format!("{fill}/{cap} lb{}", if w { " · weightless" } else { "" }),
                     (None, w) => format!("{fill} lb{}", if w { " · weightless" } else { "" }),
                 };
-                items.push(crate::picker::PickItem::new(format!("{}{}", "  ".repeat(depth), line_name(lib, &c.inventory[t])), hint, t.to_string()));
+                items.push(crate::picker::PickItem::new(
+                    format!("{}{}", "  ".repeat(depth), line_name(lib, &c.inventory[t])),
+                    hint,
+                    t.to_string(),
+                ));
             }
             let name = line_name(lib, &c.inventory[i]);
             sheet.popup = Some(Popup::MoveInto(Box::new(Picker::new(format!("Put {name} in…"), items)), i));
@@ -1321,7 +1319,7 @@ fn equipment_catalog(lib: &Library, filter: &SourceFilter) -> Vec<crate::picker:
     let mut items: Vec<crate::picker::PickItem> = lib
         .entities()
         .iter()
-                // Generic variants ("+1 Weapon") are offered as their specific items.
+        // Generic variants ("+1 Weapon") are offered as their specific items.
         .filter(|e| matches!(e.kind, Kind::Item | Kind::BaseItem) && filter.allows(e))
         .map(|e| {
             let rarity = e
@@ -1331,7 +1329,11 @@ fn equipment_catalog(lib: &Library, filter: &SourceFilter) -> Vec<crate::picker:
                 .and_then(|r| r.as_str())
                 .filter(|r| !matches!(*r, "none" | "unknown"))
                 .unwrap_or("");
-            crate::picker::PickItem::new(e.name.clone(), format!("{rarity} {}", e.source).trim().to_string(), format!("item:{}|{}", e.name, e.source))
+            crate::picker::PickItem::new(
+                e.name.clone(),
+                format!("{rarity} {}", e.source).trim().to_string(),
+                format!("item:{}|{}", e.name, e.source),
+            )
         })
         .collect();
     items.sort_by(|a, b| a.label.cmp(&b.label));

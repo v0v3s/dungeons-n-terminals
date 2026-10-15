@@ -144,13 +144,7 @@ pub fn auto_fail(conditions: &[String], kind: RollKind) -> Option<String> {
 }
 
 fn effect(target: &str, op: Op, value: &str, origin: &str) -> Effect {
-    Effect {
-        target: target.into(),
-        op,
-        value: Formula::parse(value).expect("built-in formula"),
-        when: None,
-        origin: origin.into(),
-    }
+    Effect { target: target.into(), op, value: Formula::parse(value).expect("built-in formula"), when: None, origin: origin.into() }
 }
 
 /// Effects on the character's numbers: speed 0 and 2024 exhaustion

@@ -10,13 +10,13 @@ mod levelup;
 mod notes_view;
 mod overlay_editor;
 mod picker;
-mod rolls;
 mod render;
+mod rolls;
 mod spells_tab;
 mod theme;
 mod ui;
-mod ui_notes;
 mod ui_editor;
+mod ui_notes;
 mod ui_sheet;
 mod wizard;
 
@@ -94,10 +94,8 @@ fn main() -> Result<()> {
         status.push_str(&format!(" ({} warnings)", base.warnings.len()));
     }
 
-    let override_filter = (!args.sources.is_empty()).then(|| SourceFilter {
-        hide_reprinted: !args.show_reprinted,
-        ..SourceFilter::only(&args.sources)
-    });
+    let override_filter =
+        (!args.sources.is_empty()).then(|| SourceFilter { hide_reprinted: !args.show_reprinted, ..SourceFilter::only(&args.sources) });
 
     let mut app = App::new(&base, store, config, override_filter, status);
     let mut lib = app.prepare_library(&base);

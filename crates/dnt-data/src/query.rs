@@ -81,21 +81,13 @@ impl Query {
             if body.starts_with('"') {
                 let text = body.trim_matches('"').to_lowercase();
                 if !text.is_empty() {
-                    q.terms.push(Term {
-                        kind: TermKind::Text,
-                        value: text,
-                        negate,
-                    });
+                    q.terms.push(Term { kind: TermKind::Text, value: text, negate });
                 }
             } else if let Some(facet) = first.and_then(Facet::from_prefix) {
                 let value = chars.as_str().to_lowercase().replace('_', " ");
                 // A bare prefix is still being typed; ignore it.
                 if !value.is_empty() {
-                    q.terms.push(Term {
-                        kind: TermKind::Facet(facet),
-                        value,
-                        negate,
-                    });
+                    q.terms.push(Term { kind: TermKind::Facet(facet), value, negate });
                 }
             } else {
                 name_words.push(token);
@@ -139,10 +131,7 @@ pub struct FacetIndex {
 
 impl FacetIndex {
     pub fn build(lib: &Library) -> FacetIndex {
-        FacetIndex {
-            values: (0..lib.entities().len()).map(|id| entity_facets(lib, id)).collect(),
-            text: None,
-        }
+        FacetIndex { values: (0..lib.entities().len()).map(|id| entity_facets(lib, id)).collect(), text: None }
     }
 
     pub fn values(&self, id: EntityId) -> &[(Facet, String)] {
@@ -154,11 +143,7 @@ impl FacetIndex {
         if query.terms.iter().any(|t| t.kind == TermKind::Text) && self.text.is_none() {
             self.text = Some((0..lib.entities().len()).map(|id| plain_text(lib, id)).collect());
         }
-        candidates
-            .iter()
-            .copied()
-            .filter(|&id| query.terms.iter().all(|t| self.term_matches(id, t) != t.negate))
-            .collect()
+        candidates.iter().copied().filter(|&id| query.terms.iter().all(|t| self.term_matches(id, t) != t.negate)).collect()
     }
 
     fn term_matches(&self, id: EntityId, term: &Term) -> bool {
@@ -172,9 +157,7 @@ impl FacetIndex {
                     .filter_map(|(_, v)| v.parse::<u32>().ok())
                     .any(|l| lo <= l && l <= hi)
             }
-            TermKind::Facet(facet) => self.values[id]
-                .iter()
-                .any(|(f, v)| *f == facet && value_matches(v, &term.value)),
+            TermKind::Facet(facet) => self.values[id].iter().any(|(f, v)| *f == facet && value_matches(v, &term.value)),
         }
     }
 
@@ -192,12 +175,7 @@ impl FacetIndex {
         }
         let mut out: Vec<(String, usize)> = counts.into_iter().map(|(v, n)| (v.to_string(), n)).collect();
         // Values that start with the partial text first, then by frequency.
-        out.sort_by(|(a, na), (b, nb)| {
-            (!a.starts_with(&partial))
-                .cmp(&!b.starts_with(&partial))
-                .then(nb.cmp(na))
-                .then(a.cmp(b))
-        });
+        out.sort_by(|(a, na), (b, nb)| (!a.starts_with(&partial)).cmp(&!b.starts_with(&partial)).then(nb.cmp(na)).then(a.cmp(b)));
         out
     }
 }
@@ -234,10 +212,7 @@ fn plain_text(lib: &Library, id: EntityId) -> String {
 fn entity_facets(lib: &Library, id: EntityId) -> Vec<(Facet, String)> {
     let e = lib.entity(id);
     let d = &e.data;
-    let mut out = vec![
-        (Facet::Source, e.source.to_lowercase()),
-        (Facet::Tag, e.kind.label().to_lowercase()),
-    ];
+    let mut out = vec![(Facet::Source, e.source.to_lowercase()), (Facet::Tag, e.kind.label().to_lowercase())];
     let mut tag = |v: &str| out.push((Facet::Tag, v.to_lowercase()));
     let s = |k: &str| d.get(k).and_then(Value::as_str);
 

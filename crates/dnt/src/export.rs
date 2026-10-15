@@ -15,10 +15,16 @@ use crate::characters::{line_name, Sheet};
 pub enum Block {
     /// `label: value` lines.
     Facts(Vec<(String, String)>),
-    Table { head: Vec<String>, rows: Vec<Vec<String>> },
+    Table {
+        head: Vec<String>,
+        rows: Vec<Vec<String>>,
+    },
     List(Vec<String>),
     /// A named entry with text (feature descriptions).
-    Detail { name: String, text: String },
+    Detail {
+        name: String,
+        text: String,
+    },
     Text(String),
 }
 
@@ -44,9 +50,8 @@ pub fn character(lib: &Library, sheet: &Sheet) -> Document {
     let b = &sheet.build;
     let int = |k: &str| ev.int(k).unwrap_or(0);
     let value = |k: &str| ev.get(k).map(|v| v.to_string()).unwrap_or_else(|| "—".into());
-    let name_of = |id: &Option<String>| {
-        id.as_deref().and_then(|i| dnt_rules::overlay::resolve_id(lib, i)).map(|e| lib.entity(e).name.clone())
-    };
+    let name_of =
+        |id: &Option<String>| id.as_deref().and_then(|i| dnt_rules::overlay::resolve_id(lib, i)).map(|e| lib.entity(e).name.clone());
     let mut subtitle = vec![];
     subtitle.extend(name_of(&ch.species));
     subtitle.extend(name_of(&ch.background));
@@ -58,7 +63,9 @@ pub fn character(lib: &Library, sheet: &Sheet) -> Document {
     // Abilities and the numbers used every turn.
     let rows = ABILITIES
         .iter()
-        .map(|(ab, name)| vec![name.to_string(), int(ab).to_string(), signed(int(&format!("mod.{ab}"))), signed(int(&format!("save.{ab}")))])
+        .map(|(ab, name)| {
+            vec![name.to_string(), int(ab).to_string(), signed(int(&format!("mod.{ab}"))), signed(int(&format!("save.{ab}")))]
+        })
         .collect();
     let mut combat = vec![
         ("Armor Class".to_string(), value("ac")),
@@ -126,10 +133,8 @@ pub fn character(lib: &Library, sheet: &Sheet) -> Document {
             vec![a.name.clone(), signed(int(&format!("attack.{}.bonus", a.slug))), damage, a.range.clone(), notes.join(", ")]
         })
         .collect();
-    let mut blocks = vec![Block::Table {
-        head: vec!["Attack".into(), "Hit".into(), "Damage".into(), "Range".into(), "Notes".into()],
-        rows,
-    }];
+    let mut blocks =
+        vec![Block::Table { head: vec!["Attack".into(), "Hit".into(), "Damage".into(), "Range".into(), "Notes".into()], rows }];
     let riders: Vec<String> = ev
         .stats
         .iter()
@@ -365,7 +370,11 @@ pub fn to_html(d: &Document) -> String {
                         body.push_str("<tr>");
                         for c in r {
                             let depth = c.len() - c.trim_start().len();
-                            body.push_str(&format!("<td style=\"padding-left:{}em\">{}</td>", 0.4 + depth as f32 * 0.6, esc(c.trim_start())));
+                            body.push_str(&format!(
+                                "<td style=\"padding-left:{}em\">{}</td>",
+                                0.4 + depth as f32 * 0.6,
+                                esc(c.trim_start())
+                            ));
                         }
                         body.push_str("</tr>\n");
                     }
@@ -445,7 +454,14 @@ mod tests {
         let d = character(&lib, &sheet);
         let md = to_markdown(&d);
         assert!(md.starts_with("# Ana <the Bold>"));
-        for s in ["## Abilities", "## Skills", "## Attacks", "## Inventory", "| Dagger | +0 | 1d4 piercing | 5 ft. | Finesse, not proficient |", "**Armor Class:** 10"] {
+        for s in [
+            "## Abilities",
+            "## Skills",
+            "## Attacks",
+            "## Inventory",
+            "| Dagger | +0 | 1d4 piercing | 5 ft. | Finesse, not proficient |",
+            "**Armor Class:** 10",
+        ] {
             assert!(md.contains(s), "{s} missing in\n{md}");
         }
         let html = to_html(&d);

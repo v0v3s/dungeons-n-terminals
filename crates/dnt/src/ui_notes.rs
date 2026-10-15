@@ -119,19 +119,11 @@ fn highlights(text: &str, theme: &Theme) -> Vec<Highlight> {
         } else {
             continue;
         };
-        out.push(Highlight {
-            start: Index2::new(row, 0),
-            end: Index2::new(row, len - 1),
-            style,
-        });
+        out.push(Highlight { start: Index2::new(row, 0), end: Index2::new(row, len - 1), style });
     }
     for l in notes::links(text) {
         let Some(line) = text.lines().nth(l.line) else { continue };
-        let style = if l.compendium().is_some() {
-            Style::new().fg(Color::Magenta)
-        } else {
-            theme.link
-        };
+        let style = if l.compendium().is_some() { Style::new().fg(Color::Magenta) } else { theme.link };
         out.push(Highlight {
             start: Index2::new(l.line, char_col(line, l.start)),
             end: Index2::new(l.line, char_col(line, l.end).saturating_sub(1)),
@@ -151,7 +143,9 @@ fn draw_editor(frame: &mut Frame, area: Rect, v: &mut NotesView, theme: &Theme) 
     let focused = v.focus == Focus::Editor && v.popup.is_none();
     let Some(open) = v.open.as_mut() else {
         let block = pane(pane_title("No note open", false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
-        let key = |k: &str, what: &str| Line::from(vec![Span::styled(format!(" {k} "), theme.keycap), Span::styled(format!("  {what}"), theme.dim)]);
+        let key = |k: &str, what: &str| {
+            Line::from(vec![Span::styled(format!(" {k} "), theme.keycap), Span::styled(format!("  {what}"), theme.dim)])
+        };
         frame.render_widget(
             Paragraph::new(vec![
                 Line::styled("Pick a note in the tree, or:", theme.muted),
@@ -163,7 +157,10 @@ fn draw_editor(frame: &mut Frame, area: Rect, v: &mut NotesView, theme: &Theme) 
                 key("/", "find a note"),
                 key("alt+c", "quick capture to the inbox, from anywhere"),
                 Line::default(),
-                Line::styled("In the editor: vim keys · gd follows [[links]] · K previews · ctrl-o back · esc saves and returns", theme.dim),
+                Line::styled(
+                    "In the editor: vim keys · gd follows [[links]] · K previews · ctrl-o back · esc saves and returns",
+                    theme.dim,
+                ),
             ])
             .block(block),
             area,
@@ -177,7 +174,8 @@ fn draw_editor(frame: &mut Frame, area: Rect, v: &mut NotesView, theme: &Theme) 
         EditorMode::Search => ("SEARCH", Style::new().fg(Color::Black).bg(Color::Yellow)),
     };
     let dirty = open.dirty();
-    let mut title = vec![Span::styled(format!(" {} ", open.path.trim_end_matches(".md")), if focused { theme.title } else { theme.pane_title })];
+    let mut title =
+        vec![Span::styled(format!(" {} ", open.path.trim_end_matches(".md")), if focused { theme.title } else { theme.pane_title })];
     if dirty {
         title.push(Span::styled("● ", Style::new().fg(theme.accent)));
     }

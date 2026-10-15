@@ -13,8 +13,8 @@ use crate::campaigns::{Action, Campaigns};
 use crate::characters::{self, Characters};
 use crate::compendium::{Compendium, Outcome};
 use crate::entry_editor::EntryEditor;
-use dnt_data::homebrew;
 use crate::notes_view::{self, NotesView};
+use dnt_data::homebrew;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
@@ -87,14 +87,8 @@ impl App {
         if let Some(e) = errors.first() {
             status = format!("Campaign error: {e}");
         }
-        let active = config
-            .last_campaign
-            .as_ref()
-            .and_then(|slug| list.iter().position(|c| &c.slug == slug));
-        let filter = override_filter
-            .clone()
-            .or_else(|| active.map(|i| list[i].source_filter()))
-            .unwrap_or_default();
+        let active = config.last_campaign.as_ref().and_then(|slug| list.iter().position(|c| &c.slug == slug));
+        let filter = override_filter.clone().or_else(|| active.map(|i| list[i].source_filter())).unwrap_or_default();
         let section = if list.is_empty() { Section::Campaigns } else { Section::Compendium };
         let (overlays, problems) = load_overlays(&store, lib);
         if problems > 0 && status.is_empty() {
@@ -159,11 +153,7 @@ impl App {
 
     /// Refresh everything derived from the library after it was rebuilt.
     pub fn library_reloaded(&mut self, lib: &Library) {
-        let filter = self
-            .override_filter
-            .clone()
-            .or_else(|| self.active_campaign().map(|c| c.source_filter()))
-            .unwrap_or_default();
+        let filter = self.override_filter.clone().or_else(|| self.active_campaign().map(|c| c.source_filter())).unwrap_or_default();
         let (category, query) = (self.compendium.category, self.compendium.query.clone());
         self.compendium = Compendium::new(lib, filter.clone());
         self.compendium.restore(lib, category, query);
@@ -347,11 +337,7 @@ impl App {
             Action::Quit => self.quit = true,
             Action::Create(name) => {
                 let (_, preset) = PRESETS[0];
-                let settings = CampaignSettings {
-                    name,
-                    sources: preset.iter().map(|s| s.to_string()).collect(),
-                    ..Default::default()
-                };
+                let settings = CampaignSettings { name, sources: preset.iter().map(|s| s.to_string()).collect(), ..Default::default() };
                 match self.store.create_campaign(settings) {
                     Ok(c) => {
                         let slug = c.slug.clone();
@@ -408,9 +394,8 @@ impl App {
                 let dir = campaign.dir.join("exports");
                 let md = dir.join(format!("{slug}.md"));
                 let page = dir.join(format!("{slug}.html"));
-                let written = std::fs::create_dir_all(&dir)
-                    .and_then(|_| std::fs::write(&md, markdown))
-                    .and_then(|_| std::fs::write(&page, html));
+                let written =
+                    std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&md, markdown)).and_then(|_| std::fs::write(&page, html));
                 self.status = match written {
                     Ok(()) => format!("Exported {} and {} (open the .html to print or save as PDF)", md.display(), page.display()),
                     Err(e) => format!("Could not export: {e}"),

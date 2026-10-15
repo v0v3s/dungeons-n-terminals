@@ -169,9 +169,7 @@ impl Env for EvalEnv<'_> {
         match name {
             "level" => Some(match args {
                 [] => Ok(self.var("level").unwrap_or(Value::int(0))),
-                [Value::Str(class)] => Ok(Value::int(
-                    self.model.class_levels.get(&class.to_lowercase()).copied().unwrap_or(0),
-                )),
+                [Value::Str(class)] => Ok(Value::int(self.model.class_levels.get(&class.to_lowercase()).copied().unwrap_or(0))),
                 _ => Err("level() takes an optional class name".into()),
             }),
             _ => None,
@@ -244,10 +242,7 @@ impl Model {
             let involved: Vec<&str> = deps[key].iter().map(String::as_str).filter(|d| remaining.contains_key(d)).collect();
             done.insert(
                 key.to_string(),
-                StatResult {
-                    value: Err(format!("circular dependency via {}", involved.join(", "))),
-                    parts: Vec::new(),
-                },
+                StatResult { value: Err(format!("circular dependency via {}", involved.join(", "))), parts: Vec::new() },
             );
         }
         Evaluation { stats: done }
@@ -267,24 +262,13 @@ impl Model {
         let base = match def {
             Some(def) => match def.base.eval(&env) {
                 Ok(v) => Some((def.origin.clone(), v)),
-                Err(e) => {
-                    return StatResult {
-                        value: Err(format!("{} (in `{}`)", e.message, def.base.source)),
-                        parts,
-                    }
-                }
+                Err(e) => return StatResult { value: Err(format!("{} (in `{}`)", e.message, def.base.source)), parts },
             },
             // Implicit stats start from an input of the same name, or zero.
             None => Some(("base".to_string(), self.inputs.get(key).cloned().unwrap_or(Value::int(0)))),
         };
         if let Some((origin, v)) = base {
-            parts.push(Part {
-                kind: PartKind::Base,
-                origin,
-                value: Some(v),
-                applied: true,
-                note: None,
-            });
+            parts.push(Part { kind: PartKind::Base, origin, value: Some(v), applied: true, note: None });
         }
 
         let effects = effects.unwrap_or_default();
@@ -308,31 +292,13 @@ impl Model {
             };
             match on.and_then(|on| if on { e.value.eval(&env).map(Some) } else { Ok(None) }) {
                 Ok(Some(v)) => active.push((e, v)),
-                Ok(None) => parts.push(Part {
-                    kind,
-                    origin: e.origin.clone(),
-                    value: None,
-                    applied: false,
-                    note: Some("inactive".into()),
-                }),
-                Err(err) => parts.push(Part {
-                    kind,
-                    origin: e.origin.clone(),
-                    value: None,
-                    applied: false,
-                    note: Some(err.message),
-                }),
+                Ok(None) => parts.push(Part { kind, origin: e.origin.clone(), value: None, applied: false, note: Some("inactive".into()) }),
+                Err(err) => parts.push(Part { kind, origin: e.origin.clone(), value: None, applied: false, note: Some(err.message) }),
             }
         }
 
         let push = |parts: &mut Vec<Part>, e: &Effect, kind: PartKind, v: &Value| {
-            parts.push(Part {
-                kind,
-                origin: e.origin.clone(),
-                value: Some(v.clone()),
-                applied: true,
-                note: None,
-            });
+            parts.push(Part { kind, origin: e.origin.clone(), value: Some(v.clone()), applied: true, note: None });
             parts.len() - 1
         };
 
@@ -427,9 +393,7 @@ impl Model {
 fn add(a: &Value, b: &Value) -> Option<Value> {
     Some(match (a, b) {
         (Value::Num(x), Value::Num(y)) => Value::Num(*x + *y),
-        (Value::Dice(d), Value::Num(n)) | (Value::Num(n), Value::Dice(d)) if n.is_int() => {
-            Value::Dice(d.plus_flat(n.floor()))
-        }
+        (Value::Dice(d), Value::Num(n)) | (Value::Num(n), Value::Dice(d)) if n.is_int() => Value::Dice(d.plus_flat(n.floor())),
         (Value::Dice(x), Value::Dice(y)) => Value::Dice(x.plus(y)),
         (Value::Bool(x), Value::Bool(y)) => Value::Bool(*x || *y),
         _ => return None,

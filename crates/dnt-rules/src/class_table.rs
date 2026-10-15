@@ -122,15 +122,8 @@ fn table_columns(groups: Option<&Json>, class_slug: &str) -> Vec<ClassColumn> {
             if col.is_empty() {
                 continue;
             }
-            let values = rows
-                .iter()
-                .map(|row| row.get(ci).map(cell_value).unwrap_or(Value::int(0)))
-                .collect();
-            out.push(ClassColumn {
-                var: format!("class.{class_slug}.{col}"),
-                label,
-                values,
-            });
+            let values = rows.iter().map(|row| row.get(ci).map(cell_value).unwrap_or(Value::int(0))).collect();
+            out.push(ClassColumn { var: format!("class.{class_slug}.{col}"), label, values });
         }
     }
     out

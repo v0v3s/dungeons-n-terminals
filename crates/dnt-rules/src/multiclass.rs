@@ -97,9 +97,7 @@ impl Requirement {
     /// e.g. `Strength 13 and Charisma 13`, `Strength 13 or Dexterity 13`.
     pub fn describe(&self) -> String {
         let name = |a: &str| ABILITIES.iter().find(|(k, _)| *k == a).map_or(a.to_string(), |(_, n)| n.to_string());
-        let fmt = |list: &[(String, i64)], sep: &str| {
-            list.iter().map(|(a, n)| format!("{} {n}", name(a))).collect::<Vec<_>>().join(sep)
-        };
+        let fmt = |list: &[(String, i64)], sep: &str| list.iter().map(|(a, n)| format!("{} {n}", name(a))).collect::<Vec<_>>().join(sep);
         match (self.all.is_empty(), self.any.is_empty()) {
             (false, true) => fmt(&self.all, " and "),
             (true, false) => fmt(&self.any, " or "),
@@ -124,14 +122,7 @@ pub fn requirements(class: &Json) -> Vec<Requirement> {
     };
     if let Some(req) = class.get("multiclassing").and_then(|m| m.get("requirements")).and_then(Json::as_object) {
         let all = scores(req);
-        let any = req
-            .get("or")
-            .and_then(Json::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(Json::as_object)
-            .flat_map(scores)
-            .collect();
+        let any = req.get("or").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_object).flat_map(scores).collect();
         return vec![Requirement { all, any }];
     }
     class

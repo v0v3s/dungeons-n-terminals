@@ -375,9 +375,8 @@ pub fn add_attacks(
             s.push('_');
         }
         let attuned_ok = !crate::equipment::requires_attunement(&e.data) || line.attuned;
-        let mastery = w.mastery.clone().filter(|_| {
-            mastered.iter().any(|&m| lib.entity(m).name.eq_ignore_ascii_case(&w.base_name) || m == id)
-        });
+        let mastery =
+            w.mastery.clone().filter(|_| mastered.iter().any(|&m| lib.entity(m).name.eq_ignore_ascii_case(&w.base_name) || m == id));
         let monk = martial_arts.is_some_and(|m| line.monk_weapon.unwrap_or_else(|| m.preset(&w)));
         // Dueling: a one-handed melee weapon and no other weapon in hand.
         let dueling = line.hand == Some(Hand::Main) && !off_weapon;
@@ -620,11 +619,7 @@ fn copy_group_effects_when(model: &mut Model, groups: &[&str], what: &str, targe
                 (Some(x), None) => Formula::parse(x).ok(),
                 (Some(x), Some(w)) => Formula::parse(&format!("({}) and ({x})", w.source)).ok(),
             };
-            Effect {
-                target: target.to_string(),
-                when,
-                ..e.clone()
-            }
+            Effect { target: target.to_string(), when, ..e.clone() }
         })
         .collect();
     model.effects.extend(copies);
@@ -679,11 +674,10 @@ mod tests {
         let mut c = Character { name: "T".into(), ..Character::default() };
         c.abilities.str = 16;
         c.abilities.dex = 14;
-        c.levels = classes.iter().map(|k| Level { class: format!("class:{k}|T"), hp: Default::default(), choices: Default::default() }).collect();
-        c.inventory = items
-            .iter()
-            .map(|i| InventoryItem { item: Some(format!("item:{i}|T")), equipped: true, ..Default::default() })
-            .collect();
+        c.levels =
+            classes.iter().map(|k| Level { class: format!("class:{k}|T"), hp: Default::default(), choices: Default::default() }).collect();
+        c.inventory =
+            items.iter().map(|i| InventoryItem { item: Some(format!("item:{i}|T")), equipped: true, ..Default::default() }).collect();
         c
     }
 
@@ -765,7 +759,6 @@ add = "2"
         assert_eq!(ev.get("attack.longsword.damage").unwrap().to_string(), "1d8 + 5", "Dueling");
         assert_eq!(ev.get("attack.longsword.versatile").unwrap().to_string(), "1d10 + 3", "not two-handed");
         assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 3");
-
     }
 
     #[test]
@@ -908,10 +901,8 @@ origin = "Tavern Brawler"
         c.abilities.str = 10;
         c.abilities.dex = 16;
         c.levels = vec![Level { class: "class:Monk|XPHB".into(), hp: Default::default(), choices: Default::default() }];
-        c.inventory = items
-            .iter()
-            .map(|i| InventoryItem { item: Some(format!("item:{i}")), equipped: true, ..Default::default() })
-            .collect();
+        c.inventory =
+            items.iter().map(|i| InventoryItem { item: Some(format!("item:{i}")), equipped: true, ..Default::default() }).collect();
         c
     }
 

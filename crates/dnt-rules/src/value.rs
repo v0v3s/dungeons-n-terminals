@@ -138,17 +138,11 @@ impl Dice {
     }
 
     pub fn plus_flat(&self, n: i64) -> Dice {
-        Dice {
-            terms: self.terms.clone(),
-            flat: self.flat + n,
-        }
+        Dice { terms: self.terms.clone(), flat: self.flat + n }
     }
 
     pub fn times(&self, k: i64) -> Dice {
-        Dice {
-            terms: self.terms.iter().map(|(&f, &c)| (f, c * k)).filter(|(_, c)| *c != 0).collect(),
-            flat: self.flat * k,
-        }
+        Dice { terms: self.terms.iter().map(|(&f, &c)| (f, c * k)).filter(|(_, c)| *c != 0).collect(), flat: self.flat * k }
     }
 
     /// Average result, rounded down (the 5e "fixed damage" value).

@@ -119,10 +119,7 @@ pub fn check(sheet: &mut Sheet, ab: &str, skill: Option<(&str, &str)>) -> Rolled
     let ev = &sheet.ev;
     let (title, modifier) = match skill {
         Some((key, name)) => (name.to_string(), ev.int(&format!("skill.{key}")).unwrap_or(0)),
-        None => (
-            format!("{} check", ability_name(ab)),
-            ev.int(&format!("mod.{ab}")).unwrap_or(0) + ev.int("d20.penalty").unwrap_or(0),
-        ),
+        None => (format!("{} check", ability_name(ab)), ev.int(&format!("mod.{ab}")).unwrap_or(0) + ev.int("d20.penalty").unwrap_or(0)),
     };
     d20_test(sheet, title, modifier, RollKind::Check(ab))
 }
@@ -203,17 +200,19 @@ pub fn spell(sheet: &mut Sheet, lib: &Library, spell: EntityId, slot_level: i64,
     let level = sheet.file.character.total_level() as i64;
     let s = dnt_rules::spells::spell_roll(lib, spell, level, slot_level);
     let name = lib.entity(spell).name.clone();
-    let title = if slot_level > dnt_rules::spells::spell_level(lib, spell) {
-        format!("{name} (level {slot_level})")
-    } else {
-        name
-    };
+    let title = if slot_level > dnt_rules::spells::spell_level(lib, spell) { format!("{name} (level {slot_level})") } else { name };
     let mut critical = false;
     let (result, detail_text, crit) = if s.attack {
         let (m, why) = mode(sheet, RollKind::Attack);
         let r = roll::d20(&mut sheet.roller.rng, attack_bonus, m);
         critical = r.natural_20();
-        let result = if critical { "critical hit".into() } else if r.natural_1() { "miss (natural 1)".into() } else { format!("{} to hit", r.total) };
+        let result = if critical {
+            "critical hit".into()
+        } else if r.natural_1() {
+            "miss (natural 1)".into()
+        } else {
+            format!("{} to hit", r.total)
+        };
         (result, detail(&r, &why), r.natural_20().then_some(true).or(r.natural_1().then_some(false)))
     } else if let Some(save) = &s.save {
         (format!("DC {dc}"), format!("{} save", dnt_data::view::title_case(save)), None)

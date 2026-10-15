@@ -201,11 +201,7 @@ impl Library {
             .map(|(k, _)| k.clone())
             .collect();
         keys.extend(
-            orig.as_object()
-                .into_iter()
-                .flatten()
-                .filter(|(k, _)| !k.starts_with('_') && cur.get(*k).is_none())
-                .map(|(k, _)| k.clone()),
+            orig.as_object().into_iter().flatten().filter(|(k, _)| !k.starts_with('_') && cur.get(*k).is_none()).map(|(k, _)| k.clone()),
         );
         keys.sort();
         keys
@@ -279,8 +275,7 @@ impl Library {
             let mut still = Vec::new();
             for (kind, obj) in pending {
                 if let Some(meta) = obj.get("_copy") {
-                    let base = Key::of_entity(kind, meta)
-                        .and_then(|k| self.index.get(&k).copied());
+                    let base = Key::of_entity(kind, meta).and_then(|k| self.index.get(&k).copied());
                     match base {
                         Some(base) => {
                             let merged = copy::merge(&self.entities[base].data, &obj);
@@ -435,13 +430,7 @@ impl Library {
             return;
         };
         let source = entity_source(&data).unwrap_or_default().to_string();
-        let entity = Entity {
-            kind,
-            key: key.clone(),
-            name,
-            source,
-            data,
-        };
+        let entity = Entity { kind, key: key.clone(), name, source, data };
         // Later definitions (e.g. homebrew re-imports) replace earlier ones.
         match self.index.get(&key) {
             Some(&id) => self.entities[id] = entity,
@@ -465,10 +454,7 @@ impl Library {
                     .into_iter()
                     .flatten()
                     .filter_map(|c| {
-                        Some(ClassRef {
-                            name: c.get("name")?.as_str()?.to_string(),
-                            source: c.get("source")?.as_str()?.to_string(),
-                        })
+                        Some(ClassRef { name: c.get("name")?.as_str()?.to_string(), source: c.get("source")?.as_str()?.to_string() })
                     })
                     .collect();
                 self.spell_classes.insert(id, classes);
@@ -512,10 +498,7 @@ impl Library {
     /// Resolve an inline-tag link to an entity.
     pub fn resolve(&self, link: &Link) -> Option<EntityId> {
         let parts: Vec<&str> = link.args.split('|').collect();
-        Kind::for_tag(&link.tag)
-            .iter()
-            .filter_map(|&kind| Key::from_ref(kind, &link.tag, &parts))
-            .find_map(|(key, _)| self.get(&key))
+        Kind::for_tag(&link.tag).iter().filter_map(|&kind| Key::from_ref(kind, &link.tag, &parts)).find_map(|(key, _)| self.get(&key))
     }
 
     /// Resolve a `classFeatures`/`subclassFeatures` reference string.
@@ -555,10 +538,7 @@ pub struct SourceFilter {
 
 impl SourceFilter {
     pub fn only<I: IntoIterator<Item = S>, S: AsRef<str>>(sources: I) -> SourceFilter {
-        SourceFilter {
-            enabled: Some(sources.into_iter().map(|s| s.as_ref().to_lowercase()).collect()),
-            hide_reprinted: true,
-        }
+        SourceFilter { enabled: Some(sources.into_iter().map(|s| s.as_ref().to_lowercase()).collect()), hide_reprinted: true }
     }
 
     pub fn source_enabled(&self, source: &str) -> bool {
@@ -587,14 +567,8 @@ impl SourceFilter {
 }
 
 fn read_json(path: &Path) -> Result<Value, LoadError> {
-    let bytes = std::fs::read(path).map_err(|source| LoadError::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    serde_json::from_slice(&bytes).map_err(|source| LoadError::Json {
-        path: path.to_path_buf(),
-        source,
-    })
+    let bytes = std::fs::read(path).map_err(|source| LoadError::Io { path: path.to_path_buf(), source })?;
+    serde_json::from_slice(&bytes).map_err(|source| LoadError::Json { path: path.to_path_buf(), source })
 }
 
 /// Read and parse files on all cores, preserving input order.
@@ -624,9 +598,7 @@ fn variant_applies(variant: &Value, base: &Value) -> bool {
         (None, _) => false,
     };
     let requires = variant.get("requires").and_then(Value::as_array);
-    let required = requires.is_some_and(|r| {
-        r.iter().any(|req| req.as_object().is_some_and(|o| o.iter().all(|(k, v)| matches(k, v))))
-    });
+    let required = requires.is_some_and(|r| r.iter().any(|req| req.as_object().is_some_and(|o| o.iter().all(|(k, v)| matches(k, v)))));
     let excluded = variant.get("excludes").and_then(Value::as_object).is_some_and(|ex| {
         ex.iter().any(|(k, v)| match v {
             Value::Array(options) => options.iter().any(|o| matches(k, o)),
@@ -643,7 +615,20 @@ fn specific_variant(variant: &Value, base: &Value, variant_name: &str) -> Option
     let base_name = base.get("name")?.as_str()?;
     let base_source = base.get("source")?.as_str()?;
     let mut out = base.as_object()?.clone();
-    for k in ["srd", "srd52", "basicRules", "basicRules2024", "page", "reprintedAs", "hasFluff", "hasFluffImages", "value", "entries", "otherSources", "referenceSources"] {
+    for k in [
+        "srd",
+        "srd52",
+        "basicRules",
+        "basicRules2024",
+        "page",
+        "reprintedAs",
+        "hasFluff",
+        "hasFluffImages",
+        "value",
+        "entries",
+        "otherSources",
+        "referenceSources",
+    ] {
         out.remove(k);
     }
     let mut name = base_name.to_string();
@@ -659,7 +644,8 @@ fn specific_variant(variant: &Value, base: &Value, variant_name: &str) -> Option
     }
     out.insert("name".into(), Value::String(format!("{prefix}{}{suffix}", name.trim())));
     out.insert("baseItem".into(), Value::String(format!("{base_name}|{base_source}")));
-    let variant_source = variant.get("source").and_then(Value::as_str).or_else(|| inherits.get("source").and_then(Value::as_str)).unwrap_or("");
+    let variant_source =
+        variant.get("source").and_then(Value::as_str).or_else(|| inherits.get("source").and_then(Value::as_str)).unwrap_or("");
     out.insert("_variant".into(), Value::String(format!("{variant_name}|{variant_source}")));
     // `{=bonusWeapon}`, `{=dmgType}` in the text become the item's values.
     let fields = out.clone();

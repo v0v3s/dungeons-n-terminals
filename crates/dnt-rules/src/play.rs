@@ -18,12 +18,7 @@ pub enum Edition {
 impl Edition {
     /// The edition of the starting class (data `edition: "one"` = 2024).
     pub fn of(build: &Build, lib: &dnt_data::Library) -> Edition {
-        let modern = build
-            .classes
-            .first()
-            .and_then(|c| lib.entity(c.entity).data.get("edition"))
-            .and_then(|e| e.as_str())
-            == Some("one");
+        let modern = build.classes.first().and_then(|c| lib.entity(c.entity).data.get("edition")).and_then(|e| e.as_str()) == Some("one");
         if modern {
             Edition::Modern
         } else {
@@ -269,10 +264,7 @@ mod tests {
             model,
             classes: Vec::<ClassState>::new(),
             features: Vec::new(),
-            resources: vec![
-                resource("focus", Recharge::ShortRest, None),
-                resource("rage", Recharge::LongRest, Some("1")),
-            ],
+            resources: vec![resource("focus", Recharge::ShortRest, None), resource("rage", Recharge::LongRest, Some("1"))],
             toggles: Vec::new(),
             granted: Vec::new(),
             attacks: Vec::new(),

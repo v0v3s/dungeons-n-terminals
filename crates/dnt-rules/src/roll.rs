@@ -207,9 +207,7 @@ pub fn damage(rng: &mut Rng, value: &Value, rules: DamageRules) -> Damage {
 pub fn parse_dice(text: &str) -> Option<Dice> {
     match crate::formula::Formula::parse(text).ok()?.eval(&std::collections::HashMap::<String, Value>::new()).ok()? {
         Value::Dice(d) => Some(d),
-        Value::Num(n) => {
-            Some(Dice { flat: n.floor(), ..Default::default() })
-        }
+        Value::Num(n) => Some(Dice { flat: n.floor(), ..Default::default() }),
         _ => None,
     }
 }

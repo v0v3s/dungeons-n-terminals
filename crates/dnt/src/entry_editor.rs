@@ -36,11 +36,22 @@ pub struct Field {
 pub enum Mode {
     List,
     /// One-line prompt for a text, number or friendly field.
-    Prompt { field: String, text: String },
+    Prompt {
+        field: String,
+        text: String,
+    },
     /// Pick one of a field's choices.
-    Choose { field: String, options: Vec<(String, Option<Value>)>, cursor: usize },
+    Choose {
+        field: String,
+        options: Vec<(String, Option<Value>)>,
+        cursor: usize,
+    },
     /// The big editor for entries (Markdown) or JSON.
-    Big { field: String, editor: Box<EditorState>, json: bool },
+    Big {
+        field: String,
+        editor: Box<EditorState>,
+        json: bool,
+    },
     ConfirmDelete,
     /// Name of a new field to add.
     AddField(String),
@@ -82,12 +93,26 @@ pub struct EntryEditor {
 /// Common fields per kind, in order; the rest follow alphabetically.
 fn order(kind: Kind) -> &'static [&'static str] {
     match kind {
-        Kind::Spell => &[
-            "name", "level", "school", "time", "range", "components", "duration", "meta", "classes", "entries", "entriesHigherLevel",
-        ],
+        Kind::Spell => {
+            &["name", "level", "school", "time", "range", "components", "duration", "meta", "classes", "entries", "entriesHigherLevel"]
+        }
         Kind::Item | Kind::BaseItem | Kind::MagicVariant => &[
-            "name", "type", "rarity", "reqAttune", "wondrous", "weight", "value", "ac", "bonusAc", "weaponCategory", "dmg1", "dmg2",
-            "dmgType", "bonusWeapon", "property", "entries",
+            "name",
+            "type",
+            "rarity",
+            "reqAttune",
+            "wondrous",
+            "weight",
+            "value",
+            "ac",
+            "bonusAc",
+            "weaponCategory",
+            "dmg1",
+            "dmg2",
+            "dmgType",
+            "bonusWeapon",
+            "property",
+            "entries",
         ],
         Kind::Feat => &["name", "category", "prerequisite", "ability", "entries"],
         _ => &["name", "entries"],
@@ -123,16 +148,7 @@ fn text_editor(text: &str) -> Box<EditorState> {
 
 impl EntryEditor {
     pub fn new(key: Key, kind: Kind, replaces: bool, target: Target) -> EntryEditor {
-        EntryEditor {
-            key,
-            kind,
-            replaces,
-            target,
-            cursor: 0,
-            mode: Mode::List,
-            handler: EditorEventHandler::default(),
-            error: None,
-        }
+        EntryEditor { key, kind, replaces, target, cursor: 0, mode: Mode::List, handler: EditorEventHandler::default(), error: None }
     }
 
     pub fn wants_text(&self) -> bool {
@@ -154,7 +170,9 @@ impl EntryEditor {
             .flatten()
             .map(|(k, _)| k.clone())
             .filter(|k| !k.starts_with('_') && !common.contains(k))
-            .filter(|k| !matches!(k.as_str(), "source" | "page" | "srd" | "srd52" | "basicRules" | "basicRules2024" | "hasFluff" | "hasFluffImages"))
+            .filter(|k| {
+                !matches!(k.as_str(), "source" | "page" | "srd" | "srd52" | "basicRules" | "basicRules2024" | "hasFluff" | "hasFluffImages")
+            })
             .collect();
         rest.sort();
         let n_common = common.len();
@@ -176,7 +194,9 @@ impl EntryEditor {
                 let display = match (&value, widget) {
                     (_, Widget::Form(f)) => forms::display(f, value.as_ref()),
                     (None, _) => "—".to_string(),
-                    (Some(v), Widget::Entries) => dnt_data::homebrew::entries_to_markdown(v).split_whitespace().collect::<Vec<_>>().join(" "),
+                    (Some(v), Widget::Entries) => {
+                        dnt_data::homebrew::entries_to_markdown(v).split_whitespace().collect::<Vec<_>>().join(" ")
+                    }
                     (Some(v), _) => preview(v),
                 };
                 Field {
@@ -333,7 +353,9 @@ impl EntryEditor {
                     KeyCode::Char('P') => {
                         return match (self.target, self.replaces) {
                             (Target::Global, _) => Action::Status("Already in the global homebrew".into()),
-                            (_, true) => Action::Status("A campaign version stays in its campaign; clone a separate copy to share it".into()),
+                            (_, true) => {
+                                Action::Status("A campaign version stays in its campaign; clone a separate copy to share it".into())
+                            }
                             _ => Action::Promote,
                         };
                     }
@@ -355,7 +377,9 @@ impl EntryEditor {
                     KeyCode::Enter | KeyCode::Char('i') | KeyCode::Char(' ') => {
                         let Some(f) = field else { return Action::None };
                         if f.name == "name" && self.replaces {
-                            return Action::Status("A replacing version keeps the original's name; clone as a separate copy to rename".into());
+                            return Action::Status(
+                                "A replacing version keeps the original's name; clone as a separate copy to rename".into(),
+                            );
                         }
                         self.error = None;
                         match f.widget {

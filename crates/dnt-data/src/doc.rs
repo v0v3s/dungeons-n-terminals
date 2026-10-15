@@ -7,13 +7,22 @@ use crate::tags::{self, Link, Span, Style};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Block {
-    Heading { level: u8, text: Vec<Span> },
+    Heading {
+        level: u8,
+        text: Vec<Span>,
+    },
     Paragraph(Vec<Span>),
     List(Vec<Vec<Block>>),
     Table(Table),
     /// Boxed content: insets, sidebars, variant rules.
-    Inset { title: Option<Vec<Span>>, body: Vec<Block> },
-    Quote { body: Vec<Block>, by: Option<String> },
+    Inset {
+        title: Option<Vec<Span>>,
+        body: Vec<Block>,
+    },
+    Quote {
+        body: Vec<Block>,
+        by: Option<String>,
+    },
     /// Compact `Label: value` lines, e.g. an entity's header properties.
     Properties(Vec<Vec<Span>>),
     Rule,
@@ -51,13 +60,7 @@ fn spans_of(v: &Value) -> Vec<Span> {
 }
 
 fn bold(text: &str) -> Span {
-    Span::styled(
-        text,
-        Style {
-            bold: true,
-            ..Style::default()
-        },
-    )
+    Span::styled(text, Style { bold: true, ..Style::default() })
 }
 
 fn str_field<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
@@ -82,10 +85,7 @@ fn push_entry(entry: &Value, depth: u8, out: &mut Vec<Block>) {
     match str_field(obj, "type").unwrap_or("entries") {
         "entries" | "section" | "options" | "variantSub" => {
             if let Some(name) = name {
-                out.push(Block::Heading {
-                    level: depth,
-                    text: tags::parse(name),
-                });
+                out.push(Block::Heading { level: depth, text: tags::parse(name) });
             }
             if let Some(body) = body {
                 push_entries(body, depth.saturating_add(1), out);
@@ -107,10 +107,7 @@ fn push_entry(entry: &Value, depth: u8, out: &mut Vec<Block>) {
             if let Some(body) = body {
                 push_entries(body, depth, &mut inner);
             }
-            out.push(Block::Quote {
-                body: inner,
-                by: str_field(obj, "by").map(tags::strip),
-            });
+            out.push(Block::Quote { body: inner, by: str_field(obj, "by").map(tags::strip) });
         }
         "list" => {
             let items = obj
@@ -141,13 +138,7 @@ fn push_entry(entry: &Value, depth: u8, out: &mut Vec<Block>) {
         "hr" => out.push(Block::Rule),
         "image" | "gallery" => {
             let title = str_field(obj, "title").unwrap_or("image");
-            out.push(Block::Paragraph(vec![Span::styled(
-                format!("[{title}]"),
-                Style {
-                    italic: true,
-                    ..Style::default()
-                },
-            )]));
+            out.push(Block::Paragraph(vec![Span::styled(format!("[{title}]"), Style { italic: true, ..Style::default() })]));
         }
         "abilityDc" | "abilityAttackMod" | "abilityGeneric" => {
             out.push(Block::Paragraph(ability_line(obj)));
@@ -158,10 +149,7 @@ fn push_entry(entry: &Value, depth: u8, out: &mut Vec<Block>) {
         _ => {
             // Unknown block type: render whatever text-like content it has.
             if let Some(name) = name {
-                out.push(Block::Heading {
-                    level: depth,
-                    text: tags::parse(name),
-                });
+                out.push(Block::Heading { level: depth, text: tags::parse(name) });
             }
             if let Some(body) = body {
                 push_entries(body, depth.saturating_add(1), out);
@@ -206,11 +194,7 @@ fn push_list_item(item: &Value, depth: u8, out: &mut Vec<Block>) {
 }
 
 fn table_of(obj: &Value) -> Table {
-    let header = obj
-        .get("colLabels")
-        .and_then(Value::as_array)
-        .map(|labels| labels.iter().map(spans_of).collect())
-        .unwrap_or_default();
+    let header = obj.get("colLabels").and_then(Value::as_array).map(|labels| labels.iter().map(spans_of).collect()).unwrap_or_default();
     let rows = obj
         .get("rows")
         .and_then(Value::as_array)
@@ -227,11 +211,7 @@ fn table_of(obj: &Value) -> Table {
                 .collect()
         })
         .unwrap_or_default();
-    Table {
-        caption: str_field(obj, "caption").map(tags::parse),
-        header,
-        rows,
-    }
+    Table { caption: str_field(obj, "caption").map(tags::parse), header, rows }
 }
 
 fn cell_of(cell: &Value) -> Vec<Span> {
@@ -254,10 +234,7 @@ fn cell_of(cell: &Value) -> Vec<Span> {
 /// Best-effort single-line rendering of structured inline objects
 /// (dice, bonuses, references).
 fn inline_of(obj: &Value) -> Vec<Span> {
-    let mechanic = Style {
-        mechanic: true,
-        ..Style::default()
-    };
+    let mechanic = Style { mechanic: true, ..Style::default() };
     match str_field(obj, "type") {
         Some("dice") => {
             let text = obj
@@ -298,10 +275,7 @@ fn inline_of(obj: &Value) -> Vec<Span> {
             spans
         }
         Some("link") => vec![Span::plain(str_field(obj, "text").unwrap_or_default())],
-        _ => str_field(obj, "text")
-            .or_else(|| str_field(obj, "name"))
-            .map(tags::parse)
-            .unwrap_or_default(),
+        _ => str_field(obj, "text").or_else(|| str_field(obj, "name")).map(tags::parse).unwrap_or_default(),
     }
 }
 
@@ -310,13 +284,7 @@ fn ability_line(obj: &Value) -> Vec<Span> {
     let attrs = obj
         .get("attributes")
         .and_then(Value::as_array)
-        .map(|a| {
-            a.iter()
-                .filter_map(Value::as_str)
-                .map(|s| s.to_uppercase())
-                .collect::<Vec<_>>()
-                .join(" or ")
-        })
+        .map(|a| a.iter().filter_map(Value::as_str).map(|s| s.to_uppercase()).collect::<Vec<_>>().join(" or "))
         .unwrap_or_default();
     let formula = match str_field(obj, "type") {
         Some("abilityDc") => format!("8 + proficiency bonus + {attrs} modifier"),

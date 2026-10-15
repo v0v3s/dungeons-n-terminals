@@ -44,11 +44,7 @@ fn main() {
     let monk = lib.get(&Key::new(Kind::Class, &["Monk", "XPHB"])).expect("XPHB Monk");
     let level = 5;
 
-    let mut model = Model {
-        stats: standard::stats(),
-        inputs: standard::default_inputs(),
-        ..Model::default()
-    };
+    let mut model = Model { stats: standard::stats(), inputs: standard::default_inputs(), ..Model::default() };
     for (k, v) in [("level", 5), ("base.dex", 16), ("base.wis", 15), ("base.con", 14), ("hp.base", 8 + 5 * 4)] {
         model.inputs.insert(k.into(), Value::int(v));
     }
@@ -76,8 +72,16 @@ fn main() {
     let ev = model.evaluate();
     println!("\nStats:");
     for key in [
-        "prof", "ac", "hp.max", "speed", "initiative", "save.dex", "skill.stealth",
-        "passive.perception", "attack.unarmed.damage", "resource.focus.max",
+        "prof",
+        "ac",
+        "hp.max",
+        "speed",
+        "initiative",
+        "save.dex",
+        "skill.stealth",
+        "passive.perception",
+        "attack.unarmed.damage",
+        "resource.focus.max",
     ] {
         println!("  {key:<24} {}", ev.stats[key].explain());
     }

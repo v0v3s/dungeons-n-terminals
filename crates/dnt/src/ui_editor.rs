@@ -182,7 +182,10 @@ pub fn draw(
                 .padding(Padding::new(1, 1, 1, 0))
                 .title_bottom(Line::from(vec![Span::styled(" esc saves ", theme.dim), Span::styled(mode, theme.keycap)]).right_aligned());
             if let Some(e) = &ed.error {
-                block = block.title_bottom(Line::styled(format!(" ⚠ {} ", truncate(e, rect.width.saturating_sub(24) as usize)), Style::new().fg(Color::Red)));
+                block = block.title_bottom(Line::styled(
+                    format!(" ⚠ {} ", truncate(e, rect.width.saturating_sub(24) as usize)),
+                    Style::new().fg(Color::Red),
+                ));
             }
             let inner = block.inner(rect);
             frame.render_widget(block, rect);
@@ -221,12 +224,17 @@ pub fn draw_clone(frame: &mut Frame, area: Rect, lib: &Library, flow: &CloneFlow
     let option = |i: usize, title: &str, desc: &str| {
         let base = if flow.cursor == i { theme.selected } else { Style::new() };
         vec![
-            Line::from(vec![Span::styled(if flow.cursor == i { "▸ " } else { "  " }, base.fg(theme.accent)), Span::styled(title.to_string(), base)]).style(base),
+            Line::from(vec![
+                Span::styled(if flow.cursor == i { "▸ " } else { "  " }, base.fg(theme.accent)),
+                Span::styled(title.to_string(), base),
+            ])
+            .style(base),
             Line::styled(format!("    {desc}"), theme.dim),
             Line::default(),
         ]
     };
-    let mut lines = option(0, "Replace the original in this campaign", "Characters, links and pickers use the campaign version everywhere.");
+    let mut lines =
+        option(0, "Replace the original in this campaign", "Characters, links and pickers use the campaign version everywhere.");
     lines.extend(option(1, "Separate copy…", "A new entry under its own name; the original stays."));
     lines.pop();
     frame.render_widget(Paragraph::new(lines), inner);

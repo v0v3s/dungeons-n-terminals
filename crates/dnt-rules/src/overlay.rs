@@ -155,9 +155,7 @@ fn valid_key(k: &str) -> bool {
 /// The prefix is a data type or tag name; tag names that cover several
 /// kinds (`item`, `race`) yield one candidate per kind.
 pub fn parse_id(id: &str) -> Result<Vec<Key>, String> {
-    let (prefix, reference) = id
-        .split_once(':')
-        .ok_or_else(|| "expected `<type>:<reference>`, e.g. `feat:Alert|XPHB`".to_string())?;
+    let (prefix, reference) = id.split_once(':').ok_or_else(|| "expected `<type>:<reference>`, e.g. `feat:Alert|XPHB`".to_string())?;
     let kinds: Vec<Kind> = match Kind::for_tag(prefix) {
         [] => Kind::from_json_key(prefix).into_iter().collect(),
         many => many.to_vec(),
@@ -166,10 +164,7 @@ pub fn parse_id(id: &str) -> Result<Vec<Key>, String> {
         return Err(format!("unknown type `{prefix}`"));
     }
     let parts: Vec<&str> = reference.split('|').collect();
-    let keys: Vec<Key> = kinds
-        .iter()
-        .filter_map(|&k| Key::from_ref(k, prefix, &parts).map(|(key, _)| key))
-        .collect();
+    let keys: Vec<Key> = kinds.iter().filter_map(|&k| Key::from_ref(k, prefix, &parts).map(|(key, _)| key)).collect();
     if keys.is_empty() {
         return Err(format!("incomplete reference for {prefix}"));
     }
@@ -197,17 +192,12 @@ impl Overlay {
                     continue;
                 }
             };
-            let name = f
-                .name
-                .clone()
-                .unwrap_or_else(|| f.id.split_once(':').map_or("", |(_, r)| r).split('|').next().unwrap_or("").to_string());
+            let name =
+                f.name.clone().unwrap_or_else(|| f.id.split_once(':').map_or("", |(_, r)| r).split('|').next().unwrap_or("").to_string());
             let formula = |src: &str, loc: String, diags: &mut Vec<Diagnostic>| match Formula::parse(src) {
                 Ok(f) => Some(f),
                 Err(e) => {
-                    diags.push(Diagnostic {
-                        location: loc,
-                        message: e.display(src),
-                    });
+                    diags.push(Diagnostic { location: loc, message: e.display(src) });
                     None
                 }
             };
@@ -230,13 +220,7 @@ impl Overlay {
                     None => None,
                 };
                 if let Some(max) = max {
-                    resources.push(Resource {
-                        key: r.key,
-                        name: r.name,
-                        max,
-                        recharge: r.recharge,
-                        short_rest_regain: regain,
-                    });
+                    resources.push(Resource { key: r.key, name: r.name, max, recharge: r.recharge, short_rest_regain: regain });
                 }
             }
 
@@ -256,10 +240,7 @@ impl Overlay {
             for (ei, e) in f.effect.into_iter().enumerate() {
                 let loc = |field: &str| at(&format!(".effect[{ei}]{field}"));
                 if !valid_key(&e.target) {
-                    diags.push(Diagnostic {
-                        location: loc(".target"),
-                        message: format!("`{}` is not a valid stat key", e.target),
-                    });
+                    diags.push(Diagnostic { location: loc(".target"), message: format!("`{}` is not a valid stat key", e.target) });
                     continue;
                 }
                 let ops: Vec<(Op, &str, &String)> = [
@@ -288,23 +269,10 @@ impl Overlay {
                     None => None,
                 };
                 let Some(value) = value else { continue };
-                effects.push(Effect {
-                    target: e.target,
-                    op: *op,
-                    value,
-                    when,
-                    origin: e.origin.unwrap_or_else(|| name.clone()),
-                });
+                effects.push(Effect { target: e.target, op: *op, value, when, origin: e.origin.unwrap_or_else(|| name.clone()) });
             }
 
-            features.push(FeatureOverlay {
-                id: f.id,
-                keys,
-                name,
-                resources,
-                toggles,
-                effects,
-            });
+            features.push(FeatureOverlay { id: f.id, keys, name, resources, toggles, effects });
         }
         Ok((Overlay { features }, diags))
     }
@@ -312,11 +280,7 @@ impl Overlay {
     /// Feature ids that do not exist in the library (likely typos, or a
     /// homebrew source that is not loaded).
     pub fn unresolved<'a>(&'a self, lib: &Library) -> Vec<&'a str> {
-        self.features
-            .iter()
-            .filter(|f| !f.keys.iter().any(|k| lib.get(k).is_some()))
-            .map(|f| f.id.as_str())
-            .collect()
+        self.features.iter().filter(|f| !f.keys.iter().any(|k| lib.get(k).is_some())).map(|f| f.id.as_str()).collect()
     }
 }
 
@@ -406,11 +370,7 @@ impl FeatureOverlay {
     /// `resource.<key>.max` stats; toggles default to off.
     pub fn apply(&self, model: &mut Model) {
         for r in &self.resources {
-            model.stats.push(StatDef {
-                key: format!("resource.{}.max", r.key),
-                base: r.max.clone(),
-                origin: r.name.clone(),
-            });
+            model.stats.push(StatDef { key: format!("resource.{}.max", r.key), base: r.max.clone(), origin: r.name.clone() });
             if let Some(regain) = &r.short_rest_regain {
                 model.stats.push(StatDef {
                     key: format!("resource.{}.short_rest", r.key),

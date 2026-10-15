@@ -19,14 +19,8 @@ use std::collections::HashMap;
 use crate::engine::StatDef;
 use crate::value::{Num, Value};
 
-pub const ABILITIES: [(&str, &str); 6] = [
-    ("str", "Strength"),
-    ("dex", "Dexterity"),
-    ("con", "Constitution"),
-    ("int", "Intelligence"),
-    ("wis", "Wisdom"),
-    ("cha", "Charisma"),
-];
+pub const ABILITIES: [(&str, &str); 6] =
+    [("str", "Strength"), ("dex", "Dexterity"), ("con", "Constitution"), ("int", "Intelligence"), ("wis", "Wisdom"), ("cha", "Charisma")];
 
 /// Skills and their abilities, keyed as in `skill.<key>`.
 pub const SKILLS: [(&str, &str, &str); 18] = [
@@ -57,11 +51,7 @@ pub fn stats() -> Vec<StatDef> {
     for (ab, name) in ABILITIES {
         out.push(StatDef::new(ab, &format!("base.{ab}"), "base score"));
         out.push(StatDef::new(&format!("mod.{ab}"), &format!("mod({ab})"), name));
-        out.push(StatDef::new(
-            &format!("save.{ab}"),
-            &format!("mod.{ab} + prof * prof.save.{ab}"),
-            &format!("{name} + proficiency"),
-        ));
+        out.push(StatDef::new(&format!("save.{ab}"), &format!("mod.{ab} + prof * prof.save.{ab}"), &format!("{name} + proficiency")));
     }
     out.push(StatDef::new("prof", "2 + floor((level - 1) / 4)", "level"));
     for (key, _, ab) in SKILLS {
@@ -130,11 +120,7 @@ mod tests {
     use crate::engine::{effect, Model, Op};
 
     fn rogue() -> Model {
-        let mut m = Model {
-            stats: stats(),
-            inputs: default_inputs(),
-            ..Model::default()
-        };
+        let mut m = Model { stats: stats(), inputs: default_inputs(), ..Model::default() };
         let set = |m: &mut Model, k: &str, v: Value| {
             m.inputs.insert(k.into(), v);
         };

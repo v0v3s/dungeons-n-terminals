@@ -166,11 +166,8 @@ impl Template {
 
 /// Add an entry to the document's list for `kind`; returns its index.
 pub fn add_entry(doc: &mut Value, kind: Kind, entry: Value) -> usize {
-    let list = doc
-        .as_object_mut()
-        .expect("homebrew document is an object")
-        .entry(kind.json_key())
-        .or_insert_with(|| Value::Array(Vec::new()));
+    let list =
+        doc.as_object_mut().expect("homebrew document is an object").entry(kind.json_key()).or_insert_with(|| Value::Array(Vec::new()));
     let list = list.as_array_mut().expect("homebrew list");
     list.push(entry);
     list.len() - 1
@@ -221,8 +218,22 @@ pub fn has_field(doc: &Value, at: &(String, usize), field: &str) -> bool {
 
 /// Tags that become `[[kind:Name@SOURCE|text]]` links in Markdown.
 const LINK_TAGS: &[&str] = &[
-    "spell", "item", "condition", "creature", "feat", "race", "background", "skill", "sense", "action", "variantrule",
-    "optfeature", "class", "language", "disease", "status",
+    "spell",
+    "item",
+    "condition",
+    "creature",
+    "feat",
+    "race",
+    "background",
+    "skill",
+    "sense",
+    "action",
+    "variantrule",
+    "optfeature",
+    "class",
+    "language",
+    "disease",
+    "status",
 ];
 
 /// data inline tags → Markdown: `{@b x}` → `**x**`, `{@i x}` → `*x*`,
@@ -361,7 +372,10 @@ fn write_entries(v: &Value, depth: usize, out: &mut Vec<String>) {
                 let ty = o.get("type").and_then(Value::as_str).unwrap_or("entries");
                 let simple_list = ty == "list"
                     && o.get("items").and_then(Value::as_array).is_some_and(|items| {
-                        items.iter().all(|i| i.is_string() || (i.get("type").and_then(Value::as_str) == Some("item") && i.get("entry").is_some_and(Value::is_string)))
+                        items.iter().all(|i| {
+                            i.is_string()
+                                || (i.get("type").and_then(Value::as_str) == Some("item") && i.get("entry").is_some_and(Value::is_string))
+                        })
                     });
                 if ty == "entries" && o.keys().all(|k| matches!(k.as_str(), "type" | "name" | "entries")) {
                     if let Some(name) = o.get("name").and_then(Value::as_str) {
@@ -490,7 +504,9 @@ pub fn markdown_to_entries(md: &str) -> Result<Value, String> {
                         .map(|it| {
                             // `**Name** text` is a named item.
                             match it.strip_prefix("**").and_then(|r| r.split_once("**")) {
-                                Some((name, rest)) => json!({"type": "item", "name": markdown_to_tags(name), "entry": markdown_to_tags(rest.trim())}),
+                                Some((name, rest)) => {
+                                    json!({"type": "item", "name": markdown_to_tags(name), "entry": markdown_to_tags(rest.trim())})
+                                }
                                 None => Value::String(markdown_to_tags(it)),
                             }
                         })

@@ -202,13 +202,10 @@ fn name_of(lib: &Library, id: Option<EntityId>) -> String {
 }
 
 fn entity_items(lib: &Library, kind: Kind, filter: &SourceFilter, id: impl Fn(EntityId) -> String) -> Vec<PickItem> {
-    let mut ids: Vec<EntityId> = (0..lib.entities().len())
-        .filter(|&i| lib.entity(i).kind == kind && filter.allows(lib.entity(i)))
-        .collect();
+    let mut ids: Vec<EntityId> =
+        (0..lib.entities().len()).filter(|&i| lib.entity(i).kind == kind && filter.allows(lib.entity(i))).collect();
     ids.sort_by(|&a, &b| lib.entity(a).name.cmp(&lib.entity(b).name));
-    ids.into_iter()
-        .map(|i| PickItem::new(lib.entity(i).name.clone(), lib.entity(i).source.clone(), id(i)))
-        .collect()
+    ids.into_iter().map(|i| PickItem::new(lib.entity(i).name.clone(), lib.entity(i).source.clone(), id(i))).collect()
 }
 
 fn ability_name(a: &str) -> &'static str {
@@ -224,10 +221,9 @@ fn describe_alternative(parts: &[AbilityGrant]) -> String {
         .iter()
         .map(|p| match p {
             AbilityGrant::Fixed(m) => m.iter().map(|(a, n)| format!("{} {n:+}", ability_name(a))).collect::<Vec<_>>().join(", "),
-            AbilityGrant::Choose { from, count, amount } => format!(
-                "{amount:+} to {count} of {}",
-                from.iter().map(|a| a.to_uppercase()).collect::<Vec<_>>().join("/")
-            ),
+            AbilityGrant::Choose { from, count, amount } => {
+                format!("{amount:+} to {count} of {}", from.iter().map(|a| a.to_uppercase()).collect::<Vec<_>>().join("/"))
+            }
             AbilityGrant::Weighted { from, weights } => format!(
                 "{} among {}",
                 weights.iter().map(|w| format!("{w:+}")).collect::<Vec<_>>().join(" / "),
@@ -243,10 +239,7 @@ impl Wizard {
         let state = State {
             step: Step::Species,
             view: View::Review,
-            ch: Character {
-                name,
-                ..Character::default()
-            },
+            ch: Character { name, ..Character::default() },
             summary: Vec::new(),
             species: None,
             subspecies: None,
@@ -299,7 +292,19 @@ impl Wizard {
             let next = ORDER
                 .iter()
                 .skip(at + 1)
-                .position(|s| matches!(s, Step::Background | Step::Method | Step::BonusAlternative | Step::Feat | Step::Class | Step::ClassSkills | Step::Equipment | Step::Review))
+                .position(|s| {
+                    matches!(
+                        s,
+                        Step::Background
+                            | Step::Method
+                            | Step::BonusAlternative
+                            | Step::Feat
+                            | Step::Class
+                            | Step::ClassSkills
+                            | Step::Equipment
+                            | Step::Review
+                    )
+                })
                 .map_or(ORDER.len(), |p| at + 1 + p);
             (label, cur >= next, (at..next).contains(&cur))
         })
@@ -322,9 +327,7 @@ impl Wizard {
     /// Entity to preview for the highlighted choice, if any.
     pub fn preview(&self, lib: &Library) -> Option<EntityId> {
         match &self.state.view {
-            View::Pick(p) => p
-                .current()
-                .and_then(|i| resolve_id(lib, i.value.strip_prefix("version:").unwrap_or(&i.value))),
+            View::Pick(p) => p.current().and_then(|i| resolve_id(lib, i.value.strip_prefix("version:").unwrap_or(&i.value))),
             _ => None,
         }
     }
@@ -413,7 +416,13 @@ impl Wizard {
                             && e.data.get("raceName").and_then(Json::as_str) == Some(&race.name)
                             && e.data.get("raceSource").and_then(Json::as_str) == Some(&race.source)
                     })
-                    .map(|i| PickItem::new(lib.entity(i).name.clone(), lib.entity(i).source.clone(), format!("race:{}|{}", lib.entity(i).name, lib.entity(i).source)))
+                    .map(|i| {
+                        PickItem::new(
+                            lib.entity(i).name.clone(),
+                            lib.entity(i).source.clone(),
+                            format!("race:{}|{}", lib.entity(i).name, lib.entity(i).source),
+                        )
+                    })
                     .collect();
                 // Versions: 2024 lineages, legacies and ancestries.
                 items.extend(lib.versions_of(sp).iter().map(|&v| {
@@ -457,11 +466,7 @@ impl Wizard {
                     queue_alternative(st, &origin, &alts[0]);
                     return self.enter(Step::Bonus, lib, filter);
                 }
-                let items = alts
-                    .iter()
-                    .enumerate()
-                    .map(|(i, a)| PickItem::new(describe_alternative(a), "", i.to_string()))
-                    .collect();
+                let items = alts.iter().enumerate().map(|(i, a)| PickItem::new(describe_alternative(a), "", i.to_string())).collect();
                 View::Pick(Picker::new(format!("{origin}: ability increases"), items))
             }
             Step::Bonus => {
@@ -518,10 +523,9 @@ impl Wizard {
                     .collect();
                 View::Pick(Picker::new("Choose a feat", items))
             }
-            Step::Class => View::Pick(Picker::new(
-                "Choose your starting class",
-                entity_items(lib, Kind::Class, filter, |i| levelup::class_id(lib, i)),
-            )),
+            Step::Class => {
+                View::Pick(Picker::new("Choose your starting class", entity_items(lib, Kind::Class, filter, |i| levelup::class_id(lib, i))))
+            }
             Step::Subclass => {
                 let Some(class) = st.class else { return false };
                 if levelup::subclass_level(&lib.entity(class).data) != Some(1) {
@@ -625,7 +629,6 @@ impl Wizard {
                 equipment::auto_equip(lib, &mut st.ch);
                 View::Review
             }
-
         };
         st.step = step;
         st.view = view;
@@ -701,11 +704,7 @@ impl Wizard {
             }
             Step::Class => {
                 st.class = resolve_id(lib, &one);
-                st.ch.levels = vec![Level {
-                    class: one,
-                    hp: Default::default(),
-                    choices: Default::default(),
-                }];
+                st.ch.levels = vec![Level { class: one, hp: Default::default(), choices: Default::default() }];
                 st.summary.push(("Class".into(), format!("{label} 1")));
             }
             Step::Subclass => {
@@ -718,11 +717,7 @@ impl Wizard {
                 let Picked::Many(skills) = picked else { return };
                 let names = skills.iter().map(|s| skill_name(s)).collect::<Vec<_>>().join(", ");
                 st.ch.proficiencies.skills.extend(skills);
-                let from = if step == Step::OriginSkills {
-                    st.origin_skill_choices.remove(0).0
-                } else {
-                    "Class".into()
-                };
+                let from = if step == Step::OriginSkills { st.origin_skill_choices.remove(0).0 } else { "Class".into() };
                 st.summary.push((format!("Skills ({from})"), names));
                 if step == Step::OriginSkills && self.enter(Step::OriginSkills, lib, filter) {
                     return;
@@ -734,10 +729,8 @@ impl Wizard {
                     Picked::Many(vs) => vs,
                 };
                 let choice = st.feature_choices.as_mut().map(|q| q.remove(0)).expect("choice in progress");
-                let names: Vec<String> = values
-                    .iter()
-                    .filter_map(|v| choice.options.iter().find(|o| &o.value == v).map(|o| o.label.clone()))
-                    .collect();
+                let names: Vec<String> =
+                    values.iter().filter_map(|v| choice.options.iter().find(|o| &o.value == v).map(|o| o.label.clone())).collect();
                 st.summary.push((choice.key.clone(), names.join(", ")));
                 if let Some(level) = st.ch.levels.first_mut() {
                     level.choices.picks.entry(choice.key).or_default().extend(values);
@@ -782,14 +775,8 @@ impl Wizard {
     /// Record chosen ability increases on the character, one entry per origin.
     fn flush_bonuses(&mut self) {
         let st = &mut self.state;
-        st.ch.ability_bonus = st
-            .bonuses
-            .iter()
-            .map(|(origin, scores)| AbilityBonus {
-                origin: origin.clone(),
-                scores: scores.clone(),
-            })
-            .collect();
+        st.ch.ability_bonus =
+            st.bonuses.iter().map(|(origin, scores)| AbilityBonus { origin: origin.clone(), scores: scores.clone() }).collect();
     }
 
     /// The character as it would be created now (for the review preview).
@@ -800,15 +787,8 @@ impl Wizard {
                 set_score(&mut ch, a, ed.scores[i]);
             }
         }
-        ch.ability_bonus = self
-            .state
-            .bonuses
-            .iter()
-            .map(|(origin, scores)| AbilityBonus {
-                origin: origin.clone(),
-                scores: scores.clone(),
-            })
-            .collect();
+        ch.ability_bonus =
+            self.state.bonuses.iter().map(|(origin, scores)| AbilityBonus { origin: origin.clone(), scores: scores.clone() }).collect();
         ch
     }
 
@@ -832,24 +812,17 @@ fn queue_alternative(st: &mut State, origin: &str, parts: &[AbilityGrant]) {
                 let text = m.iter().map(|(a, n)| format!("{} {n:+}", ability_name(a))).collect::<Vec<_>>().join(", ");
                 push_merged(&mut st.summary, origin, text);
             }
-            AbilityGrant::Choose { from, count, amount } => st.bonus_tasks.push(BonusTask {
-                origin: origin.to_string(),
-                amounts: vec![*amount; *count],
-                from: from.clone(),
-            }),
-            AbilityGrant::Weighted { from, weights } => st.bonus_tasks.push(BonusTask {
-                origin: origin.to_string(),
-                amounts: weights.clone(),
-                from: from.clone(),
-            }),
+            AbilityGrant::Choose { from, count, amount } => {
+                st.bonus_tasks.push(BonusTask { origin: origin.to_string(), amounts: vec![*amount; *count], from: from.clone() })
+            }
+            AbilityGrant::Weighted { from, weights } => {
+                st.bonus_tasks.push(BonusTask { origin: origin.to_string(), amounts: weights.clone(), from: from.clone() })
+            }
         }
     }
     // Fixed-only grants are recorded right away.
     let bonuses = st.bonuses.clone();
-    st.ch.ability_bonus = bonuses
-        .into_iter()
-        .map(|(origin, scores)| AbilityBonus { origin, scores })
-        .collect();
+    st.ch.ability_bonus = bonuses.into_iter().map(|(origin, scores)| AbilityBonus { origin, scores }).collect();
 }
 
 /// Grant one starting-equipment alternative and queue its "any …" picks.

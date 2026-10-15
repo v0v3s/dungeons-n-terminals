@@ -121,12 +121,7 @@ impl NotesView {
     }
 
     fn vars(&self, title: &str) -> Vars {
-        Vars {
-            title: title.to_string(),
-            date: today(),
-            campaign: self.campaign.clone(),
-            character: String::new(),
-        }
+        Vars { title: title.to_string(), date: today(), campaign: self.campaign.clone(), character: String::new() }
     }
 
     /// The tree flattened into visible rows.
@@ -208,11 +203,7 @@ impl NotesView {
                     let col = c.col.min(editor.lines.len_col(row).unwrap_or(0));
                     editor.cursor = edtui::Index2::new(row, col);
                 }
-                self.open = Some(OpenNote {
-                    path: path.to_string(),
-                    editor,
-                    saved: text,
-                });
+                self.open = Some(OpenNote { path: path.to_string(), editor, saved: text });
                 // Reveal it in the tree.
                 let mut acc = String::new();
                 for part in path.split('/').collect::<Vec<_>>().split_last().map(|(_, dirs)| dirs.to_vec()).unwrap_or_default() {
@@ -234,10 +225,7 @@ impl NotesView {
         let Some(n) = &self.notes else { return Action::Status("No active campaign".into()) };
         let path = format!("Party/{}.md", notes::file_safe(name));
         if !n.abs(&path).exists() {
-            let vars = Vars {
-                character: name.to_string(),
-                ..self.vars(name)
-            };
+            let vars = Vars { character: name.to_string(), ..self.vars(name) };
             if let Err(e) = n.write(&path, &vars.apply(&n.template("Character"))) {
                 return Action::Status(format!("Could not create note: {e}"));
             }
@@ -617,10 +605,7 @@ impl NotesView {
             items.extend(n.folders().into_iter().map(|f| PickItem::new(f.clone(), "", f)));
         }
         let title = link.target.clone();
-        self.popup = Some(Popup::CreateFromLink(
-            Box::new(Picker::new(format!("Create “{title}” in which folder?"), items)),
-            title,
-        ));
+        self.popup = Some(Popup::CreateFromLink(Box::new(Picker::new(format!("Create “{title}” in which folder?"), items)), title));
         Action::None
     }
 

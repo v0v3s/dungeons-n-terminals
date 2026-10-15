@@ -90,11 +90,7 @@ impl Build {
 
     /// `Fighter 5 / Wizard 3`.
     pub fn class_summary(&self) -> String {
-        self.classes
-            .iter()
-            .map(|c| format!("{} {}", c.name, c.level))
-            .collect::<Vec<_>>()
-            .join(" / ")
+        self.classes.iter().map(|c| format!("{} {}", c.name, c.level)).collect::<Vec<_>>().join(" / ")
     }
 }
 
@@ -104,11 +100,7 @@ fn str_of<'a>(v: &'a Json, k: &str) -> Option<&'a str> {
 
 pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Build {
     let mut warnings = Vec::new();
-    let mut model = Model {
-        stats: standard::stats(),
-        inputs: standard::default_inputs(),
-        ..Model::default()
-    };
+    let mut model = Model { stats: standard::stats(), inputs: standard::default_inputs(), ..Model::default() };
     let resolve = |id: &str, warnings: &mut Vec<String>| -> Option<EntityId> {
         let found = resolve_id(lib, id);
         if found.is_none() {
@@ -173,9 +165,8 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         let sub_data = subclass.map(|s| &lib.entity(s).data);
         let progression = Progression::from_json(data.get("casterProgression"))
             .or_else(|| sub_data.and_then(|s| Progression::from_json(s.get("casterProgression"))));
-        let casting_ability = str_of(data, "spellcastingAbility")
-            .or_else(|| sub_data.and_then(|s| str_of(s, "spellcastingAbility")))
-            .map(str::to_string);
+        let casting_ability =
+            str_of(data, "spellcastingAbility").or_else(|| sub_data.and_then(|s| str_of(s, "spellcastingAbility"))).map(str::to_string);
         classes.push(ClassState {
             id: id.to_string(),
             entity,
@@ -257,10 +248,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             model.stats.push(StatDef::new(&format!("spell.{s}.dc"), &format!("8 + spell.{s}.mod + prof"), "8 + ability + proficiency"));
         }
     }
-    let slot_classes: Vec<&ClassState> = classes
-        .iter()
-        .filter(|c| c.progression.is_some_and(|p| p != Progression::Pact))
-        .collect();
+    let slot_classes: Vec<&ClassState> = classes.iter().filter(|c| c.progression.is_some_and(|p| p != Progression::Pact)).collect();
     let slots: [i64; 9] = match slot_classes.as_slice() {
         [] => [0; 9],
         // One slot-granting class: its own table (third-casters need this).
@@ -322,10 +310,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         .map(|(e, _)| *e)
         .find(|e| matches!(equipment::armor_kind(&lib.entity(*e).data), Some("light" | "medium" | "heavy")))
         .or_else(|| character.equipped.armor.as_deref().and_then(|a| resolve(a, &mut warnings)));
-    let shield_id = equipped
-        .iter()
-        .map(|(e, _)| *e)
-        .find(|e| equipment::armor_kind(&lib.entity(*e).data) == Some("shield"));
+    let shield_id = equipped.iter().map(|(e, _)| *e).find(|e| equipment::armor_kind(&lib.entity(*e).data) == Some("shield"));
     let bonus = |e: EntityId, field: &str| -> i64 {
         let d = &lib.entity(e).data;
         d.get(field)
@@ -367,13 +352,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
         let name = lib.entity(*e).name.clone();
         let mut add = |target: String, n: i64| {
-            model.effects.push(Effect {
-                target,
-                op: Op::Add,
-                value: Formula::constant(Value::int(n)),
-                when: None,
-                origin: name.clone(),
-            });
+            model.effects.push(Effect { target, op: Op::Add, value: Formula::constant(Value::int(n)), when: None, origin: name.clone() });
         };
         let (ac, saves) = (bonus(*e, "bonusAc"), bonus(*e, "bonusSavingThrow"));
         if ac != 0 {
@@ -561,11 +540,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         granted.push(GrantedSpells { origin, key, grants });
     }
     for (r, _) in &innate {
-        model.stats.push(StatDef {
-            key: format!("resource.{}.max", r.key),
-            base: r.max.clone(),
-            origin: r.name.clone(),
-        });
+        model.stats.push(StatDef { key: format!("resource.{}.max", r.key), base: r.max.clone(), origin: r.name.clone() });
     }
 
     // ---- overlays ----
@@ -649,18 +624,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
-    Build {
-        model,
-        classes,
-        features,
-        resources,
-        toggles,
-        granted,
-        attacks,
-        weapon_proficiency,
-        martial_arts,
-        warnings,
-    }
+    Build { model, classes, features, resources, toggles, granted, attacks, weapon_proficiency, martial_arts, warnings }
 }
 
 fn collect_refs(v: &Json, out: &mut Vec<(Kind, String)>) {
@@ -761,20 +725,13 @@ mod tests {
     }
 
     fn character(levels: &[&str]) -> Character {
-        let mut c = Character {
-            name: "Test".into(),
-            ..Character::default()
-        };
+        let mut c = Character { name: "Test".into(), ..Character::default() };
         c.abilities.str = 14;
         c.abilities.con = 14;
         c.abilities.int = 16;
         c.levels = levels
             .iter()
-            .map(|cls| Level {
-                class: format!("class:{cls}|T"),
-                hp: Default::default(),
-                choices: Default::default(),
-            })
+            .map(|cls| Level { class: format!("class:{cls}|T"), hp: Default::default(), choices: Default::default() })
             .collect();
         c
     }
@@ -829,7 +786,9 @@ mod tests {
         let b = build(&c, &lib, &OverlaySet::default());
         let arcanum = b.granted.iter().find(|g| g.origin == "Mystic Arcanum").expect("level 11 arcanum");
         assert_eq!(arcanum.grants.len(), 1);
-        assert!(matches!(&arcanum.grants[0], spells::Granted::Choice { filter, grant: spells::Grant::Innate(Some(1)), .. } if filter == "level=6|class=Warlock"));
+        assert!(
+            matches!(&arcanum.grants[0], spells::Granted::Choice { filter, grant: spells::Grant::Innate(Some(1)), .. } if filter == "level=6|class=Warlock")
+        );
         // A chosen arcanum is a free cast per long rest.
         c.spells.chosen.insert(format!("{}#0", arcanum.key), vec!["spell:Eyebite|T".into()]);
         let b = build(&c, &lib, &OverlaySet::default());
@@ -863,10 +822,7 @@ mod tests {
         assert!(b.warnings.iter().any(|w| w.contains("Fighter requires Strength 13 or Dexterity 13")), "{:?}", b.warnings);
         assert!(b.warnings.iter().any(|w| w.contains("Wizard requires Intelligence 13")));
         // A +1 Int bonus fixes the Wizard requirement.
-        c.ability_bonus.push(AbilityBonus {
-            origin: "Background".into(),
-            scores: [("int".to_string(), 1)].into(),
-        });
+        c.ability_bonus.push(AbilityBonus { origin: "Background".into(), scores: [("int".to_string(), 1)].into() });
         let b = build(&c, &library(), &OverlaySet::default());
         assert!(!b.warnings.iter().any(|w| w.contains("Wizard requires")));
     }
@@ -904,13 +860,8 @@ mod tests {
             ],
             "item": [{"name": "Ring of Protection", "source": "T", "bonusAc": "+1", "bonusSavingThrow": "+1", "reqAttune": true}]
         }));
-        let line = |id: &str, attuned: bool| InventoryItem {
-            item: Some(id.into()),
-            quantity: 1,
-            equipped: true,
-            attuned,
-            ..Default::default()
-        };
+        let line =
+            |id: &str, attuned: bool| InventoryItem { item: Some(id.into()), quantity: 1, equipped: true, attuned, ..Default::default() };
         let mut c = character(&["Fighter"]);
         c.inventory = vec![line("item:Chain Mail|T", false), line("item:Shield|T", false), line("item:Ring of Protection|T", false)];
         let ev = build(&c, &lib, &OverlaySet::default()).evaluate();

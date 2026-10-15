@@ -61,21 +61,13 @@ fn progression_total(p: &Json, level: i64) -> i64 {
 }
 
 fn strs(v: Option<&Json>) -> Vec<String> {
-    v.and_then(Json::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Json::as_str)
-        .map(str::to_string)
-        .collect()
+    v.and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str).map(str::to_string).collect()
 }
 
 /// Every value already picked anywhere on the character.
 fn all_picks(c: &Character) -> BTreeSet<String> {
-    let mut out: BTreeSet<String> = c
-        .levels
-        .iter()
-        .flat_map(|l| l.choices.picks.values().flatten().cloned().chain(l.choices.feat.clone()))
-        .collect();
+    let mut out: BTreeSet<String> =
+        c.levels.iter().flat_map(|l| l.choices.picks.values().flatten().cloned().chain(l.choices.feat.clone())).collect();
     out.extend(c.feats.iter().cloned());
     out.extend(c.options.iter().cloned());
     out
@@ -119,7 +111,14 @@ fn known_spells(lib: &Library, c: &Character) -> Vec<EntityId> {
 /// Why an option's prerequisites are not met, or `None`. data lists
 /// alternatives; all parts of one alternative must hold: a class level,
 /// other options taken (Pact of the Blade), spells known.
-fn unmet_prerequisite(lib: &Library, c: &Character, d: &Json, class_level: i64, filter: &SourceFilter, taken: &BTreeSet<String>) -> Option<String> {
+fn unmet_prerequisite(
+    lib: &Library,
+    c: &Character,
+    d: &Json,
+    class_level: i64,
+    filter: &SourceFilter,
+    taken: &BTreeSet<String>,
+) -> Option<String> {
     let alts = d.get("prerequisite")?.as_array()?;
     let known = known_spells(lib, c);
     let mut first_reason = None;
@@ -178,16 +177,11 @@ fn optional_features(
 ) -> Vec<ChoiceOption> {
     // 2014 options reprinted as 2024 feats (fighting styles) must stay
     // available to 2014 classes, so reprints are not hidden here.
-    let filter = SourceFilter {
-        hide_reprinted: false,
-        ..filter.clone()
-    };
+    let filter = SourceFilter { hide_reprinted: false, ..filter.clone() };
     let mut out: Vec<ChoiceOption> = (0..lib.entities().len())
         .filter(|&i| {
             let e = lib.entity(i);
-            e.kind == Kind::OptionalFeature
-                && filter.allows(e)
-                && strs(e.data.get("featureType")).iter().any(|t| types.contains(t))
+            e.kind == Kind::OptionalFeature && filter.allows(e) && strs(e.data.get("featureType")).iter().any(|t| types.contains(t))
         })
         .map(|i| {
             let e = lib.entity(i);
@@ -344,12 +338,7 @@ pub fn level_choices(
                 })
                 .collect();
             if !options.is_empty() {
-                out.push(Choice {
-                    key: e.name.clone(),
-                    kind: ChoiceKind::SubFeature,
-                    count,
-                    options,
-                });
+                out.push(Choice { key: e.name.clone(), kind: ChoiceKind::SubFeature, count, options });
             }
         }
         if e.name == "Expertise" {
@@ -369,12 +358,7 @@ pub fn level_choices(
                     warning: None,
                 })
                 .collect();
-            out.push(Choice {
-                key: "Expertise".into(),
-                kind: ChoiceKind::Expertise,
-                count: 2,
-                options,
-            });
+            out.push(Choice { key: "Expertise".into(), kind: ChoiceKind::Expertise, count: 2, options });
         }
     }
 
@@ -429,12 +413,7 @@ fn mastery_weapons(lib: &Library, filter: &SourceFilter, taken: &BTreeSet<String
         .map(|i| {
             let e = lib.entity(i);
             let mastery = strs(e.data.get("mastery")).first().map(|m| m.split('|').next().unwrap_or(m).to_string()).unwrap_or_default();
-            ChoiceOption {
-                value: format!("item:{}|{}", e.name, e.source),
-                label: e.name.clone(),
-                hint: mastery,
-                warning: None,
-            }
+            ChoiceOption { value: format!("item:{}|{}", e.name, e.source), label: e.name.clone(), hint: mastery, warning: None }
         })
         .filter(|o| !taken.contains(&o.value))
         .collect();
@@ -509,10 +488,13 @@ mod tests {
         ]}]}]);
         let mut blocks = Vec::new();
         option_blocks(&entries, &mut blocks);
-        assert_eq!(blocks, vec![(1, vec![
-            "classFeature:Protector|Cleric|XPHB|1|XPHB".to_string(),
-            "classFeature:Thaumaturge|Cleric|XPHB|1|XPHB".to_string()
-        ])]);
+        assert_eq!(
+            blocks,
+            vec![(
+                1,
+                vec!["classFeature:Protector|Cleric|XPHB|1|XPHB".to_string(), "classFeature:Thaumaturge|Cleric|XPHB|1|XPHB".to_string()]
+            )]
+        );
     }
 
     #[test]
@@ -540,7 +522,9 @@ mod tests {
         c.options.push("optionalfeature:Pact of the Blade|T".into());
         assert_eq!(check(&c, "Thirsting Blade", 5), None);
         assert_eq!(check(&c, "Agonizing Blast", 2).as_deref(), Some("needs a Warlock damage cantrip"));
-        c.spells.classes.insert("class:Warlock|T".into(), ClassSpells { cantrips: vec!["spell:Eldritch Blast|T".into()], ..Default::default() });
+        c.spells
+            .classes
+            .insert("class:Warlock|T".into(), ClassSpells { cantrips: vec!["spell:Eldritch Blast|T".into()], ..Default::default() });
         assert_eq!(check(&c, "Agonizing Blast", 2), None);
     }
 
