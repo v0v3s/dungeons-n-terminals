@@ -253,6 +253,232 @@ pub fn auto_equip(lib: &Library, c: &mut Character) {
     }
 }
 
+// ---- containers ----
+
+/// What a container line can hold.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Container {
+    /// Pounds; `None` for no limit.
+    pub capacity: Option<f64>,
+    /// The contents do not count toward the carried weight.
+    pub weightless: bool,
+}
+
+/// The line as a container, from the item's `containerCapacity` and the
+/// line's own settings.
+pub fn container(lib: &Library, line: &InventoryItem) -> Option<Container> {
+    // Liquid containers (only a `volume`) hold no items.
+    let cap = line_data(lib, line)
+        .and_then(|d| d.get("containerCapacity").or_else(|| d.get("inherits").and_then(|i| i.get("containerCapacity"))))
+        .filter(|c| c.get("weight").is_some() || c.get("item").is_some() || c.get("weightless").is_some());
+    if !line.container.unwrap_or(cap.is_some()) {
+        return None;
+    }
+    let item_capacity: Option<f64> = cap
+        .and_then(|c| c.get("weight"))
+        .and_then(Json::as_array)
+        .map(|w| w.iter().filter_map(Json::as_f64).sum())
+        .filter(|w: &f64| *w > 0.0);
+    let capacity = match line.capacity {
+        Some(c) if c <= 0.0 => None,
+        Some(c) => Some(c),
+        None => item_capacity,
+    };
+    let item_weightless = cap.and_then(|c| c.get("weightless")).and_then(Json::as_bool) == Some(true);
+    Some(Container { capacity, weightless: line.weightless.unwrap_or(item_weightless) })
+}
+
+/// The lines directly inside a container line.
+pub fn contents(c: &Character, i: usize) -> Vec<usize> {
+    let Some(id) = c.inventory[i].id.as_deref() else { return Vec::new() };
+    (0..c.inventory.len()).filter(|&j| j != i && c.inventory[j].inside.as_deref() == Some(id)).collect()
+}
+
+/// The line's parent container, if it is in one that exists.
+pub fn parent(c: &Character, i: usize) -> Option<usize> {
+    let inside = c.inventory[i].inside.as_deref()?;
+    (0..c.inventory.len()).find(|&j| j != i && c.inventory[j].id.as_deref() == Some(inside))
+}
+
+/// The weight of what is inside a container (all of it, weightless or not).
+pub fn contents_weight(lib: &Library, c: &Character, i: usize) -> f64 {
+    // (A float sum of nothing is -0.0.)
+    contents(c, i).into_iter().map(|j| line_weight(lib, c, j, 0)).fold(0.0, |a, b| a + b)
+}
+
+/// A line's weight with its quantity and the contents that count.
+fn line_weight(lib: &Library, c: &Character, i: usize, depth: usize) -> f64 {
+    let line = &c.inventory[i];
+    let own = weight(lib, line) * line.quantity as f64;
+    // Depth guards against an `inside` loop edited into the file.
+    if depth > 16 || container(lib, line).is_some_and(|k| k.weightless) {
+        return own;
+    }
+    own + contents(c, i).into_iter().map(|j| line_weight(lib, c, j, depth + 1)).fold(0.0, |a, b| a + b)
+}
+
+/// What the character carries: everything not inside a weightless container.
+pub fn carried_weight(lib: &Library, c: &Character) -> f64 {
+    (0..c.inventory.len()).filter(|&i| parent(c, i).is_none()).map(|i| line_weight(lib, c, i, 0)).fold(0.0, |a, b| a + b)
+}
+
+/// Put line `i` into the container line `into` (`None`: carry it loose).
+/// Containers get an `id` the first time something goes in.
+pub fn put_in(lib: &Library, c: &mut Character, i: usize, into: Option<usize>) -> Result<String, String> {
+    let name = line_name(lib, &c.inventory[i]);
+    let Some(t) = into else {
+        c.inventory[i].inside = None;
+        return Ok(format!("{name} is carried loose"));
+    };
+    if container(lib, &c.inventory[t]).is_none() {
+        return Err(format!("{} is not a container", line_name(lib, &c.inventory[t])));
+    }
+    // Not into itself or anything inside it.
+    let mut at = Some(t);
+    while let Some(p) = at {
+        if p == i {
+            return Err(format!("{name} cannot go inside itself"));
+        }
+        at = parent(c, p);
+    }
+    let id = match c.inventory[t].id.clone() {
+        Some(id) => id,
+        None => {
+            let base = crate::class_table::slug(&line_name(lib, &c.inventory[t]));
+            let mut id = base.clone();
+            let mut n = 2;
+            while c.inventory.iter().any(|l| l.id.as_deref() == Some(&id)) {
+                id = format!("{base}_{n}");
+                n += 1;
+            }
+            c.inventory[t].id = Some(id.clone());
+            id
+        }
+    };
+    let line = &mut c.inventory[i];
+    line.inside = Some(id);
+    // Things in a bag are not worn or held.
+    line.equipped = false;
+    line.slot = None;
+    line.hand = None;
+    Ok(format!("Put {name} in {}", line_name(lib, &c.inventory[t])))
+}
+
+/// Remove an inventory line; what was inside it moves to where it was.
+pub fn remove_line(c: &mut Character, i: usize) -> InventoryItem {
+    let removed = c.inventory.remove(i);
+    if let Some(id) = &removed.id {
+        for l in &mut c.inventory {
+            if l.inside.as_deref() == Some(id) {
+                l.inside = removed.inside.clone();
+            }
+        }
+    }
+    removed
+}
+
+/// Unpack an equipment pack: its contents replace it, inside the pack's
+/// container (a backpack) if it has one.
+pub fn unpack(lib: &Library, c: &mut Character, i: usize) -> Result<String, String> {
+    let Some(d) = line_data(lib, &c.inventory[i]) else { return Err("Not a library item".into()) };
+    let Some(list) = d.get("packContents").and_then(Json::as_array).cloned() else {
+        return Err(format!("{} is not an equipment pack", line_name(lib, &c.inventory[i])));
+    };
+    let pack = line_name(lib, &c.inventory[i]);
+    let inside = c.inventory[i].inside.clone();
+    let mut new: Vec<InventoryItem> = Vec::new();
+    for entry in &list {
+        let (item, name, quantity) = match entry {
+            Json::String(r) => (Some(format!("item:{r}")), None, 1),
+            Json::Object(o) => {
+                let q = o.get("quantity").and_then(Json::as_i64).unwrap_or(1);
+                match (o.get("item").and_then(Json::as_str), o.get("special").and_then(Json::as_str)) {
+                    (Some(r), _) => (Some(format!("item:{r}")), None, q),
+                    (_, Some(text)) => (None, Some(dnt_data::tags::strip(text)), q),
+                    _ => continue,
+                }
+            }
+            _ => continue,
+        };
+        new.push(InventoryItem { item, name, quantity, inside: inside.clone(), ..Default::default() });
+    }
+    // The first container in the pack holds the rest.
+    let holder = new.iter().position(|l| container(lib, l).is_some());
+    if c.inventory[i].quantity > 1 {
+        c.inventory[i].quantity -= 1;
+    } else {
+        remove_line(c, i);
+    }
+    let start = c.inventory.len();
+    let count = new.len();
+    c.inventory.extend(new);
+    if let Some(h) = holder {
+        for j in 0..count {
+            if j != h {
+                put_in(lib, c, start + j, Some(start + h))?;
+            }
+        }
+    }
+    Ok(format!("Unpacked {pack}: {count} items"))
+}
+
+/// Change a line's container settings from text: a capacity in pounds
+/// (`30`), `weightless`, `no limit`, `off` (not a container) or nothing
+/// (back to the item's own settings).
+pub fn set_container(line: &mut InventoryItem, text: &str) -> Result<(), String> {
+    let t = text.trim().to_lowercase();
+    if t.is_empty() {
+        line.container = None;
+        line.capacity = None;
+        line.weightless = None;
+        return Ok(());
+    }
+    if t == "off" || t == "no" {
+        line.container = Some(false);
+        line.capacity = None;
+        line.weightless = None;
+        return Ok(());
+    }
+    let mut capacity = None;
+    let mut weightless = None;
+    for word in t.replace("no limit", "nolimit").split([' ', ',']).filter(|w| !w.is_empty()) {
+        match word.trim_end_matches('.').trim_end_matches("lbs").trim_end_matches("lb") {
+            "" | "pounds" => {}
+            "weightless" => weightless = Some(true),
+            "weighted" => weightless = Some(false),
+            "nolimit" | "unlimited" | "none" => capacity = Some(0.0),
+            n => capacity = Some(n.parse::<f64>().map_err(|_| format!("not a capacity: {word:?}"))?),
+        }
+    }
+    line.container = Some(true);
+    if capacity.is_some() {
+        line.capacity = capacity;
+    }
+    if weightless.is_some() {
+        line.weightless = weightless;
+    }
+    Ok(())
+}
+
+/// Lines in display order: loose lines in inventory order, each container
+/// followed by its contents (unless folded), with their depth.
+pub fn tree(c: &Character, folded: &std::collections::BTreeSet<String>) -> Vec<(usize, usize)> {
+    fn walk(c: &Character, i: usize, depth: usize, folded: &std::collections::BTreeSet<String>, out: &mut Vec<(usize, usize)>) {
+        out.push((i, depth));
+        if depth > 16 || c.inventory[i].id.as_ref().is_some_and(|id| folded.contains(id)) {
+            return;
+        }
+        for j in contents(c, i) {
+            walk(c, j, depth + 1, folded, out);
+        }
+    }
+    let mut out = Vec::new();
+    for i in (0..c.inventory.len()).filter(|&i| parent(c, i).is_none()) {
+        walk(c, i, 0, folded, &mut out);
+    }
+    out
+}
+
 /// Bring older files up to date: equipped weapons and shields are put in
 /// hand, other equipped items get their likely slot. Returns whether
 /// anything changed.
@@ -511,5 +737,58 @@ mod tests {
         let s = guess(&c, 2);
         wear(&lib, &mut c, 2, s);
         assert_eq!(guess(&c, 3), Slot::Ring2);
+    }
+
+    #[test]
+    fn containers() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"item": [
+            {"name": "Backpack", "source": "T", "weight": 5, "containerCapacity": {"weight": [30]}},
+            {"name": "Bag of Holding", "source": "T", "weight": 5, "containerCapacity": {"weight": [500], "weightless": true}},
+            {"name": "Rope", "source": "T", "weight": 5},
+            {"name": "Torch", "source": "T", "weight": 1},
+            {"name": "Explorer's Pack", "source": "T", "weight": 55, "packContents": [
+                "backpack|t", {"item": "torch|t", "quantity": 10}, "rope|t", {"special": "a {@b tin} cup"}]}
+        ]}));
+        let mut c = Character::default();
+        add_item(&mut c, "item:Explorer's Pack|T", 1, None);
+        add_item(&mut c, "item:Bag of Holding|T", 1, None);
+        assert_eq!(carried_weight(&lib, &c), 60.0);
+
+        // Unpacking: the backpack holds the rest.
+        unpack(&lib, &mut c, 0).unwrap();
+        let names: Vec<String> = c.inventory.iter().map(|l| line_name(&lib, l)).collect();
+        assert_eq!(names, ["Bag of Holding", "Backpack", "Torch", "Rope", "a tin cup"]);
+        let backpack = 1;
+        assert_eq!(contents(&c, backpack), vec![2, 3, 4]);
+        assert_eq!(contents_weight(&lib, &c, backpack), 15.0);
+        assert_eq!(carried_weight(&lib, &c), 5.0 + 5.0 + 15.0);
+
+        // Into the Bag of Holding: its contents weigh nothing.
+        put_in(&lib, &mut c, backpack, Some(0)).unwrap();
+        assert_eq!(carried_weight(&lib, &c), 5.0);
+        assert_eq!(contents_weight(&lib, &c, 0), 20.0);
+        // No loops.
+        assert!(put_in(&lib, &mut c, 0, Some(backpack)).is_err());
+        // Display order: containers then their contents, unless folded.
+        let mut folded = std::collections::BTreeSet::new();
+        assert_eq!(tree(&c, &folded).iter().map(|(i, d)| (*i, *d)).collect::<Vec<_>>(), [(0, 0), (1, 1), (2, 2), (3, 2), (4, 2)]);
+        folded.insert(c.inventory[1].id.clone().unwrap());
+        assert_eq!(tree(&c, &folded).len(), 2);
+
+        // Removing the backpack spills its contents into the bag.
+        remove_line(&mut c, 1);
+        assert!(c.inventory.iter().skip(1).all(|l| l.inside.as_deref() == Some("bag_of_holding")));
+
+        // Settings: any item can become a container.
+        let mut rope = c.inventory[2].clone();
+        assert!(container(&lib, &rope).is_none());
+        set_container(&mut rope, "20 lb weightless").unwrap();
+        assert_eq!(container(&lib, &rope), Some(Container { capacity: Some(20.0), weightless: true }));
+        set_container(&mut rope, "no limit").unwrap();
+        assert_eq!(container(&lib, &rope).unwrap().capacity, None);
+        set_container(&mut rope, "").unwrap();
+        assert!(container(&lib, &rope).is_none());
+        assert!(set_container(&mut rope, "lots").is_err());
     }
 }

@@ -90,12 +90,16 @@ pub enum Popup {
     Cast(Box<Picker>, dnt_data::EntityId),
     /// Choosing where to wear an inventory line.
     Wear(Box<Picker>, usize),
+    /// Choosing a container for an inventory line.
+    MoveInto(Box<Picker>, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextPrompt {
     CustomItem,
     Currency,
+    /// Container settings of the line under the cursor.
+    Container,
 }
 
 impl TextPrompt {
@@ -103,6 +107,7 @@ impl TextPrompt {
         match self {
             TextPrompt::CustomItem => "Custom item name",
             TextPrompt::Currency => "Coins (+15gp, -3sp, 20 sets gold)",
+            TextPrompt::Container => "Container: 30 lb · weightless · no limit · off · empty resets",
         }
     }
 }
@@ -145,7 +150,10 @@ pub struct Sheet {
     pub edition: Edition,
     pub tab: Tab,
     pub cursor: usize,
+    /// The inventory line under the cursor (an index into the inventory).
     pub inventory_cursor: usize,
+    /// Folded containers (by `id`).
+    pub folded: std::collections::BTreeSet<String>,
     pub spell_cursor: usize,
     pub feature_cursor: usize,
     pub feature_scroll: usize,
@@ -176,6 +184,7 @@ impl Sheet {
             tab: Tab::Overview,
             cursor: 0,
             inventory_cursor: 0,
+            folded: Default::default(),
             spell_cursor: 0,
             feature_cursor: 0,
             feature_scroll: 0,
@@ -276,6 +285,7 @@ impl Characters {
                         | Popup::SpellPick(..)
                         | Popup::Cast(..)
                         | Popup::Wear(..)
+                        | Popup::MoveInto(..)
                 )
             )
     }
@@ -422,9 +432,18 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     }
                     Some(Picked::One(v)) if v == "create" => return Action::CreateItem,
                     Some(Picked::One(v)) => {
-                        equipment::add_item(&mut sheet.file.character, &v, 1, None);
+                        // New items go where the cursor is (into its container).
+                        let c = &mut sheet.file.character;
+                        let inside = c.inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
+                        let before = c.inventory.len();
+                        equipment::add_item(c, &v, 1, None);
+                        if c.inventory.len() > before {
+                            c.inventory[before].inside = inside;
+                            sheet.inventory_cursor = before;
+                        } else if let Some(at) = c.inventory.iter().position(|l| l.item.as_deref() == Some(v.as_str()) && l.name.is_none()) {
+                            sheet.inventory_cursor = at;
+                        }
                         let name = dnt_rules::overlay::resolve_id(lib, &v).map(|e| lib.entity(e).name.clone()).unwrap_or(v);
-                        sheet.inventory_cursor = sheet.file.character.inventory.len().saturating_sub(1);
                         return changed(sheet, lib, overlays, format!("Added {name}"));
                     }
                     _ if key.code == KeyCode::Esc => {}
@@ -440,13 +459,33 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let c = &mut sheet.file.character;
                         match prompt {
                             TextPrompt::CustomItem if !text.trim().is_empty() => {
+                                let inside = c.inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
                                 c.inventory.push(dnt_rules::character::InventoryItem {
                                     name: Some(text.trim().to_string()),
                                     quantity: 1,
+                                    inside,
                                     ..Default::default()
                                 });
                                 sheet.inventory_cursor = c.inventory.len() - 1;
                                 return changed(sheet, lib, overlays, format!("Added {}", text.trim()));
+                            }
+                            TextPrompt::Container => {
+                                let i = sheet.inventory_cursor;
+                                let Some(line) = c.inventory.get_mut(i) else { return Action::None };
+                                return match equipment::set_container(line, &text) {
+                                    Ok(()) => {
+                                        let msg = match equipment::container(lib, &c.inventory[i]) {
+                                            Some(k) => format!(
+                                                "Container: {}{}",
+                                                k.capacity.map(|w| format!("{w} lb")).unwrap_or_else(|| "no limit".into()),
+                                                if k.weightless { ", weightless" } else { "" }
+                                            ),
+                                            None => "Not a container".into(),
+                                        };
+                                        changed(sheet, lib, overlays, msg)
+                                    }
+                                    Err(e) => Action::Status(e),
+                                };
                             }
                             TextPrompt::Currency => {
                                 if c.currency.apply(&text) {
@@ -500,6 +539,27 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     }
                     _ if key.code == KeyCode::Esc => {}
                     _ => sheet.popup = Some(Popup::Cast(picker, spell)),
+                }
+                return Action::None;
+            }
+            Popup::MoveInto(mut picker, i) => {
+                sheet.popup = None;
+                match picker.key(key) {
+                    Some(Picked::One(v)) => {
+                        let into = v.parse::<usize>().ok();
+                        return match equipment::put_in(lib, &mut sheet.file.character, i, into) {
+                            Ok(msg) => {
+                                // Show where it went.
+                                if let Some(id) = into.and_then(|t| sheet.file.character.inventory[t].id.clone()) {
+                                    sheet.folded.remove(&id);
+                                }
+                                changed(sheet, lib, overlays, msg)
+                            }
+                            Err(e) => Action::Status(e),
+                        };
+                    }
+                    _ if key.code == KeyCode::Esc => {}
+                    _ => sheet.popup = Some(Popup::MoveInto(picker, i)),
                 }
                 return Action::None;
             }
@@ -804,11 +864,88 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
 fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
     let n = sheet.file.character.inventory.len();
     let i = sheet.inventory_cursor.min(n.saturating_sub(1));
+    // Moving follows the tree (containers, then their contents).
+    let order: Vec<usize> = equipment::tree(&sheet.file.character, &sheet.folded).into_iter().map(|(l, _)| l).collect();
+    let pos = order.iter().position(|&l| l == i).unwrap_or(0);
+    let is_container = |sheet: &Sheet, i: usize| sheet.file.character.inventory.get(i).is_some_and(|l| equipment::container(lib, l).is_some());
     match key.code {
-        KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.inventory_cursor = (i + 1).min(n - 1),
-        KeyCode::Char('k') | KeyCode::Up => sheet.inventory_cursor = i.saturating_sub(1),
-        KeyCode::Home => sheet.inventory_cursor = 0,
-        KeyCode::Char('G') | KeyCode::End => sheet.inventory_cursor = n.saturating_sub(1),
+        KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.inventory_cursor = order[(pos + 1).min(order.len() - 1)],
+        KeyCode::Char('k') | KeyCode::Up if n > 0 => sheet.inventory_cursor = order[pos.saturating_sub(1)],
+        KeyCode::Home if n > 0 => sheet.inventory_cursor = order[0],
+        KeyCode::Char('G') | KeyCode::End if n > 0 => sheet.inventory_cursor = order[order.len() - 1],
+        KeyCode::Enter | KeyCode::Right | KeyCode::Left if n > 0 => {
+            let c = &sheet.file.character;
+            if is_container(sheet, i) {
+                // Containers fold like folders.
+                let Some(id) = c.inventory[i].id.clone() else { return Action::Status("Empty".into()) };
+                let fold = match key.code {
+                    KeyCode::Right => false,
+                    KeyCode::Left => true,
+                    _ => !sheet.folded.contains(&id),
+                };
+                if fold && key.code == KeyCode::Left && sheet.folded.contains(&id) {
+                    if let Some(p) = equipment::parent(c, i) {
+                        sheet.inventory_cursor = p;
+                    }
+                } else if fold {
+                    sheet.folded.insert(id);
+                } else {
+                    sheet.folded.remove(&id);
+                }
+            } else if key.code == KeyCode::Left {
+                if let Some(p) = equipment::parent(c, i) {
+                    sheet.inventory_cursor = p;
+                }
+            }
+        }
+        KeyCode::Char('M') if n > 0 => {
+            let c = &sheet.file.character;
+            let mut items = vec![crate::picker::PickItem::new("Carried loose", "not in a container", "loose")];
+            for (t, depth) in equipment::tree(c, &Default::default()) {
+                let Some(k) = equipment::container(lib, &c.inventory[t]) else { continue };
+                // Not into itself or what it holds.
+                let mut at = Some(t);
+                let mut inside_self = false;
+                while let Some(p) = at {
+                    inside_self |= p == i;
+                    at = equipment::parent(c, p);
+                }
+                if inside_self {
+                    continue;
+                }
+                let fill = equipment::contents_weight(lib, c, t);
+                let hint = match (k.capacity, k.weightless) {
+                    (Some(cap), w) => format!("{fill}/{cap} lb{}", if w { " · weightless" } else { "" }),
+                    (None, w) => format!("{fill} lb{}", if w { " · weightless" } else { "" }),
+                };
+                items.push(crate::picker::PickItem::new(format!("{}{}", "  ".repeat(depth), line_name(lib, &c.inventory[t])), hint, t.to_string()));
+            }
+            let name = line_name(lib, &c.inventory[i]);
+            sheet.popup = Some(Popup::MoveInto(Box::new(Picker::new(format!("Put {name} in…"), items)), i));
+        }
+        KeyCode::Char('p') if n > 0 => {
+            return match equipment::unpack(lib, &mut sheet.file.character, i) {
+                Ok(msg) => {
+                    sheet.inventory_cursor = sheet.inventory_cursor.min(sheet.file.character.inventory.len().saturating_sub(1));
+                    changed(sheet, lib, overlays, msg)
+                }
+                Err(e) => Action::Status(e),
+            };
+        }
+        KeyCode::Char('w') if n > 0 => {
+            let line = &sheet.file.character.inventory[i];
+            let current = match equipment::container(lib, line) {
+                Some(k) => {
+                    let mut t = k.capacity.map(|w| format!("{w}")).unwrap_or_else(|| "no limit".into());
+                    if k.weightless {
+                        t.push_str(" weightless");
+                    }
+                    t
+                }
+                None => String::new(),
+            };
+            sheet.popup = Some(Popup::Text(TextPrompt::Container, current));
+        }
         KeyCode::Char('a') => {
             let mut items = vec![
                 crate::picker::PickItem::new("Create new item…", "a campaign item with stats", "create"),
@@ -849,8 +986,10 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             }
         }
         KeyCode::Char('x') if n > 0 => {
-            let removed = sheet.file.character.inventory.remove(i);
-            sheet.inventory_cursor = i.min(n.saturating_sub(2));
+            // What was inside a removed container stays, where it was.
+            let next = order.get(pos + 1).or(pos.checked_sub(1).and_then(|p| order.get(p))).copied();
+            let removed = equipment::remove_line(&mut sheet.file.character, i);
+            sheet.inventory_cursor = next.map(|j| if j > i { j - 1 } else { j }).unwrap_or(0);
             return changed(sheet, lib, overlays, format!("Removed {}", line_name(lib, &removed)));
         }
         KeyCode::Char(' ') if n > 0 => {

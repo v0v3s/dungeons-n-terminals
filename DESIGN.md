@@ -491,7 +491,18 @@ enabled for that campaign.
    a one-handed weapon and no other weapon in hand; an off-hand weapon
    shows its off-hand attack (no ability modifier unless negative, or
    with Two-Weapon Fighting). Every carried weapon is listed, what is in
-   hand first. Older files are converted when opened.
+   hand first. Older files are converted when opened. Dual Wielder
+   (2024: Light main weapon, any one-handed melee off hand; 2014: any
+   one-handed melee weapons and +1 AC) relaxes the off-hand rules.
+   **Containers** work like index notes: still items, but other lines can
+   be `inside` them, shown as a foldable tree (enter folds, `M` moves an
+   item into a container or out). Capacity and weightlessness come from
+   the item (Backpack 30 lb, Bag of Holding 500 lb weightless) and can be
+   changed per line with `w` (`30`, `weightless`, `no limit`, `off`), which
+   also makes any item a container. Carried weight leaves out what is in
+   weightless containers; overfull containers show in red. `p` unpacks an
+   equipment pack into its contents, inside its backpack; removing a
+   container keeps its contents.
    *Done* (not yet: generic "+1 Weapon" variants without a base weapon,
    Great Weapon Fighting rerolls).
 7. **Later** — overlay authoring flow, expanded spell lists, embedded nvim,

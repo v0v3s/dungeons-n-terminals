@@ -252,6 +252,22 @@ pub struct InventoryItem {
     /// A weapon or shield in hand.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hand: Option<Hand>,
+    /// Names a container so other lines can be `inside` it (set when the
+    /// first thing goes in).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// The `id` of the container this line is in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inside: Option<String>,
+    /// Make any item a container (`true`) or stop one being one (`false`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub container: Option<bool>,
+    /// What a container holds, in pounds (0: no limit), instead of the item's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capacity: Option<f64>,
+    /// The contents weigh nothing (a Bag of Holding), instead of the item's setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weightless: Option<bool>,
 }
 
 /// Where a worn item goes. Each slot takes one item, except `Other`.

@@ -267,12 +267,12 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &picker, theme);
         }
-        Some(Popup::Wear(picker, _)) => {
+        Some(Popup::Wear(picker, _)) | Some(Popup::MoveInto(picker, _)) => {
             let rect = centered(area, 64.min(area.width), (picker.items.len() as u16 + 7).min(area.height));
             frame.render_widget(Clear, rect);
             let block = pane(pane_title(&picker.title, true, theme), true, theme)
                 .padding(Padding::new(2, 2, 1, 0))
-                .title_bottom(Line::styled(" enter wear · esc cancel ", theme.dim).right_aligned());
+                .title_bottom(Line::styled(" enter choose · esc cancel ", theme.dim).right_aligned());
             let inner = block.inner(rect);
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &picker, theme);
@@ -1242,10 +1242,15 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             Span::styled(" to add an item.", theme.dim),
         ]));
     }
-    let mut total_weight = 0.0;
-    for (i, line) in ch.inventory.iter().enumerate() {
+    let total_weight = equipment::carried_weight(lib, ch);
+    let order = equipment::tree(ch, &sheet.folded);
+    let mut cursor_row = 0;
+    for &(i, depth) in &order {
+        let line = &ch.inventory[i];
+        if i == sheet.inventory_cursor {
+            cursor_row = lines.len();
+        }
         let w = equipment::weight(lib, line) * line.quantity as f64;
-        total_weight += w;
         let base = if i == sheet.inventory_cursor { theme.selected } else { Style::new() };
         let faint = if i == sheet.inventory_cursor { theme.muted } else { theme.dim };
         let entity = item_entity(lib, line);
@@ -1266,14 +1271,41 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             kind.push_str(" monk weapon");
         }
         let weight = if w > 0.0 { format!("{w:.1}") } else { "—".into() };
+        // Containers: a fold marker and how full they are.
+        let container = equipment::container(lib, line);
+        let fold = match (&container, &line.id) {
+            (Some(_), Some(id)) if sheet.folded.contains(id) && !equipment::contents(ch, i).is_empty() => "▸ ",
+            (Some(_), _) => "▾ ",
+            _ => "",
+        };
+        let mut fill = Vec::new();
+        if let Some(k) = container {
+            let held = equipment::contents_weight(lib, ch, i);
+            let over = k.capacity.is_some_and(|cap| held > cap);
+            let text = match k.capacity {
+                Some(cap) => format!(" {held:.0}/{cap:.0} lb"),
+                None => format!(" {held:.0} lb"),
+            };
+            fill.push(Span::styled(text, if over { base.fg(Color::Red) } else { base.fg(theme.accent) }));
+            if k.weightless {
+                fill.push(Span::styled(" weightless", base.patch(faint)));
+            }
+        }
+        let indent = "  ".repeat(depth);
+        let fill_w: usize = fill.iter().map(|f| f.content.width()).sum();
+        let name_w = width.saturating_sub(20 + indent.len() + 2 + fill_w + kind.width()).max(8);
+        let mut left = vec![
+            Span::raw(" "),
+            mark,
+            Span::raw(indent),
+            Span::styled(fold, base.fg(theme.accent)),
+            Span::styled(truncate(&line_name(lib, line), name_w), if container.is_some() { base.add_modifier(Modifier::BOLD) } else { base }),
+            Span::styled(kind, base.patch(faint).remove_modifier(Modifier::BOLD)),
+        ];
+        left.extend(fill);
         lines.push(
             spread(
-                vec![
-                    Span::raw(" "),
-                    mark,
-                    Span::styled(truncate(&line_name(lib, line), width.saturating_sub(26)), base),
-                    Span::styled(kind, base.patch(faint).remove_modifier(Modifier::BOLD)),
-                ],
+                left,
                 vec![Span::styled(format!("{:>5}{weight:>10} ", line.quantity), base)],
                 width,
             )
@@ -1281,7 +1313,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
         );
     }
     let height = items_area.height as usize;
-    let scroll = (sheet.inventory_cursor + 1).saturating_sub(height.saturating_sub(1));
+    let scroll = (cursor_row + 1).saturating_sub(height);
     frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), items_area);
 
     // Totals: weight, attunement, coins.
