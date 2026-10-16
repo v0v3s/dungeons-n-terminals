@@ -400,6 +400,16 @@ impl CharacterSession {
                 if !spellbook::remove(c, &from, &id) {
                     return Err(format!("{} is not there", spell_name(lib, &id)));
                 }
+                // Gone from the sheet: no longer a favorite either.
+                let granted = self
+                    .build
+                    .granted
+                    .iter()
+                    .flat_map(|g| &g.grants)
+                    .any(|g| matches!(g, spells::Granted::Spell { id: s, .. } if *s == id));
+                if !granted && !spellbook::has(c, &id) {
+                    c.spells.favorites.retain(|f| *f != id);
+                }
                 Outcome::changed(format!("Removed {}", spell_name(lib, &id)))
             }
             Command::TogglePrepared { class_id, id } => {
@@ -502,6 +512,7 @@ mod tests {
 
         assert!(s.apply(&lib, o, Command::ToggleFavorite { id: "spell:Bless|T".into() }).unwrap().message.contains("is a favorite"));
         assert!(s.apply(&lib, o, Command::RemoveSpell { from: to.clone(), id: "spell:Bless|T".into() }).is_ok());
+        assert!(s.character().spells.favorites.is_empty(), "a removed spell is no longer a favorite");
         assert!(s.apply(&lib, o, Command::RemoveSpell { from: to, id: "spell:Bless|T".into() }).is_err(), "already gone");
         assert_eq!(s.character().spells.chosen["feat:X|T#0"], vec!["spell:Alarm|T".to_string()]);
 

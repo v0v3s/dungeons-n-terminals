@@ -359,6 +359,12 @@ pub(crate) fn remove(ch: &mut Character, target: &Target, id: &str) -> bool {
     }
 }
 
+/// Whether the character has chosen a spell anywhere (a class or a feature).
+pub(crate) fn has(ch: &Character, id: &str) -> bool {
+    let classes = ch.spells.classes.values().flat_map(|c| c.cantrips.iter().chain(&c.prepared).chain(&c.spellbook));
+    classes.chain(ch.spells.chosen.values().flatten()).any(|s| s == id)
+}
+
 /// Prepare a spellbook spell or unprepare a prepared one (Wizards), within
 /// the prepared limit. Returns whether it is prepared now.
 pub(crate) fn toggle_prepared(ch: &mut Character, casters: &[Caster], class_id: &str, id: &str) -> Result<bool, String> {
