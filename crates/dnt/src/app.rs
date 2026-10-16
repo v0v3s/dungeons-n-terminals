@@ -375,8 +375,13 @@ impl App {
             A::Status(s) => self.status = s,
             A::Edit(path) => self.pending_edit = Some(path),
             A::CreateItem => self.start_new(homebrew::Template::ITEMS, true),
-            A::Rolled(line, to_notes) => {
+            A::Rolled { line, to_notes, save } => {
                 self.status = line.clone();
+                if let (true, Some(sheet)) = (save, &self.characters.sheet) {
+                    if let Err(e) = self.store.save_character(&sheet.session.file) {
+                        self.status = format!("{line} · could not save: {e}");
+                    }
+                }
                 if to_notes {
                     // Keep an open, edited note from overwriting the log.
                     self.notes.save();

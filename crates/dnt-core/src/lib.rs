@@ -8,6 +8,7 @@ pub mod export;
 pub mod options;
 pub mod rolls;
 pub mod session;
+pub mod spellbook;
 
 pub use commands::{Command, Outcome, Pool};
 pub use options::Choice;

@@ -177,7 +177,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         warn.push(Span::styled(" c ", theme.keycap));
         warn.push(Span::raw("   "));
     }
-    let gaps = crate::spells_tab::spell_gaps(ch, &dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev));
+    let gaps = dnt_core::spellbook::spell_gaps(ch, &dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev));
     let open: i64 = gaps.iter().map(|(_, c, s)| c + s).sum();
     if open > 0 {
         warn.push(Span::styled(format!(" {open} spell(s) to choose "), theme.category_active));
@@ -1081,7 +1081,7 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
 }
 
 fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, theme: &Theme) {
-    use crate::spells_tab::{self, Row, Slot};
+    use dnt_core::spellbook::{self, Row, Slot};
     use dnt_rules::spells::{self, Grant};
     let [bar, _, main] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(3)]).areas(area);
     let ch = &sheet.session.file.character;
@@ -1124,7 +1124,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
     let block = pane(pane_title("Spells", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(list);
     frame.render_widget(block, list);
-    let data = spells_tab::rows(lib, ch, &sheet.session.build, ev);
+    let data = spellbook::rows(lib, &sheet.session);
     let width = inner.width as usize;
     sheet.spell_cursor = sheet.spell_cursor.min(data.rows.len().saturating_sub(1));
 

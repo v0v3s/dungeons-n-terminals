@@ -10,7 +10,6 @@ mod notes_view;
 mod overlay_editor;
 mod picker;
 mod render;
-mod spells_tab;
 mod theme;
 mod ui;
 mod ui_editor;

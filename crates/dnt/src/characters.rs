@@ -1,5 +1,6 @@
 //! Characters section: roster and character sheet state, and key handling.
 
+use dnt_core::spellbook;
 use dnt_core::{Command, Pool};
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::character::{Character, Hand, Slot};
@@ -13,7 +14,6 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::levelup::{self, LevelUp};
 use crate::picker::{Picked, Picker};
-use crate::spells_tab;
 use crate::wizard::{self, Wizard};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,15 +84,15 @@ pub enum Popup {
     /// Free text: a custom item's name or a currency change.
     Text(TextPrompt, String),
     /// Adding spells to a class or a feature grant.
-    SpellPick(Box<Picker>, spells_tab::Target),
+    SpellPick(Box<Picker>, spellbook::Target),
     /// Choosing how to cast a spell.
-    Cast(Box<Picker>, dnt_data::EntityId),
+    Cast(Box<Picker>, String),
     /// Choosing where to wear an inventory line.
     Wear(Box<Picker>, usize),
     /// Choosing a container for an inventory line.
     MoveInto(Box<Picker>, usize),
     /// Swapping a weapon mastery: the mastered weapon being replaced.
-    SwapMastery(Box<Picker>, dnt_data::EntityId),
+    SwapMastery(Box<Picker>, String),
     /// Writing a feature's rules.
     Overlay(Box<crate::overlay_editor::OverlayEditor>),
     /// Conditions and exhaustion (cursor row; the last is exhaustion).
@@ -240,8 +240,13 @@ pub enum Action {
     SaveOverlay(String, String),
     /// Export the open sheet: (file slug, Markdown, HTML).
     Export(String, String, String),
-    /// A roll was made: its line, and whether to add it to the session note.
-    Rolled(String, bool),
+    /// A roll was made: its line, whether to add it to the session note, and
+    /// whether the character changed too (a spell cast).
+    Rolled {
+        line: String,
+        to_notes: bool,
+        save: bool,
+    },
 }
 
 pub struct Characters {
@@ -394,12 +399,12 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let action = changed(sheet, lib, overlays, status.clone());
                         // New spells to learn or prepare at the new level.
                         let casters = dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev);
-                        let gaps = spells_tab::spell_gaps(&sheet.session.file.character, &casters);
+                        let gaps = spellbook::spell_gaps(&sheet.session.file.character, &casters);
                         if !gaps.is_empty() {
                             if let Action::Save(_) = action {
                                 return Action::Save(format!(
                                     "{status} · to choose on the Spells tab: {}",
-                                    spells_tab::describe_gaps(&gaps)
+                                    spellbook::describe_gaps(&gaps)
                                 ));
                             }
                         }
@@ -504,30 +509,12 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         return Action::None;
                     }
                 };
-                let names: Vec<String> =
-                    ids.iter().filter_map(|i| dnt_rules::overlay::resolve_id(lib, i)).map(|e| lib.entity(e).name.clone()).collect();
-                let casters = dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev);
-                let limits = match &target {
-                    spells_tab::Target::Class { class_id, .. } => casters.iter().find(|c| &c.id == class_id).map(|c| &c.limits),
-                    _ => None,
-                };
-                return match spells_tab::add(lib, &mut sheet.session.file.character, &target, ids, limits) {
-                    Ok(()) => changed(sheet, lib, overlays, format!("Added {}", names.join(", "))),
-                    Err(e) => Action::Status(e),
-                };
+                return run(sheet, lib, overlays, Command::AddSpells { to: target, ids });
             }
             Popup::Cast(mut picker, spell) => {
                 sheet.popup = None;
                 match picker.key(key) {
-                    Some(Picked::One(how)) => {
-                        return match spells_tab::cast(lib, &mut sheet.session.file.character, &sheet.session.ev, spell, &how) {
-                            Ok(msg) => {
-                                let action = changed(sheet, lib, overlays, msg.clone());
-                                cast_roll(sheet, lib, spell, &how, &msg).unwrap_or(action)
-                            }
-                            Err(msg) => Action::Status(msg),
-                        };
-                    }
+                    Some(Picked::One(how)) => return run(sheet, lib, overlays, Command::Cast { id: spell, how }),
                     _ if key.code == KeyCode::Esc => {}
                     _ => sheet.popup = Some(Popup::Cast(picker, spell)),
                 }
@@ -586,15 +573,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             Popup::SwapMastery(mut picker, old) => {
                 sheet.popup = None;
                 match picker.key(key) {
-                    Some(Picked::One(new)) => {
-                        let from = lib.entity(old).name.clone();
-                        let to =
-                            dnt_rules::overlay::resolve_id(lib, &new).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| new.clone());
-                        if choices::swap_mastery(lib, &mut sheet.session.file.character, old, &new) {
-                            return changed(sheet, lib, overlays, format!("Weapon Mastery: {from} → {to}"));
-                        }
-                        return Action::Status(format!("{from} is not a mastery chosen at a level"));
-                    }
+                    Some(Picked::One(new)) => return run(sheet, lib, overlays, Command::SwapMastery { weapon: old, new }),
                     _ if key.code == KeyCode::Esc => {}
                     _ => sheet.popup = Some(Popup::SwapMastery(picker, old)),
                 }
@@ -769,9 +748,9 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         .into_iter()
                         .map(|o| crate::picker::PickItem::new(o.label, o.hint, o.value))
                         .collect();
-                    let name = lib.entity(f.entity).name.clone();
-                    let picker = Picker::new(format!("Swap the mastery of {name} for…"), items);
-                    sheet.popup = Some(Popup::SwapMastery(Box::new(picker), f.entity));
+                    let weapon = lib.entity(f.entity);
+                    let picker = Picker::new(format!("Swap the mastery of {} for…", weapon.name), items);
+                    sheet.popup = Some(Popup::SwapMastery(Box::new(picker), format!("item:{}|{}", weapon.name, weapon.source)));
                     return Action::None;
                 }
                 KeyCode::Char('J') => sheet.feature_scroll += 1,
@@ -786,16 +765,6 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
 }
 
 /// After casting: roll the spell's attack and damage at the level used.
-fn cast_roll(sheet: &mut Sheet, lib: &Library, spell: dnt_data::EntityId, how: &str, msg: &str) -> Option<Action> {
-    if !dnt_core::rolls::spell_rolls(lib, spell) {
-        return None;
-    }
-    let (atk, dc) = dnt_core::rolls::spell_numbers(sheet, None);
-    let level = dnt_core::rolls::cast_level(sheet, lib, spell, how);
-    let r = dnt_core::rolls::spell(sheet, lib, spell, level, atk, dc);
-    Some(Action::Rolled(format!("{msg} · {}", r.line()), sheet.session.roller.to_notes))
-}
-
 /// Roll what the overview cursor is on (`save`: a saving throw for an ability).
 fn roll_item(sheet: &mut Sheet, save: bool) -> Action {
     let rolled = match sheet.current_item() {
@@ -818,7 +787,7 @@ fn roll_item(sheet: &mut Sheet, save: bool) -> Action {
         }
         _ => return Action::Status("Roll an ability, skill, initiative or attack (r), or a save on an ability (R)".into()),
     };
-    Action::Rolled(rolled.line(), sheet.session.roller.to_notes)
+    Action::Rolled { line: rolled.line(), to_notes: sheet.session.roller.to_notes, save: false }
 }
 
 fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet) -> Action {
@@ -897,8 +866,8 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
 }
 
 fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
-    use spells_tab::Row;
-    let data = spells_tab::rows(lib, &sheet.session.file.character, &sheet.session.build, &sheet.session.ev);
+    use spellbook::Row;
+    let data = spellbook::rows(lib, &sheet.session);
     let n = data.rows.len();
     let i = sheet.spell_cursor.min(n.saturating_sub(1));
     // A favorite acts like the spell's own row.
@@ -919,17 +888,14 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
             let Some(c) = caster_at(i).or((!data.casters.is_empty()).then_some(0)) else {
                 return Action::Status("No spellcasting class".into());
             };
-            let (picker, target) = spells_tab::class_picker(lib, &sheet.session.file.character, &data.casters[c], filter);
-            sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
+            sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter)));
         }
         KeyCode::Enter => match row {
             Some(Row::GrantChoice { key, filter: f, missing, .. }) => {
-                let (picker, target) = spells_tab::grant_picker(lib, &sheet.session.file.character, &key, &f, missing, filter);
-                sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
+                sheet.popup = Some(spell_pick(spellbook::grant_choices(lib, &sheet.session.file.character, &key, &f, missing, filter)));
             }
             Some(Row::ClassHeader(c)) => {
-                let (picker, target) = spells_tab::class_picker(lib, &sheet.session.file.character, &data.casters[c], filter);
-                sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
+                sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter)));
             }
             Some(Row::ClassSpell { ref id, .. } | Row::GrantSpell { ref id, .. }) => {
                 let Some(spell) = dnt_rules::overlay::resolve_id(lib, id) else { return Action::None };
@@ -938,35 +904,26 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                 }
                 // Free (innate) casts first, if the grant has them.
                 if let Some(Row::GrantSpell { how: dnt_rules::spells::Grant::Innate(Some(_)), .. }) = &row {
-                    return match spells_tab::cast(lib, &mut sheet.session.file.character, &sheet.session.ev, spell, "free") {
-                        Ok(msg) => {
-                            let action = changed(sheet, lib, overlays, msg.clone());
-                            cast_roll(sheet, lib, spell, "free", &msg).unwrap_or(action)
-                        }
-                        Err(msg) => Action::Status(msg),
-                    };
+                    return run(sheet, lib, overlays, Command::Cast { id: id.clone(), how: "free".into() });
                 }
-                match spells_tab::cast_picker(lib, &sheet.session.file.character, &sheet.session.ev, &sheet.session.build, spell) {
-                    Some(p) => sheet.popup = Some(Popup::Cast(Box::new(p), spell)),
+                match spellbook::cast_choices(lib, &sheet.session, spell) {
+                    Some((title, choices)) => sheet.popup = Some(Popup::Cast(Box::new(Picker::new(title, choices)), id.clone())),
                     None => return Action::Status("No spell slots".into()),
                 }
             }
             _ => {}
         },
         KeyCode::Char('p') => {
-            if let Some(r) = &row {
-                match spells_tab::toggle_prepared(&mut sheet.session.file.character, &data.casters, r) {
-                    Some(Ok(on)) => return changed(sheet, lib, overlays, if on { "Prepared".into() } else { "Unprepared".into() }),
-                    Some(Err(e)) => return Action::Status(e),
-                    None => {}
+            if let Some(Row::ClassSpell { caster, id, slot: spellbook::Slot::Prepared | spellbook::Slot::Book }) = &row {
+                if data.casters[*caster].limits.spellbook.is_some() {
+                    let class_id = data.casters[*caster].id.clone();
+                    return run(sheet, lib, overlays, Command::TogglePrepared { class_id, id: id.clone() });
                 }
             }
         }
         KeyCode::Char('x') => {
-            if let Some(r) = &row {
-                if spells_tab::remove(&mut sheet.session.file.character, &data.casters, r) {
-                    return changed(sheet, lib, overlays, "Removed".into());
-                }
+            if let (Some(from), Some(id)) = (row.as_ref().and_then(|r| r.target(&data.casters)), row.as_ref().and_then(|r| r.spell_id())) {
+                return run(sheet, lib, overlays, Command::RemoveSpell { from, id: id.to_string() });
             }
         }
         KeyCode::Char('r') => {
@@ -982,17 +939,16 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
             let (atk, dc) = dnt_core::rolls::spell_numbers(sheet, slug.as_deref());
             let level = dnt_rules::spells::spell_level(lib, spell);
             let r = dnt_core::rolls::spell(sheet, lib, spell, level, atk, dc);
-            return Action::Rolled(r.line(), sheet.session.roller.to_notes);
+            return Action::Rolled { line: r.line(), to_notes: sheet.session.roller.to_notes, save: false };
         }
         KeyCode::Char('f') => {
             if let Some(id) = row.as_ref().and_then(|r| r.spell_id()).map(str::to_string) {
-                let name = dnt_rules::overlay::resolve_id(lib, &id).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| id.clone());
-                let on = spells_tab::toggle_favorite(&mut sheet.session.file.character, &id);
+                let action = run(sheet, lib, overlays, Command::ToggleFavorite { id: id.clone() });
                 // Keep the cursor on the spell as rows move.
-                let rows = spells_tab::rows(lib, &sheet.session.file.character, &sheet.session.build, &sheet.session.ev).rows;
+                let rows = spellbook::rows(lib, &sheet.session).rows;
                 let at = rows.iter().position(|r| !matches!(r, Row::Favorite(_)) && r.spell_id() == Some(id.as_str()));
                 sheet.spell_cursor = at.unwrap_or(sheet.spell_cursor);
-                return Action::Save(if on { format!("{name} is a favorite") } else { format!("{name} is no longer a favorite") });
+                return action;
             }
         }
         KeyCode::Char('C') => return run(sheet, lib, overlays, Command::EndConcentration),
@@ -1149,10 +1105,19 @@ fn spend(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, n: i64) -> Act
 /// Apply a core command: a changed character is saved, a refusal shown.
 fn run(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, command: Command) -> Action {
     match sheet.session.apply(lib, overlays, command) {
+        Ok(dnt_core::Outcome { message, changed, rolled: Some(r) }) => {
+            Action::Rolled { line: format!("{message} · {}", r.line()), to_notes: sheet.session.roller.to_notes, save: changed }
+        }
         Ok(o) if o.changed => Action::Save(o.message),
         Ok(o) => Action::Status(o.message),
         Err(e) => Action::Status(e),
     }
+}
+
+/// A popup to choose spells from.
+fn spell_pick(c: spellbook::SpellChoices) -> Popup {
+    let picker = if c.pick > 1 { Picker::multi(c.title, c.choices, c.pick) } else { Picker::new(c.title, c.choices) };
+    Popup::SpellPick(Box::new(picker), c.target)
 }
 
 fn changed(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, status: String) -> Action {

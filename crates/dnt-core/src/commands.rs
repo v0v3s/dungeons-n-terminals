@@ -6,12 +6,13 @@
 use dnt_data::Library;
 use dnt_rules::builder::FeatureSource;
 use dnt_rules::character::{Hand, InventoryItem, Slot};
-use dnt_rules::equipment;
-use dnt_rules::overlay::OverlaySet;
-use dnt_rules::play;
+use dnt_rules::overlay::{resolve_id, OverlaySet};
+use dnt_rules::{choices, equipment, play, spells};
 use serde::{Deserialize, Serialize};
 
+use crate::rolls::{self, Rolled};
 use crate::session::{item_entity, line_name, CharacterSession};
+use crate::spellbook::{self, Target};
 
 /// A use-limited pool to spend from or restore.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,6 +115,36 @@ pub enum Command {
     ChangeCoins {
         change: String,
     },
+
+    // ---- spells (ids like `spell:Fireball|XPHB`) ----
+    /// Add spells to a casting class or a feature's choice, within limits.
+    AddSpells {
+        to: Target,
+        ids: Vec<String>,
+    },
+    RemoveSpell {
+        from: Target,
+        id: String,
+    },
+    /// Prepare a spellbook spell, or unprepare a prepared one (Wizards).
+    TogglePrepared {
+        class_id: String,
+        id: String,
+    },
+    /// Cast a spell `how`: `slot:N`, `pact`, `ritual`, or `free` (an innate
+    /// cast); rolls what the spell rolls.
+    Cast {
+        id: String,
+        how: String,
+    },
+    ToggleFavorite {
+        id: String,
+    },
+    /// Trade a mastered weapon (`item:Club|XPHB`) for another.
+    SwapMastery {
+        weapon: String,
+        new: String,
+    },
 }
 
 /// What applying a command did.
@@ -123,16 +154,23 @@ pub struct Outcome {
     pub message: String,
     /// The character changed (and should be saved).
     pub changed: bool,
+    /// A roll the command made (casting a spell that rolls).
+    pub rolled: Option<Rolled>,
 }
 
 impl Outcome {
     fn changed(message: impl Into<String>) -> Outcome {
-        Outcome { message: message.into(), changed: true }
+        Outcome { message: message.into(), changed: true, rolled: None }
     }
 }
 
 /// A command that could not be applied, and why.
 pub type Refused = String;
+
+/// An entity's name for messages (the id when it is unknown).
+fn spell_name(lib: &Library, id: &str) -> String {
+    resolve_id(lib, id).map_or_else(|| id.to_string(), |e| lib.entity(e).name.clone())
+}
 
 fn line(session: &CharacterSession, i: usize) -> Result<&InventoryItem, Refused> {
     session.file.character.inventory.get(i).ok_or_else(|| format!("There is no inventory line {i}"))
@@ -141,9 +179,18 @@ fn line(session: &CharacterSession, i: usize) -> Result<&InventoryItem, Refused>
 impl CharacterSession {
     /// Apply a command; on success the session is recomputed.
     pub fn apply(&mut self, lib: &Library, overlays: &OverlaySet, command: Command) -> Result<Outcome, Refused> {
-        let outcome = self.run(lib, command)?;
+        let cast = match &command {
+            Command::Cast { id, how } => resolve_id(lib, id).map(|e| (e, how.clone())),
+            _ => None,
+        };
+        let mut outcome = self.run(lib, command)?;
         if outcome.changed {
             self.rebuild(lib, overlays);
+        }
+        if let Some((spell, how)) = cast.filter(|(e, _)| rolls::spell_rolls(lib, *e)) {
+            let (atk, dc) = rolls::spell_numbers(self, None);
+            let level = rolls::cast_level(self, lib, spell, &how);
+            outcome.rolled = Some(rolls::spell(self, lib, spell, level, atk, dc));
         }
         Ok(outcome)
     }
@@ -343,6 +390,39 @@ impl CharacterSession {
                 }
                 Outcome::changed(format!("Coins {}", change.trim()))
             }
+
+            Command::AddSpells { to, ids } => {
+                let names: Vec<String> = ids.iter().map(|id| spell_name(lib, id)).collect();
+                spellbook::add(lib, c, &spells::casters(lib, &self.build, ev), &to, ids)?;
+                Outcome::changed(format!("Added {}", names.join(", ")))
+            }
+            Command::RemoveSpell { from, id } => {
+                if !spellbook::remove(c, &from, &id) {
+                    return Err(format!("{} is not there", spell_name(lib, &id)));
+                }
+                Outcome::changed(format!("Removed {}", spell_name(lib, &id)))
+            }
+            Command::TogglePrepared { class_id, id } => {
+                let on = spellbook::toggle_prepared(c, &spells::casters(lib, &self.build, ev), &class_id, &id)?;
+                Outcome::changed(format!("{} {}", if on { "Prepared" } else { "Unprepared" }, spell_name(lib, &id)))
+            }
+            Command::Cast { id, how } => {
+                let spell = resolve_id(lib, &id).ok_or_else(|| format!("Unknown spell {id}"))?;
+                Outcome::changed(spellbook::cast(lib, c, ev, spell, &how)?)
+            }
+            Command::ToggleFavorite { id } => {
+                let name = spell_name(lib, &id);
+                let on = spellbook::toggle_favorite(c, &id);
+                Outcome::changed(if on { format!("{name} is a favorite") } else { format!("{name} is no longer a favorite") })
+            }
+            Command::SwapMastery { weapon, new } => {
+                let old = resolve_id(lib, &weapon).ok_or_else(|| format!("Unknown weapon {weapon}"))?;
+                let (from, to) = (lib.entity(old).name.clone(), spell_name(lib, &new));
+                if !choices::swap_mastery(lib, c, old, &new) {
+                    return Err(format!("{from} is not a mastery chosen at a level"));
+                }
+                Outcome::changed(format!("Weapon Mastery: {from} → {to}"))
+            }
         })
     }
 }
@@ -399,5 +479,34 @@ mod tests {
         assert!(s.apply(&lib, o, Command::LongRest).unwrap().message.starts_with("Long rest"));
         assert!(s.apply(&lib, o, Command::ChangeCoins { change: "+15gp".into() }).is_ok());
         assert_eq!(s.character().currency.gp, 15);
+    }
+
+    #[test]
+    fn spells_are_added_cast_and_removed() {
+        let (mut lib, _) = session();
+        lib.load_json(&json!({"spell": [{"name": "Alarm", "source": "T", "level": 1, "school": "A", "meta": {"ritual": true}},
+                                        {"name": "Bless", "source": "T", "level": 1, "school": "E", "duration": [{"concentration": true}]}]}));
+        let file =
+            CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: Character { name: "A".into(), ..Default::default() } };
+        let o = &OverlaySet::default();
+        let mut s = CharacterSession::new(file, &lib, o, &Default::default());
+        let to = Target::Grant { key: "feat:X|T#0".into() };
+        let ids = vec!["spell:Alarm|T".to_string(), "spell:Bless|T".to_string()];
+        let added = s.apply(&lib, o, Command::AddSpells { to: to.clone(), ids }).unwrap();
+        assert_eq!(added.message, "Added Alarm, Bless");
+        assert_eq!(s.character().spells.chosen["feat:X|T#0"].len(), 2);
+
+        let cast = s.apply(&lib, o, Command::Cast { id: "spell:Alarm|T".into(), how: "ritual".into() }).unwrap();
+        assert_eq!(cast.message, "Cast Alarm");
+        assert!(s.apply(&lib, o, Command::Cast { id: "spell:Bless|T".into(), how: "slot:1".into() }).is_err(), "no slots");
+
+        assert!(s.apply(&lib, o, Command::ToggleFavorite { id: "spell:Bless|T".into() }).unwrap().message.contains("is a favorite"));
+        assert!(s.apply(&lib, o, Command::RemoveSpell { from: to.clone(), id: "spell:Bless|T".into() }).is_ok());
+        assert!(s.apply(&lib, o, Command::RemoveSpell { from: to, id: "spell:Bless|T".into() }).is_err(), "already gone");
+        assert_eq!(s.character().spells.chosen["feat:X|T#0"], vec!["spell:Alarm|T".to_string()]);
+
+        let json = r#"{"command":"add_spells","to":{"kind":"class","class_id":"class:Wizard|XPHB"},"ids":["spell:Alarm|T"]}"#;
+        let c: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(c, Command::AddSpells { to: Target::Class { class_id: "class:Wizard|XPHB".into() }, ids: vec!["spell:Alarm|T".into()] });
     }
 }

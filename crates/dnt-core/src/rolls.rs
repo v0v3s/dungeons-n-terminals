@@ -13,7 +13,7 @@ use dnt_rules::Evaluation;
 use crate::session::CharacterSession;
 
 /// One entry of the roll log.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Rolled {
     pub title: String,
     /// The headline: `21 to hit`, `17`, `fails`.
