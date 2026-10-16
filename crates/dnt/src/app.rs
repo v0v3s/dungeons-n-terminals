@@ -432,7 +432,7 @@ impl App {
             }
             A::Save(status) => {
                 if let Some(sheet) = &self.characters.sheet {
-                    match self.store.save_character(&sheet.file) {
+                    match self.store.save_character(&sheet.session.file) {
                         Ok(()) => self.status = status,
                         Err(e) => self.status = format!("Could not save: {e}"),
                     }

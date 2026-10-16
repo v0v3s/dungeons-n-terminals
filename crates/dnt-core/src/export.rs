@@ -10,7 +10,7 @@ use dnt_rules::play;
 use dnt_rules::spells::{self, Granted};
 use dnt_rules::standard::{ABILITIES, SKILLS};
 
-use crate::characters::{line_name, Sheet};
+use crate::session::{line_name, CharacterSession};
 
 pub enum Block {
     /// `label: value` lines.
@@ -44,7 +44,7 @@ fn signed(n: i64) -> String {
 }
 
 /// The character's sheet as a document.
-pub fn character(lib: &Library, sheet: &Sheet) -> Document {
+pub fn character(lib: &Library, sheet: &CharacterSession) -> Document {
     let ch = &sheet.file.character;
     let ev = &sheet.ev;
     let b = &sheet.build;
@@ -450,7 +450,7 @@ mod tests {
             ..Character::default()
         };
         let file = CharacterFile { slug: "ana".into(), path: "/tmp/ana.toml".into(), character: c };
-        let sheet = Sheet::new(file, &lib, &OverlaySet::default(), &Default::default());
+        let sheet = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
         let d = character(&lib, &sheet);
         let md = to_markdown(&d);
         assert!(md.starts_with("# Ana <the Bold>"));

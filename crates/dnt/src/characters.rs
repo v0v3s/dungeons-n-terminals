@@ -1,14 +1,12 @@
 //! Characters section: roster and character sheet state, and key handling.
 
 use dnt_data::{Library, SourceFilter};
-use dnt_rules::builder::{build, Build};
 use dnt_rules::character::{Character, Hand, Slot};
 use dnt_rules::choices::{self, Pending};
 use dnt_rules::equipment;
 use dnt_rules::overlay::OverlaySet;
-use dnt_rules::play::{self, Edition};
+use dnt_rules::play;
 use dnt_rules::standard::{ABILITIES, SKILLS};
-use dnt_rules::Evaluation;
 use dnt_store::CharacterFile;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -146,69 +144,48 @@ pub enum Rest {
     Long,
 }
 
+/// A character sheet on screen: the character in play (a core session)
+/// and where the cursor is. Derefs to the session.
 pub struct Sheet {
-    pub file: CharacterFile,
-    /// Class feature choices this character is missing.
-    pub pending: Vec<Pending>,
-    pub(crate) filter: SourceFilter,
-    pub build: Build,
-    pub ev: Evaluation,
-    pub edition: Edition,
+    pub session: dnt_core::CharacterSession,
     pub tab: Tab,
     pub cursor: usize,
     /// The inventory line under the cursor (an index into the inventory).
     pub inventory_cursor: usize,
     /// Folded containers (by `id`).
     pub folded: std::collections::BTreeSet<String>,
-    /// Dice, the next roll's mode and the roll log.
-    pub roller: crate::rolls::Roller,
     pub spell_cursor: usize,
     pub feature_cursor: usize,
     pub feature_scroll: usize,
     pub popup: Option<Popup>,
 }
 
-impl Sheet {
-    /// Path of this character's note (`notes/Party/<name>.md`).
-    pub fn note_path(&self) -> Option<std::path::PathBuf> {
-        let campaign = self.file.path.parent()?.parent()?;
-        Some(campaign.join("notes/Party").join(format!("{}.md", dnt_store::notes::file_safe(&self.file.character.name))))
+impl std::ops::Deref for Sheet {
+    type Target = dnt_core::CharacterSession;
+    fn deref(&self) -> &Self::Target {
+        &self.session
     }
+}
 
-    pub fn new(mut file: CharacterFile, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Sheet {
-        // Older files: equipped weapons go in hand, worn items get a slot
-        // (saved with the next change).
-        equipment::normalize(lib, &mut file.character);
-        let build = build(&file.character, lib, overlays);
-        let ev = build.evaluate();
-        let edition = Edition::of(&build, lib);
+impl std::ops::DerefMut for Sheet {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.session
+    }
+}
+
+impl Sheet {
+    pub fn new(file: CharacterFile, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Sheet {
         Sheet {
-            pending: choices::pending(lib, &file.character, filter),
-            filter: filter.clone(),
-            file,
-            build,
-            ev,
-            edition,
+            session: dnt_core::CharacterSession::new(file, lib, overlays, filter),
             tab: Tab::Overview,
             cursor: 0,
             inventory_cursor: 0,
             folded: Default::default(),
-            roller: Default::default(),
             spell_cursor: 0,
             feature_cursor: 0,
             feature_scroll: 0,
             popup: None,
         }
-    }
-
-    fn rebuild(&mut self, lib: &Library, overlays: &OverlaySet) {
-        self.build = build(&self.file.character, lib, overlays);
-        self.ev = self.build.evaluate();
-        self.pending = choices::pending(lib, &self.file.character, &self.filter);
-    }
-
-    pub fn character(&self) -> &Character {
-        &self.file.character
     }
 
     /// Focusable overview items, in cursor order.
@@ -281,7 +258,7 @@ impl Characters {
     pub fn open_overlay(&mut self, lib: &Library, overlays: &OverlaySet, entity: dnt_data::EntityId, user: Option<String>) {
         let Some(sheet) = self.sheet.as_mut() else { return };
         let mut ed = crate::overlay_editor::OverlayEditor::open(lib, entity, user);
-        ed.check(lib, &sheet.file.character, overlays, &sheet.ev);
+        ed.check(lib, &sheet.session.file.character, overlays, &sheet.session.ev);
         sheet.popup = Some(Popup::Overlay(Box::new(ed)));
     }
 
@@ -320,7 +297,7 @@ impl Characters {
     /// Rebuild an open sheet against a rebuilt library.
     pub fn refresh(&mut self, lib: &Library, overlays: &OverlaySet) {
         if let Some(sheet) = self.sheet.as_mut() {
-            sheet.filter = self.filter.clone();
+            sheet.session.filter = self.filter.clone();
             sheet.rebuild(lib, overlays);
         }
     }
@@ -331,7 +308,7 @@ impl Characters {
             self.files[i] = file.clone();
         }
         if let Some(sheet) = self.sheet.as_mut() {
-            sheet.file = file;
+            sheet.session.file = file;
             sheet.rebuild(lib, overlays);
         }
     }
@@ -373,8 +350,8 @@ impl Characters {
                 if matches!(action, Action::Quit) {
                     // `q`/Esc on a sheet goes back to the roster.
                     if let Some(s) = self.sheet.take() {
-                        if let Some(f) = self.files.iter_mut().find(|f| f.path == s.file.path) {
-                            *f = s.file;
+                        if let Some(f) = self.files.iter_mut().find(|f| f.path == s.session.file.path) {
+                            *f = s.session.file;
                         }
                     }
                     return Action::None;
@@ -407,16 +384,16 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
     if let Some(popup) = sheet.popup.clone() {
         match popup {
             Popup::LevelUp(mut flow) => {
-                match flow.key(key, lib, &sheet.file.character, &sheet.ev, filter) {
+                match flow.key(key, lib, &sheet.session.file.character, &sheet.session.ev, filter) {
                     levelup::Outcome::Continue => sheet.popup = Some(Popup::LevelUp(flow)),
                     levelup::Outcome::Cancel => sheet.popup = None,
                     levelup::Outcome::Apply => {
                         sheet.popup = None;
-                        let status = flow.apply(&mut sheet.file.character);
+                        let status = flow.apply(&mut sheet.session.file.character);
                         let action = changed(sheet, lib, overlays, status.clone());
                         // New spells to learn or prepare at the new level.
-                        let casters = dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev);
-                        let gaps = spells_tab::spell_gaps(&sheet.file.character, &casters);
+                        let casters = dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev);
+                        let gaps = spells_tab::spell_gaps(&sheet.session.file.character, &casters);
                         if !gaps.is_empty() {
                             if let Action::Save(_) = action {
                                 return Action::Save(format!(
@@ -443,13 +420,13 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     }
                 };
                 let p = fill.queue.remove(0);
-                if let Some(level) = sheet.file.character.levels.get_mut(p.level_index) {
+                if let Some(level) = sheet.session.file.character.levels.get_mut(p.level_index) {
                     level.choices.picks.entry(p.choice.key.clone()).or_default().extend(values);
                 }
                 fill.done += 1;
                 // Recompute: earlier picks change what remains available.
                 sheet.rebuild(lib, overlays);
-                match Fill::new(sheet.pending.clone()) {
+                match Fill::new(sheet.session.pending.clone()) {
                     Some(mut next) => {
                         next.done = fill.done;
                         sheet.popup = Some(Popup::Fill(Box::new(next)));
@@ -467,7 +444,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     Some(Picked::One(v)) if v == "create" => return Action::CreateItem,
                     Some(Picked::One(v)) => {
                         // New items go where the cursor is (into its container).
-                        let c = &mut sheet.file.character;
+                        let c = &mut sheet.session.file.character;
                         let inside = c.inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
                         let before = c.inventory.len();
                         equipment::add_item(c, &v, 1, None);
@@ -491,7 +468,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 match key.code {
                     KeyCode::Esc => {}
                     KeyCode::Enter => {
-                        let c = &mut sheet.file.character;
+                        let c = &mut sheet.session.file.character;
                         match prompt {
                             TextPrompt::CustomItem if !text.trim().is_empty() => {
                                 let inside = c.inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
@@ -557,12 +534,12 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 };
                 let names: Vec<String> =
                     ids.iter().filter_map(|i| dnt_rules::overlay::resolve_id(lib, i)).map(|e| lib.entity(e).name.clone()).collect();
-                let casters = dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev);
+                let casters = dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev);
                 let limits = match &target {
                     spells_tab::Target::Class { class_id, .. } => casters.iter().find(|c| &c.id == class_id).map(|c| &c.limits),
                     _ => None,
                 };
-                return match spells_tab::add(lib, &mut sheet.file.character, &target, ids, limits) {
+                return match spells_tab::add(lib, &mut sheet.session.file.character, &target, ids, limits) {
                     Ok(()) => changed(sheet, lib, overlays, format!("Added {}", names.join(", "))),
                     Err(e) => Action::Status(e),
                 };
@@ -571,7 +548,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 sheet.popup = None;
                 match picker.key(key) {
                     Some(Picked::One(how)) => {
-                        return match spells_tab::cast(lib, &mut sheet.file.character, &sheet.ev, spell, &how) {
+                        return match spells_tab::cast(lib, &mut sheet.session.file.character, &sheet.session.ev, spell, &how) {
                             Ok(msg) => {
                                 let action = changed(sheet, lib, overlays, msg.clone());
                                 cast_roll(sheet, lib, spell, &how, &msg).unwrap_or(action)
@@ -587,7 +564,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             Popup::Overlay(mut ed) => {
                 return match ed.key(key) {
                     crate::overlay_editor::Outcome::Continue => {
-                        ed.check(lib, &sheet.file.character, overlays, &sheet.ev);
+                        ed.check(lib, &sheet.session.file.character, overlays, &sheet.session.ev);
                         sheet.popup = Some(Popup::Overlay(ed));
                         Action::None
                     }
@@ -604,7 +581,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             Popup::Conditions(cursor) => {
                 let names = dnt_rules::conditions::CONDITIONS;
                 let n = names.len() + 1;
-                let st = &mut sheet.file.character.state;
+                let st = &mut sheet.session.file.character.state;
                 let msg = match key.code {
                     KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('C') => {
                         sheet.popup = None;
@@ -652,7 +629,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let from = lib.entity(old).name.clone();
                         let to =
                             dnt_rules::overlay::resolve_id(lib, &new).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| new.clone());
-                        if choices::swap_mastery(lib, &mut sheet.file.character, old, &new) {
+                        if choices::swap_mastery(lib, &mut sheet.session.file.character, old, &new) {
                             return changed(sheet, lib, overlays, format!("Weapon Mastery: {from} → {to}"));
                         }
                         return Action::Status(format!("{from} is not a mastery chosen at a level"));
@@ -667,10 +644,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 match picker.key(key) {
                     Some(Picked::One(v)) => {
                         let into = v.parse::<usize>().ok();
-                        return match equipment::put_in(lib, &mut sheet.file.character, i, into) {
+                        return match equipment::put_in(lib, &mut sheet.session.file.character, i, into) {
                             Ok(msg) => {
                                 // Show where it went.
-                                if let Some(id) = into.and_then(|t| sheet.file.character.inventory[t].id.clone()) {
+                                if let Some(id) = into.and_then(|t| sheet.session.file.character.inventory[t].id.clone()) {
                                     sheet.folded.remove(&id);
                                 }
                                 changed(sheet, lib, overlays, msg)
@@ -688,8 +665,8 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 match picker.key(key) {
                     Some(Picked::One(v)) => {
                         let Some(&slot) = v.parse::<usize>().ok().and_then(|n| Slot::ALL.get(n)) else { return Action::None };
-                        let off = equipment::wear(lib, &mut sheet.file.character, i, slot);
-                        let name = line_name(lib, &sheet.file.character.inventory[i]);
+                        let off = equipment::wear(lib, &mut sheet.session.file.character, i, slot);
+                        let name = line_name(lib, &sheet.session.file.character.inventory[i]);
                         let mut msg = format!("Wearing {name} ({})", slot.label());
                         if !off.is_empty() {
                             msg.push_str(&format!(", took off {}", off.join(", ")));
@@ -704,7 +681,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             Popup::Undo => {
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
-                    if let Some(l) = sheet.file.character.remove_last_level() {
+                    if let Some(l) = sheet.session.file.character.remove_last_level() {
                         let name = l.class.split_once(':').map_or("", |(_, r)| r.split('|').next().unwrap_or(r)).to_string();
                         return changed(sheet, lib, overlays, format!("Removed a {name} level"));
                     }
@@ -721,13 +698,20 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
                     let report = match rest {
-                        Rest::Short => play::short_rest(&mut sheet.file.character, &sheet.build, &sheet.ev),
-                        Rest::Long => play::long_rest(&mut sheet.file.character, &sheet.build, &sheet.ev, sheet.edition),
+                        Rest::Short => play::short_rest(&mut sheet.session.file.character, &sheet.session.build, &sheet.session.ev),
+                        Rest::Long => play::long_rest(
+                            &mut sheet.session.file.character,
+                            &sheet.session.build,
+                            &sheet.session.ev,
+                            sheet.session.edition,
+                        ),
                     };
                     let what = if rest == Rest::Short { "Short rest" } else { "Long rest" };
                     let detail = if report.restored.is_empty() { "nothing to restore".to_string() } else { report.restored.join(", ") };
                     let mut msg = format!("{what}: {detail}");
-                    if rest == Rest::Long && sheet.build.features.iter().any(|f| f.source == dnt_rules::builder::FeatureSource::Mastery) {
+                    if rest == Rest::Long
+                        && sheet.session.build.features.iter().any(|f| f.source == dnt_rules::builder::FeatureSource::Mastery)
+                    {
                         msg.push_str(" · you may swap a Weapon Mastery (r on the Features tab)");
                     }
                     return changed(sheet, lib, overlays, msg);
@@ -748,10 +732,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     KeyCode::Enter => {
                         sheet.popup = None;
                         let Ok(n) = text.parse::<i64>() else { return Action::None };
-                        let c = &mut sheet.file.character;
+                        let c = &mut sheet.session.file.character;
                         match prompt {
-                            Prompt::Damage => play::damage(c, &sheet.ev, n),
-                            Prompt::Heal => play::heal(c, &sheet.ev, n),
+                            Prompt::Damage => play::damage(c, &sheet.session.ev, n),
+                            Prompt::Heal => play::heal(c, &sheet.session.ev, n),
                             Prompt::TempHp => play::set_temp_hp(c, n),
                         }
                         return changed(sheet, lib, overlays, format!("{} {n}", prompt.label()));
@@ -791,24 +775,24 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             sheet.popup = Some(Popup::Confirm(Rest::Long));
             return Action::None;
         }
-        KeyCode::Char('e') => return Action::Edit(sheet.file.path.clone()),
+        KeyCode::Char('e') => return Action::Edit(sheet.session.file.path.clone()),
         KeyCode::Char('X') => {
-            let d = crate::export::character(lib, sheet);
-            return Action::Export(sheet.file.slug.clone(), crate::export::to_markdown(&d), crate::export::to_html(&d));
+            let d = dnt_core::export::character(lib, sheet);
+            return Action::Export(sheet.session.file.slug.clone(), dnt_core::export::to_markdown(&d), dnt_core::export::to_html(&d));
         }
         KeyCode::Char('u') if !ctrl => {
-            let flow = LevelUp::start(lib, &sheet.file.character, &sheet.ev, filter);
+            let flow = LevelUp::start(lib, &sheet.session.file.character, &sheet.session.ev, filter);
             sheet.popup = Some(Popup::LevelUp(Box::new(flow)));
             return Action::None;
         }
         KeyCode::Char('c') => {
-            match Fill::new(sheet.pending.clone()) {
+            match Fill::new(sheet.session.pending.clone()) {
                 Some(fill) => sheet.popup = Some(Popup::Fill(Box::new(fill))),
                 None => return Action::Status("No choices pending".into()),
             }
             return Action::None;
         }
-        KeyCode::Char('U') if !sheet.file.character.levels.is_empty() => {
+        KeyCode::Char('U') if !sheet.session.file.character.levels.is_empty() => {
             sheet.popup = Some(Popup::Undo);
             return Action::None;
         }
@@ -820,11 +804,11 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
         Tab::Inventory => inventory_key(sheet, key, lib, overlays, filter),
         Tab::Spells => spells_key(sheet, key, lib, overlays, filter),
         Tab::Notes => match key.code {
-            KeyCode::Enter | KeyCode::Char('i') => Action::OpenNote(sheet.file.character.name.clone()),
+            KeyCode::Enter | KeyCode::Char('i') => Action::OpenNote(sheet.session.file.character.name.clone()),
             _ => Action::None,
         },
         Tab::Features => {
-            let n = sheet.build.features.len();
+            let n = sheet.session.build.features.len();
             match key.code {
                 KeyCode::Char('j') | KeyCode::Down if n > 0 => {
                     sheet.feature_cursor = (sheet.feature_cursor + 1).min(n - 1);
@@ -835,16 +819,16 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     sheet.feature_scroll = 0;
                 }
                 KeyCode::Char('O') => {
-                    if let Some(f) = sheet.build.features.get(sheet.feature_cursor) {
+                    if let Some(f) = sheet.session.build.features.get(sheet.feature_cursor) {
                         return Action::EditOverlay(f.entity);
                     }
                 }
                 KeyCode::Char('r') => {
-                    let Some(f) = sheet.build.features.get(sheet.feature_cursor) else { return Action::None };
+                    let Some(f) = sheet.session.build.features.get(sheet.feature_cursor) else { return Action::None };
                     if f.source != dnt_rules::builder::FeatureSource::Mastery {
                         return Action::Status("r swaps a Weapon Mastery: pick one in the Weapon Mastery group".into());
                     }
-                    let items: Vec<crate::picker::PickItem> = choices::mastery_swap_options(lib, &sheet.file.character, filter)
+                    let items: Vec<crate::picker::PickItem> = choices::mastery_swap_options(lib, &sheet.session.file.character, filter)
                         .into_iter()
                         .map(|o| crate::picker::PickItem::new(o.label, o.hint, o.value))
                         .collect();
@@ -866,13 +850,13 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
 
 /// After casting: roll the spell's attack and damage at the level used.
 fn cast_roll(sheet: &mut Sheet, lib: &Library, spell: dnt_data::EntityId, how: &str, msg: &str) -> Option<Action> {
-    if !crate::rolls::spell_rolls(lib, spell) {
+    if !dnt_core::rolls::spell_rolls(lib, spell) {
         return None;
     }
-    let (atk, dc) = crate::rolls::spell_numbers(sheet, None);
-    let level = crate::rolls::cast_level(sheet, lib, spell, how);
-    let r = crate::rolls::spell(sheet, lib, spell, level, atk, dc);
-    Some(Action::Rolled(format!("{msg} · {}", r.line()), sheet.roller.to_notes))
+    let (atk, dc) = dnt_core::rolls::spell_numbers(sheet, None);
+    let level = dnt_core::rolls::cast_level(sheet, lib, spell, how);
+    let r = dnt_core::rolls::spell(sheet, lib, spell, level, atk, dc);
+    Some(Action::Rolled(format!("{msg} · {}", r.line()), sheet.session.roller.to_notes))
 }
 
 /// Roll what the overview cursor is on (`save`: a saving throw for an ability).
@@ -880,24 +864,24 @@ fn roll_item(sheet: &mut Sheet, save: bool) -> Action {
     let rolled = match sheet.current_item() {
         Some(Item::Stat(k)) if ABILITIES.iter().any(|(a, _)| *a == k) => {
             if save {
-                crate::rolls::save(sheet, &k)
+                dnt_core::rolls::save(sheet, &k)
             } else {
-                crate::rolls::check(sheet, &k, None)
+                dnt_core::rolls::check(sheet, &k, None)
             }
         }
         Some(Item::Stat(k)) if k.starts_with("skill.") => {
             let key = k.trim_start_matches("skill.");
             let Some((_, name, ab)) = SKILLS.iter().find(|(s, _, _)| *s == key) else { return Action::None };
-            crate::rolls::check(sheet, ab, Some((key, name)))
+            dnt_core::rolls::check(sheet, ab, Some((key, name)))
         }
-        Some(Item::Stat(k)) if k == "initiative" => crate::rolls::initiative(sheet),
+        Some(Item::Stat(k)) if k == "initiative" => dnt_core::rolls::initiative(sheet),
         Some(Item::Attack(slug)) => {
-            let Some(a) = sheet.build.attacks.iter().find(|a| a.slug == slug).cloned() else { return Action::None };
-            crate::rolls::attack(sheet, &a)
+            let Some(a) = sheet.session.build.attacks.iter().find(|a| a.slug == slug).cloned() else { return Action::None };
+            dnt_core::rolls::attack(sheet, &a)
         }
         _ => return Action::Status("Roll an ability, skill, initiative or attack (r), or a save on an ability (R)".into()),
     };
-    Action::Rolled(rolled.line(), sheet.roller.to_notes)
+    Action::Rolled(rolled.line(), sheet.session.roller.to_notes)
 }
 
 fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet) -> Action {
@@ -927,16 +911,16 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         KeyCode::Char('r') => return roll_item(sheet, false),
         KeyCode::Char('R') => return roll_item(sheet, true),
         KeyCode::Char('v') => {
-            let m = sheet.roller.cycle();
+            let m = sheet.session.roller.cycle();
             return Action::Status(match m {
                 dnt_rules::roll::Advantage::Normal => "Next roll: normal".into(),
                 m => format!("Next roll: {}", m.label()),
             });
         }
         KeyCode::Char('N') => {
-            sheet.roller.to_notes = !sheet.roller.to_notes;
+            sheet.session.roller.to_notes = !sheet.session.roller.to_notes;
             return Action::Status(
-                if sheet.roller.to_notes { "Rolls go into the latest session note" } else { "Rolls stay on the sheet" }.into(),
+                if sheet.session.roller.to_notes { "Rolls go into the latest session note" } else { "Rolls stay on the sheet" }.into(),
             );
         }
         KeyCode::Char('C') => {
@@ -958,14 +942,14 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         }
         KeyCode::Char('S') => {
             // Take up or put away the shield (the one in hand first).
-            let inv = &sheet.file.character.inventory;
+            let inv = &sheet.session.file.character.inventory;
             let is_shield = |l: &dnt_rules::character::InventoryItem| {
                 item_entity(lib, l).is_some_and(|e| equipment::armor_kind(&lib.entity(e).data) == Some("shield"))
             };
             let Some(i) = inv.iter().position(|l| is_shield(l) && l.hand.is_some()).or_else(|| inv.iter().position(is_shield)) else {
                 return Action::Status("No shield in the inventory".into());
             };
-            let hand = sheet.file.character.inventory[i].hand.unwrap_or(Hand::Off);
+            let hand = sheet.session.file.character.inventory[i].hand.unwrap_or(Hand::Off);
             return hold(sheet, lib, overlays, i, hand);
         }
         KeyCode::Char(' ' | '-') => return spend(sheet, lib, overlays, 1),
@@ -977,7 +961,7 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
 
 fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
     use spells_tab::Row;
-    let data = spells_tab::rows(lib, &sheet.file.character, &sheet.build, &sheet.ev);
+    let data = spells_tab::rows(lib, &sheet.session.file.character, &sheet.session.build, &sheet.session.ev);
     let n = data.rows.len();
     let i = sheet.spell_cursor.min(n.saturating_sub(1));
     // A favorite acts like the spell's own row.
@@ -998,16 +982,16 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
             let Some(c) = caster_at(i).or((!data.casters.is_empty()).then_some(0)) else {
                 return Action::Status("No spellcasting class".into());
             };
-            let (picker, target) = spells_tab::class_picker(lib, &sheet.file.character, &data.casters[c], filter);
+            let (picker, target) = spells_tab::class_picker(lib, &sheet.session.file.character, &data.casters[c], filter);
             sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
         }
         KeyCode::Enter => match row {
             Some(Row::GrantChoice { key, filter: f, missing, .. }) => {
-                let (picker, target) = spells_tab::grant_picker(lib, &sheet.file.character, &key, &f, missing, filter);
+                let (picker, target) = spells_tab::grant_picker(lib, &sheet.session.file.character, &key, &f, missing, filter);
                 sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
             }
             Some(Row::ClassHeader(c)) => {
-                let (picker, target) = spells_tab::class_picker(lib, &sheet.file.character, &data.casters[c], filter);
+                let (picker, target) = spells_tab::class_picker(lib, &sheet.session.file.character, &data.casters[c], filter);
                 sheet.popup = Some(Popup::SpellPick(Box::new(picker), target));
             }
             Some(Row::ClassSpell { ref id, .. } | Row::GrantSpell { ref id, .. }) => {
@@ -1017,7 +1001,7 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                 }
                 // Free (innate) casts first, if the grant has them.
                 if let Some(Row::GrantSpell { how: dnt_rules::spells::Grant::Innate(Some(_)), .. }) = &row {
-                    return match spells_tab::cast(lib, &mut sheet.file.character, &sheet.ev, spell, "free") {
+                    return match spells_tab::cast(lib, &mut sheet.session.file.character, &sheet.session.ev, spell, "free") {
                         Ok(msg) => {
                             let action = changed(sheet, lib, overlays, msg.clone());
                             cast_roll(sheet, lib, spell, "free", &msg).unwrap_or(action)
@@ -1025,7 +1009,7 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                         Err(msg) => Action::Status(msg),
                     };
                 }
-                match spells_tab::cast_picker(lib, &sheet.file.character, &sheet.ev, &sheet.build, spell) {
+                match spells_tab::cast_picker(lib, &sheet.session.file.character, &sheet.session.ev, &sheet.session.build, spell) {
                     Some(p) => sheet.popup = Some(Popup::Cast(Box::new(p), spell)),
                     None => return Action::Status("No spell slots".into()),
                 }
@@ -1034,7 +1018,7 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
         },
         KeyCode::Char('p') => {
             if let Some(r) = &row {
-                match spells_tab::toggle_prepared(&mut sheet.file.character, &data.casters, r) {
+                match spells_tab::toggle_prepared(&mut sheet.session.file.character, &data.casters, r) {
                     Some(Ok(on)) => return changed(sheet, lib, overlays, if on { "Prepared".into() } else { "Unprepared".into() }),
                     Some(Err(e)) => return Action::Status(e),
                     None => {}
@@ -1043,7 +1027,7 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
         }
         KeyCode::Char('x') => {
             if let Some(r) = &row {
-                if spells_tab::remove(&mut sheet.file.character, &data.casters, r) {
+                if spells_tab::remove(&mut sheet.session.file.character, &data.casters, r) {
                     return changed(sheet, lib, overlays, "Removed".into());
                 }
             }
@@ -1051,31 +1035,31 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
         KeyCode::Char('r') => {
             let Some(id) = row.as_ref().and_then(|r| r.spell_id()) else { return Action::None };
             let Some(spell) = dnt_rules::overlay::resolve_id(lib, id) else { return Action::None };
-            if !crate::rolls::spell_rolls(lib, spell) {
+            if !dnt_core::rolls::spell_rolls(lib, spell) {
                 return Action::Status(format!("{} has nothing to roll", lib.entity(spell).name));
             }
             let slug = match row.as_ref() {
                 Some(Row::ClassSpell { caster, .. }) => data.casters.get(*caster).map(|c| c.slug.clone()),
                 _ => None,
             };
-            let (atk, dc) = crate::rolls::spell_numbers(sheet, slug.as_deref());
+            let (atk, dc) = dnt_core::rolls::spell_numbers(sheet, slug.as_deref());
             let level = dnt_rules::spells::spell_level(lib, spell);
-            let r = crate::rolls::spell(sheet, lib, spell, level, atk, dc);
-            return Action::Rolled(r.line(), sheet.roller.to_notes);
+            let r = dnt_core::rolls::spell(sheet, lib, spell, level, atk, dc);
+            return Action::Rolled(r.line(), sheet.session.roller.to_notes);
         }
         KeyCode::Char('f') => {
             if let Some(id) = row.as_ref().and_then(|r| r.spell_id()).map(str::to_string) {
                 let name = dnt_rules::overlay::resolve_id(lib, &id).map(|e| lib.entity(e).name.clone()).unwrap_or_else(|| id.clone());
-                let on = spells_tab::toggle_favorite(&mut sheet.file.character, &id);
+                let on = spells_tab::toggle_favorite(&mut sheet.session.file.character, &id);
                 // Keep the cursor on the spell as rows move.
-                let rows = spells_tab::rows(lib, &sheet.file.character, &sheet.build, &sheet.ev).rows;
+                let rows = spells_tab::rows(lib, &sheet.session.file.character, &sheet.session.build, &sheet.session.ev).rows;
                 let at = rows.iter().position(|r| !matches!(r, Row::Favorite(_)) && r.spell_id() == Some(id.as_str()));
                 sheet.spell_cursor = at.unwrap_or(sheet.spell_cursor);
                 return Action::Save(if on { format!("{name} is a favorite") } else { format!("{name} is no longer a favorite") });
             }
         }
         KeyCode::Char('C') => {
-            if let Some(name) = sheet.file.character.state.concentration.take() {
+            if let Some(name) = sheet.session.file.character.state.concentration.take() {
                 return changed(sheet, lib, overlays, format!("Stopped concentrating on {name}"));
             }
         }
@@ -1085,20 +1069,20 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
 }
 
 fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
-    let n = sheet.file.character.inventory.len();
+    let n = sheet.session.file.character.inventory.len();
     let i = sheet.inventory_cursor.min(n.saturating_sub(1));
     // Moving follows the tree (containers, then their contents).
-    let order: Vec<usize> = equipment::tree(&sheet.file.character, &sheet.folded).into_iter().map(|(l, _)| l).collect();
+    let order: Vec<usize> = equipment::tree(&sheet.session.file.character, &sheet.folded).into_iter().map(|(l, _)| l).collect();
     let pos = order.iter().position(|&l| l == i).unwrap_or(0);
     let is_container =
-        |sheet: &Sheet, i: usize| sheet.file.character.inventory.get(i).is_some_and(|l| equipment::container(lib, l).is_some());
+        |sheet: &Sheet, i: usize| sheet.session.file.character.inventory.get(i).is_some_and(|l| equipment::container(lib, l).is_some());
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if n > 0 => sheet.inventory_cursor = order[(pos + 1).min(order.len() - 1)],
         KeyCode::Char('k') | KeyCode::Up if n > 0 => sheet.inventory_cursor = order[pos.saturating_sub(1)],
         KeyCode::Home if n > 0 => sheet.inventory_cursor = order[0],
         KeyCode::Char('G') | KeyCode::End if n > 0 => sheet.inventory_cursor = order[order.len() - 1],
         KeyCode::Enter | KeyCode::Right | KeyCode::Left if n > 0 => {
-            let c = &sheet.file.character;
+            let c = &sheet.session.file.character;
             if is_container(sheet, i) {
                 // Containers fold like folders.
                 let Some(id) = c.inventory[i].id.clone() else { return Action::Status("Empty".into()) };
@@ -1123,7 +1107,7 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             }
         }
         KeyCode::Char('M') if n > 0 => {
-            let c = &sheet.file.character;
+            let c = &sheet.session.file.character;
             let mut items = vec![crate::picker::PickItem::new("Carried loose", "not in a container", "loose")];
             for (t, depth) in equipment::tree(c, &Default::default()) {
                 let Some(k) = equipment::container(lib, &c.inventory[t]) else { continue };
@@ -1152,16 +1136,16 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             sheet.popup = Some(Popup::MoveInto(Box::new(Picker::new(format!("Put {name} in…"), items)), i));
         }
         KeyCode::Char('p') if n > 0 => {
-            return match equipment::unpack(lib, &mut sheet.file.character, i) {
+            return match equipment::unpack(lib, &mut sheet.session.file.character, i) {
                 Ok(msg) => {
-                    sheet.inventory_cursor = sheet.inventory_cursor.min(sheet.file.character.inventory.len().saturating_sub(1));
+                    sheet.inventory_cursor = sheet.inventory_cursor.min(sheet.session.file.character.inventory.len().saturating_sub(1));
                     changed(sheet, lib, overlays, msg)
                 }
                 Err(e) => Action::Status(e),
             };
         }
         KeyCode::Char('w') if n > 0 => {
-            let line = &sheet.file.character.inventory[i];
+            let line = &sheet.session.file.character.inventory[i];
             let current = match equipment::container(lib, line) {
                 Some(k) => {
                     let mut t = k.capacity.map(|w| format!("{w}")).unwrap_or_else(|| "no limit".into());
@@ -1185,17 +1169,17 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
         KeyCode::Char('g') => sheet.popup = Some(Popup::Text(TextPrompt::Currency, String::new())),
         KeyCode::Char('m') if n > 0 => {
             // Mark or unmark a monk weapon; back to the rules when they agree.
-            let line = &sheet.file.character.inventory[i];
+            let line = &sheet.session.file.character.inventory[i];
             let Some(e) = item_entity(lib, line) else { return Action::None };
             let ent = lib.entity(e);
             let Some(w) = dnt_rules::attacks::Weapon::from_item(&ent.name.to_lowercase(), &ent.data) else {
                 return Action::Status(format!("{} is not a weapon", ent.name));
             };
-            let preset = sheet.build.martial_arts.is_some_and(|m| m.preset(&w));
+            let preset = sheet.session.build.martial_arts.is_some_and(|m| m.preset(&w));
             let now = !line.monk_weapon.unwrap_or(preset);
             let name = ent.name.clone();
-            sheet.file.character.inventory[i].monk_weapon = (now != preset).then_some(now);
-            let msg = match (now, sheet.build.martial_arts.is_some()) {
+            sheet.session.file.character.inventory[i].monk_weapon = (now != preset).then_some(now);
+            let msg = match (now, sheet.session.build.martial_arts.is_some()) {
                 (true, true) => format!("{name} is a monk weapon"),
                 (true, false) => format!("{name} is marked as a monk weapon (it counts once you have Martial Arts)"),
                 (false, _) => format!("{name} is not a monk weapon"),
@@ -1203,11 +1187,11 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             return changed(sheet, lib, overlays, msg);
         }
         KeyCode::Char('+' | '=') if n > 0 => {
-            sheet.file.character.inventory[i].quantity += 1;
+            sheet.session.file.character.inventory[i].quantity += 1;
             return changed(sheet, lib, overlays, "Quantity +1".into());
         }
         KeyCode::Char('-') if n > 0 => {
-            let line = &mut sheet.file.character.inventory[i];
+            let line = &mut sheet.session.file.character.inventory[i];
             if line.quantity > 1 {
                 line.quantity -= 1;
                 return changed(sheet, lib, overlays, "Quantity -1".into());
@@ -1216,12 +1200,12 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
         KeyCode::Char('x') if n > 0 => {
             // What was inside a removed container stays, where it was.
             let next = order.get(pos + 1).or(pos.checked_sub(1).and_then(|p| order.get(p))).copied();
-            let removed = equipment::remove_line(&mut sheet.file.character, i);
+            let removed = equipment::remove_line(&mut sheet.session.file.character, i);
             sheet.inventory_cursor = next.map(|j| if j > i { j - 1 } else { j }).unwrap_or(0);
             return changed(sheet, lib, overlays, format!("Removed {}", line_name(lib, &removed)));
         }
         KeyCode::Char(' ') if n > 0 => {
-            let c = &sheet.file.character;
+            let c = &sheet.session.file.character;
             let line = &c.inventory[i];
             let data = item_entity(lib, line).map(|e| &lib.entity(e).data);
             // Weapons and shields are held; the rest is worn in a slot.
@@ -1230,22 +1214,22 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
                 return hold(sheet, lib, overlays, i, if shield { Hand::Off } else { Hand::Main });
             }
             if line.equipped {
-                equipment::take_off(&mut sheet.file.character, i);
-                let name = line_name(lib, &sheet.file.character.inventory[i]);
+                equipment::take_off(&mut sheet.session.file.character, i);
+                let name = line_name(lib, &sheet.session.file.character.inventory[i]);
                 return changed(sheet, lib, overlays, format!("Took off {name}"));
             }
             let picker = wear_picker(lib, c, i);
             sheet.popup = Some(Popup::Wear(Box::new(picker), i));
         }
         KeyCode::Char('o') if n > 0 => {
-            let data = item_entity(lib, &sheet.file.character.inventory[i]).map(|e| &lib.entity(e).data);
+            let data = item_entity(lib, &sheet.session.file.character.inventory[i]).map(|e| &lib.entity(e).data);
             if !data.is_some_and(equipment::is_held) {
                 return Action::Status("Only weapons and shields are held".into());
             }
             return hold(sheet, lib, overlays, i, Hand::Off);
         }
         KeyCode::Char('A') if n > 0 => {
-            let line = &mut sheet.file.character.inventory[i];
+            let line = &mut sheet.session.file.character.inventory[i];
             line.attuned = !line.attuned;
             let mut msg = format!("{} {}", if line.attuned { "Attuned to" } else { "No longer attuned to" }, line_name(lib, line));
             // Its magic works only while worn (or held).
@@ -1263,7 +1247,7 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
 /// cursor on the same attack as the list reorders.
 fn hold(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, i: usize, hand: Hand) -> Action {
     let before = sheet.current_item();
-    let msg = equipment::wield(lib, &mut sheet.file.character, i, hand);
+    let msg = equipment::wield(lib, &mut sheet.session.file.character, i, hand);
     let action = changed(sheet, lib, overlays, msg);
     if let Some(item @ Item::Attack(_)) = before {
         if let Some(at) = sheet.items().iter().position(|x| *x == item) {
@@ -1275,9 +1259,9 @@ fn hold(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, i: usize, hand:
 
 /// The inventory line behind an attack row.
 fn attack_line(sheet: &Sheet, lib: &Library, slug: &str) -> Option<usize> {
-    let a = sheet.build.attacks.iter().find(|a| a.slug == slug)?;
+    let a = sheet.session.build.attacks.iter().find(|a| a.slug == slug)?;
     let id = a.item?;
-    let inv = &sheet.file.character.inventory;
+    let inv = &sheet.session.file.character.inventory;
     inv.iter()
         .position(|l| item_entity(lib, l) == Some(id) && line_name(lib, l) == a.name)
         .or_else(|| inv.iter().position(|l| item_entity(lib, l) == Some(id)))
@@ -1340,21 +1324,11 @@ fn equipment_catalog(lib: &Library, filter: &SourceFilter) -> Vec<crate::picker:
     items
 }
 
-pub fn item_entity(lib: &Library, line: &dnt_rules::character::InventoryItem) -> Option<dnt_data::EntityId> {
-    dnt_rules::overlay::resolve_id(lib, line.item.as_deref()?)
-}
-
-pub fn line_name(lib: &Library, line: &dnt_rules::character::InventoryItem) -> String {
-    line.name
-        .clone()
-        .or_else(|| item_entity(lib, line).map(|e| lib.entity(e).name.clone()))
-        .or_else(|| line.item.clone())
-        .unwrap_or_else(|| "?".into())
-}
+pub use dnt_core::{item_entity, line_name};
 
 fn toggle(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet) -> Action {
     let Some(Item::Toggle(k)) = sheet.current_item() else { return Action::None };
-    let toggles = &mut sheet.file.character.state.toggles;
+    let toggles = &mut sheet.session.file.character.state.toggles;
     let on = !toggles.get(&k).copied().unwrap_or(false);
     if on {
         toggles.insert(k.clone(), true);
@@ -1367,8 +1341,8 @@ fn toggle(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet) -> Action {
 /// Spend (n > 0) or restore (n < 0) the item under the cursor.
 fn spend(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, n: i64) -> Action {
     let item = sheet.current_item();
-    let c = &mut sheet.file.character;
-    let ev = &sheet.ev;
+    let c = &mut sheet.session.file.character;
+    let ev = &sheet.session.ev;
     let (ok, what) = match item {
         Some(Item::Resource(k)) => (play::spend_resource(c, ev, &k, n), k),
         Some(Item::Slot(l)) => (play::spend_slot(c, ev, l, n), format!("level {l} slot")),

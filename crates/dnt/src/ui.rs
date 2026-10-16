@@ -274,17 +274,28 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         ],
     };
     let mut spans = vec![Span::raw(" ")];
-    let help = [("?", "help")];
-    let hints = if app.help.is_some() { &[][..] } else { hints };
-    for (key, what) in hints.iter().chain(if app.help.is_some() { &[][..] } else { &help[..] }) {
+    let mut hints: Vec<(&str, &str)> = if app.help.is_some() { Vec::new() } else { hints.to_vec() };
+    if app.help.is_none() {
+        hints.push(("?", "help"));
+    }
+    // The status message comes first: drop hints from the end (keeping
+    // "? help") until it fits.
+    let status = if app.status.is_empty() { String::new() } else { format!("{} ", app.status) };
+    let hint_width = |h: &[(&str, &str)]| h.iter().map(|(k, w)| k.width() + w.width() + 6).sum::<usize>() + 1;
+    let room = (area.width as usize).saturating_sub(status.width().min(area.width as usize * 2 / 3) + 2);
+    while hints.len() > 1 && hint_width(&hints) > room {
+        hints.remove(hints.len() - 2);
+    }
+    for (key, what) in &hints {
         spans.push(Span::styled(format!(" {key} "), theme.keycap));
         spans.push(Span::styled(format!(" {what}   "), theme.dim));
     }
-    if !app.status.is_empty() {
-        let status = format!("{} ", app.status);
+    if !status.is_empty() {
         let used: usize = spans.iter().map(|s| s.content.width()).sum();
-        let pad = (area.width as usize).saturating_sub(used + status.width());
-        spans.push(Span::raw(" ".repeat(pad.max(1))));
+        let left = (area.width as usize).saturating_sub(used + 1);
+        let status = truncate(&status, left);
+        let pad = left.saturating_sub(status.width());
+        spans.push(Span::raw(" ".repeat(pad + 1)));
         spans.push(Span::styled(status, Style::new().fg(theme.accent)));
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), area);

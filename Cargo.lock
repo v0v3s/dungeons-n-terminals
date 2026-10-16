@@ -498,6 +498,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "dnt-core",
  "dnt-data",
  "dnt-rules",
  "dnt-store",
@@ -505,6 +506,17 @@ dependencies = [
  "ratatui",
  "serde_json",
  "unicode-width",
+]
+
+[[package]]
+name = "dnt-core"
+version = "0.3.0"
+dependencies = [
+ "dnt-data",
+ "dnt-rules",
+ "dnt-store",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

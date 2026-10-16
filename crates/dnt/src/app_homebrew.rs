@@ -240,10 +240,10 @@ impl App {
         if for_inventory {
             if let Some(sheet) = self.characters.sheet.as_mut() {
                 let id = format!("item:{name}|{}", campaign.settings.source);
-                dnt_rules::equipment::add_item(&mut sheet.file.character, &id, 1, None);
-                sheet.inventory_cursor = sheet.file.character.inventory.len().saturating_sub(1);
-                self.status = match self.store.save_character(&sheet.file) {
-                    Ok(()) => format!("Created {name} and added it to {}", sheet.file.character.name),
+                dnt_rules::equipment::add_item(&mut sheet.session.file.character, &id, 1, None);
+                sheet.inventory_cursor = sheet.session.file.character.inventory.len().saturating_sub(1);
+                self.status = match self.store.save_character(&sheet.session.file) {
+                    Ok(()) => format!("Created {name} and added it to {}", sheet.session.file.character.name),
                     Err(e) => format!("Created {name}, but could not save the character: {e}"),
                 };
             }
@@ -375,7 +375,7 @@ impl App {
         };
         // The characters on disk changed; the open sheet must not save stale refs.
         self.characters.files = self.active_campaign().map(|c| self.store.characters(c).0).unwrap_or_default();
-        if let Some(path) = self.characters.sheet.as_ref().map(|s| s.file.path.clone()) {
+        if let Some(path) = self.characters.sheet.as_ref().map(|s| s.session.file.path.clone()) {
             if let Ok(file) = self.store.load_character(&path) {
                 self.characters.reload(file, lib, &self.overlays);
             }

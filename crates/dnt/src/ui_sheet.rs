@@ -171,21 +171,21 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
 
     let ch = sheet.character();
     let mut warn = Vec::new();
-    if !sheet.pending.is_empty() {
-        warn.push(Span::styled(format!(" {} choice(s) to make ", sheet.pending.len()), theme.category_active));
+    if !sheet.session.pending.is_empty() {
+        warn.push(Span::styled(format!(" {} choice(s) to make ", sheet.session.pending.len()), theme.category_active));
         warn.push(Span::styled("  press ", theme.dim));
         warn.push(Span::styled(" c ", theme.keycap));
         warn.push(Span::raw("   "));
     }
-    let gaps = crate::spells_tab::spell_gaps(ch, &dnt_rules::spells::casters(lib, &sheet.build, &sheet.ev));
+    let gaps = crate::spells_tab::spell_gaps(ch, &dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev));
     let open: i64 = gaps.iter().map(|(_, c, s)| c + s).sum();
     if open > 0 {
         warn.push(Span::styled(format!(" {open} spell(s) to choose "), theme.category_active));
         warn.push(Span::styled("  Spells tab ", theme.dim));
         warn.push(Span::raw("   "));
     }
-    if !sheet.build.warnings.is_empty() {
-        warn.push(Span::styled(format!("⚠ {} warning(s) ", sheet.build.warnings.len()), Style::new().fg(Color::Yellow)));
+    if !sheet.session.build.warnings.is_empty() {
+        warn.push(Span::styled(format!("⚠ {} warning(s) ", sheet.session.build.warnings.len()), Style::new().fg(Color::Yellow)));
     }
     frame.render_widget(
         Paragraph::new(vec![
@@ -203,7 +203,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
                     Span::styled(" to set abilities, species and background", theme.muted),
                 ])
             } else {
-                Line::styled(format!("   {}", identity(lib, ch, &sheet.build.class_summary())), theme.muted)
+                Line::styled(format!("   {}", identity(lib, ch, &sheet.session.build.class_summary())), theme.muted)
             },
         ]),
         header,
@@ -235,7 +235,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         Some(Popup::Overlay(_)) => {}
         Some(Popup::Conditions(cursor)) => {
             let names = dnt_rules::conditions::CONDITIONS;
-            let st = &sheet.file.character.state;
+            let st = &sheet.session.file.character.state;
             let rect = centered(area, 96.min(area.width), names.len() as u16 + 7);
             frame.render_widget(Clear, rect);
             let block = pane(pane_title("Conditions", true, theme), true, theme)
@@ -256,7 +256,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             }
             let base = if cursor == names.len() { theme.selected } else { Style::new() };
             let lvl = st.exhaustion;
-            let what = dnt_rules::conditions::exhaustion_summary(lvl, sheet.edition == dnt_rules::play::Edition::Modern);
+            let what = dnt_rules::conditions::exhaustion_summary(lvl, sheet.session.edition == dnt_rules::play::Edition::Modern);
             lines.push(Line::default());
             lines.push(
                 Line::from(vec![
@@ -515,7 +515,7 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let width = inner.width as usize;
-    let ev = &sheet.ev;
+    let ev = &sheet.session.ev;
     let damage_of = |a: &dnt_rules::attacks::Attack| {
         let dmg = |k: &str| ev.get(&format!("attack.{}.{k}", a.slug)).map(|v| v.to_string());
         let mut d = format!("{} {}", dmg("damage").unwrap_or_else(|| "?".into()), a.damage_type);
@@ -524,7 +524,7 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
         }
         d
     };
-    let attacks = &sheet.build.attacks;
+    let attacks = &sheet.session.build.attacks;
     let col = |f: &dyn Fn(&dnt_rules::attacks::Attack) -> usize, min: usize| attacks.iter().map(f).max().unwrap_or(0).max(min) + 3;
     let name_w = col(&|a| a.name.width(), 6).min(28);
     let dmg_w = col(&|a| damage_of(a).width(), 6);
@@ -554,7 +554,7 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
                     Span::styled(held.join(" · "), Style::new().add_modifier(Modifier::BOLD))
                 },
             ],
-            match sheet.roller.next {
+            match sheet.session.roller.next {
                 dnt_rules::roll::Advantage::Normal => vec![Span::styled("r roll · space main · o off · b both · S shield ", theme.dim)],
                 m => vec![Span::styled(format!(" next roll: {} ", m.label()), theme.category_active), Span::raw(" ")],
             },
@@ -700,7 +700,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         Constraint::Length(34),
     ])
     .areas(area);
-    let ev = &sheet.ev;
+    let ev = &sheet.session.ev;
 
     // Abilities and saves.
     let block = pane(pane_title("Abilities", false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
@@ -724,7 +724,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     }
     lines.push(Line::default());
     // Spellcasting per class.
-    let casters: Vec<_> = sheet.build.classes.iter().filter(|c| c.casting_ability.is_some()).collect();
+    let casters: Vec<_> = sheet.session.build.classes.iter().filter(|c| c.casting_ability.is_some()).collect();
     if !casters.is_empty() {
         lines.push(Line::styled("Spellcasting", theme.heading));
         for c in casters {
@@ -749,7 +749,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         .map(|(k, name, ab)| {
             let item = Item::Stat(format!("skill.{k}"));
             let base = row_style(sheet, &item, theme);
-            let mult = sheet.build.model.inputs.get(&format!("prof.skill.{k}")).cloned().unwrap_or(Value::int(0));
+            let mult = sheet.session.build.model.inputs.get(&format!("prof.skill.{k}")).cloned().unwrap_or(Value::int(0));
             let (mark, style) = match mult.to_string().as_str() {
                 "2" => ("◉", base.fg(theme.accent)),
                 "1" => ("●", base.fg(theme.accent)),
@@ -771,8 +771,8 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     frame.render_widget(Paragraph::new(lines), inner);
 
     // Middle: combat tiles, HP, resources.
-    let riders = sheet.ev.stats.keys().filter(|k| k.starts_with("rider.")).count() as u16;
-    let attacks_h = (sheet.build.attacks.len() as u16 + 7 + if riders > 0 { riders + 2 } else { 0 }).min(22);
+    let riders = sheet.session.ev.stats.keys().filter(|k| k.starts_with("rider.")).count() as u16;
+    let attacks_h = (sheet.session.build.attacks.len() as u16 + 7 + if riders > 0 { riders + 2 } else { 0 }).min(22);
     let [tiles, _, attacks, _, rest] = Layout::vertical([
         Constraint::Length(5),
         Constraint::Length(1),
@@ -862,15 +862,15 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
             ));
         }
         if st.exhaustion > 0 {
-            let what = dnt_rules::conditions::exhaustion_summary(st.exhaustion, sheet.edition == dnt_rules::play::Edition::Modern);
+            let what = dnt_rules::conditions::exhaustion_summary(st.exhaustion, sheet.session.edition == dnt_rules::play::Edition::Modern);
             let style = if st.exhaustion >= 6 { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
             lines.push(Line::styled(format!("{:<12}Exhaustion: {}", "", truncate(&what, width.saturating_sub(24))), style));
         }
     }
     // The last few rolls, newest first.
-    if !sheet.roller.log.is_empty() {
+    if !sheet.session.roller.log.is_empty() {
         lines.push(Line::default());
-        for (n, r) in sheet.roller.log.iter().take(3).enumerate() {
+        for (n, r) in sheet.session.roller.log.iter().take(3).enumerate() {
             let head = if n == 0 { Style::new().add_modifier(Modifier::BOLD) } else { theme.muted };
             let colour = match r.crit {
                 Some(true) => Style::new().fg(Color::Green).add_modifier(Modifier::BOLD),
@@ -905,9 +905,9 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         lines.push(Line::styled(title.to_string(), theme.heading));
     };
 
-    if !sheet.build.resources.is_empty() {
+    if !sheet.session.build.resources.is_empty() {
         section(&mut lines, "Resources");
-        for (r, _) in &sheet.build.resources {
+        for (r, _) in &sheet.session.build.resources {
             let item = Item::Resource(r.key.clone());
             let base = row_style(sheet, &item, theme);
             let (left, max) = (play::resource_left(ch, ev, &r.key), play::resource_max(ev, &r.key));
@@ -953,7 +953,7 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         if pact > 0 {
             let base = row_style(sheet, &Item::Pact, theme);
             let left = pact - ch.state.pact_slots_used;
-            let level = sheet.build.model.inputs.get("pact.level").map(|v| v.to_string()).unwrap_or_default();
+            let level = sheet.session.build.model.inputs.get("pact.level").map(|v| v.to_string()).unwrap_or_default();
             let mut spans = vec![Span::styled(format!("{:<22}", format!("Pact (level {level})")), base)];
             spans.extend(pips(left, pact, theme, base));
             lines.push(
@@ -981,9 +981,9 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         }
     }
 
-    if !sheet.build.toggles.is_empty() {
+    if !sheet.session.build.toggles.is_empty() {
         section(&mut lines, "Toggles");
-        for (t, _) in &sheet.build.toggles {
+        for (t, _) in &sheet.session.build.toggles {
             let item = Item::Toggle(t.key.clone());
             let base = row_style(sheet, &item, theme);
             let on = ch.state.toggles.get(&t.key).copied().unwrap_or(false);
@@ -997,9 +997,9 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         }
     }
 
-    if !sheet.build.warnings.is_empty() {
+    if !sheet.session.build.warnings.is_empty() {
         section(&mut lines, "Warnings");
-        for w in &sheet.build.warnings {
+        for w in &sheet.session.build.warnings {
             lines.push(Line::styled(format!("⚠ {w}"), Style::new().fg(Color::Yellow)));
         }
     }
@@ -1021,14 +1021,14 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
     let mut lines: Vec<Line> = Vec::new();
     let mut last_group = String::new();
     let mut cursor_line = 0;
-    for (i, f) in sheet.build.features.iter().enumerate() {
+    for (i, f) in sheet.session.build.features.iter().enumerate() {
         let group = match f.source {
             FeatureSource::Class(ci) => {
-                let c = &sheet.build.classes[ci];
+                let c = &sheet.session.build.classes[ci];
                 format!("{} {}", c.name, c.level)
             }
             FeatureSource::Subclass(ci) => {
-                sheet.build.classes[ci].subclass.map(|s| lib.entity(s).name.clone()).unwrap_or_else(|| "Subclass".into())
+                sheet.session.build.classes[ci].subclass.map(|s| lib.entity(s).name.clone()).unwrap_or_else(|| "Subclass".into())
             }
             FeatureSource::Species => "Species".into(),
             FeatureSource::Background => "Background".into(),
@@ -1068,12 +1068,12 @@ fn draw_features(frame: &mut Frame, area: Rect, lib: &Library, overlays: &Overla
     let scroll = cursor_line.saturating_sub(height.saturating_sub(3));
     frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), inner);
 
-    let Some(f) = sheet.build.features.get(sheet.feature_cursor) else { return };
+    let Some(f) = sheet.session.build.features.get(sheet.feature_cursor) else { return };
     let e = lib.entity(f.entity);
     let block = pane(pane_title(&e.name, false, theme), false, theme).padding(Padding::new(2, 2, 1, 0));
     let inner = block.inner(detail);
     frame.render_widget(block, detail);
-    let doc = view::document(lib, f.entity, &sheet.filter);
+    let doc = view::document(lib, f.entity, &sheet.session.filter);
     let rendered = render::render(&doc, inner.width.min(96), None, theme);
     let max_scroll = rendered.lines.len().saturating_sub(inner.height as usize);
     sheet.feature_scroll = sheet.feature_scroll.min(max_scroll);
@@ -1084,8 +1084,8 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
     use crate::spells_tab::{self, Row, Slot};
     use dnt_rules::spells::{self, Grant};
     let [bar, _, main] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(3)]).areas(area);
-    let ch = &sheet.file.character;
-    let ev = &sheet.ev;
+    let ch = &sheet.session.file.character;
+    let ev = &sheet.session.ev;
 
     // Slots and concentration.
     let mut spans = vec![Span::styled(" Slots  ", theme.label)];
@@ -1102,7 +1102,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
     let pact = ev.int("pact.slots.max").unwrap_or(0);
     if pact > 0 {
         any = true;
-        let level = sheet.build.model.inputs.get("pact.level").map(|v| v.to_string()).unwrap_or_default();
+        let level = sheet.session.build.model.inputs.get("pact.level").map(|v| v.to_string()).unwrap_or_default();
         spans.push(Span::styled(format!("pact {level} "), theme.muted));
         spans.extend(pips(pact - ch.state.pact_slots_used, pact, theme, Style::new()));
         spans.push(Span::raw("   "));
@@ -1124,7 +1124,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
     let block = pane(pane_title("Spells", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(list);
     frame.render_widget(block, list);
-    let data = spells_tab::rows(lib, ch, &sheet.build, ev);
+    let data = spells_tab::rows(lib, ch, &sheet.session.build, ev);
     let width = inner.width as usize;
     sheet.spell_cursor = sheet.spell_cursor.min(data.rows.len().saturating_sub(1));
 
@@ -1154,7 +1154,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
         // In the Favorites group, say where each spell comes from.
         let origin = match row {
             Row::ClassSpell { caster, .. } if favorite_row => Some(data.casters[*caster].name.clone()),
-            Row::GrantSpell { grant, .. } if favorite_row => Some(sheet.build.granted[*grant].origin.clone()),
+            Row::GrantSpell { grant, .. } if favorite_row => Some(sheet.session.build.granted[*grant].origin.clone()),
             _ => None,
         };
         let spell_spans = |id: &str, mark: Span<'static>, how: String| {
@@ -1172,7 +1172,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                     _ => None,
                 };
                 let modifier = {
-                    let (_, dc) = crate::rolls::spell_numbers(sheet, caster);
+                    let (_, dc) = dnt_core::rolls::spell_numbers(sheet, caster);
                     dc - 8 - ev.int("prof").unwrap_or(2)
                 };
                 let dice = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() });
@@ -1255,7 +1255,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 if !lines.is_empty() {
                     lines.push(Line::default());
                 }
-                Line::styled(sheet.build.granted[*g].origin.clone(), base.patch(theme.heading)).style(base)
+                Line::styled(sheet.session.build.granted[*g].origin.clone(), base.patch(theme.heading)).style(base)
             }
             Row::GrantSpell { id, how, .. } => {
                 let text = match how {
@@ -1293,7 +1293,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
     let id = data.rows.get(sheet.spell_cursor).and_then(|r| r.spell_id()).map(str::to_string);
     if let Some(e) = id.and_then(|id| resolve_id(lib, &id)) {
         let mut lines = vec![Line::styled(lib.entity(e).name.clone(), theme.title), Line::default()];
-        let doc = view::document(lib, e, &sheet.filter);
+        let doc = view::document(lib, e, &sheet.session.filter);
         lines.extend(render::render(&doc, inner.width.min(96), None, theme).lines);
         frame.render_widget(Paragraph::new(lines), inner);
     } else {
@@ -1361,7 +1361,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
     ])
     .areas(area);
     draw_equipment(frame, gear, lib, sheet, theme);
-    let ch = &sheet.file.character;
+    let ch = &sheet.session.file.character;
     let block = pane(pane_title("Inventory", true, theme), true, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(list);
     frame.render_widget(block, list);
@@ -1407,7 +1407,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             (_, Some(h)) => format!(" {}", h.label()),
             _ => entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default(),
         };
-        if entity.is_some() && sheet.build.attacks.iter().any(|a| a.item == entity && a.monk_weapon) {
+        if entity.is_some() && sheet.session.build.attacks.iter().any(|a| a.item == entity && a.monk_weapon) {
             kind.push_str(" monk weapon");
         }
         let weight = if w > 0.0 { format!("{w:.1}") } else { "—".into() };
@@ -1453,7 +1453,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
     frame.render_widget(Paragraph::new(lines).scroll((scroll as u16, 0)), items_area);
 
     // Totals: weight, attunement, coins.
-    let capacity = sheet.ev.int("str").unwrap_or(10) * 15;
+    let capacity = sheet.session.ev.int("str").unwrap_or(10) * 15;
     let attuned = ch.inventory.iter().filter(|l| l.attuned).count();
     let c = &ch.currency;
     let coin = |n: i64, label: &str, color: Color| {
@@ -1512,7 +1512,7 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
     frame.render_widget(block, detail);
     match line.and_then(|l| item_entity(lib, l)) {
         Some(e) => {
-            let doc = view::document(lib, e, &sheet.filter);
+            let doc = view::document(lib, e, &sheet.session.filter);
             frame.render_widget(Paragraph::new(render::render(&doc, inner.width.min(96), None, theme).lines), inner);
         }
         None if line.is_some() => {
@@ -1586,7 +1586,7 @@ fn draw_overlay_editor(frame: &mut Frame, area: Rect, ed: &mut crate::overlay_ed
 /// What is worn in each slot and what is in hand.
 fn draw_equipment(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, theme: &Theme) {
     use crate::characters::line_name;
-    let ch = &sheet.file.character;
+    let ch = &sheet.session.file.character;
     let block = pane(pane_title("Equipment", false, theme), false, theme).padding(Padding::new(1, 1, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -1656,7 +1656,7 @@ fn stat_label(sheet: &Sheet, key: &str) -> String {
         }
     }
     if let Some(res) = key.strip_prefix("resource.").and_then(|k| k.strip_suffix(".max")) {
-        if let Some((r, _)) = sheet.build.resources.iter().find(|(r, _)| r.key == res) {
+        if let Some((r, _)) = sheet.session.build.resources.iter().find(|(r, _)| r.key == res) {
             return r.name.clone();
         }
     }
@@ -1673,13 +1673,13 @@ fn stat_label(sheet: &Sheet, key: &str) -> String {
 }
 
 fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme: &Theme) {
-    let attack = key.strip_prefix("attack.").and_then(|slug| sheet.build.attacks.iter().find(|a| a.slug == slug));
+    let attack = key.strip_prefix("attack.").and_then(|slug| sheet.session.build.attacks.iter().find(|a| a.slug == slug));
     let (title, lines) = match attack {
         Some(a) => {
             let mut lines = Vec::new();
             for (part, label) in [("bonus", "Attack bonus"), ("damage", "Damage"), ("versatile", "Damage, two-handed")] {
                 let k = format!("attack.{}.{part}", a.slug);
-                if sheet.ev.stats.contains_key(&k) {
+                if sheet.session.ev.stats.contains_key(&k) {
                     if !lines.is_empty() {
                         lines.push(Line::default());
                     }
@@ -1688,7 +1688,7 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
                 }
             }
             lines.push(Line::default());
-            let prof = &sheet.build.weapon_proficiency;
+            let prof = &sheet.session.build.weapon_proficiency;
             let status = if a.item.is_none() {
                 "Everyone is proficient with unarmed strikes.".to_string()
             } else if a.proficient {
@@ -1714,7 +1714,7 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
             (a.name.clone(), lines)
         }
         None => {
-            if !sheet.ev.stats.contains_key(key) {
+            if !sheet.session.ev.stats.contains_key(key) {
                 return;
             }
             (stat_label(sheet, key), breakdown_lines(sheet, key, theme))
@@ -1731,7 +1731,7 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
 
 /// The value of a stat and how it is made up.
 fn breakdown_lines(sheet: &Sheet, key: &str, theme: &Theme) -> Vec<Line<'static>> {
-    let Some(result) = sheet.ev.stats.get(key) else { return Vec::new() };
+    let Some(result) = sheet.session.ev.stats.get(key) else { return Vec::new() };
     let mut lines: Vec<Line> = Vec::new();
     match &result.value {
         Ok(v) => lines.push(Line::styled(v.to_string(), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD))),

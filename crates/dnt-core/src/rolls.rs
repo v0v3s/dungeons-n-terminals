@@ -10,7 +10,7 @@ use dnt_rules::roll::{self, Advantage, DamageRules, Rng};
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::Evaluation;
 
-use crate::characters::Sheet;
+use crate::session::CharacterSession;
 
 /// One entry of the roll log.
 #[derive(Debug, Clone, PartialEq)]
@@ -74,12 +74,12 @@ impl Roller {
     }
 }
 
-fn rules_2024(sheet: &Sheet) -> bool {
+fn rules_2024(sheet: &CharacterSession) -> bool {
     sheet.edition == dnt_rules::play::Edition::Modern
 }
 
 /// The roll's mode from conditions and the one-shot choice, and why.
-fn mode(sheet: &mut Sheet, kind: RollKind) -> (Advantage, Vec<String>) {
+fn mode(sheet: &mut CharacterSession, kind: RollKind) -> (Advantage, Vec<String>) {
     let st = &sheet.file.character.state;
     let mut sources = conditions::advantage(&st.conditions, st.exhaustion, rules_2024(sheet), kind);
     let next = std::mem::take(&mut sheet.roller.next);
@@ -99,7 +99,7 @@ fn detail(r: &roll::D20, why: &[String]) -> String {
     s
 }
 
-fn d20_test(sheet: &mut Sheet, title: String, modifier: i64, kind: RollKind) -> Rolled {
+fn d20_test(sheet: &mut CharacterSession, title: String, modifier: i64, kind: RollKind) -> Rolled {
     if let Some(why) = conditions::auto_fail(&sheet.file.character.state.conditions, kind) {
         return sheet.roller.push(Rolled { title, result: "fails".into(), detail: why, extra: Vec::new(), crit: None });
     }
@@ -115,7 +115,7 @@ fn ability_name(ab: &str) -> &'static str {
 }
 
 /// An ability check (`skill` for a skill check with that ability).
-pub fn check(sheet: &mut Sheet, ab: &str, skill: Option<(&str, &str)>) -> Rolled {
+pub fn check(sheet: &mut CharacterSession, ab: &str, skill: Option<(&str, &str)>) -> Rolled {
     let ev = &sheet.ev;
     let (title, modifier) = match skill {
         Some((key, name)) => (name.to_string(), ev.int(&format!("skill.{key}")).unwrap_or(0)),
@@ -124,12 +124,12 @@ pub fn check(sheet: &mut Sheet, ab: &str, skill: Option<(&str, &str)>) -> Rolled
     d20_test(sheet, title, modifier, RollKind::Check(ab))
 }
 
-pub fn save(sheet: &mut Sheet, ab: &str) -> Rolled {
+pub fn save(sheet: &mut CharacterSession, ab: &str) -> Rolled {
     let modifier = sheet.ev.int(&format!("save.{ab}")).unwrap_or(0);
     d20_test(sheet, format!("{} save", ability_name(ab)), modifier, RollKind::Save(ab))
 }
 
-pub fn initiative(sheet: &mut Sheet) -> Rolled {
+pub fn initiative(sheet: &mut CharacterSession) -> Rolled {
     let modifier = sheet.ev.int("initiative").unwrap_or(0);
     d20_test(sheet, "Initiative".into(), modifier, RollKind::Initiative)
 }
@@ -141,7 +141,7 @@ fn roll_stat(rng: &mut Rng, ev: &Evaluation, key: &str, rules: DamageRules) -> O
 
 /// An attack: the attack roll, then damage (doubled dice on a natural 20)
 /// and each kind of extra damage on a hit, to add when it applies.
-pub fn attack(sheet: &mut Sheet, a: &Attack) -> Rolled {
+pub fn attack(sheet: &mut CharacterSession, a: &Attack) -> Rolled {
     let bonus = sheet.ev.int(&format!("attack.{}.bonus", a.slug)).unwrap_or(0);
     let (m, why) = mode(sheet, RollKind::Attack);
     let r = roll::d20(&mut sheet.roller.rng, bonus, m);
@@ -196,7 +196,7 @@ pub fn attack(sheet: &mut Sheet, a: &Attack) -> Rolled {
 
 /// A spell: its attack roll or save DC, and its damage or healing at
 /// `slot_level` (cantrips scale with the character's level).
-pub fn spell(sheet: &mut Sheet, lib: &Library, spell: EntityId, slot_level: i64, attack_bonus: i64, dc: i64) -> Rolled {
+pub fn spell(sheet: &mut CharacterSession, lib: &Library, spell: EntityId, slot_level: i64, attack_bonus: i64, dc: i64) -> Rolled {
     let level = sheet.file.character.total_level() as i64;
     let s = dnt_rules::spells::spell_roll(lib, spell, level, slot_level);
     let name = lib.entity(spell).name.clone();
@@ -236,7 +236,7 @@ pub fn spell(sheet: &mut Sheet, lib: &Library, spell: EntityId, slot_level: i64,
 /// The spell attack bonus and save DC to use: the casting class's (the
 /// best one if there are several), else proficiency and the best
 /// mental ability.
-pub fn spell_numbers(sheet: &Sheet, caster_slug: Option<&str>) -> (i64, i64) {
+pub fn spell_numbers(sheet: &CharacterSession, caster_slug: Option<&str>) -> (i64, i64) {
     let ev = &sheet.ev;
     let of = |slug: &str| Some((ev.int(&format!("spell.{slug}.attack"))?, ev.int(&format!("spell.{slug}.dc"))?));
     if let Some(n) = caster_slug.and_then(of) {
@@ -251,7 +251,7 @@ pub fn spell_numbers(sheet: &Sheet, caster_slug: Option<&str>) -> (i64, i64) {
 }
 
 /// The slot level a cast used (`slot:3`, `pact`, `free`, `ritual`).
-pub fn cast_level(sheet: &Sheet, lib: &Library, spell: EntityId, how: &str) -> i64 {
+pub fn cast_level(sheet: &CharacterSession, lib: &Library, spell: EntityId, how: &str) -> i64 {
     let base = dnt_rules::spells::spell_level(lib, spell);
     match how {
         "pact" => match sheet.build.model.inputs.get("pact.level") {
@@ -276,7 +276,7 @@ mod tests {
     use dnt_store::CharacterFile;
     use serde_json::json;
 
-    fn sheet(conditions: &[&str]) -> (Library, Sheet) {
+    fn sheet(conditions: &[&str]) -> (Library, CharacterSession) {
         let mut lib = Library::new();
         lib.load_json(&json!({"baseitem": [{"name": "Club", "source": "T", "type": "M|T", "weapon": true, "weaponCategory": "simple",
                                              "dmg1": "1d4", "dmgType": "B"}]}));
@@ -284,7 +284,7 @@ mod tests {
         c.inventory.push(InventoryItem { item: Some("item:Club|T".into()), hand: Some(Hand::Main), ..Default::default() });
         c.state.conditions = conditions.iter().map(|s| s.to_string()).collect();
         let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
-        let s = Sheet::new(file, &lib, &OverlaySet::default(), &Default::default());
+        let s = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
         (lib, s)
     }
 
