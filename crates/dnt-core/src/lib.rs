@@ -3,8 +3,12 @@
 //! data to draw. Nothing here knows about terminals, browsers or phones;
 //! frontends turn input into calls here and draw what comes back.
 
+pub mod commands;
 pub mod export;
+pub mod options;
 pub mod rolls;
 pub mod session;
 
+pub use commands::{Command, Outcome, Pool};
+pub use options::Choice;
 pub use session::{item_entity, line_name, CharacterSession};

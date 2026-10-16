@@ -3,19 +3,9 @@
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-#[derive(Debug, Clone)]
-pub struct PickItem {
-    pub label: String,
-    pub hint: String,
-    pub warning: Option<String>,
-    pub value: String,
-}
-
-impl PickItem {
-    pub fn new(label: impl Into<String>, hint: impl Into<String>, value: impl Into<String>) -> PickItem {
-        PickItem { label: label.into(), hint: hint.into(), warning: None, value: value.into() }
-    }
-}
+/// A choice in the list (core's `Choice`, so option lists from dnt-core
+/// drop straight in).
+pub use dnt_core::Choice as PickItem;
 
 #[derive(Debug, Clone)]
 pub struct Picker {
