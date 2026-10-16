@@ -493,7 +493,7 @@ dependencies = [
 
 [[package]]
 name = "dnt"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -510,7 +510,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dnt-data",
  "dnt-rules",
@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-data"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "jsonschema",
  "nucleo-matcher",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-rules"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dnt-data",
  "jsonschema",
@@ -545,7 +545,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-store"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dirs",
  "dnt-data",
