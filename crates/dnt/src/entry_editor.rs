@@ -1,8 +1,9 @@
 //! Editing a homebrew entity field by field. Changes are returned as
 //! actions; the app applies them to the homebrew file and reloads.
 
+use dnt_core::homebrew::EntryRef;
 use dnt_data::forms::{self, Format};
-use dnt_data::{EntityId, Key, Kind, Library};
+use dnt_data::{EntityId, Kind, Library};
 use edtui::{EditorEventHandler, EditorMode, EditorState, Lines};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
@@ -70,20 +71,8 @@ pub enum Action {
     Promote,
 }
 
-/// Which homebrew document the entry lives in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Target {
-    Campaign,
-    Global,
-}
-
 pub struct EntryEditor {
-    /// The entity being edited (its original key for overrides).
-    pub key: Key,
-    pub kind: Kind,
-    /// Whether the entry replaces a book entity.
-    pub replaces: bool,
-    pub target: Target,
+    pub entry: EntryRef,
     pub cursor: usize,
     pub mode: Mode,
     handler: EditorEventHandler,
@@ -147,8 +136,8 @@ fn text_editor(text: &str) -> Box<EditorState> {
 }
 
 impl EntryEditor {
-    pub fn new(key: Key, kind: Kind, replaces: bool, target: Target) -> EntryEditor {
-        EntryEditor { key, kind, replaces, target, cursor: 0, mode: Mode::List, handler: EditorEventHandler::default(), error: None }
+    pub fn new(entry: EntryRef) -> EntryEditor {
+        EntryEditor { entry, cursor: 0, mode: Mode::List, handler: EditorEventHandler::default(), error: None }
     }
 
     pub fn wants_text(&self) -> bool {
@@ -156,14 +145,14 @@ impl EntryEditor {
     }
 
     pub fn entity(&self, lib: &Library) -> Option<EntityId> {
-        lib.get(&self.key)
+        self.entry.entity(lib)
     }
 
     /// Fields to show, given the merged entity and the homebrew entry.
     pub fn fields(&self, lib: &Library, entry: Option<&serde_json::Map<String, Value>>) -> Vec<Field> {
         let Some(id) = self.entity(lib) else { return Vec::new() };
         let data = &lib.entity(id).data;
-        let common: Vec<String> = order(self.kind).iter().map(|s| s.to_string()).collect();
+        let common: Vec<String> = order(self.entry.kind).iter().map(|s| s.to_string()).collect();
         let mut rest: Vec<String> = data
             .as_object()
             .into_iter()
@@ -182,7 +171,7 @@ impl EntryEditor {
             .enumerate()
             .map(|(i, name)| {
                 let mut value = data.get(&name).cloned();
-                if name == "classes" && value.is_none() && self.kind == Kind::Spell {
+                if name == "classes" && value.is_none() && self.entry.kind == Kind::Spell {
                     // Official spells get their classes from a lookup.
                     let list: Vec<Value> =
                         lib.spell_classes(id).iter().map(|c| serde_json::json!({"name": c.name, "source": c.source})).collect();
@@ -190,7 +179,7 @@ impl EntryEditor {
                         value = Some(serde_json::json!({"fromClassList": list}));
                     }
                 }
-                let widget = widget_for(self.kind, &name, value.as_ref());
+                let widget = widget_for(self.entry.kind, &name, value.as_ref());
                 let display = match (&value, widget) {
                     (_, Widget::Form(f)) => forms::display(f, value.as_ref()),
                     (None, _) => "—".to_string(),
@@ -202,7 +191,7 @@ impl EntryEditor {
                 Field {
                     widget,
                     display,
-                    changed: entry.is_some_and(|e| e.contains_key(&name)) && !(name == "name" && self.replaces),
+                    changed: entry.is_some_and(|e| e.contains_key(&name)) && !(name == "name" && self.entry.replaces),
                     extra: i >= n_common,
                     name,
                     value,
@@ -350,15 +339,7 @@ impl EntryEditor {
                     KeyCode::Char('D') => self.mode = Mode::ConfirmDelete,
                     KeyCode::Char('a') => self.mode = Mode::AddField(String::new()),
                     KeyCode::Char('E') => return Action::External,
-                    KeyCode::Char('P') => {
-                        return match (self.target, self.replaces) {
-                            (Target::Global, _) => Action::Status("Already in the global homebrew".into()),
-                            (_, true) => {
-                                Action::Status("A campaign version stays in its campaign; clone a separate copy to share it".into())
-                            }
-                            _ => Action::Promote,
-                        };
-                    }
+                    KeyCode::Char('P') => return Action::Promote,
                     KeyCode::Char('x') => {
                         if let Some(f) = field {
                             if f.changed {
@@ -376,7 +357,7 @@ impl EntryEditor {
                     }
                     KeyCode::Enter | KeyCode::Char('i') | KeyCode::Char(' ') => {
                         let Some(f) = field else { return Action::None };
-                        if f.name == "name" && self.replaces {
+                        if f.name == "name" && self.entry.replaces {
                             return Action::Status(
                                 "A replacing version keeps the original's name; clone as a separate copy to rename".into(),
                             );

@@ -11,10 +11,11 @@ use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
 use crate::app::{CloneFlow, NewFlow};
-use crate::entry_editor::{EntryEditor, Mode, Target, Widget as FieldWidget};
+use crate::entry_editor::{EntryEditor, Mode, Widget as FieldWidget};
 use crate::render;
 use crate::theme::Theme;
 use crate::ui::{pane, pane_title, spread, truncate};
+use dnt_core::homebrew::Doc;
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let [row] = Layout::vertical([Constraint::Length(h.min(area.height))]).flex(Flex::Center).areas(area);
@@ -42,8 +43,8 @@ pub fn draw(
     let [list, _, detail] = Layout::horizontal([left, Constraint::Length(1), Constraint::Min(30)]).areas(area);
 
     let name = id.map(|i| lib.entity(i).name.clone()).unwrap_or_else(|| "(reloading)".into());
-    let what = match (ed.target, ed.replaces) {
-        (Target::Global, _) => "global homebrew",
+    let what = match (ed.entry.doc, ed.entry.replaces) {
+        (Doc::Global, _) => "global homebrew",
         (_, true) => "campaign version",
         _ => "campaign entry",
     };
@@ -51,8 +52,8 @@ pub fn draw(
     let inner = block.inner(list);
     frame.render_widget(block, list);
     let width = inner.width as usize;
-    let note = match (ed.target, ed.replaces) {
-        (Target::Global, _) => "set in the global homebrew, used by every campaign",
+    let note = match (ed.entry.doc, ed.entry.replaces) {
+        (Doc::Global, _) => "set in the global homebrew, used by every campaign",
         (_, true) => "changed in this campaign (x reverts to the book)",
         _ => "set in the campaign homebrew · P makes it global",
     };
@@ -125,7 +126,7 @@ pub fn draw(
             let rect = centered(area, 60, 5);
             frame.render_widget(Clear, rect);
             let block = pane(pane_title("Delete", true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
-            let what = if ed.replaces { "the campaign version (the book version returns)" } else { "this campaign entry" };
+            let what = if ed.entry.replaces { "the campaign version (the book version returns)" } else { "this campaign entry" };
             frame.render_widget(Paragraph::new(Line::raw(format!("Delete {what}?  y / n"))).block(block), rect);
         }
         Mode::Prompt { .. } | Mode::AddField(_) => {

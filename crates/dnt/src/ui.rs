@@ -26,9 +26,9 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
         Section::Compendium if app.editor.is_some() => {
             let filter = app.compendium.filter.clone();
             let editor = app.editor.as_mut().unwrap();
-            let doc = match editor.target {
-                crate::entry_editor::Target::Campaign => app.homebrew.as_ref(),
-                crate::entry_editor::Target::Global => app.global_homebrew.as_ref(),
+            let doc = match editor.entry.doc {
+                dnt_core::homebrew::Doc::Campaign => app.homebrew.as_ref(),
+                dnt_core::homebrew::Doc::Global => app.global_homebrew.as_ref(),
             };
             crate::ui_editor::draw(frame, body, lib, &filter, doc, editor, theme)
         }
@@ -130,7 +130,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             Some(EdMode::Prompt { .. } | EdMode::AddField(_)) => &[("enter", "set"), ("^u", "clear"), ("esc", "cancel")],
             Some(EdMode::ConfirmDelete) => &[("y", "delete"), ("n", "keep")],
             Some(EdMode::Choose { .. }) => &[("j k", "move"), ("enter", "choose"), ("esc", "cancel")],
-            Some(_) if app.editor.as_ref().is_some_and(|e| e.replaces || e.target == crate::entry_editor::Target::Global) => &[
+            Some(_) if app.editor.as_ref().is_some_and(|e| e.entry.replaces || e.entry.doc == dnt_core::homebrew::Doc::Global) => &[
                 ("j k", "field"),
                 ("enter", "edit"),
                 ("J", "as JSON"),

@@ -3,14 +3,15 @@
 
 use std::path::Path;
 
-use dnt_data::homebrew::{self, CloneMode, Template};
-use dnt_data::{EntityId, Key, Kind, Library};
+use dnt_core::homebrew::{self, Change, Doc};
+use dnt_data::homebrew::{CloneMode, Template};
+use dnt_data::{EntityId, Kind, Library};
 use dnt_store::GLOBAL_SOURCE;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
 
 use crate::app::{App, Section};
-use crate::entry_editor::{self, EntryEditor, Target};
+use crate::entry_editor::{self, EntryEditor};
 
 /// Choosing between replacing the original and a separate copy.
 pub struct CloneFlow {
@@ -39,32 +40,32 @@ impl NewFlow {
 
 impl App {
     /// The homebrew document an editor target lives in (cached).
-    pub fn target_doc(&self, target: Target) -> Option<&Value> {
+    pub fn target_doc(&self, target: Doc) -> Option<&Value> {
         match target {
-            Target::Campaign => self.homebrew.as_ref(),
-            Target::Global => self.global_homebrew.as_ref(),
+            Doc::Campaign => self.homebrew.as_ref(),
+            Doc::Global => self.global_homebrew.as_ref(),
         }
     }
 
-    fn load_doc(&self, target: Target) -> Result<Value, String> {
+    fn load_doc(&self, target: Doc) -> Result<Value, String> {
         match target {
-            Target::Campaign => {
+            Doc::Campaign => {
                 let campaign = self.active_campaign().ok_or("No active campaign")?;
                 self.store.homebrew(campaign).map_err(|e| format!("Could not read homebrew: {e}"))
             }
-            Target::Global => self.store.global_homebrew().map_err(|e| format!("Could not read global homebrew: {e}")),
+            Doc::Global => self.store.global_homebrew().map_err(|e| format!("Could not read global homebrew: {e}")),
         }
     }
 
-    fn save_doc(&mut self, target: Target, doc: Value) -> Result<(), String> {
+    fn save_doc(&mut self, target: Doc, doc: Value) -> Result<(), String> {
         match target {
-            Target::Campaign => {
+            Doc::Campaign => {
                 let campaign = self.active_campaign().ok_or("No active campaign")?;
                 self.store.save_homebrew(campaign, &doc).map_err(|e| format!("Could not save homebrew: {e}"))?;
                 self.homebrew = Some(doc);
                 self.pending_reload = true;
             }
-            Target::Global => {
+            Doc::Global => {
                 self.store.save_global_homebrew(&doc).map_err(|e| format!("Could not save global homebrew: {e}"))?;
                 self.global_homebrew = Some(doc);
                 self.pending_base_reload = true;
@@ -89,20 +90,11 @@ impl App {
     }
 
     pub(crate) fn start_edit(&mut self, lib: &Library, id: EntityId) {
-        let e = lib.entity(id);
-        if e.source.eq_ignore_ascii_case(GLOBAL_SOURCE) {
-            return self.open_editor(EntryEditor::new(e.key.clone(), e.kind, false, Target::Global));
+        let source = self.active_campaign().map(|c| c.settings.source.clone());
+        match homebrew::edit(lib, id, source.as_deref()) {
+            Ok(entry) => self.open_editor(EntryEditor::new(entry)),
+            Err(e) => self.status = e,
         }
-        let Some(campaign) = self.active_campaign() else {
-            self.status = "Editing needs an active campaign (4)".into();
-            return;
-        };
-        let replaces = lib.original(id).is_some();
-        if !replaces && !e.source.eq_ignore_ascii_case(&campaign.settings.source) {
-            self.status = format!("{} is from a book: press c to clone it into the campaign", e.name);
-            return;
-        }
-        self.open_editor(EntryEditor::new(e.key.clone(), e.kind, replaces, Target::Campaign));
     }
 
     pub(crate) fn clone_key(&mut self, lib: &Library, key: KeyEvent) {
@@ -141,37 +133,19 @@ impl App {
     }
 
     fn do_clone(&mut self, lib: &Library, id: EntityId, mode: CloneMode) {
-        let Some(campaign) = self.active_campaign().cloned() else { return };
-        let mut doc = match self.load_doc(Target::Campaign) {
-            Ok(d) => d,
-            Err(e) => return self.status = e,
-        };
-        let e = lib.entity(id);
-        let (key, replaces) = match &mode {
-            CloneMode::Replace => {
-                if homebrew::find_entry(&doc, lib, id).is_none() && lib.original(id).is_none() {
-                    let entry = homebrew::clone_entry(lib, id, &campaign.settings.source, &mode);
-                    homebrew::add_entry(&mut doc, e.kind, entry);
-                }
-                (e.key.clone(), true)
+        let Some(source) = self.active_campaign().map(|c| c.settings.source.clone()) else { return };
+        let done = self.load_doc(Doc::Campaign).and_then(|mut doc| {
+            let (entry, msg) = homebrew::clone(lib, &mut doc, id, &source, mode)?;
+            self.save_doc(Doc::Campaign, doc)?;
+            Ok((entry, msg))
+        });
+        match done {
+            Ok((entry, msg)) => {
+                self.status = msg;
+                self.open_editor(EntryEditor::new(entry));
             }
-            CloneMode::Copy { .. } => {
-                let entry = homebrew::clone_entry(lib, id, &campaign.settings.source, &mode);
-                let Some(key) = Key::of_entity(e.kind, &entry) else { return };
-                if lib.get(&key).is_some() {
-                    self.status = "An entry with that name already exists".into();
-                    return;
-                }
-                homebrew::add_entry(&mut doc, e.kind, entry);
-                (key, false)
-            }
-        };
-        if let Err(err) = self.save_doc(Target::Campaign, doc) {
-            return self.status = err;
+            Err(e) => self.status = e,
         }
-        self.status =
-            if replaces { format!("{} now has a campaign version", e.name) } else { format!("Created a campaign copy of {}", e.name) };
-        self.open_editor(EntryEditor::new(key, e.kind, replaces, Target::Campaign));
     }
 
     pub(crate) fn start_new(&mut self, templates: &'static [Template], for_inventory: bool) {
@@ -220,26 +194,22 @@ impl App {
     }
 
     fn do_create(&mut self, lib: &Library, template: Template, name: &str, for_inventory: bool) {
-        let Some(campaign) = self.active_campaign().cloned() else { return };
-        let mut doc = match self.load_doc(Target::Campaign) {
-            Ok(d) => d,
+        let Some(source) = self.active_campaign().map(|c| c.settings.source.clone()) else { return };
+        let done = self.load_doc(Doc::Campaign).and_then(|mut doc| {
+            let (entry, msg) = homebrew::create(lib, &mut doc, template, name, &source)?;
+            self.save_doc(Doc::Campaign, doc)?;
+            Ok((entry, msg))
+        });
+        let entry = match done {
+            Ok((entry, msg)) => {
+                self.status = msg;
+                entry
+            }
             Err(e) => return self.status = e,
         };
-        let entry = template.entry(name, &campaign.settings.source);
-        let kind = template.kind();
-        let Some(key) = Key::of_entity(kind, &entry) else { return };
-        if lib.get(&key).is_some() {
-            self.status = format!("{name} already exists in this campaign");
-            return;
-        }
-        homebrew::add_entry(&mut doc, kind, entry);
-        if let Err(e) = self.save_doc(Target::Campaign, doc) {
-            return self.status = e;
-        }
-        self.status = format!("Created {name}");
         if for_inventory {
             if let Some(sheet) = self.characters.sheet.as_mut() {
-                let id = format!("item:{name}|{}", campaign.settings.source);
+                let id = format!("item:{name}|{source}");
                 dnt_rules::equipment::add_item(&mut sheet.session.file.character, &id, 1, None);
                 sheet.inventory_cursor = sheet.session.file.character.inventory.len().saturating_sub(1);
                 self.status = match self.store.save_character(&sheet.session.file) {
@@ -248,46 +218,21 @@ impl App {
                 };
             }
         }
-        self.open_editor(EntryEditor::new(key, kind, false, Target::Campaign));
+        self.open_editor(EntryEditor::new(entry));
     }
 
     pub(crate) fn editor_key(&mut self, lib: &Library, key: KeyEvent) {
         let Some(editor) = self.editor.as_ref() else { return };
-        let target = editor.target;
-        let entry = editor
-            .entity(lib)
-            .and_then(|id| self.target_doc(target).and_then(|doc| Some((doc, homebrew::find_entry(doc, lib, id)?))))
-            .and_then(|(doc, at)| homebrew::entry(doc, &at).cloned());
+        let entry = self.target_doc(editor.entry.doc).and_then(|doc| editor.entry.entry(lib, doc)).cloned();
         let editor = self.editor.as_mut().unwrap();
         let fields = editor.fields(lib, entry.as_ref());
         match editor.key(key, &fields, lib) {
             entry_editor::Action::None => {}
             entry_editor::Action::Close => self.close_editor(),
             entry_editor::Action::Status(s) => self.status = s,
-            entry_editor::Action::Set(field, value) => self.edit_entry(lib, |doc, at, editor| {
-                let entry = homebrew::entry_mut(doc, at).ok_or("The entry is gone")?;
-                let verb = match value {
-                    Some(_) => "Saved",
-                    None if entry.contains_key("_copy") => "Reverted",
-                    None => "Cleared",
-                };
-                match value {
-                    Some(v) => entry.insert(field.clone(), v),
-                    None => entry.remove(&field),
-                };
-                // Renaming a separate entry changes its key.
-                if field == "name" && !editor.replaces {
-                    if let Some(k) = Key::of_entity(editor.kind, &Value::Object(entry.clone())) {
-                        editor.key = k;
-                    }
-                }
-                Ok(format!("{verb} {field}"))
-            }),
+            entry_editor::Action::Set(field, value) => self.edit_entry(lib, Change::Set { field, value }),
             entry_editor::Action::Delete => {
-                self.edit_entry(lib, |doc, at, editor| {
-                    homebrew::delete_entry(doc, at).then_some(()).ok_or("The entry is gone")?;
-                    Ok(if editor.replaces { "Deleted the campaign version" } else { "Deleted the entry" }.to_string())
-                });
+                self.edit_entry(lib, Change::Delete);
                 self.close_editor();
             }
             entry_editor::Action::External => self.external_edit(lib),
@@ -295,83 +240,47 @@ impl App {
         }
     }
 
-    /// Change the edited entity's entry in its homebrew document and save.
-    fn edit_entry(
-        &mut self,
-        lib: &Library,
-        change: impl FnOnce(&mut Value, &(String, usize), &mut EntryEditor) -> Result<String, &'static str>,
-    ) {
-        let Some(target) = self.editor.as_ref().map(|e| e.target) else { return };
-        let mut doc = match self.load_doc(target) {
-            Ok(d) => d,
-            Err(e) => return self.status = e,
-        };
-        let editor = self.editor.as_mut().unwrap();
-        let Some(at) = editor.entity(lib).and_then(|id| homebrew::find_entry(&doc, lib, id)) else {
-            self.status = "This entry is not in the homebrew".into();
-            return;
-        };
-        match change(&mut doc, &at, editor) {
-            Ok(msg) => {
-                self.status = match self.save_doc(target, doc) {
-                    Ok(()) => msg,
-                    Err(e) => e,
-                }
-            }
-            Err(e) => self.status = e.to_string(),
+    /// Change the edited entry in its homebrew document and save.
+    fn edit_entry(&mut self, lib: &Library, change: Change) {
+        let Some(mut entry) = self.editor.as_ref().map(|e| e.entry.clone()) else { return };
+        let done = self.load_doc(entry.doc).and_then(|mut doc| {
+            let msg = homebrew::change(lib, &mut doc, &mut entry, change)?;
+            self.save_doc(entry.doc, doc)?;
+            Ok(msg)
+        });
+        self.status = done.unwrap_or_else(|e| e);
+        if let Some(editor) = self.editor.as_mut() {
+            editor.entry = entry;
         }
     }
 
     /// Move a campaign entry to the global homebrew and point the campaign's
     /// characters at it.
     fn promote(&mut self, lib: &Library) {
-        let Some(editor) = self.editor.as_ref() else { return };
-        let (kind, Some(id)) = (editor.kind, editor.entity(lib)) else { return };
-        let (mut cdoc, mut gdoc) = match (self.load_doc(Target::Campaign), self.load_doc(Target::Global)) {
+        let Some(mut entry) = self.editor.as_ref().map(|e| e.entry.clone()) else { return };
+        let (mut cdoc, mut gdoc) = match (self.load_doc(Doc::Campaign), self.load_doc(Doc::Global)) {
             (Ok(c), Ok(g)) => (c, g),
             (Err(e), _) | (_, Err(e)) => return self.status = e,
         };
-        let Some(at) = homebrew::find_entry(&cdoc, lib, id) else { return };
-        let Some(mut entry) = homebrew::entry(&cdoc, &at).cloned() else { return };
-        let e = lib.entity(id);
-        entry.insert("source".into(), Value::String(GLOBAL_SOURCE.into()));
-        let entry = Value::Object(entry);
-        let Some(new_key) = Key::of_entity(kind, &entry) else { return };
-        if lib.get(&new_key).is_some() {
-            self.status = format!("The global homebrew already has {}", e.name);
-            return;
-        }
-        homebrew::delete_entry(&mut cdoc, &at);
-        homebrew::add_entry(&mut gdoc, kind, entry);
+        let p = match homebrew::promote(lib, &mut cdoc, &mut gdoc, &mut entry) {
+            Ok(p) => p,
+            Err(e) => return self.status = e,
+        };
         // Global first: if saving the campaign fails, the entry exists twice
         // rather than not at all.
-        if let Err(err) = self.save_doc(Target::Global, gdoc).and_then(|_| self.save_doc(Target::Campaign, cdoc)) {
+        if let Err(err) = self.save_doc(Doc::Global, gdoc).and_then(|_| self.save_doc(Doc::Campaign, cdoc)) {
             return self.status = err;
         }
-        let from = format!("{}:{}|{}", kind.json_key(), e.name, e.source);
-        let to = format!("{}:{}|{GLOBAL_SOURCE}", kind.json_key(), e.name);
-        let characters = self.active_campaign().map(|c| self.store.rewrite_refs(c, &from, &to)).transpose();
+        let characters = self.active_campaign().map(|c| self.store.rewrite_refs(c, &p.from, &p.to)).transpose();
         // Note links that name the old source: `[[item:X@CoS]]`.
         self.notes.save();
+        let kind = entry.kind;
         let kind_ok = |tag: &str| Kind::for_tag(tag).contains(&kind) || Kind::from_json_key(tag) == Some(kind);
-        let notes = self.notes.notes.as_ref().map(|n| n.rewrite_entity_source(&kind_ok, &e.name, &e.source, GLOBAL_SOURCE)).transpose();
+        let notes = self.notes.notes.as_ref().map(|n| n.rewrite_entity_source(&kind_ok, &p.name, &p.old_source, GLOBAL_SOURCE)).transpose();
         self.notes.reload_open();
         self.status = match (characters, notes) {
-            (Ok(c), Ok(n)) => {
-                let mut updated = Vec::new();
-                if let Some(c @ 1..) = c {
-                    updated.push(format!("{c} character file(s)"));
-                }
-                if let Some(n @ 1..) = n {
-                    updated.push(format!("{n} note(s)"));
-                }
-                if updated.is_empty() {
-                    format!("{} is now global homebrew, available in every campaign", e.name)
-                } else {
-                    format!("{} is now global homebrew ({} updated)", e.name, updated.join(" and "))
-                }
-            }
-            (Err(err), _) | (_, Err(err)) => format!("{} is now global homebrew, but updating references failed: {err}", e.name),
+            (Ok(c), Ok(n)) => homebrew::promoted_message(&p.name, c.unwrap_or(0), n.unwrap_or(0)),
+            (Err(err), _) | (_, Err(err)) => format!("{} is now global homebrew, but updating references failed: {err}", p.name),
         };
         // The characters on disk changed; the open sheet must not save stale refs.
         self.characters.files = self.active_campaign().map(|c| self.store.characters(c).0).unwrap_or_default();
@@ -381,21 +290,14 @@ impl App {
             }
         }
         if let Some(editor) = self.editor.as_mut() {
-            editor.key = new_key;
-            editor.target = Target::Global;
+            editor.entry = entry;
         }
     }
 
     /// Write the entry to a temporary file for $EDITOR.
     fn external_edit(&mut self, lib: &Library) {
         let Some(editor) = self.editor.as_ref() else { return };
-        let Some(entry) = editor
-            .entity(lib)
-            .and_then(|id| self.target_doc(editor.target).and_then(|doc| Some((doc, homebrew::find_entry(doc, lib, id)?))))
-            .and_then(|(doc, at)| homebrew::entry(doc, &at).cloned())
-        else {
-            return;
-        };
+        let Some(entry) = self.target_doc(editor.entry.doc).and_then(|doc| editor.entry.entry(lib, doc)).cloned() else { return };
         let path = std::env::temp_dir().join(format!("dnt-entry-{}.json", std::process::id()));
         let text = serde_json::to_string_pretty(&Value::Object(entry)).expect("JSON serialises") + "\n";
         match std::fs::write(&path, text) {
@@ -417,24 +319,6 @@ impl App {
             Ok(_) => return self.status = "The entry must be a JSON object; nothing changed".into(),
             Err(e) => return self.status = format!("Not valid JSON ({e}); nothing changed"),
         };
-        self.edit_entry(lib, move |doc, at, editor| {
-            let old = homebrew::entry_mut(doc, at).ok_or("The entry is gone")?;
-            if new.get("source") != old.get("source") {
-                return Err("The source cannot change; nothing changed");
-            }
-            if !new.get("name").is_some_and(Value::is_string) {
-                return Err("The entry needs a name; nothing changed");
-            }
-            if editor.replaces && (new.get("_copy") != old.get("_copy") || new.get("name") != old.get("name")) {
-                return Err("A campaign version keeps its name and _copy; nothing changed");
-            }
-            *old = new;
-            if !editor.replaces {
-                if let Some(k) = Key::of_entity(editor.kind, &Value::Object(old.clone())) {
-                    editor.key = k;
-                }
-            }
-            Ok("Saved the entry".to_string())
-        });
+        self.edit_entry(lib, Change::Replace(new));
     }
 }

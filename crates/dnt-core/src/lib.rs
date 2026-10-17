@@ -5,6 +5,7 @@
 
 pub mod commands;
 pub mod export;
+pub mod homebrew;
 pub mod options;
 pub mod rolls;
 pub mod session;
