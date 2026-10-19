@@ -122,9 +122,10 @@ impl Workspace {
         self.active.and_then(|i| self.campaigns.get(i))
     }
 
-    /// What the active campaign shows (everything without one).
+    /// What the active campaign shows. Without one, every source, but
+    /// only the newest printing of what was reprinted.
     pub fn filter(&self) -> SourceFilter {
-        self.active_campaign().map(Campaign::source_filter).unwrap_or_default()
+        self.active_campaign().map(Campaign::source_filter).unwrap_or(SourceFilter { enabled: None, hide_reprinted: true })
     }
 
     fn find(&self, slug: &str) -> Result<usize, String> {
@@ -214,6 +215,7 @@ mod tests {
         import::import_files(&ws.store, &src).unwrap();
         ws.reload();
         assert_eq!(ws.lib.as_ref().unwrap().entities().len(), 2);
+        assert!(ws.filter().hide_reprinted, "without a campaign, reprints replace their originals");
 
         let slug = ws.create_campaign("Curse of Strahd", vec!["B".into()]).unwrap();
         assert_eq!(ws.active_campaign().map(|c| c.slug.as_str()), Some(slug.as_str()), "the first campaign becomes active");

@@ -2,17 +2,32 @@
      screen the entry replaces the list until you go back; on touch screens
      the search gets a row of extra keys and completions as chips. -->
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import * as api from "./api";
   import { GLYPH } from "./api";
   import Blocks from "./Blocks.svelte";
   import Pane from "./Pane.svelte";
+  import SourcesEditor from "./SourcesEditor.svelte";
 
   let {
     touch = false,
     narrow = false,
     reading = $bindable(null),
-  }: { touch?: boolean; narrow?: boolean; reading?: string | null } = $props();
+    campaign = null,
+    onstatus,
+    oncampaigns,
+  }: {
+    touch?: boolean;
+    narrow?: boolean;
+    reading?: string | null;
+    /// The active campaign, whose sources the compendium shows.
+    campaign?: api.CampaignInfo | null;
+    onstatus: (s: api.Status) => void;
+    /// Go to the campaigns (to create one).
+    oncampaigns: () => void;
+  } = $props();
+
+  let editingSources = $state(false);
 
   let category = $state(0);
   let query = $state("");
@@ -186,7 +201,16 @@
     return () => window.removeEventListener("resize", check);
   });
 
-  onMount(run);
+  // Search again when the campaign's sources change (and at the start).
+  $effect(() => {
+    void campaign?.sources.join();
+    void campaign?.show_reprinted;
+    untrack(run);
+  });
+
+  const sourcesLabel = $derived(
+    !campaign ? "all sources" : !campaign.sources.length ? "all sources" : campaign.sources.length > 4 ? `${campaign.sources.length} sources` : campaign.sources.join(" "),
+  );
 
   const FACET: Record<string, string> = { "#": "var(--green)", "*": "var(--red)", "^": "var(--magenta)" };
   const KEYS = ["@", "#", "*", "^", '"', "!"];
@@ -244,6 +268,12 @@
   </ul>
 {/snippet}
 
+{#snippet sourcesButton()}
+  <button class="sources" title="The books the compendium shows" onclick={() => (campaign ? (editingSources = true) : oncampaigns())}>
+    <span class="at">@</span> {sourcesLabel} <span class="dim">▾</span>
+  </button>
+{/snippet}
+
 {#snippet categories()}
   <div class="categories no-bar">
     {#each found?.categories ?? [] as [label, count], i (label)}
@@ -267,6 +297,7 @@
           <button class="key wide" onmousedown={(e) => e.preventDefault()} onclick={() => complete()} disabled={!found?.suggestions.length}>tab</button>
         </div>
       {/if}
+      <div class="bar">
       {#if found?.suggestions.length}
         <div class="chips no-bar">
           {#each found.suggestions as [value, n] (value)}
@@ -276,9 +307,14 @@
       {:else}
         {@render categories()}
       {/if}
+      {@render sourcesButton()}
+      </div>
     </div>
   {:else}
-    {@render categories()}
+    <div class="bar">
+      {@render categories()}
+      {@render sourcesButton()}
+    </div>
   {/if}
 
   <div class="split">
@@ -317,12 +353,38 @@
   {#if error}<div class="error">{error}</div>{/if}
 </div>
 
+{#if editingSources && campaign}
+  <SourcesEditor {campaign} onsave={onstatus} onclose={() => (editingSources = false)} />
+{/if}
+
 <style>
   .compendium {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+  .bar {
+    display: flex;
+    align-items: baseline;
+    gap: 2ch;
+    min-width: 0;
+  }
+  .bar > :global(:first-child) {
+    flex: 1;
+    min-width: 0;
+  }
+  .sources {
+    flex-shrink: 0;
+    background: none;
+    border: 0;
+    padding: 0 1ch;
+    color: var(--gray);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .sources .at {
+    color: var(--blue);
   }
   .categories {
     display: flex;

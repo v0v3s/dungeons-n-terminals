@@ -152,7 +152,15 @@
     {:else if !status}
       <p class="dim">Loading…</p>
     {:else if section === "compendium" && status.loaded}
-      {#key `${status.entries} ${status.campaign}`}<Compendium bind:this={compendium} bind:reading touch={touch.current} narrow={narrow.current} />{/key}
+      {#key `${status.entries} ${status.campaign}`}<Compendium
+          bind:this={compendium}
+          bind:reading
+          touch={touch.current}
+          narrow={narrow.current}
+          campaign={status.campaigns.find((c) => c.active) ?? null}
+          onstatus={(s) => (status = s)}
+          oncampaigns={() => (section = "campaigns")}
+        />{/key}
     {:else if section === "characters"}
       {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} {status} onnote={openNote} />{/key}
     {:else if section === "notes"}
