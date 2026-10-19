@@ -1,11 +1,14 @@
 //! Converts `entries` trees (see schemas/) into a small, renderer-agnostic document
-//! model. The TUI turns [`Block`]s into terminal lines.
+//! model. The TUI turns [`Block`]s into terminal lines; other frontends get
+//! them as JSON.
 
 use serde_json::Value;
 
 use crate::tags::{self, Link, Span, Style};
 
-#[derive(Debug, Clone, PartialEq)]
+/// Serialized as `{"type": "paragraph", "c": …}` for other frontends.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(tag = "type", content = "c", rename_all = "snake_case")]
 pub enum Block {
     Heading {
         level: u8,
@@ -28,7 +31,7 @@ pub enum Block {
     Rule,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Table {
     pub caption: Option<Vec<Span>>,
     pub header: Vec<Vec<Span>>,

@@ -1,0 +1,100 @@
+/* The dnt terminal look: the TUI's theme (crates/dnt/src/theme.rs) in the
+   palette its screenshots use. Monospace everywhere, rounded box panes with
+   their titles in the border, keycaps for keys. */
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/700.css";
+@import "@fontsource/jetbrains-mono/400-italic.css";
+
+:root {
+  --bg: #1a1b26;
+  --fg: #c0caf5;
+  --black: #15161e;
+  --red: #f7768e;
+  --green: #9ece6a;
+  --yellow: #e0af68;
+  --blue: #7aa2f7;
+  --magenta: #bb9af7;
+  --cyan: #7dcfff;
+  --gray: #a9b1d6;
+  --dark: #414868;
+  /* Dim text: a touch lighter than the borders so it reads on a phone. */
+  --dim: #565f89;
+
+  --accent: var(--yellow);
+  --border: var(--dark);
+  --link: var(--cyan);
+  --mechanic: var(--magenta);
+  --code: var(--green);
+  --selected: var(--dark);
+
+  --font: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --size: 14px;
+  --line: 1.5;
+  --radius: 7px;
+  --gap: 12px;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --size: 15px;
+    --gap: 8px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--size);
+  line-height: var(--line);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--dark);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--dark);
+  border-radius: 4px;
+}
+
+.keycap {
+  background: var(--dark);
+  color: #fff;
+  padding: 0 0.5ch;
+  border-radius: 3px;
+}
+
+.dim {
+  color: var(--dim);
+}
+.muted {
+  color: var(--gray);
+}
+
+/* Kind colours, as the TUI's list glyphs. */
+.g-spell { color: var(--magenta); }
+.g-class, .g-feature { color: var(--yellow); }
+.g-species { color: var(--green); }
+.g-background { color: var(--blue); }
+.g-feat { color: var(--cyan); }
+.g-item { color: var(--red); }
+.g-rule { color: var(--gray); }

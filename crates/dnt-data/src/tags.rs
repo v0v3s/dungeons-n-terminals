@@ -6,7 +6,7 @@
 
 use crate::kind::Kind;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Style {
     pub bold: bool,
     pub italic: bool,
@@ -20,14 +20,14 @@ pub struct Style {
 }
 
 /// An unresolved reference from an inline tag (or a structured `ref*` entry).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Link {
     pub tag: String,
     /// The raw pipe-separated arguments, including any display text.
     pub args: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Span {
     pub text: String,
     pub style: Style,

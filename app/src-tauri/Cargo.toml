@@ -1,0 +1,25 @@
+[package]
+name = "dnt-app"
+description = "The dnt app for Windows and Android (Tauri)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+# The `_lib` suffix keeps the library name apart from the binary (on Windows).
+name = "dnt_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+dnt-core.workspace = true
+dnt-data.workspace = true
+dnt-rules.workspace = true
+dnt-store.workspace = true
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"

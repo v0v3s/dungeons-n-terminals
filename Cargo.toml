@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "app/src-tauri"]
+# The app needs its web UI built first (see app/README.md).
+default-members = ["crates/*"]
 exclude = ["vendor/edtui"]
 
 [workspace.package]
