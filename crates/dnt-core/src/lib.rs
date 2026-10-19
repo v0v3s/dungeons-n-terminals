@@ -11,6 +11,7 @@ pub mod export;
 pub mod flow;
 pub mod homebrew;
 pub mod levelup;
+pub mod notes;
 pub mod options;
 pub mod rolls;
 pub mod session;

@@ -496,7 +496,6 @@ name = "dnt"
 version = "0.3.1"
 dependencies = [
  "anyhow",
- "chrono",
  "clap",
  "dnt-core",
  "dnt-data",
@@ -512,6 +511,7 @@ dependencies = [
 name = "dnt-core"
 version = "0.3.1"
 dependencies = [
+ "chrono",
  "dnt-data",
  "dnt-rules",
  "dnt-store",

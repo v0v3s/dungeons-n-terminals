@@ -3,8 +3,10 @@
 
 use std::collections::BTreeSet;
 
-use dnt_data::{EntityId, Kind, Library, SourceFilter};
-use dnt_store::notes::{self, Entry, NoteInfo, Notes, Vars};
+pub use dnt_core::notes::Row;
+use dnt_core::notes::{self as core_notes, Target};
+use dnt_data::{EntityId, Library, SourceFilter};
+use dnt_store::notes::{self, NoteInfo, Notes, Vars};
 use edtui::{EditorEventHandler, EditorMode, EditorState, Lines};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -14,13 +16,6 @@ use crate::picker::{PickItem, Picked, Picker};
 pub enum Focus {
     Tree,
     Editor,
-}
-
-/// A row of the flattened tree.
-#[derive(Debug, Clone)]
-pub struct Row {
-    pub entry: Entry,
-    pub depth: usize,
 }
 
 pub struct OpenNote {
@@ -87,10 +82,6 @@ pub struct NotesView {
     pub campaign: String,
 }
 
-fn today() -> String {
-    chrono::Local::now().format("%Y-%m-%d").to_string()
-}
-
 impl NotesView {
     pub fn new(notes: Option<Notes>, campaign: String) -> NotesView {
         let expanded = notes.as_ref().map(|n| n.folders().into_iter().collect()).unwrap_or_default();
@@ -121,26 +112,12 @@ impl NotesView {
     }
 
     fn vars(&self, title: &str) -> Vars {
-        Vars { title: title.to_string(), date: today(), campaign: self.campaign.clone(), character: String::new() }
+        core_notes::vars(&self.campaign, title)
     }
 
     /// The tree flattened into visible rows.
     pub fn rows(&self) -> Vec<Row> {
-        fn walk(notes: &Notes, expanded: &BTreeSet<String>, folder: &str, depth: usize, out: &mut Vec<Row>) {
-            for e in notes.list(folder) {
-                let open = e.is_dir && expanded.contains(&e.path);
-                let path = e.path.clone();
-                out.push(Row { entry: e, depth });
-                if open {
-                    walk(notes, expanded, &path, depth + 1, out);
-                }
-            }
-        }
-        let mut out = Vec::new();
-        if let Some(n) = &self.notes {
-            walk(n, &self.expanded, "", 0, &mut out);
-        }
-        out
+        self.notes.as_ref().map(|n| core_notes::tree(n, &self.expanded)).unwrap_or_default()
     }
 
     /// Folder for a new note: the folder under the cursor, or the folder of
@@ -223,15 +200,13 @@ impl NotesView {
     /// Open (creating from the Character template if needed) a character's note.
     pub fn open_character(&mut self, name: &str) -> Action {
         let Some(n) = &self.notes else { return Action::Status("No active campaign".into()) };
-        let path = format!("Party/{}.md", notes::file_safe(name));
-        if !n.abs(&path).exists() {
-            let vars = Vars { character: name.to_string(), ..self.vars(name) };
-            if let Err(e) = n.write(&path, &vars.apply(&n.template("Character"))) {
-                return Action::Status(format!("Could not create note: {e}"));
+        match core_notes::character_note(n, &self.campaign, name) {
+            Ok(path) => {
+                self.reindex();
+                self.open(&path, true)
             }
-            self.reindex();
+            Err(e) => Action::Status(e),
         }
-        self.open(&path, true)
     }
 
     pub fn handle_key(&mut self, key: KeyEvent, lib: &Library, filter: &SourceFilter) -> Action {
@@ -470,7 +445,7 @@ impl NotesView {
 
     /// Paths of notes matching a search query (all notes when empty).
     pub fn search(&self, query: &str) -> Vec<String> {
-        notes::NoteQuery::parse(query).run(&self.index).into_iter().map(|n| n.path.clone()).collect()
+        core_notes::search(&self.index, query)
     }
 
     /// Run a `:` command from the editor.
@@ -576,51 +551,41 @@ impl NotesView {
     /// The `[[link]]` under the editor cursor.
     fn link_under_cursor(&self) -> Option<notes::WikiLink> {
         let open = self.open.as_ref()?;
-        let text = open.text();
-        let (row, col) = (open.editor.cursor.row, open.editor.cursor.col);
-        let line = text.lines().nth(row)?;
-        // Cursor column is in characters; links are in bytes.
-        let byte = line.char_indices().nth(col).map_or(line.len(), |(b, _)| b);
-        notes::links(&text).into_iter().find(|l| l.line == row && l.start <= byte && byte < l.end)
+        core_notes::link_at(&open.text(), open.editor.cursor.row, open.editor.cursor.col)
     }
 
     fn follow(&mut self, lib: &Library, filter: &SourceFilter) -> Action {
         let Some(link) = self.link_under_cursor() else { return Action::Status("No [[link]] under the cursor".into()) };
-        if let Some((kind, name)) = link.compendium() {
-            return match find_entity(lib, kind, name, filter) {
-                Some(e) => {
-                    let _ = self.save();
-                    Action::Compendium(e)
+        match core_notes::resolve(lib, filter, &self.index, &link) {
+            Target::Entity(e) => {
+                let _ = self.save();
+                Action::Compendium(e)
+            }
+            Target::NoEntity => Action::Status(format!("Not in the compendium: {}", link.target)),
+            Target::Note(path) => self.open(&path, true),
+            Target::NoNote(title) => {
+                // Offer to create it.
+                let mut items = vec![PickItem::new("(top level)", "", "")];
+                if let Some(n) = &self.notes {
+                    items.extend(n.folders().into_iter().map(|f| PickItem::new(f.clone(), "", f)));
                 }
-                None => Action::Status(format!("Not in the compendium: {}", link.target)),
-            };
+                let picker = Picker::new(format!("Create “{title}” in which folder?"), items);
+                self.popup = Some(Popup::CreateFromLink(Box::new(picker), title));
+                Action::None
+            }
         }
-        if let Some(n) = notes::resolve(&self.index, &link.target) {
-            let path = n.path.clone();
-            return self.open(&path, true);
-        }
-        // Missing note: offer to create it.
-        let mut items = vec![PickItem::new("(top level)", "", "")];
-        if let Some(n) = &self.notes {
-            items.extend(n.folders().into_iter().map(|f| PickItem::new(f.clone(), "", f)));
-        }
-        let title = link.target.clone();
-        self.popup = Some(Popup::CreateFromLink(Box::new(Picker::new(format!("Create “{title}” in which folder?"), items)), title));
-        Action::None
     }
 
     fn preview(&mut self, lib: &Library, filter: &SourceFilter) -> Action {
         let Some(link) = self.link_under_cursor() else { return Action::Status("No [[link]] under the cursor".into()) };
-        let (entity, lines) = if let Some((kind, name)) = link.compendium() {
-            match find_entity(lib, kind, name, filter) {
-                Some(e) => (Some(e), Vec::new()),
-                None => (None, vec!["Not in the compendium.".into()]),
-            }
-        } else {
-            match notes::resolve(&self.index, &link.target).and_then(|n| self.notes.as_ref()?.read(&n.path).ok()) {
+        let (entity, lines) = match core_notes::resolve(lib, filter, &self.index, &link) {
+            Target::Entity(e) => (Some(e), Vec::new()),
+            Target::NoEntity => (None, vec!["Not in the compendium.".into()]),
+            Target::Note(path) => match self.notes.as_ref().and_then(|n| n.read(&path).ok()) {
                 Some(text) => (None, text.lines().map(str::to_string).collect()),
-                None => (None, vec!["No such note yet — gd creates it.".into()]),
-            }
+                None => (None, vec!["Could not read the note.".into()]),
+            },
+            Target::NoNote(_) => (None, vec!["No such note yet — gd creates it.".into()]),
         };
         self.popup = Some(Popup::Preview(link.target, entity, lines));
         Action::None
@@ -632,43 +597,18 @@ impl NotesView {
         let inbox_open = self.open.as_ref().is_some_and(|o| o.path == "Inbox.md");
         let _ = self.save();
         let Some(n) = &self.notes else { return "No active campaign".into() };
-        let time = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
-        match n.capture(&time, text) {
-            Ok(()) => {
-                if inbox_open {
-                    let focus = self.focus;
-                    let _ = self.open("Inbox.md", false);
-                    self.focus = focus;
-                }
-                self.reindex();
-                "Captured to Inbox".into()
-            }
-            Err(e) => format!("Could not capture: {e}"),
+        let msg = core_notes::capture(n, text);
+        if msg.is_ok() && inbox_open {
+            let focus = self.focus;
+            let _ = self.open("Inbox.md", false);
+            self.focus = focus;
         }
+        self.reindex();
+        msg.unwrap_or_else(|e| e)
     }
 
     /// Change the folder order and return it, for saving in the campaign.
     pub fn order(&self) -> Option<Vec<String>> {
         self.notes.as_ref().map(|n| n.order.clone())
     }
-}
-
-/// Find a compendium entity for a `[[kind:Name]]` link, preferring ones the
-/// campaign enables. `kind` is a tag name (`spell`, `item`, `race`, …).
-pub fn find_entity(lib: &Library, kind: &str, name: &str, filter: &SourceFilter) -> Option<EntityId> {
-    let kinds: Vec<Kind> = match Kind::for_tag(kind) {
-        [] => Kind::from_json_key(kind).into_iter().collect(),
-        many => many.to_vec(),
-    };
-    let (name, source) = match name.split_once('@') {
-        Some((n, s)) => (n.trim(), Some(s.trim())),
-        None => (name, None),
-    };
-    let matches: Vec<EntityId> = (0..lib.entities().len())
-        .filter(|&i| {
-            let e = lib.entity(i);
-            kinds.contains(&e.kind) && e.name.eq_ignore_ascii_case(name) && source.is_none_or(|s| e.source.eq_ignore_ascii_case(s))
-        })
-        .collect();
-    matches.iter().copied().find(|&i| filter.allows(lib.entity(i))).or_else(|| matches.first().copied())
 }
