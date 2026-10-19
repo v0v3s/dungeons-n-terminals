@@ -10,6 +10,7 @@ pub mod entry_fields;
 pub mod export;
 pub mod flow;
 pub mod homebrew;
+pub mod import;
 pub mod levelup;
 pub mod notes;
 pub mod options;

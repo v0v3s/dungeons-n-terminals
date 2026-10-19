@@ -34,8 +34,10 @@ the 2024 and the 2014 rules. dnt ships no game content.
 
 Download the binary from the
 [latest release](https://github.com/v0v3s/dungeons-n-terminals/releases/latest),
-or build it. Either way you need a data directory (see
-[`schemas/README.md`](schemas/README.md) for the layout).
+or build it. Either way you need the data (see
+[`schemas/README.md`](schemas/README.md) for the layout): import a zip of
+it once with `dnt import data.zip`, or point dnt at a data folder with
+`--data`.
 
 ```sh
 # Linux
@@ -53,10 +55,11 @@ To build it yourself you need [Rust](https://rustup.rs):
 git clone https://github.com/v0v3s/dungeons-n-terminals.git
 cd dungeons-n-terminals
 cargo build --release
-./target/release/dnt --data /path/to/data
+./target/release/dnt import data.zip   # or: ./target/release/dnt --data /path/to/data
+./target/release/dnt
 ```
 
-The data path is remembered, so afterwards `dnt` is enough. On the first
+A data path is remembered, so afterwards `dnt` is enough. On the first
 run you land in **Campaigns** (`4`): press `n` to create one, choose its
 sources with `space` (or a preset with `p`), and press `enter` on it to
 make it active. Then go to **Characters** (`2`) and press `n`.
@@ -71,6 +74,15 @@ Press `?` on any screen for its keys (F1 works while typing too).
 | `--homebrew FILE` | load a homebrew JSON file for this run (repeatable) |
 | `--sources XPHB,XDMG` | use these sources instead of the campaign's |
 | `--show-reprinted` | with `--sources`: keep entries that were reprinted |
+| `import FILE.zip` | import data: a whole data folder, or homebrew files in any layout |
+| `imported` | list the imported sources |
+| `forget SOURCE` | remove an imported source |
+
+Importing merges entries by who they are (kind, name, source), so
+importing the same zip again, or a newer version of a homebrew file,
+updates entries instead of doubling them; entries a zip does not have
+are kept. A configured data folder (`--data`) is used instead of the
+imported data.
 
 ## Where things are
 
@@ -86,6 +98,7 @@ Everything is plain files you can read, edit and back up:
     notes/                           Markdown notes (Sessions/, NPCs/, …)
     exports/                         exported sheets
   library/
+    imported/                        data imported from zips (one file per source)
     homebrew/*.json                  homebrew shared by every campaign
     overlays/*.toml                  your rules for features
   templates/*.md                     your note templates (override the defaults)

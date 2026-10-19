@@ -402,6 +402,11 @@ impl Store {
         self.data_dir.join("library/homebrew")
     }
 
+    /// Where imported data lives (see `dnt_core::import`).
+    pub fn imported_dir(&self) -> PathBuf {
+        self.data_dir.join("library/imported")
+    }
+
     /// The file dnt writes promoted entries to.
     pub fn global_homebrew_path(&self) -> PathBuf {
         self.global_homebrew_dir().join("homebrew.json")

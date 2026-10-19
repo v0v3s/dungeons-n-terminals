@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use dnt_data::{Library, SourceFilter};
 use dnt_store::Store;
 use ratatui::crossterm::event::{self, Event, KeyEventKind};
@@ -32,6 +32,9 @@ use app::App;
 #[derive(Parser)]
 #[command(version)]
 struct Args {
+    #[command(subcommand)]
+    command: Option<Cmd>,
+
     /// Path to the data directory (or a folder holding it as `data/`), in
     /// the format described in schemas/. Remembered once given.
     #[arg(long, env = "DNT_DATA")]
@@ -51,11 +54,57 @@ struct Args {
     show_reprinted: bool,
 }
 
+#[derive(Subcommand)]
+enum Cmd {
+    /// Import data from a zip: a whole data folder, or homebrew files in any
+    /// layout. Importing again updates entries instead of doubling them.
+    Import { zip: PathBuf },
+    /// List the imported sources.
+    Imported,
+    /// Remove an imported source and everything in it.
+    Forget { source: String },
+}
+
+/// Run a subcommand (no TUI).
+fn run_command(cmd: Cmd, store: &Store, config: &dnt_store::Config) -> Result<()> {
+    use dnt_core::import;
+    match cmd {
+        Cmd::Import { zip } => {
+            let bytes = std::fs::read(&zip).with_context(|| format!("reading {}", zip.display()))?;
+            let report = import::import_zip(store, bytes).map_err(anyhow::Error::msg)?;
+            println!("{}", report.summary());
+            for (file, why) in &report.skipped {
+                println!("  skipped {file}: {why}");
+            }
+            if let Some(path) = &config.library.path {
+                println!(
+                    "Note: dnt reads the data folder {} (set in {}); remove library.path there to use the imported data.",
+                    path.display(),
+                    store.config_path().display()
+                );
+            }
+        }
+        Cmd::Imported => {
+            for (source, count) in import::sources(store).map_err(anyhow::Error::msg)? {
+                println!("{source:<16} {count} entries");
+            }
+        }
+        Cmd::Forget { source } => {
+            import::remove_source(store, &source).map_err(anyhow::Error::msg)?;
+            println!("Removed {source}");
+        }
+    }
+    Ok(())
+}
+
 /// The base library: books, global homebrew (`<data>/library/homebrew/`)
 /// and extra homebrew files. Campaign homebrew is layered on a clone of it
 /// (see App::prepare_library).
-fn load_base(data: &Path, extra: &[PathBuf], store: &Store) -> Result<Library> {
-    let mut base = Library::load_dir(data).with_context(|| format!("loading {}", data.display()))?;
+fn load_base(data: Option<&Path>, extra: &[PathBuf], store: &Store) -> Result<Library> {
+    let mut base = match data {
+        Some(data) => Library::load_dir(data).with_context(|| format!("loading {}", data.display()))?,
+        None => dnt_core::import::load(store).map_err(anyhow::Error::msg).context("loading the imported data")?,
+    };
     for path in store.global_homebrew_files().iter().chain(extra) {
         base.load_file(path).with_context(|| format!("loading {}", path.display()))?;
     }
@@ -66,26 +115,31 @@ fn main() -> Result<()> {
     let args = Args::parse();
     let store = Store::open_default()?;
     let mut config = store.load_config()?;
+    if let Some(cmd) = args.command {
+        return run_command(cmd, &store, &config);
+    }
 
+    // A data folder if one is given or configured, else the imported data.
     let data = match (&args.data, &config.library.path) {
         (Some(path), _) => {
             if config.library.path.as_ref() != Some(path) {
                 config.library.path = Some(path.clone());
                 store.save_config(&config)?;
             }
-            path.clone()
+            Some(path.clone())
         }
-        (None, Some(path)) => path.clone(),
+        (None, Some(path)) => Some(path.clone()),
+        (None, None) if dnt_core::import::has_imported(&store) => None,
         (None, None) => bail!(
-            "no data directory configured: run once with --data /path/to/data \
-             (it is then remembered in {})",
+            "no data yet: import a zip of it with `dnt import data.zip`, or use a data folder with \
+             --data /path/to/data (it is then remembered in {})",
             store.config_path().display()
         ),
     };
 
     let start = Instant::now();
     let extra: Vec<PathBuf> = config.library.homebrew.iter().chain(&args.homebrew).cloned().collect();
-    let mut base = load_base(&data, &extra, &store)?;
+    let mut base = load_base(data.as_deref(), &extra, &store)?;
     let mut status = format!("Loaded {} entries in {} ms", base.entities().len(), start.elapsed().as_millis());
     if !base.warnings.is_empty() {
         status.push_str(&format!(" ({} warnings)", base.warnings.len()));
@@ -124,7 +178,7 @@ fn main() -> Result<()> {
                 }
             }
             if std::mem::take(&mut app.pending_base_reload) {
-                match load_base(&data, &extra, &app.store) {
+                match load_base(data.as_deref(), &extra, &app.store) {
                     Ok(b) => base = b,
                     Err(e) => app.status = format!("Could not reload the library: {e:#}"),
                 }

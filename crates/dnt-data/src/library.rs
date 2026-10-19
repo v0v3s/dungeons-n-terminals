@@ -130,6 +130,28 @@ impl Library {
         Ok(lib)
     }
 
+    /// Load documents already read: `books` lists books and adventures
+    /// (`{"book": [...], "adventure": [...]}`), `docs` hold the entities
+    /// (each may name its sources in `_meta`), and `spell_lookup` gives
+    /// spells their classes (as `spells/sources.json` does).
+    pub fn load_parsed(books: &Value, docs: &[Value], spell_lookup: Option<Value>) -> Library {
+        let mut lib = Library::new();
+        lib.load_books(books, "book", None);
+        lib.load_books(books, "adventure", Some("adventure"));
+        for doc in docs {
+            lib.ingest(doc, true);
+        }
+        lib.pending_spell_lookup = spell_lookup;
+        lib.finish();
+        lib
+    }
+
+    /// Read and parse files of a source (in parallel where there are
+    /// threads), keeping their order.
+    pub fn parse_files(src: &impl DataSource, files: &[String]) -> Vec<(String, Result<Value, LoadError>)> {
+        parse_all(src, files)
+    }
+
     /// Load a campaign's homebrew. Entities marked `"_dnt": {"replaces":
     /// true}` with a `_copy` patch the entity they copy *in place* (same
     /// key), so every lookup gets the campaign version; the book data is

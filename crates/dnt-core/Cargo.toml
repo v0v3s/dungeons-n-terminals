@@ -12,6 +12,7 @@ dnt-store.workspace = true
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 
 # In a browser the clock comes from JavaScript.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
