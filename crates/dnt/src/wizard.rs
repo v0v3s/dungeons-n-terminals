@@ -39,7 +39,7 @@ pub enum Outcome {
 fn view(q: &Question) -> View {
     match q {
         Question::Pick { .. } => View::Pick(question_picker(q).expect("a pick question")),
-        Question::Abilities(scores) => View::Abilities(AbilityEditor { scores: scores.clone(), cursor: 0 }),
+        Question::Abilities { scores } => View::Abilities(AbilityEditor { scores: scores.clone(), cursor: 0 }),
         Question::Number { .. } | Question::Confirm => View::Review,
     }
 }

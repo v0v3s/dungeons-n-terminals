@@ -55,10 +55,10 @@
     {#if error}<p class="err">{error}</p>{/if}
   </Pane>
 
-  {#if status?.sources.length}
+  {#if status?.imported.length}
     <Pane title="Imported sources">
       <div class="sources">
-        {#each status.sources as [source, n] (source)}
+        {#each status.imported as [source, n] (source)}
           <div><span>{source}</span> <span class="dim">{n}</span></div>
         {/each}
       </div>

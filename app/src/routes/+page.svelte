@@ -5,21 +5,35 @@
   import { exit, onBackButtonPress } from "@tauri-apps/api/app";
   import * as api from "$lib/api";
   import AppBar from "$lib/AppBar.svelte";
+  import Campaigns from "$lib/Campaigns.svelte";
+  import Characters from "$lib/Characters.svelte";
   import Compendium from "$lib/Compendium.svelte";
   import Data from "$lib/Data.svelte";
   import Drawer from "$lib/Drawer.svelte";
+  import Notes from "$lib/Notes.svelte";
+  import { closeTop } from "$lib/modals";
   import { narrow, touch } from "$lib/screen";
 
-  type Section = "compendium" | "data";
+  type Section = "compendium" | "characters" | "notes" | "campaigns" | "data";
   const SECTIONS: [Section, string][] = [
     ["compendium", "Compendium"],
+    ["characters", "Characters"],
+    ["notes", "Notes"],
+    ["campaigns", "Campaigns"],
     ["data", "Data"],
   ];
 
-  let section: Section = $state("compendium");
+  let section = $state<Section>("compendium");
   let status = $state<api.Status | null>(null);
   let error = $state("");
   let compendium: Compendium | undefined = $state();
+  let characters: Characters | undefined = $state();
+  let notes: Notes | undefined = $state();
+  /// What a section has open full screen (for the app bar), if anything.
+  let characterOpen = $state<string | null>(null);
+  let noteOpen = $state<string | null>(null);
+  /// A note to open in the Notes section.
+  let notePath = $state<string | null>(null);
   let drawer = $state(false);
   /// The entry open full-screen on a phone (its name), if any.
   let reading = $state<string | null>(null);
@@ -34,17 +48,43 @@
   /// section, go back to the compendium, and only then leave.
   function back() {
     const focused = document.activeElement;
-    if (drawer) {
+    if (closeTop()) {
+      // closed a dialog
+    } else if (drawer) {
       drawer = false;
     } else if (focused instanceof HTMLInputElement) {
       focused.blur();
-    } else if (section === "compendium" && compendium?.stepBack()) {
-      // stepped back
-    } else if (section !== "compendium" && status?.loaded) {
-      section = "compendium";
     } else {
-      exit(0);
+      stepBack().then((done) => {
+        if (done) return;
+        if (section !== "compendium" && status?.loaded) section = "compendium";
+        else exit(0);
+      });
     }
+  }
+
+  /// One step back inside the section.
+  async function stepBack(): Promise<boolean> {
+    if (section === "compendium") return compendium?.stepBack() ?? false;
+    if (section === "characters") return (await characters?.back()) ?? false;
+    if (section === "notes") return (await notes?.stepBack()) ?? false;
+    return false;
+  }
+
+  /// The app bar's title: what is open, or the section.
+  const title = $derived(
+    (section === "compendium" && narrow.current && reading) ||
+      (section === "characters" && characterOpen) ||
+      (section === "notes" && narrow.current && noteOpen) ||
+      label(section).toLowerCase(),
+  );
+  const opened = $derived(
+    (section === "compendium" && narrow.current && !!reading) || (section === "characters" && !!characterOpen) || (section === "notes" && narrow.current && !!noteOpen),
+  );
+
+  function openNote(path: string) {
+    notePath = path;
+    section = "notes";
   }
 
   onMount(() => {
@@ -54,8 +94,16 @@
 
   onMount(async () => {
     try {
-      status = await api.openLibrary();
+      status = await api.status();
       if (!status.loaded) section = "data";
+      else if (!status.campaigns.length) section = "campaigns";
+      // Development: `#characters/<slug>` (or VITE_OPEN) opens a section.
+      const target = import.meta.env.DEV ? location.hash.slice(1) || import.meta.env.VITE_OPEN : "";
+      if (target) {
+        const [sec, slug] = target.split("/");
+        if (SECTIONS.some(([id]) => id === sec)) section = sec as Section;
+        if (sec === "characters" && slug) await api.openCharacter(slug);
+      }
     } catch (e) {
       error = String(e);
     }
@@ -68,25 +116,20 @@
     }
   }
 
-  const counts = $derived(status?.loaded ? `${status.entries} entries · ${status.sources.length} sources` : "no data yet");
+  const counts = $derived(status?.loaded ? `${status.entries} entries · ${status.imported.length} sources` : "no data yet");
 </script>
 
 <svelte:window onkeydown={onkey} />
 
 <div class="app" class:touch={touch.current}>
   {#if touch.current}
-    <AppBar
-      title={reading && narrow.current ? reading : label(section).toLowerCase()}
-      back={!!reading && narrow.current}
-      onmenu={() => (drawer = true)}
-      onback={() => compendium?.stepBack()}
-    />
+    <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} />
     <Drawer
       bind:open={drawer}
-      sections={SECTIONS.map(([id, l]) => [id, l, id === "compendium" && status?.loaded ? String(status.entries) : ""])}
+      sections={SECTIONS.map(([id, l]) => [id, l, ""])}
       current={section}
       onpick={go}
-      footer={counts}
+      footer={status?.campaign ? `◈ ${status.campaign} · ${counts}` : counts}
     />
   {:else}
     <header class="tabs">
@@ -99,7 +142,7 @@
           </button>
         {/each}
       </nav>
-      <span class="right dim">{status?.loaded ? `${status.entries} entries` : ""}</span>
+      <span class="right">{#if status?.campaign}<span class="acc">◈</span> <b>{status.campaign}</b>{:else}<span class="dim">no campaign</span>{/if}</span>
     </header>
   {/if}
 
@@ -109,7 +152,13 @@
     {:else if !status}
       <p class="dim">Loading…</p>
     {:else if section === "compendium" && status.loaded}
-      {#key status.entries}<Compendium bind:this={compendium} bind:reading touch={touch.current} narrow={narrow.current} />{/key}
+      {#key `${status.entries} ${status.campaign}`}<Compendium bind:this={compendium} bind:reading touch={touch.current} narrow={narrow.current} />{/key}
+    {:else if section === "characters"}
+      {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} {status} onnote={openNote} />{/key}
+    {:else if section === "notes"}
+      {#key status.campaign}<Notes bind:this={notes} bind:openPath={notePath} bind:reading={noteOpen} {status} narrow={narrow.current} />{/key}
+    {:else if section === "campaigns"}
+      <Campaigns {status} onchange={(s) => (status = s)} />
     {:else}
       <Data {status} onchange={(s) => (status = s)} />
     {/if}
@@ -123,7 +172,7 @@
         <span><span class="keycap">tab</span> complete · category</span>
         <span><span class="keycap">esc</span> back</span>
       {/if}
-      <span><span class="keycap">alt+1-2</span> section</span>
+      <span><span class="keycap">alt+1-5</span> section</span>
     </footer>
   {/if}
 </div>
@@ -176,6 +225,9 @@
   }
   .right {
     margin-left: auto;
+  }
+  .acc {
+    color: var(--accent);
   }
   main {
     flex: 1;

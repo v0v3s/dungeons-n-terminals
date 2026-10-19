@@ -197,7 +197,7 @@ pub enum Target {
 
 /// Spells to choose from: a title, the choices (values are spell ids), how
 /// many to pick, and where they go.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SpellChoices {
     pub title: String,
     pub choices: Vec<Choice>,

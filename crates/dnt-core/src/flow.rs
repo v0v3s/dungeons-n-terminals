@@ -6,19 +6,21 @@ use serde::{Deserialize, Serialize};
 use crate::options::Choice;
 
 /// What a flow asks next.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Question {
     /// Pick `count` of the choices (by value).
     Pick { title: String, choices: Vec<Choice>, count: usize },
     /// Type a number (hit points rolled at the table).
     Number { title: String },
     /// Set the six ability scores, starting from these.
-    Abilities(AbilityScores),
+    Abilities { scores: AbilityScores },
     /// Everything is chosen: apply or cancel.
     Confirm,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum Answer {
     Pick(Vec<String>),
     Number(i64),
@@ -77,7 +79,7 @@ pub fn point_cost(score: i64) -> i64 {
 }
 
 /// Six scores being set by a method, within its rules.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AbilityScores {
     pub method: Method,
     pub scores: [i64; 6],

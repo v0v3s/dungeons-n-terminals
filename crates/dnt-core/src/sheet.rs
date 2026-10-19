@@ -156,8 +156,8 @@ pub struct AttackRow {
     /// Problems (no proficiency, needs attunement), shown in red.
     pub problems: Vec<String>,
     pub properties: Vec<String>,
-    /// From an inventory line (not an unarmed strike).
-    pub weapon: bool,
+    /// The inventory line of the weapon (not for an unarmed strike).
+    pub line: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -349,7 +349,11 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
                 notes,
                 problems: a.notes.clone(),
                 properties: a.properties.clone(),
-                weapon: a.item.is_some(),
+                // The line holding it, else any line of that weapon.
+                line: a.item.and_then(|item| {
+                    let lines = || ch.inventory.iter().enumerate().filter(|(_, l)| item_entity(lib, l) == Some(item));
+                    lines().find(|(_, l)| l.hand.is_some()).or_else(|| lines().next()).map(|(i, _)| i)
+                }),
             }
         })
         .collect();
@@ -499,8 +503,8 @@ pub struct Feature {
     pub level: i64,
     /// Has rules that change the sheet.
     pub automated: bool,
-    /// A weapon mastery (can be swapped).
-    pub mastery: bool,
+    /// A weapon mastery (can be swapped): the weapon's id.
+    pub mastery: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -527,7 +531,10 @@ pub fn features(lib: &Library, overlays: &OverlaySet, s: &CharacterSession) -> V
             name: lib.entity(f.entity).name.clone(),
             level: f.level,
             automated: !overlays.for_entity(&lib.entity(f.entity).key).is_empty(),
-            mastery: f.source == FeatureSource::Mastery,
+            mastery: (f.source == FeatureSource::Mastery).then(|| {
+                let e = lib.entity(f.entity);
+                format!("item:{}|{}", e.name, e.source)
+            }),
         };
         match groups.last_mut() {
             Some(g) if g.title == title => g.features.push(feature),

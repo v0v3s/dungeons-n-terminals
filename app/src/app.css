@@ -86,6 +86,37 @@ input {
   border-radius: 4px;
 }
 
+/* Buttons in the dnt look. */
+.primary,
+.ghost {
+  border-radius: 3px;
+  padding: 0.25em 2ch;
+  font-weight: 700;
+  cursor: pointer;
+}
+.primary {
+  background: var(--accent);
+  color: var(--black);
+  border: 1px solid var(--accent);
+}
+.ghost {
+  background: none;
+  color: var(--gray);
+  border: 1px solid var(--border);
+}
+.primary:disabled,
+.ghost:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .primary,
+  .ghost {
+    min-height: 44px;
+    padding: 0 18px;
+  }
+}
+
 .keycap {
   background: var(--dark);
   color: #fff;

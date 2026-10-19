@@ -244,7 +244,7 @@ impl NewCharacter {
     /// Answer the current question and move on.
     pub fn answer(&mut self, lib: &Library, filter: &SourceFilter, answer: Answer) -> Result<(), String> {
         match (&self.state.question, answer) {
-            (Question::Abilities(ed), Answer::Scores(scores)) => {
+            (Question::Abilities { scores: ed }, Answer::Scores(scores)) => {
                 ed.check(&scores)?;
                 let method = ed.method;
                 self.snapshot();
@@ -570,7 +570,7 @@ impl NewCharacter {
                     _ => Method::Manual,
                 };
                 st.step = Step::Abilities;
-                st.question = Question::Abilities(AbilityScores::new(method));
+                st.question = Question::Abilities { scores: AbilityScores::new(method) };
                 return;
             }
             Step::BonusAlternative => {
@@ -674,7 +674,7 @@ impl NewCharacter {
     /// are being set (for a preview).
     pub fn preview_character(&self, scores: Option<&[i64; 6]>) -> Character {
         let mut ch = self.state.ch.clone();
-        if let (Question::Abilities(_), Some(scores)) = (&self.state.question, scores) {
+        if let (Question::Abilities { .. }, Some(scores)) = (&self.state.question, scores) {
             for (i, (a, _)) in ABILITIES.iter().enumerate() {
                 set_score(&mut ch, a, scores[i]);
             }
@@ -774,7 +774,7 @@ mod tests {
                     titles.push(title.clone());
                     Answer::Pick(choices.iter().take(*count).map(|c| c.value.clone()).collect())
                 }
-                Question::Abilities(_) => Answer::Scores(STANDARD_ARRAY),
+                Question::Abilities { .. } => Answer::Scores(STANDARD_ARRAY),
                 Question::Confirm => return titles,
                 Question::Number { .. } => panic!("no numbers when creating"),
             };
@@ -801,7 +801,7 @@ mod tests {
         w.answer(&lib, &filter, Answer::Pick(vec!["race:Human|T".into()])).unwrap();
         w.answer(&lib, &filter, Answer::Pick(vec!["background:Acolyte|T".into()])).unwrap();
         w.answer(&lib, &filter, Answer::Pick(vec!["array".into()])).unwrap();
-        assert!(matches!(w.question(), Question::Abilities(_)));
+        assert!(matches!(w.question(), Question::Abilities { .. }));
         assert!(w.answer(&lib, &filter, Answer::Scores([18; 6])).is_err());
         assert!(w.back());
         assert!(matches!(w.question(), Question::Pick { .. }), "back at the method");

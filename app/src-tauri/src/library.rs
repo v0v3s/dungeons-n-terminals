@@ -1,0 +1,262 @@
+//! Data, campaigns and the compendium.
+
+use dnt_core::compendium::{Category, Search};
+use dnt_core::import;
+use dnt_data::tags::Link;
+use dnt_data::{view, EntityId, Kind};
+use serde::Serialize;
+use tauri::State;
+
+use crate::{App, Inner, Res};
+
+#[derive(Serialize)]
+pub struct CampaignInfo {
+    slug: String,
+    name: String,
+    /// Enabled sources (empty: all).
+    sources: Vec<String>,
+    show_reprinted: bool,
+    /// The campaign's homebrew source.
+    source: String,
+    active: bool,
+}
+
+#[derive(Serialize)]
+pub struct Status {
+    /// Whether there is data to read.
+    loaded: bool,
+    entries: usize,
+    imported: Vec<(String, usize)>,
+    campaigns: Vec<CampaignInfo>,
+    /// The active campaign's name.
+    campaign: Option<String>,
+    problems: Vec<String>,
+}
+
+pub fn status_of(inner: &Inner) -> Res<Status> {
+    let ws = &inner.ws;
+    let imported = if import::has_imported(&ws.store) { import::sources(&ws.store)? } else { Vec::new() };
+    Ok(Status {
+        loaded: ws.has_data(),
+        entries: ws.lib.as_ref().map_or(0, |l| l.entities().len()),
+        imported,
+        campaigns: ws
+            .campaigns
+            .iter()
+            .enumerate()
+            .map(|(i, c)| CampaignInfo {
+                slug: c.slug.clone(),
+                name: c.settings.name.clone(),
+                sources: c.settings.sources.clone(),
+                show_reprinted: c.settings.show_reprinted,
+                source: c.settings.source.clone(),
+                active: ws.active == Some(i),
+            })
+            .collect(),
+        campaign: ws.active_campaign().map(|c| c.settings.name.clone()),
+        problems: ws.problems.clone(),
+    })
+}
+
+#[tauri::command]
+pub async fn status(app: State<'_, App>) -> Res<Status> {
+    status_of(&app.lock())
+}
+
+#[derive(Serialize)]
+pub struct Imported {
+    summary: String,
+    skipped: Vec<(String, String)>,
+    status: Status,
+}
+
+/// Import a zip picked by the user (a path, or a `content://` URI on Android).
+#[tauri::command]
+pub async fn import_zip(handle: tauri::AppHandle, app: State<'_, App>, path: String) -> Res<Imported> {
+    use tauri_plugin_fs::FsExt;
+    let file: tauri_plugin_fs::FilePath = path.parse().map_err(|e| format!("{e}"))?;
+    let bytes = handle.fs().read(file).map_err(|e| format!("Could not read the file: {e}"))?;
+    let mut inner = app.lock();
+    let report = import::import_zip(&inner.ws.store, bytes)?;
+    inner.ws.reload();
+    inner.library_changed();
+    Ok(Imported { summary: report.summary(), skipped: report.skipped, status: status_of(&inner)? })
+}
+
+#[derive(Serialize)]
+pub struct Source {
+    id: String,
+    name: String,
+    /// `book`, `adventure`, `homebrew`, …
+    group: String,
+    published: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct Sources {
+    sources: Vec<Source>,
+    /// Named sets of sources: (name, ids).
+    presets: Vec<(&'static str, &'static [&'static str])>,
+}
+
+/// The sources a campaign can enable.
+#[tauri::command]
+pub async fn sources(app: State<'_, App>) -> Res<Sources> {
+    let inner = app.lock();
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let mut sources: Vec<Source> = lib
+        .sources()
+        .map(|s| Source {
+            id: s.id.clone(),
+            name: s.name.clone(),
+            group: s.group.clone().unwrap_or_else(|| "book".into()),
+            published: s.published.clone(),
+        })
+        .collect();
+    sources.sort_by(|a, b| a.group.cmp(&b.group).then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+    Ok(Sources { sources, presets: dnt_store::PRESETS.to_vec() })
+}
+
+#[tauri::command]
+pub async fn create_campaign(app: State<'_, App>, name: String, sources: Vec<String>) -> Res<Status> {
+    let mut inner = app.lock();
+    let before = inner.ws.active;
+    inner.ws.create_campaign(&name, sources)?;
+    if inner.ws.active != before {
+        inner.library_changed();
+    }
+    status_of(&inner)
+}
+
+#[tauri::command]
+pub async fn activate_campaign(app: State<'_, App>, slug: String) -> Res<Status> {
+    let mut inner = app.lock();
+    inner.sheet = None;
+    inner.ws.activate(&slug)?;
+    inner.library_changed();
+    status_of(&inner)
+}
+
+#[tauri::command]
+pub async fn set_campaign_sources(app: State<'_, App>, slug: String, sources: Vec<String>, show_reprinted: bool) -> Res<Status> {
+    let mut inner = app.lock();
+    inner.ws.set_sources(&slug, sources, show_reprinted)?;
+    inner.library_changed();
+    status_of(&inner)
+}
+
+#[tauri::command]
+pub async fn rename_campaign(app: State<'_, App>, slug: String, name: String) -> Res<Status> {
+    let mut inner = app.lock();
+    inner.ws.rename_campaign(&slug, &name)?;
+    status_of(&inner)
+}
+
+/// The colour group of a kind, as the TUI marks it.
+pub fn group(kind: Kind) -> &'static str {
+    use Kind::*;
+    match kind {
+        Spell => "spell",
+        Class | Subclass => "class",
+        ClassFeature | SubclassFeature | OptionalFeature => "feature",
+        Race | Subrace => "species",
+        Background => "background",
+        Feat => "feat",
+        Item | BaseItem | ItemGroup | MagicVariant | ItemMastery => "item",
+        _ => "rule",
+    }
+}
+
+#[derive(Serialize)]
+pub struct Row {
+    id: EntityId,
+    name: String,
+    source: String,
+    group: &'static str,
+}
+
+#[derive(Serialize)]
+pub struct Found {
+    rows: Vec<Row>,
+    total: usize,
+    categories: Vec<(&'static str, usize)>,
+    category: usize,
+    /// What `#`, `*` and `^` mean in this category.
+    hints: &'static [(char, &'static str)],
+    suggestions: Vec<(String, usize)>,
+}
+
+const MAX_ROWS: usize = 400;
+
+#[tauri::command]
+pub async fn search(app: State<'_, App>, category: usize, query: String) -> Res<Found> {
+    let mut guard = app.lock();
+    let inner = &mut *guard;
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let filter = inner.ws.filter();
+    let s = inner.search.get_or_insert_with(|| Search::new(lib, filter));
+    let category = category.min(Category::ORDER.len() - 1);
+    if s.category != Category::ORDER[category] {
+        s.set_category(lib, Category::ORDER[category]);
+    }
+    if s.query != query {
+        s.set_query(lib, query);
+    }
+    let rows = s
+        .results
+        .iter()
+        .take(MAX_ROWS)
+        .map(|&id| {
+            let e = lib.entity(id);
+            Row { id, name: e.name.clone(), source: e.source.clone(), group: group(e.kind) }
+        })
+        .collect();
+    Ok(Found {
+        rows,
+        total: s.results.len(),
+        categories: Category::ORDER.iter().zip(s.category_counts).map(|(c, n)| (c.label(), n)).collect(),
+        category,
+        hints: s.category.hints(),
+        suggestions: s.suggestions.clone(),
+    })
+}
+
+#[derive(Serialize)]
+pub struct Entry {
+    id: EntityId,
+    name: String,
+    kind: &'static str,
+    group: &'static str,
+    source: String,
+    page: Option<u64>,
+    blocks: Vec<dnt_data::doc::Block>,
+}
+
+pub fn entry_of(inner: &Inner, id: EntityId) -> Res<Entry> {
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    if id >= lib.entities().len() {
+        return Err(format!("No entry {id}"));
+    }
+    let e = lib.entity(id);
+    Ok(Entry {
+        id,
+        name: e.name.clone(),
+        kind: e.kind.label(),
+        group: group(e.kind),
+        source: lib.source_info(&e.source).map_or(e.source.clone(), |s| s.name.clone()),
+        page: e.data.get("page").and_then(|p| p.as_u64()),
+        blocks: view::document(lib, id, &inner.ws.filter()),
+    })
+}
+
+#[tauri::command]
+pub async fn entry(app: State<'_, App>, id: EntityId) -> Res<Entry> {
+    entry_of(&app.lock(), id)
+}
+
+/// The entry a link in an entry points to.
+#[tauri::command]
+pub async fn follow(app: State<'_, App>, tag: String, args: String) -> Res<Option<EntityId>> {
+    let inner = app.lock();
+    Ok(inner.ws.lib.as_ref().and_then(|l| l.resolve(&Link { tag, args })))
+}

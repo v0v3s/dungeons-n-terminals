@@ -45,7 +45,7 @@ fn stage(q: &Question) -> Stage {
     match q {
         Question::Pick { .. } => Stage::Pick(question_picker(q).expect("a pick question")),
         Question::Number { .. } => Stage::Roll(String::new()),
-        Question::Abilities(_) | Question::Confirm => Stage::Confirm,
+        Question::Abilities { .. } | Question::Confirm => Stage::Confirm,
     }
 }
 
