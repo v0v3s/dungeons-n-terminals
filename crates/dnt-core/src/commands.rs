@@ -140,6 +140,16 @@ pub enum Command {
     ToggleFavorite {
         id: String,
     },
+    // ---- levels ----
+    /// Make a choice a level is missing (see `CharacterSession::pending`).
+    MakeChoice {
+        level: usize,
+        key: String,
+        values: Vec<String>,
+    },
+    /// Remove the latest level.
+    UndoLevel,
+
     /// Trade a mastered weapon (`item:Club|XPHB`) for another.
     SwapMastery {
         weapon: String,
@@ -424,6 +434,16 @@ impl CharacterSession {
                 let name = spell_name(lib, &id);
                 let on = spellbook::toggle_favorite(c, &id);
                 Outcome::changed(if on { format!("{name} is a favorite") } else { format!("{name} is no longer a favorite") })
+            }
+            Command::MakeChoice { level, key, values } => {
+                let l = c.levels.get_mut(level).ok_or_else(|| format!("There is no level {}", level + 1))?;
+                l.choices.picks.entry(key.clone()).or_default().extend(values);
+                Outcome::changed(format!("{key} chosen"))
+            }
+            Command::UndoLevel => {
+                let l = c.remove_last_level().ok_or("There is no level to remove")?;
+                let name = l.class.split_once(':').map_or("", |(_, r)| r.split('|').next().unwrap_or(r)).to_string();
+                Outcome::changed(format!("Removed a {name} level"))
             }
             Command::SwapMastery { weapon, new } => {
                 let old = resolve_id(lib, &weapon).ok_or_else(|| format!("Unknown weapon {weapon}"))?;

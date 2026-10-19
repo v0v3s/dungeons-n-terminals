@@ -16,7 +16,9 @@ pub mod notes;
 pub mod options;
 pub mod rolls;
 pub mod session;
+pub mod sheet;
 pub mod spellbook;
+pub mod workspace;
 
 pub use commands::{Command, Outcome, Pool};
 pub use options::Choice;
