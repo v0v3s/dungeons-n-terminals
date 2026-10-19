@@ -7,6 +7,7 @@ pub mod commands;
 pub mod entry_fields;
 pub mod export;
 pub mod homebrew;
+pub mod levelup;
 pub mod options;
 pub mod rolls;
 pub mod session;

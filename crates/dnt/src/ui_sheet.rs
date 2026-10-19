@@ -406,6 +406,7 @@ fn draw_levelup(frame: &mut Frame, area: Rect, flow: &crate::levelup::LevelUp, t
     frame.render_widget(block, rect);
 
     let summary: Vec<Line> = flow
+        .flow
         .summary
         .iter()
         .map(|s| Line::from(vec![Span::styled("✓ ", Style::new().fg(theme.accent)), Span::styled(s.clone(), theme.muted)]))
@@ -496,8 +497,8 @@ pub(crate) fn draw_picker(frame: &mut Frame, body: Rect, p: &crate::picker::Pick
 }
 
 fn flow_total_hint(flow: &crate::levelup::LevelUp) -> String {
-    match &flow.class {
-        Some(_) => format!("{} in this class", flow.new_level),
+    match &flow.flow.class {
+        Some(_) => format!("{} in this class", flow.flow.new_level),
         None => "?".into(),
     }
 }
