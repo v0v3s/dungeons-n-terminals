@@ -28,6 +28,7 @@
 </script>
 
 <div class="data">
+  <div class="inner">
   <Pane title="Data" focused>
     <p>
       dnt reads the rules and content from data you provide, in the format described in the project's
@@ -63,21 +64,27 @@
       </div>
     </Pane>
   {/if}
+  </div>
 </div>
 
 <style>
+  /* The whole area scrolls, with its scrollbar at the window's edge
+     (past main's padding); the content keeps clear of it. */
   .data {
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
+    margin-right: -1ch;
+  }
+  .inner {
     display: flex;
     flex-direction: column;
     gap: 2em;
-    max-width: 80ch;
-    padding: 0.8em 0 1em;
-    overflow-y: auto;
+    max-width: calc(80ch + 2ch);
+    padding: 0.8em 2ch 1em 0;
   }
-  /* Panes keep their height; the column scrolls instead. */
-  .data > :global(.pane) {
+  /* Panes keep their height; the area scrolls instead. */
+  .inner > :global(.pane) {
     flex-shrink: 0;
   }
   p {
