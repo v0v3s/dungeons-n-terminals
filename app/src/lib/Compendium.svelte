@@ -78,6 +78,13 @@
     }
   }
 
+  /// Android's back: one step back inside the compendium, if there is one.
+  export function stepBack(): boolean {
+    if (!back.length && !reading) return false;
+    goBack();
+    return true;
+  }
+
   function setCategory(i: number) {
     const n = found?.categories.length ?? 1;
     category = (i + n) % n;
@@ -131,7 +138,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<div class="categories">
+<div class="categories no-bar">
   {#each found?.categories ?? [] as [label, count], i (label)}
     <button class:active={i === category} onclick={() => setCategory(i)}>{label} <span class="count">{count}</span></button>
   {/each}
@@ -157,7 +164,7 @@
       {#if found?.suggestions.length}
         <button class="keycap" onclick={complete}>tab</button>
         {#each found.suggestions as [value, n], i (value)}
-          {#if i > 0}<span class="dim"> · </span>{/if}<span class={i === 0 ? "first" : "muted"}>{value}</span><span class="dim"> {n}</span>
+          {#if i > 0}<span class="dim">{" · "}</span>{/if}<span class={i === 0 ? "first" : "muted"}>{value}</span><span class="dim">{" " + n}</span>
         {/each}
       {:else}
         <span style:color="var(--blue)">@</span><span class="dim">{"source "}</span>
@@ -234,7 +241,7 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(36ch, 56ch) 1fr;
+    grid-template-columns: minmax(36ch, 56ch) minmax(0, 1fr);
     gap: 0 2ch;
     padding-top: 0.4em;
   }
@@ -310,6 +317,7 @@
   }
   .name {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -353,7 +361,7 @@
   /* Phones: one pane at a time. */
   @media (max-width: 760px) {
     .split {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
     .split :global(.detail) {
       display: none;

@@ -71,6 +71,13 @@ input {
 ::-webkit-scrollbar {
   width: 8px;
 }
+/* Rows that scroll sideways (tabs, categories) show no bar. */
+.no-bar {
+  scrollbar-width: none;
+}
+.no-bar::-webkit-scrollbar {
+  display: none;
+}
 ::-webkit-scrollbar-thumb {
   background: var(--dark);
   border-radius: 4px;

@@ -1,6 +1,7 @@
 <!-- The app: a header with the sections, the section, and the keys. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import { exit, onBackButtonPress } from "@tauri-apps/api/app";
   import * as api from "$lib/api";
   import Compendium from "$lib/Compendium.svelte";
   import Data from "$lib/Data.svelte";
@@ -14,6 +15,27 @@
   let section: Section = $state("compendium");
   let status: api.Status | null = $state(null);
   let error = $state("");
+  let compendium: Compendium | undefined = $state();
+
+  /// Android's back button: close the keyboard, step back inside the
+  /// section, go back to the compendium, and only then leave.
+  function back() {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLInputElement) {
+      focused.blur();
+    } else if (section === "compendium" && compendium?.stepBack()) {
+      // stepped back
+    } else if (section !== "compendium" && status?.loaded) {
+      section = "compendium";
+    } else {
+      exit(0);
+    }
+  }
+
+  onMount(() => {
+    const listener = onBackButtonPress(back);
+    return () => void listener.then((l) => l.unregister());
+  });
 
   onMount(async () => {
     try {
@@ -41,7 +63,7 @@
 <div class="app">
   <header>
     <span class="brand">dnt</span>
-    <nav>
+    <nav class="no-bar">
       {#each SECTIONS as [id, label], i (id)}
         <button class:active={section === id} onclick={() => (section = id)}>
           <span class="n">{i + 1}</span>
@@ -58,7 +80,7 @@
     {:else if !status}
       <p class="dim">Loading…</p>
     {:else if section === "compendium" && status.loaded}
-      {#key status.entries}<Compendium />{/key}
+      {#key status.entries}<Compendium bind:this={compendium} />{/key}
     {:else}
       <Data {status} onchange={changed} />
     {/if}
@@ -142,9 +164,18 @@
   .err {
     color: var(--red);
   }
-  /* Touch screens have no keys to show. */
+  /* Touch screens have no keys to show, and keep clear of the gesture bar. */
   @media (pointer: coarse) {
     .keys {
+      display: none;
+    }
+    main {
+      padding-bottom: max(env(safe-area-inset-bottom), 28px);
+    }
+  }
+  /* Phones: the sections need the width. */
+  @media (max-width: 760px) {
+    .right {
       display: none;
     }
   }

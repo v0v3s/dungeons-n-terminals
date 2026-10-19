@@ -8,9 +8,14 @@ draws it in the terminal look of the TUI (see `src/app.css`).
 cd app
 npm install
 npm run tauri dev            # a desktop window, with hot reload
-npm run tauri android dev    # an emulator or a phone over adb (needs JDK 17, Android SDK + NDK)
+npm run tauri android dev    # an emulator or a phone over adb (see below)
 npm run check                # type-check the UI
 ```
+
+Android needs JDK 17 and the Android SDK with an NDK; `source
+scripts/android-env.sh` sets `JAVA_HOME`, `ANDROID_HOME` and `NDK_HOME` for
+an SDK in `~/Android/Sdk`. `src-tauri/gen/android/` is the generated Android
+project (kept in git, so changes to it stay).
 
 The Rust crate (`dnt-app`) is a workspace member but not a default one:
 `cargo clippy -p dnt-app` needs the UI built first (`npm run build`).
