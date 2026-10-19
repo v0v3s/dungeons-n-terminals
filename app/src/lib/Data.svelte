@@ -68,13 +68,13 @@
 </div>
 
 <style>
-  /* The whole area scrolls, with its scrollbar at the window's edge
-     (past main's padding); the content keeps clear of it. */
+  /* The whole area scrolls, with its scrollbar just inside the window's
+     edge (most of main's padding); the content keeps clear of it. */
   .data {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    margin-right: -1ch;
+    margin-right: calc(5px - 1ch);
   }
   .inner {
     display: flex;
