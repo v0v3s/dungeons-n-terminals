@@ -1,0 +1,11 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.dnt_app" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/dnt_bg</item>
+        <item name="android:statusBarColor">@color/dnt_bg</item>
+        <item name="android:navigationBarColor">@color/dnt_bg</item>
+        <!-- The splash: the dnt icon on the app's background. -->
+        <item name="android:windowSplashScreenBackground">@color/dnt_bg</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/dnt_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/dnt_splash</item>
+    </style>
+</resources>

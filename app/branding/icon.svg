@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- dnt: the brand badge in a terminal pane (palette of app/src/app.css). -->
+  <rect width="1024" height="1024" fill="#1a1b26"/>
+  <rect x="172" y="232" width="680" height="560" rx="44" fill="none" stroke="#414868" stroke-width="22"/>
+  <rect x="240" y="196" width="196" height="72" fill="#1a1b26"/>
+  <text x="252" y="252" font-family="JetBrains Mono" font-weight="800" font-size="64" fill="#e0af68">❯</text>
+  <rect x="308" y="226" width="96" height="14" rx="7" fill="#e0af68"/>
+  <rect x="262" y="400" width="500" height="224" rx="28" fill="#e0af68"/>
+  <text x="512" y="568" text-anchor="middle" font-family="JetBrains Mono" font-weight="800" font-size="184" fill="#15161e">dnt</text>
+  <rect x="300" y="690" width="72" height="18" rx="6" fill="#565f89"/>
+  <rect x="392" y="690" width="160" height="18" rx="6" fill="#414868"/>
+</svg>

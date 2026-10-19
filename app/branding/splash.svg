@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The splash: just the dnt badge, inside the circle Android shows. -->
+  <rect x="262" y="400" width="500" height="224" rx="28" fill="#e0af68"/>
+  <text x="512" y="568" text-anchor="middle" font-family="JetBrains Mono" font-weight="800" font-size="184" fill="#15161e">dnt</text>
+</svg>

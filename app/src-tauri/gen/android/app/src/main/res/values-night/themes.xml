@@ -1,6 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.dnt_app" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+    <!-- dnt is dark: the window behind the page, the system bars and the
+         splash use the app's background (app/src/app.css). -->
+    <style name="Theme.dnt_app" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/dnt_bg</item>
+        <item name="android:statusBarColor">@color/dnt_bg</item>
+        <item name="android:navigationBarColor">@color/dnt_bg</item>
     </style>
 </resources>
