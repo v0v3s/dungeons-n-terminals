@@ -77,6 +77,9 @@ pub struct CampaignSettings {
     /// Enabled source ids, e.g. `["XPHB", "XDMG"]`. Empty means all sources.
     #[serde(default)]
     pub sources: Vec<String>,
+    /// Enabled imported homebrew sources. Homebrew is off unless listed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub homebrew: Vec<String>,
     /// Show originals even when their reprint is enabled.
     #[serde(default)]
     pub show_reprinted: bool,
@@ -127,6 +130,7 @@ impl Campaign {
             dnt_data::SourceFilter::default()
         } else {
             let mut sources = self.settings.sources.clone();
+            sources.extend(self.settings.homebrew.iter().cloned());
             if !self.settings.source.is_empty() {
                 sources.push(self.settings.source.clone());
             }
@@ -405,6 +409,11 @@ impl Store {
     /// Where imported data lives (see `dnt_core::import`).
     pub fn imported_dir(&self) -> PathBuf {
         self.data_dir.join("library/imported")
+    }
+
+    /// Imported homebrew, one file per source, loaded when enabled.
+    pub fn imported_homebrew_dir(&self) -> PathBuf {
+        self.imported_dir().join("homebrew")
     }
 
     /// The file dnt writes promoted entries to.

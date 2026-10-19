@@ -15,7 +15,8 @@
   let editing: api.CampaignInfo | null = $state(null);
   let available: api.Sources | null = $state(null);
   let newName = $state("");
-  let preset = $state(0);
+  /// The books of a new campaign: a preset, or -1 for all official.
+  let preset = $state(-1);
 
   async function run(p: Promise<api.Status>) {
     try {
@@ -35,7 +36,7 @@
   async function startCreate() {
     await loadSources();
     newName = "";
-    preset = 0;
+    preset = -1;
     creating = true;
   }
 
@@ -44,8 +45,10 @@
     if (await run(api.createCampaign(newName, [...sources]))) creating = false;
   }
 
-  const describe = (c: api.CampaignInfo) =>
-    !c.sources.length ? "all sources" : c.sources.length > 6 ? `${c.sources.length} sources` : c.sources.join(" ");
+  const describe = (c: api.CampaignInfo) => {
+    const books = !c.sources.length ? "all official" : c.sources.length > 6 ? `${c.sources.length} sources` : c.sources.join(" ");
+    return c.homebrew.length ? `${books} + ${c.homebrew.length} homebrew` : books;
+  };
 </script>
 
 <div class="campaigns">
@@ -95,14 +98,14 @@
       <label class="line"><span>❯</span><input bind:value={newName} placeholder="Curse of Strahd" spellcheck="false" /></label>
       <p class="muted">Books</p>
       <div class="presets">
+        <button type="button" class="preset" class:on={preset === -1} onclick={() => (preset = -1)}>
+          <span>{preset === -1 ? "◉" : "○"} All official</span><span class="dim">newest printings, no homebrew</span>
+        </button>
         {#each available?.presets ?? [] as [name, ids], i (name)}
           <button type="button" class="preset" class:on={preset === i} onclick={() => (preset = i)}>
             <span>{preset === i ? "◉" : "○"} {name}</span><span class="dim">{ids.join(" ")}</span>
           </button>
         {/each}
-        <button type="button" class="preset" class:on={preset === -1} onclick={() => (preset = -1)}>
-          <span>{preset === -1 ? "◉" : "○"} All sources</span><span class="dim">change them later</span>
-        </button>
       </div>
       <div class="buttons">
         <button type="button" class="ghost" onclick={() => (creating = false)}>Cancel</button>

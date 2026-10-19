@@ -38,6 +38,10 @@
     <p class="dim">
       Importing again updates entries instead of doubling them; entries a zip does not have are kept.
     </p>
+    <p class="dim">
+      Homebrew (files that name their sources) is kept apart and stays off until a campaign enables it, under
+      Sources › Homebrew. For a large homebrew collection, zip just its .json files, not its images.
+    </p>
     <div>
       <button class="action" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import a zip…"}</button>
     </div>
@@ -54,6 +58,15 @@
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
   </Pane>
+
+  {#if status?.homebrew[0]}
+    <Pane title="Imported homebrew">
+      <p>
+        <b>{status.homebrew[0]}</b> sources, <b>{status.homebrew[1]}</b> entries.
+        <span class="dim">Enable them per campaign: Campaigns › Sources › Homebrew, or the compendium's @ button.</span>
+      </p>
+    </Pane>
+  {/if}
 
   {#if status?.imported.length}
     <Pane title="Imported sources">

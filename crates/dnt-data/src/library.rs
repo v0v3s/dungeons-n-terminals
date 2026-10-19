@@ -239,6 +239,14 @@ impl Library {
         self.finish();
     }
 
+    /// Load several homebrew documents at once (indexing once).
+    pub fn load_docs<'a>(&mut self, docs: impl IntoIterator<Item = &'a Value>) {
+        for doc in docs {
+            self.ingest(doc, true);
+        }
+        self.finish();
+    }
+
     /// Load an additional file (e.g. homebrew) into an already-built library.
     pub fn load_file(&mut self, path: &Path) -> Result<(), LoadError> {
         let bytes = std::fs::read(path).map_err(|source| LoadError::Io { path: path.to_path_buf(), source })?;

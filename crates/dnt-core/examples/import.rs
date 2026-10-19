@@ -20,6 +20,21 @@ fn main() {
     let t = Instant::now();
     let lib = import::load(&store).expect("load");
     println!("loaded {} entities in {:?}", lib.entities().len(), t.elapsed());
+    let brew = import::homebrew(&store);
+    if !brew.is_empty() {
+        let t = Instant::now();
+        let ids: Vec<String> = brew.iter().map(|b| b.id.clone()).collect();
+        let (docs, problems) = import::load_homebrew(&store, &ids);
+        let mut all = lib.clone();
+        all.load_docs(&docs);
+        let entries: usize = brew.iter().map(|b| b.entries()).sum();
+        println!(
+            "homebrew: {} sources, {entries} entities; all of it loads in {:?} ({} problems)",
+            brew.len(),
+            t.elapsed(),
+            problems.len()
+        );
+    }
     if let Some(data) = args.next() {
         let folder = Library::load_dir(data.as_ref()).expect("load folder");
         println!("folder has {} entities", folder.entities().len());

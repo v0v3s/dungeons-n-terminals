@@ -15,6 +15,8 @@ pub struct CampaignInfo {
     name: String,
     /// Enabled sources (empty: all).
     sources: Vec<String>,
+    /// Enabled imported homebrew.
+    homebrew: Vec<String>,
     show_reprinted: bool,
     /// The campaign's homebrew source.
     source: String,
@@ -27,6 +29,8 @@ pub struct Status {
     loaded: bool,
     entries: usize,
     imported: Vec<(String, usize)>,
+    /// Imported homebrew: (sources, entities).
+    homebrew: (usize, usize),
     campaigns: Vec<CampaignInfo>,
     /// The active campaign's name.
     campaign: Option<String>,
@@ -40,6 +44,7 @@ pub fn status_of(inner: &Inner) -> Res<Status> {
         loaded: ws.has_data(),
         entries: ws.lib.as_ref().map_or(0, |l| l.entities().len()),
         imported,
+        homebrew: (ws.homebrew.len(), ws.homebrew.iter().map(|b| b.entries()).sum()),
         campaigns: ws
             .campaigns
             .iter()
@@ -48,6 +53,7 @@ pub fn status_of(inner: &Inner) -> Res<Status> {
                 slug: c.slug.clone(),
                 name: c.settings.name.clone(),
                 sources: c.settings.sources.clone(),
+                homebrew: c.settings.homebrew.clone(),
                 show_reprinted: c.settings.show_reprinted,
                 source: c.settings.source.clone(),
                 active: ws.active == Some(i),
@@ -97,6 +103,8 @@ pub struct Sources {
     sources: Vec<Source>,
     /// Named sets of sources: (name, ids).
     presets: Vec<(&'static str, &'static [&'static str])>,
+    /// Imported homebrew, by name.
+    homebrew: Vec<import::BrewSource>,
 }
 
 /// The sources a campaign can enable.
@@ -104,8 +112,11 @@ pub struct Sources {
 pub async fn sources(app: State<'_, App>) -> Res<Sources> {
     let inner = app.lock();
     let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let brew = &inner.ws.homebrew;
     let mut sources: Vec<Source> = lib
         .sources()
+        // Imported homebrew has its own list.
+        .filter(|s| !brew.iter().any(|b| b.id.eq_ignore_ascii_case(&s.id)))
         .map(|s| Source {
             id: s.id.clone(),
             name: s.name.clone(),
@@ -114,7 +125,7 @@ pub async fn sources(app: State<'_, App>) -> Res<Sources> {
         })
         .collect();
     sources.sort_by(|a, b| a.group.cmp(&b.group).then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
-    Ok(Sources { sources, presets: dnt_store::PRESETS.to_vec() })
+    Ok(Sources { sources, presets: dnt_store::PRESETS.to_vec(), homebrew: brew.clone() })
 }
 
 #[tauri::command]
@@ -138,9 +149,15 @@ pub async fn activate_campaign(app: State<'_, App>, slug: String) -> Res<Status>
 }
 
 #[tauri::command]
-pub async fn set_campaign_sources(app: State<'_, App>, slug: String, sources: Vec<String>, show_reprinted: bool) -> Res<Status> {
+pub async fn set_campaign_sources(
+    app: State<'_, App>,
+    slug: String,
+    sources: Vec<String>,
+    homebrew: Vec<String>,
+    show_reprinted: bool,
+) -> Res<Status> {
     let mut inner = app.lock();
-    inner.ws.set_sources(&slug, sources, show_reprinted)?;
+    inner.ws.set_sources(&slug, sources, homebrew, show_reprinted)?;
     inner.library_changed();
     status_of(&inner)
 }

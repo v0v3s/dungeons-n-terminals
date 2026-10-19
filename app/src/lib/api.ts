@@ -20,6 +20,7 @@ export interface CampaignInfo {
   slug: string;
   name: string;
   sources: string[];
+  homebrew: string[];
   show_reprinted: boolean;
   source: string;
   active: boolean;
@@ -29,6 +30,8 @@ export interface Status {
   loaded: boolean;
   entries: number;
   imported: [string, number][];
+  /// Imported homebrew: sources, entities.
+  homebrew: [number, number];
   campaigns: CampaignInfo[];
   campaign: string | null;
   problems: string[];
@@ -47,9 +50,19 @@ export interface Source {
   published: string | null;
 }
 
+export interface BrewSource {
+  id: string;
+  name: string;
+  authors: string[];
+  /// `one` for homebrew written for the 2024 rules.
+  edition: string;
+  kinds: [string, number][];
+}
+
 export interface Sources {
   sources: Source[];
   presets: [string, string[]][];
+  homebrew: BrewSource[];
 }
 
 export const status = () => invoke<Status>("status");
@@ -57,8 +70,8 @@ export const importZip = (path: string) => invoke<Imported>("import_zip", { path
 export const sources = () => invoke<Sources>("sources");
 export const createCampaign = (name: string, sources: string[]) => invoke<Status>("create_campaign", { name, sources });
 export const activateCampaign = (slug: string) => invoke<Status>("activate_campaign", { slug });
-export const setCampaignSources = (slug: string, sources: string[], showReprinted: boolean) =>
-  invoke<Status>("set_campaign_sources", { slug, sources, showReprinted });
+export const setCampaignSources = (slug: string, sources: string[], homebrew: string[], showReprinted: boolean) =>
+  invoke<Status>("set_campaign_sources", { slug, sources, homebrew, showReprinted });
 export const renameCampaign = (slug: string, name: string) => invoke<Status>("rename_campaign", { slug, name });
 
 // ---- compendium ----

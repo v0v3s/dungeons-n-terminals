@@ -2,8 +2,9 @@
 //! and the active one, and the library as the active campaign sees it.
 //!
 //! The library is built in layers: the data (imported, or a data folder
-//! from the configuration), then the global homebrew, then the active
-//! campaign's homebrew; the campaign's sources decide what shows.
+//! from the configuration), then the global homebrew, then the imported
+//! homebrew the active campaign enables and its own homebrew; the
+//! campaign's sources decide what shows.
 
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::builtin;
@@ -22,6 +23,8 @@ pub struct Workspace {
     pub lib: Option<Library>,
     /// Built-in rules and the user's own.
     pub overlays: OverlaySet,
+    /// Imported homebrew sources (loaded only where enabled).
+    pub homebrew: Vec<import::BrewSource>,
     /// Campaigns, sorted by name.
     pub campaigns: Vec<Campaign>,
     pub active: Option<usize>,
@@ -41,7 +44,17 @@ impl Workspace {
         let (campaigns, errors) = store.campaigns();
         problems.extend(errors.iter().map(|e| format!("Campaign: {e}")));
         let active = config.last_campaign.as_ref().and_then(|s| campaigns.iter().position(|c| &c.slug == s));
-        let mut ws = Workspace { store, config, base: None, lib: None, overlays: OverlaySet::default(), campaigns, active, problems };
+        let mut ws = Workspace {
+            store,
+            config,
+            base: None,
+            lib: None,
+            overlays: OverlaySet::default(),
+            homebrew: Vec::new(),
+            campaigns,
+            active,
+            problems,
+        };
         ws.reload();
         ws
     }
@@ -62,6 +75,7 @@ impl Workspace {
             }
         };
         self.overlays = self.load_overlays();
+        self.homebrew = import::homebrew(&self.store);
         self.prepare();
     }
 
@@ -106,7 +120,13 @@ impl Workspace {
         };
         let mut lib = base.clone();
         if let Some(i) = self.active {
-            let taken = |s: &str| base.source_info(s).is_some();
+            let (docs, problems) = import::load_homebrew(&self.store, &self.campaigns[i].settings.homebrew);
+            if !docs.is_empty() {
+                lib.load_docs(&docs);
+            }
+            self.problems.extend(problems);
+            let brew = &self.homebrew;
+            let taken = |s: &str| base.source_info(s).is_some() || brew.iter().any(|b| b.id.eq_ignore_ascii_case(s));
             if let Err(e) = self.store.ensure_source(&mut self.campaigns[i], &taken) {
                 self.problems.push(format!("Could not save the campaign: {e}"));
             }
@@ -161,13 +181,19 @@ impl Workspace {
         Ok(slug)
     }
 
-    /// Change a campaign's sources (empty: all).
-    pub fn set_sources(&mut self, slug: &str, sources: Vec<String>, show_reprinted: bool) -> Result<(), String> {
+    /// Change a campaign's sources (empty: all) and enabled homebrew.
+    pub fn set_sources(&mut self, slug: &str, sources: Vec<String>, homebrew: Vec<String>, show_reprinted: bool) -> Result<(), String> {
         let i = self.find(slug)?;
         let c = &mut self.campaigns[i];
+        let brew_changed = c.settings.homebrew != homebrew;
         c.settings.sources = sources;
+        c.settings.homebrew = homebrew;
         c.settings.show_reprinted = show_reprinted;
-        self.store.save_campaign(c).map_err(|e| e.to_string())
+        self.store.save_campaign(c).map_err(|e| e.to_string())?;
+        if brew_changed && self.active == Some(i) {
+            self.prepare();
+        }
+        Ok(())
     }
 
     /// Rename a campaign (its folder keeps its slug).
@@ -229,6 +255,23 @@ mod tests {
         ws.store.save_homebrew(ws.active_campaign().unwrap(), &doc).unwrap();
         ws.prepare();
         assert!(ws.lib.as_ref().unwrap().entities().iter().any(|e| e.name == "Holy Symbol of Ravenkind"));
+
+        // Imported homebrew loads only where it is enabled.
+        let mut brew = MemorySource::default();
+        brew.insert(
+            "brew/Warden.json",
+            json!({"_meta": {"sources": [{"json": "WRD", "full": "The Warden"}]}, "class": [{"name": "Warden", "source": "WRD"}]})
+                .to_string(),
+        );
+        import::import_files(&ws.store, &brew).unwrap();
+        ws.reload();
+        let has_warden = |ws: &Workspace| ws.lib.as_ref().unwrap().entities().iter().any(|e| e.name == "Warden");
+        assert_eq!(ws.homebrew.len(), 1);
+        assert!(!has_warden(&ws), "homebrew is off by default");
+        ws.set_sources(&slug, vec!["B".into()], vec!["WRD".into()], false).unwrap();
+        assert!(has_warden(&ws));
+        let lib = ws.lib.as_ref().unwrap();
+        assert!(lib.entities().iter().filter(|e| ws.filter().allows(e)).any(|e| e.name == "Warden"), "and shows");
 
         // Reopening remembers the active campaign.
         let again = Workspace::open(ws.store);

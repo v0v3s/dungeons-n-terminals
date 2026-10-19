@@ -204,13 +204,15 @@
   // Search again when the campaign's sources change (and at the start).
   $effect(() => {
     void campaign?.sources.join();
+    void campaign?.homebrew.join();
     void campaign?.show_reprinted;
     untrack(run);
   });
 
-  const sourcesLabel = $derived(
-    !campaign ? "all sources" : !campaign.sources.length ? "all sources" : campaign.sources.length > 4 ? `${campaign.sources.length} sources` : campaign.sources.join(" "),
-  );
+  const sourcesLabel = $derived.by(() => {
+    const books = !campaign?.sources.length ? "all official" : campaign.sources.length > 4 ? `${campaign.sources.length} sources` : campaign.sources.join(" ");
+    return campaign?.homebrew.length ? `${books} + ${campaign.homebrew.length} homebrew` : books;
+  });
 
   const FACET: Record<string, string> = { "#": "var(--green)", "*": "var(--red)", "^": "var(--magenta)" };
   const KEYS = ["@", "#", "*", "^", '"', "!"];

@@ -11,7 +11,14 @@
 //! books.json           books and adventures
 //! spell-sources.json   which classes have which spells
 //! sources/<source>.json  every entity of one source
+//! homebrew/<source>.json every entity of one homebrew source
+//! homebrew/index.json    what each homebrew source is
 //! ```
+//!
+//! Loose files with homebrew metadata (`_meta.sources`) are homebrew: kept
+//! apart, listed in the index, and loaded only where a campaign enables
+//! them. Files are read one at a time, so a large collection imports
+//! without being held in memory at once.
 
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Cursor, Read};
@@ -22,6 +29,7 @@ use dnt_data::id::entity_source;
 use dnt_data::source::{DataSource, MemorySource};
 use dnt_data::{Key, Kind, Library};
 use dnt_store::{slugify, Store};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// What an import did.
@@ -82,6 +90,12 @@ fn ignored(name: &str) -> bool {
     file.starts_with("foundry") || file.starts_with("fluff") || file == "index.json"
 }
 
+/// Folders of tooling and generated files (`_generated/`, `.github/`,
+/// `node_modules/`): left out without a word.
+fn hidden(name: &str) -> bool {
+    name.split('/').rev().skip(1).any(|dir| dir.starts_with('_') || dir.starts_with('.') || dir == "node_modules")
+}
+
 /// Import a zip into the store's imported library.
 pub fn import_zip(store: &Store, bytes: Vec<u8>) -> Result<Report, String> {
     let zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| format!("Not a zip file: {e}"))?;
@@ -126,10 +140,11 @@ fn import(store: &Store, names: &[String], src: &impl DataSource) -> Result<Repo
         taken.push(format!("{prefix}spells/sources.json"));
     }
 
-    // Loose files outside the data folder.
+    // Loose files outside the data folder; homebrew is stored as it comes.
     let in_root = |n: &str| root.is_some_and(|r| n.starts_with(r.trim_end_matches("books.json")));
+    let mut brew = Brew::open(store);
     for name in names {
-        if taken.contains(name) || in_root(name) {
+        if taken.contains(name) || in_root(name) || hidden(name) {
             continue;
         }
         if !name.ends_with(".json") || ignored(name) {
@@ -137,18 +152,29 @@ fn import(store: &Store, names: &[String], src: &impl DataSource) -> Result<Repo
             continue;
         }
         match read(src, name) {
+            Ok(doc) if has_entities(&doc) && is_homebrew(&doc) => brew.merge(store, doc, &mut report)?,
             Ok(doc) if has_entities(&doc) => incoming.docs.push(doc),
             Ok(_) => report.skipped.push((name.clone(), "nothing to import".into())),
             Err(e) => report.skipped.push((name.clone(), e)),
         }
     }
-    if incoming.docs.is_empty() && incoming.books.is_empty() {
+    if incoming.docs.is_empty() && incoming.books.is_empty() && !brew.changed {
         return Err("The zip has no data to import".into());
     }
-    let mut lib = Imported::open(store)?;
-    lib.merge(incoming, &mut report);
-    lib.save(store)?;
+    if !incoming.docs.is_empty() || !incoming.books.is_empty() {
+        let mut lib = Imported::open(store)?;
+        lib.merge(incoming, &mut report);
+        lib.save(store)?;
+    }
+    brew.save(store)?;
+    report.sources.sort_by_key(|s| s.to_lowercase());
+    report.sources.dedup();
     Ok(report)
+}
+
+/// Whether a document is homebrew: it says which sources it holds.
+fn is_homebrew(doc: &Value) -> bool {
+    doc.get("_meta").and_then(|m| m.get("sources")).and_then(Value::as_array).is_some_and(|s| !s.is_empty())
 }
 
 fn read(src: &impl DataSource, path: &str) -> Result<Value, String> {
@@ -239,25 +265,13 @@ impl Imported {
                     let index = at
                         .entry((id.clone(), kind))
                         .or_insert_with(|| list.iter().enumerate().map(|(i, e)| (identity(kind, e), i)).collect());
-                    match index.get(&key) {
-                        Some(&i) if list[i] == *entry => report.unchanged += 1,
-                        Some(&i) => {
-                            list[i] = entry.clone();
-                            report.replaced += 1;
-                        }
-                        None => {
-                            index.insert(key, list.len());
-                            list.push(entry.clone());
-                            report.added += 1;
-                        }
-                    }
+                    merge_entry(list, index, key, entry, report);
                     if !report.sources.iter().any(|s| s.eq_ignore_ascii_case(source)) {
                         report.sources.push(source.to_string());
                     }
                 }
             }
         }
-        report.sources.sort_by_key(|s| s.to_lowercase());
     }
 
     fn save(&self, store: &Store) -> Result<(), String> {
@@ -270,6 +284,173 @@ impl Imported {
         }
         Ok(())
     }
+}
+
+/// Put an entity in a list: in place of the one it is, or at the end.
+fn merge_entry(list: &mut Vec<Value>, index: &mut HashMap<String, usize>, key: String, entry: &Value, report: &mut Report) {
+    match index.get(&key) {
+        Some(&i) if list[i] == *entry => report.unchanged += 1,
+        Some(&i) => {
+            list[i] = entry.clone();
+            report.replaced += 1;
+        }
+        None => {
+            index.insert(key, list.len());
+            list.push(entry.clone());
+            report.added += 1;
+        }
+    }
+}
+
+/// An imported homebrew source, as the index lists it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct BrewSource {
+    /// The source id entities use, e.g. `Hunter`.
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub authors: Vec<String>,
+    /// `one` for homebrew written for the 2024 rules.
+    #[serde(default)]
+    pub edition: String,
+    /// Entities by kind (JSON key), e.g. `[("class", 1), ("spell", 4)]`.
+    #[serde(default)]
+    pub kinds: Vec<(String, usize)>,
+}
+
+impl BrewSource {
+    pub fn entries(&self) -> usize {
+        self.kinds.iter().map(|(_, n)| n).sum()
+    }
+}
+
+/// An entity of a homebrew file: its JSON key, kind, and content.
+type Taken<'a> = (&'a str, Kind, &'a Value);
+
+/// The imported homebrew while importing: the index; documents are read
+/// and written one source at a time.
+struct Brew {
+    index: BTreeMap<String, BrewSource>,
+    changed: bool,
+}
+
+impl Brew {
+    fn open(store: &Store) -> Brew {
+        let index = homebrew(store).into_iter().map(|b| (b.id.to_lowercase(), b)).collect();
+        Brew { index, changed: false }
+    }
+
+    fn path(store: &Store, id: &str) -> PathBuf {
+        store.imported_homebrew_dir().join(format!("{}.json", file_name(id)))
+    }
+
+    /// Merge one homebrew file into the stored sources it has entities of.
+    fn merge(&mut self, store: &Store, doc: Value, report: &mut Report) -> Result<(), String> {
+        let Some(top) = doc.as_object() else { return Ok(()) };
+        let meta = top.get("_meta");
+        let metas: Vec<Value> = meta.and_then(|m| m.get("sources")).and_then(Value::as_array).cloned().unwrap_or_default();
+        let edition = meta.and_then(|m| m.get("edition")).and_then(Value::as_str).unwrap_or_default();
+        let only_source = (metas.len() == 1).then(|| metas[0].get("json").and_then(Value::as_str)).flatten();
+        // By source: the source as written, and its entities.
+        let mut by_source: BTreeMap<String, (&str, Vec<Taken>)> = BTreeMap::new();
+        for (k, list) in top {
+            let (Some(kind), Some(list)) = (Kind::from_json_key(k), list.as_array()) else { continue };
+            for entry in list {
+                let Some(source) = entity_source(entry).or(only_source) else { continue };
+                by_source.entry(source.to_lowercase()).or_insert((source, Vec::new())).1.push((k.as_str(), kind, entry));
+            }
+        }
+        for (id, (source, entries)) in by_source {
+            let path = Brew::path(store, &id);
+            let mut stored: Value = if store.fs().is_file(&path) {
+                let text = store.read_text(&path).map_err(|e| e.to_string())?;
+                serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?
+            } else {
+                json!({})
+            };
+            let source_meta = metas
+                .iter()
+                .find(|m| m.get("json").and_then(Value::as_str).is_some_and(|j| j.eq_ignore_ascii_case(source)))
+                .cloned()
+                .unwrap_or_else(|| json!({"json": source}));
+            stored["_meta"] = json!({"sources": [source_meta.clone()], "edition": edition});
+            let mut at: HashMap<&str, HashMap<String, usize>> = HashMap::new();
+            for (k, kind, entry) in entries {
+                let list = stored.as_object_mut().unwrap().entry(k).or_insert_with(|| json!([])).as_array_mut().unwrap();
+                let index = at.entry(k).or_insert_with(|| list.iter().enumerate().map(|(i, e)| (identity(kind, e), i)).collect());
+                merge_entry(list, index, identity(kind, entry), entry, report);
+            }
+            store.write_text(&path, &stored.to_string()).map_err(|e| e.to_string())?;
+            let s = |k: &str| source_meta.get(k).and_then(Value::as_str).map(str::to_string);
+            let kinds = stored
+                .as_object()
+                .into_iter()
+                .flatten()
+                .filter(|(k, _)| Kind::from_json_key(k).is_some())
+                .filter_map(|(k, v)| Some((k.clone(), v.as_array()?.len())))
+                .collect();
+            let authors = source_meta.get("authors").and_then(Value::as_array).into_iter().flatten();
+            self.index.insert(
+                id,
+                BrewSource {
+                    id: source.to_string(),
+                    name: s("full").unwrap_or_else(|| source.to_string()),
+                    authors: authors.filter_map(|a| a.as_str().map(str::to_string)).collect(),
+                    edition: edition.to_string(),
+                    kinds,
+                },
+            );
+            report.sources.push(source.to_string());
+            self.changed = true;
+        }
+        Ok(())
+    }
+
+    fn save(&self, store: &Store) -> Result<(), String> {
+        if !self.changed {
+            return Ok(());
+        }
+        let list: Vec<&BrewSource> = self.index.values().collect();
+        let text = serde_json::to_string(&list).map_err(|e| e.to_string())?;
+        store.write_text(&store.imported_homebrew_dir().join("index.json"), &text).map_err(|e| e.to_string())
+    }
+}
+
+/// The imported homebrew sources, by name.
+pub fn homebrew(store: &Store) -> Vec<BrewSource> {
+    let path = store.imported_homebrew_dir().join("index.json");
+    let mut list: Vec<BrewSource> = store.read_text(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+    list.sort_by_key(|b| b.name.to_lowercase());
+    list
+}
+
+/// The documents of some imported homebrew sources, with problems for
+/// those that could not be read.
+pub fn load_homebrew(store: &Store, ids: &[String]) -> (Vec<Value>, Vec<String>) {
+    let (mut docs, mut problems) = (Vec::new(), Vec::new());
+    for id in ids {
+        let path = Brew::path(store, &id.to_lowercase());
+        if !store.fs().is_file(&path) {
+            continue;
+        }
+        match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string())) {
+            Ok(doc) => docs.push(doc),
+            Err(e) => problems.push(format!("Homebrew {id}: {e}")),
+        }
+    }
+    (docs, problems)
+}
+
+/// Remove an imported homebrew source.
+pub fn remove_homebrew(store: &Store, id: &str) -> Result<(), String> {
+    let mut brew = Brew::open(store);
+    brew.index.remove(&id.to_lowercase());
+    brew.changed = true;
+    let path = Brew::path(store, &id.to_lowercase());
+    if store.fs().is_file(&path) {
+        store.fs().remove_file(&path).map_err(|e| format!("{id}: {e}"))?;
+    }
+    brew.save(store)
 }
 
 /// Who an entity is: its library key, or for the few without a name
@@ -421,17 +602,43 @@ mod tests {
         let second = import_files(&store, &brew(10)).unwrap();
         assert_eq!((second.added, second.replaced, second.unchanged), (0, 1, 1));
 
-        let lib = load(&store).unwrap();
-        assert_eq!(count(&lib, Kind::Class), 2, "Fighter and one Warden");
+        // Homebrew is kept apart from the data, and listed.
+        assert_eq!(count(&load(&store).unwrap(), Kind::Class), 1, "only Fighter");
+        let listed = homebrew(&store);
+        assert_eq!(listed.len(), 1);
+        assert_eq!((listed[0].id.as_str(), listed[0].name.as_str(), listed[0].entries()), ("WRD", "The Warden", 2));
+
+        let (docs, problems) = load_homebrew(&store, &["wrd".to_string()]);
+        assert!(problems.is_empty());
+        let mut lib = load(&store).unwrap();
+        lib.load_docs(&docs);
         let warden = dnt_rules::overlay::resolve_id(&lib, "class:Warden|WRD").unwrap();
         assert_eq!(lib.entity(warden).data["hd"]["faces"], 10, "the new version");
         assert!(lib.sources().any(|s| s.id == "WRD" && s.name == "The Warden"));
 
+        remove_homebrew(&store, "WRD").unwrap();
+        assert!(homebrew(&store).is_empty());
+        assert!(load_homebrew(&store, &["WRD".to_string()]).0.is_empty());
+    }
+
+    #[test]
+    fn data_without_metadata_joins_the_data() {
+        let store = store();
+        import_files(&store, &data_folder()).unwrap();
+        let more = files(&[
+            ("spells.json", json!({"spell": [{"name": "Shield", "source": "TB", "level": 1}]})),
+            // Tooling of a homebrew collection: not even reported.
+            ("_generated/index-meta.json", json!({"spell": []})),
+            ("_img/x.png", json!("")),
+        ]);
+        let report = import_files(&store, &more).unwrap();
+        assert_eq!(report.added, 1);
+        assert!(report.skipped.is_empty(), "{:?}", report.skipped);
+        assert_eq!(count(&load(&store).unwrap(), Kind::Spell), 2);
         let mut list = sources(&store).unwrap();
         list.sort();
-        assert_eq!(list, [("TB".to_string(), 3), ("WRD".to_string(), 2)]);
-        remove_source(&store, "WRD").unwrap();
-        assert_eq!(count(&load(&store).unwrap(), Kind::Class), 1);
+        assert_eq!(list, [("TB".to_string(), 4)]);
+        remove_source(&store, "TB").unwrap();
     }
 
     #[test]
