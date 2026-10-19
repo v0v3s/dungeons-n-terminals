@@ -52,7 +52,9 @@ pub struct Roller {
 
 impl Default for Roller {
     fn default() -> Roller {
-        Roller { rng: Rng::from_time(), next: Advantage::Normal, log: Vec::new(), to_notes: false }
+        // The clock through chrono, which also works in a browser.
+        let nanos = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64;
+        Roller { rng: Rng::new(nanos ^ 0x9E37_79B9_7F4A_7C15), next: Advantage::Normal, log: Vec::new(), to_notes: false }
     }
 }
 

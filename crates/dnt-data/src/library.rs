@@ -8,6 +8,7 @@ use serde_json::Value;
 use crate::copy;
 use crate::id::{display_name, entity_source, Key};
 use crate::kind::Kind;
+use crate::source::{DataSource, DirSource};
 use crate::tags::Link;
 
 #[derive(Debug, thiserror::Error)]
@@ -92,34 +93,37 @@ impl Library {
 
     /// Load a data directory (it, or its `data/` subdirectory; see schemas/README.md).
     pub fn load_dir(root: &Path) -> Result<Library, LoadError> {
-        let data = if root.join("data/books.json").is_file() {
-            root.join("data")
-        } else if root.join("books.json").is_file() {
-            root.to_path_buf()
-        } else {
-            return Err(LoadError::NotADataDir(root.to_path_buf()));
-        };
+        Library::load(&DirSource::open(root)?)
+    }
 
-        let mut files: Vec<PathBuf> = DATA_FILES.iter().map(|f| data.join(f)).collect();
+    /// The data files to load besides the index files, as the indexes in
+    /// `src` list them.
+    pub fn data_files(src: &impl DataSource) -> Result<Vec<String>, LoadError> {
+        let mut files: Vec<String> = DATA_FILES.iter().map(|f| f.to_string()).collect();
         for dir in ["class", "spells"] {
-            let index = read_json(&data.join(dir).join("index.json"))?;
+            let index = read_json(src, &format!("{dir}/index.json"))?;
             if let Some(map) = index.as_object() {
-                files.extend(map.values().filter_map(Value::as_str).map(|f| data.join(dir).join(f)));
+                files.extend(map.values().filter_map(Value::as_str).map(|f| format!("{dir}/{f}")));
             }
         }
+        Ok(files)
+    }
 
+    /// Load the data a source holds (see [`crate::source`]).
+    pub fn load(src: &impl DataSource) -> Result<Library, LoadError> {
+        let files = Library::data_files(src)?;
         let mut lib = Library::new();
-        lib.load_books(&read_json(&data.join("books.json"))?, "book", None);
-        if let Ok(adventures) = read_json(&data.join("adventures.json")) {
+        lib.load_books(&read_json(src, "books.json")?, "book", None);
+        if let Ok(adventures) = read_json(src, "adventures.json") {
             lib.load_books(&adventures, "adventure", Some("adventure"));
         }
-        for (path, parsed) in parse_parallel(&files) {
+        for (path, parsed) in parse_all(src, &files) {
             match parsed {
                 Ok(json) => lib.ingest(&json, false),
-                Err(e) => lib.warnings.push(format!("{}: {e}", path.display())),
+                Err(e) => lib.warnings.push(format!("{}: {e}", src.locate(&path).display())),
             }
         }
-        if let Ok(lookup) = read_json(&data.join("spells/sources.json")) {
+        if let Ok(lookup) = read_json(src, "spells/sources.json") {
             lib.pending_spell_lookup = Some(lookup);
         }
         lib.finish();
@@ -215,7 +219,8 @@ impl Library {
 
     /// Load an additional file (e.g. homebrew) into an already-built library.
     pub fn load_file(&mut self, path: &Path) -> Result<(), LoadError> {
-        let json = read_json(path)?;
+        let bytes = std::fs::read(path).map_err(|source| LoadError::Io { path: path.to_path_buf(), source })?;
+        let json = serde_json::from_slice(&bytes).map_err(|source| LoadError::Json { path: path.to_path_buf(), source })?;
         self.ingest(&json, true);
         self.finish();
         Ok(())
@@ -566,22 +571,29 @@ impl SourceFilter {
     }
 }
 
-fn read_json(path: &Path) -> Result<Value, LoadError> {
-    let bytes = std::fs::read(path).map_err(|source| LoadError::Io { path: path.to_path_buf(), source })?;
-    serde_json::from_slice(&bytes).map_err(|source| LoadError::Json { path: path.to_path_buf(), source })
+fn read_json(src: &impl DataSource, path: &str) -> Result<Value, LoadError> {
+    let bytes = src.read(path).map_err(|source| LoadError::Io { path: src.locate(path), source })?;
+    serde_json::from_slice(&bytes).map_err(|source| LoadError::Json { path: src.locate(path), source })
 }
 
-/// Read and parse files on all cores, preserving input order.
-fn parse_parallel(files: &[PathBuf]) -> Vec<(PathBuf, Result<Value, LoadError>)> {
+/// Read and parse files, on all cores where there are threads, keeping
+/// their order.
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_all(src: &impl DataSource, files: &[String]) -> Vec<(String, Result<Value, LoadError>)> {
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get()).min(files.len().max(1));
     let chunk = files.len().div_ceil(threads).max(1);
     std::thread::scope(|scope| {
         let handles: Vec<_> = files
             .chunks(chunk)
-            .map(|chunk| scope.spawn(move || chunk.iter().map(|p| (p.clone(), read_json(p))).collect::<Vec<_>>()))
+            .map(|chunk| scope.spawn(move || chunk.iter().map(|p| (p.clone(), read_json(src, p))).collect::<Vec<_>>()))
             .collect();
         handles.into_iter().flat_map(|h| h.join().expect("parser thread panicked")).collect()
     })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn parse_all(src: &impl DataSource, files: &[String]) -> Vec<(String, Result<Value, LoadError>)> {
+    files.iter().map(|p| (p.clone(), read_json(src, p))).collect()
 }
 
 /// Whether a base item matches a variant's `requires` (any of them, all
