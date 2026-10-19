@@ -1,88 +1,10 @@
 //! Compendium browser state and key handling.
 
-use dnt_data::query::{Facet, FacetIndex, Query};
-use dnt_data::search::Searcher;
+pub use dnt_core::compendium::Category;
+use dnt_core::compendium::Search;
 use dnt_data::tags::Link;
-use dnt_data::{doc::Block, view, EntityId, Kind, Library, SourceFilter};
+use dnt_data::{doc::Block, view, EntityId, Library, SourceFilter};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
-/// Groups of kinds the result list can be narrowed to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Category {
-    All,
-    Spells,
-    Classes,
-    Features,
-    Species,
-    Backgrounds,
-    Feats,
-    Items,
-    Rules,
-}
-
-impl Category {
-    pub const ORDER: [Category; 9] = [
-        Category::All,
-        Category::Spells,
-        Category::Classes,
-        Category::Features,
-        Category::Species,
-        Category::Backgrounds,
-        Category::Feats,
-        Category::Items,
-        Category::Rules,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Category::All => "All",
-            Category::Spells => "Spells",
-            Category::Classes => "Classes",
-            Category::Features => "Features",
-            Category::Species => "Species",
-            Category::Backgrounds => "Backgrounds",
-            Category::Feats => "Feats",
-            Category::Items => "Items",
-            Category::Rules => "Rules",
-        }
-    }
-
-    fn contains(self, kind: Kind) -> bool {
-        use Kind::*;
-        match self {
-            Category::All => true,
-            Category::Spells => kind == Spell,
-            Category::Classes => matches!(kind, Class | Subclass),
-            Category::Features => matches!(kind, ClassFeature | SubclassFeature | OptionalFeature),
-            Category::Species => matches!(kind, Race | Subrace),
-            Category::Backgrounds => kind == Background,
-            Category::Feats => kind == Feat,
-            Category::Items => matches!(kind, Item | BaseItem | ItemGroup | MagicVariant | ItemMastery),
-            Category::Rules => matches!(kind, Condition | Disease | Status | Action | VariantRule | Sense | Skill | Language),
-        }
-    }
-
-    /// What `#`, `*` and `^` mean on this tab, for the hint line.
-    pub fn hints(self) -> &'static [(char, &'static str)] {
-        match self {
-            Category::All => &[('#', "kind"), ('*', "dmg"), ('^', "lvl")],
-            Category::Spells => &[('#', "class·school"), ('*', "dmg"), ('^', "lvl")],
-            Category::Classes => &[('#', "class·caster")],
-            Category::Features => &[('#', "class·subclass"), ('^', "lvl")],
-            Category::Species => &[('#', "creature type")],
-            Category::Backgrounds => &[],
-            Category::Feats => &[('#', "category")],
-            Category::Items => &[('#', "type·rarity"), ('*', "dmg")],
-            Category::Rules => &[('#', "kind")],
-        }
-    }
-
-    fn cycle(self, delta: isize) -> Category {
-        let n = Self::ORDER.len() as isize;
-        let i = Self::ORDER.iter().position(|c| *c == self).unwrap() as isize;
-        Self::ORDER[((i + delta).rem_euclid(n)) as usize]
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Focus {
@@ -120,10 +42,7 @@ pub enum Outcome {
 }
 
 pub struct Compendium {
-    pub filter: SourceFilter,
-    pub category: Category,
-    pub query: String,
-    pub results: Vec<EntityId>,
+    pub search: Search,
     pub selected: usize,
     pub list_offset: usize,
     pub focus: Focus,
@@ -136,22 +55,20 @@ pub struct Compendium {
     pub detail_height: usize,
     pub detail_lines: usize,
     pub list_height: usize,
-    /// Entities per category under the current source filter.
-    pub category_counts: [usize; Category::ORDER.len()],
-    /// Completions for the facet term being typed, with counts.
-    pub suggestions: Vec<(String, usize)>,
-    visible: Vec<EntityId>,
-    searcher: Searcher,
-    facets: FacetIndex,
+}
+
+/// Reading the search's query, results and counts.
+impl std::ops::Deref for Compendium {
+    type Target = Search;
+    fn deref(&self) -> &Search {
+        &self.search
+    }
 }
 
 impl Compendium {
     pub fn new(lib: &Library, filter: SourceFilter) -> Compendium {
         let mut c = Compendium {
-            filter,
-            category: Category::All,
-            query: String::new(),
-            results: Vec::new(),
+            search: Search::new(lib, filter),
             selected: 0,
             list_offset: 0,
             focus: Focus::List,
@@ -161,22 +78,16 @@ impl Compendium {
             detail_height: 0,
             detail_lines: 0,
             list_height: 0,
-            category_counts: [0; Category::ORDER.len()],
-            suggestions: Vec::new(),
-            visible: Vec::new(),
-            searcher: Searcher::default(),
-            facets: FacetIndex::build(lib),
         };
-        c.recount(lib);
-        c.refilter(lib);
+        c.searched(lib);
         c
     }
 
     /// Restore the category and query after a rebuild.
     pub fn restore(&mut self, lib: &Library, category: Category, query: String) {
-        self.category = category;
-        self.query = query;
-        self.refilter(lib);
+        self.search.query = query;
+        self.search.set_category(lib, category);
+        self.searched(lib);
     }
 
     /// Show an entity in the detail pane (e.g. from a note link).
@@ -189,77 +100,29 @@ impl Compendium {
     }
 
     pub fn set_filter(&mut self, lib: &Library, filter: SourceFilter) {
-        self.filter = filter;
-        self.recount(lib);
-        self.refilter(lib);
+        self.search.set_filter(lib, filter);
+        self.searched(lib);
     }
 
-    fn recount(&mut self, lib: &Library) {
-        self.category_counts = [0; Category::ORDER.len()];
-        for e in lib.entities().iter().filter(|e| self.filter.allows(e)) {
-            for (i, cat) in Category::ORDER.iter().enumerate() {
-                if cat.contains(e.kind) {
-                    self.category_counts[i] += 1;
-                }
-            }
-        }
-    }
-
-    /// Recompute the candidate set after a source or category change.
-    fn refilter(&mut self, lib: &Library) {
-        self.visible = (0..lib.entities().len())
-            .filter(|&id| {
-                let e = lib.entity(id);
-                self.category.contains(e.kind) && self.filter.allows(e)
-            })
-            .collect();
-        self.research(lib);
-    }
-
+    /// Search again after the query changed.
     fn research(&mut self, lib: &Library) {
-        let query = Query::parse(&self.query);
-        let candidates = if query.terms.is_empty() { self.visible.clone() } else { self.facets.filter(lib, &query, &self.visible) };
-        self.results = self.searcher.search(lib, &query.name, &candidates);
-        self.suggestions = match self.partial_facet() {
-            Some((facet, partial)) => {
-                let mut s = self.facets.suggestions(facet, &partial, &self.visible);
-                s.truncate(8);
-                s
-            }
-            None => Vec::new(),
-        };
+        self.search.run(lib);
+        self.searched(lib);
+    }
+
+    /// New results: back to the top.
+    fn searched(&mut self, lib: &Library) {
         self.selected = 0;
         self.list_offset = 0;
         self.sync_detail(lib);
     }
 
-    /// The facet term currently being typed (the last token), if any.
-    fn partial_facet(&self) -> Option<(Facet, String)> {
-        if self.query.ends_with(char::is_whitespace) {
-            return None;
-        }
-        let last = self.query.split_whitespace().last()?;
-        let last = last.strip_prefix('!').unwrap_or(last);
-        let mut chars = last.chars();
-        let prefix = chars.next()?;
-        let facet = Facet::ALL.into_iter().find(|f| f.prefix() == prefix && *f != Facet::Level)?;
-        Some((facet, chars.as_str().to_string()))
-    }
-
-    /// Replace the facet term being typed with the first suggestion.
     fn complete(&mut self, lib: &Library) -> bool {
-        let Some((value, _)) = self.suggestions.first() else { return false };
-        let value = value.replace(' ', "_");
-        let start = self.query.rfind(char::is_whitespace).map_or(0, |i| i + 1);
-        let token = &self.query[start..];
-        let keep = token.chars().take_while(|c| *c == '!').count() + 1;
-        let head = token[..keep].to_string();
-        self.query.truncate(start);
-        self.query.push_str(&head);
-        self.query.push_str(&value);
-        self.query.push(' ');
-        self.research(lib);
-        true
+        let done = self.search.complete(lib);
+        if done {
+            self.searched(lib);
+        }
+        done
     }
 
     /// Show the selected result in the detail pane (preview behaviour).
@@ -304,8 +167,8 @@ impl Compendium {
     }
 
     fn set_category(&mut self, lib: &Library, category: Category) -> Outcome {
-        self.category = category;
-        self.refilter(lib);
+        self.search.set_category(lib, category);
+        self.searched(lib);
         Outcome::None
     }
 
@@ -327,22 +190,22 @@ impl Compendium {
                 if self.query.is_empty() {
                     self.move_selection(lib, -half);
                 } else {
-                    self.query.clear();
+                    self.search.query.clear();
                     self.research(lib);
                 }
             }
             KeyCode::Char('w') if ctrl => {
                 let trimmed = self.query.trim_end().len();
                 let cut = self.query[..trimmed].rfind(' ').map_or(0, |i| i + 1);
-                self.query.truncate(cut);
+                self.search.query.truncate(cut);
                 self.research(lib);
             }
             KeyCode::Backspace => {
-                self.query.pop();
+                self.search.query.pop();
                 self.research(lib);
             }
             KeyCode::Char(c) if !ctrl => {
-                self.query.push(c);
+                self.search.query.push(c);
                 self.research(lib);
             }
             _ => {}
@@ -380,7 +243,7 @@ impl Compendium {
                 }
             }
             KeyCode::Esc if !self.query.is_empty() => {
-                self.query.clear();
+                self.search.query.clear();
                 self.research(lib);
             }
             _ => {}
@@ -415,9 +278,9 @@ impl Compendium {
                 };
                 detail.original = !detail.original;
                 detail.doc = if detail.original {
-                    view::document_of(lib, detail.entity, orig, &self.filter)
+                    view::document_of(lib, detail.entity, orig, &self.search.filter)
                 } else {
-                    view::document(lib, detail.entity, &self.filter)
+                    view::document(lib, detail.entity, &self.search.filter)
                 };
                 detail.scroll = 0;
                 detail.focused_link = None;
