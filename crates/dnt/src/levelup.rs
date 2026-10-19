@@ -1,7 +1,8 @@
 //! The level-up popup: shows the questions of `dnt_core::levelup` as
 //! pickers and prompts. Also used for a character's very first level.
 
-use dnt_core::levelup::{self, Answer, Question};
+use dnt_core::flow::{self, Answer, Question};
+use dnt_core::levelup;
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::character::Character;
 use dnt_rules::Evaluation;
@@ -37,14 +38,14 @@ pub fn question_picker(q: &Question) -> Option<Picker> {
 
 /// A picker for a class feature choice (multi-select when more than one).
 pub fn choice_picker(choice: &dnt_rules::choices::Choice, count: usize) -> Picker {
-    question_picker(&levelup::choice_question(choice, count)).expect("a pick question")
+    question_picker(&flow::choice_question(choice, count)).expect("a pick question")
 }
 
 fn stage(q: &Question) -> Stage {
     match q {
         Question::Pick { .. } => Stage::Pick(question_picker(q).expect("a pick question")),
         Question::Number { .. } => Stage::Roll(String::new()),
-        Question::Confirm => Stage::Confirm,
+        Question::Abilities(_) | Question::Confirm => Stage::Confirm,
     }
 }
 

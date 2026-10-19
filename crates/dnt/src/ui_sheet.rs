@@ -1777,7 +1777,8 @@ pub(crate) fn draw_wizard(
     filter: &dnt_data::SourceFilter,
     theme: &Theme,
 ) {
-    use crate::wizard::{Method, View, POINT_BUY_BUDGET};
+    use crate::wizard::View;
+    use dnt_core::flow::{point_cost, Method, POINT_BUY_BUDGET};
     let [steps, _, main, _, preview] = Layout::horizontal([
         Constraint::Length(30),
         Constraint::Length(1),
@@ -1827,7 +1828,7 @@ pub(crate) fn draw_wizard(
             p.title.clone(),
             if p.multi.is_some() { "space toggle · enter next · esc back" } else { "type to filter · enter choose · esc back" },
         ),
-        View::Abilities(ed) => (format!("Ability scores · {}", ed.method.label()), "j k move · h l adjust · enter next · esc back"),
+        View::Abilities(ed) => (format!("Ability scores · {}", ed.scores.method.label()), "j k move · h l adjust · enter next · esc back"),
         View::Review => ("Review".to_string(), "enter create · esc back"),
     };
     let block = pane(pane_title(&title, true, theme), true, theme)
@@ -1839,9 +1840,9 @@ pub(crate) fn draw_wizard(
         View::Pick(p) => draw_picker(frame, inner, p, theme),
         View::Abilities(ed) => {
             let mut lines = Vec::new();
-            match ed.method {
+            match ed.scores.method {
                 Method::PointBuy => {
-                    let left = ed.points_left();
+                    let left = ed.scores.points_left();
                     lines.push(Line::from(vec![
                         Span::styled("Points left  ", theme.label),
                         Span::styled(format!("{left}/{POINT_BUY_BUDGET}"), Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
@@ -1854,7 +1855,7 @@ pub(crate) fn draw_wizard(
             lines.push(Line::default());
             for (i, (_, name)) in ABILITIES.iter().enumerate() {
                 let base = if i == ed.cursor { theme.selected } else { Style::new() };
-                let score = ed.scores[i];
+                let score = ed.scores.scores[i];
                 let modifier = (score - 10).div_euclid(2);
                 let mut spans = vec![
                     Span::styled(format!(" {name:<14}"), base),
@@ -1863,8 +1864,8 @@ pub(crate) fn draw_wizard(
                     Span::styled(if i == ed.cursor { " ›" } else { "  " }, base.fg(theme.accent)),
                     Span::styled(format!("   {modifier:+}"), base.fg(theme.accent)),
                 ];
-                if ed.method == Method::PointBuy {
-                    spans.push(Span::styled(format!("   cost {}", crate::wizard::point_cost(score)), base.patch(theme.dim)));
+                if ed.scores.method == Method::PointBuy {
+                    spans.push(Span::styled(format!("   cost {}", point_cost(score)), base.patch(theme.dim)));
                 }
                 lines.push(Line::from(spans).style(base));
             }

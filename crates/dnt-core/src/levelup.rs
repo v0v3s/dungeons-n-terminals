@@ -11,39 +11,8 @@ use dnt_rules::overlay::resolve_id;
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::Evaluation;
 
+use crate::flow::{choice_question, pick, Answer, Question};
 use crate::options::Choice;
-
-/// What a flow asks next.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Question {
-    /// Pick `count` of the choices (by value).
-    Pick { title: String, choices: Vec<Choice>, count: usize },
-    /// Type a number (hit points rolled at the table).
-    Number { title: String },
-    /// Everything is chosen: apply or cancel.
-    Confirm,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Answer {
-    Pick(Vec<String>),
-    Number(i64),
-}
-
-/// A question for a class feature choice ("Fighting Style: choose one").
-pub fn choice_question(choice: &choices::Choice, count: usize) -> Question {
-    let choices = choice
-        .options
-        .iter()
-        .map(|o| Choice { label: o.label.clone(), hint: o.hint.clone(), warning: o.warning.clone(), value: o.value.clone() })
-        .collect();
-    let title = if count > 1 { format!("{}: choose {count}", choice.key) } else { format!("{}: choose one", choice.key) };
-    Question::Pick { title, choices, count }
-}
-
-fn pick(title: impl Into<String>, choices: Vec<Choice>) -> Question {
-    Question::Pick { title: title.into(), choices, count: 1 }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Step {
