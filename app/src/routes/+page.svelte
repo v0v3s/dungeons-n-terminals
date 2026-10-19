@@ -1,10 +1,14 @@
-<!-- The app: a header with the sections, the section, and the keys. -->
+<!-- The app: on desktop a TUI-style header with the sections and a footer
+     with the keys; on touch screens an app bar with a drawer. -->
 <script lang="ts">
   import { onMount } from "svelte";
   import { exit, onBackButtonPress } from "@tauri-apps/api/app";
   import * as api from "$lib/api";
+  import AppBar from "$lib/AppBar.svelte";
   import Compendium from "$lib/Compendium.svelte";
   import Data from "$lib/Data.svelte";
+  import Drawer from "$lib/Drawer.svelte";
+  import { narrow, touch } from "$lib/screen";
 
   type Section = "compendium" | "data";
   const SECTIONS: [Section, string][] = [
@@ -13,15 +17,26 @@
   ];
 
   let section: Section = $state("compendium");
-  let status: api.Status | null = $state(null);
+  let status = $state<api.Status | null>(null);
   let error = $state("");
   let compendium: Compendium | undefined = $state();
+  let drawer = $state(false);
+  /// The entry open full-screen on a phone (its name), if any.
+  let reading = $state<string | null>(null);
 
-  /// Android's back button: close the keyboard, step back inside the
+  const label = (s: Section) => SECTIONS.find(([id]) => id === s)![1];
+
+  function go(s: string) {
+    section = s as Section;
+  }
+
+  /// Android's back button: close what is open, step back inside the
   /// section, go back to the compendium, and only then leave.
   function back() {
     const focused = document.activeElement;
-    if (focused instanceof HTMLInputElement) {
+    if (drawer) {
+      drawer = false;
+    } else if (focused instanceof HTMLInputElement) {
       focused.blur();
     } else if (section === "compendium" && compendium?.stepBack()) {
       // stepped back
@@ -46,33 +61,47 @@
     }
   });
 
-  function changed(s: api.Status) {
-    status = s;
-  }
-
   function onkey(e: KeyboardEvent) {
     if (e.altKey && e.key >= "1" && e.key <= String(SECTIONS.length)) {
       section = SECTIONS[Number(e.key) - 1][0];
       e.preventDefault();
     }
   }
+
+  const counts = $derived(status?.loaded ? `${status.entries} entries · ${status.sources.length} sources` : "no data yet");
 </script>
 
 <svelte:window onkeydown={onkey} />
 
-<div class="app">
-  <header>
-    <span class="brand">dnt</span>
-    <nav class="no-bar">
-      {#each SECTIONS as [id, label], i (id)}
-        <button class:active={section === id} onclick={() => (section = id)}>
-          <span class="n">{i + 1}</span>
-          {label}
-        </button>
-      {/each}
-    </nav>
-    <span class="right dim">{status?.loaded ? `${status.entries} entries` : ""}</span>
-  </header>
+<div class="app" class:touch={touch.current}>
+  {#if touch.current}
+    <AppBar
+      title={reading && narrow.current ? reading : label(section).toLowerCase()}
+      back={!!reading && narrow.current}
+      onmenu={() => (drawer = true)}
+      onback={() => compendium?.stepBack()}
+    />
+    <Drawer
+      bind:open={drawer}
+      sections={SECTIONS.map(([id, l]) => [id, l, id === "compendium" && status?.loaded ? String(status.entries) : ""])}
+      current={section}
+      onpick={go}
+      footer={counts}
+    />
+  {:else}
+    <header class="tabs">
+      <span class="brand">dnt</span>
+      <nav class="no-bar">
+        {#each SECTIONS as [id, l], i (id)}
+          <button class:active={section === id} onclick={() => (section = id)}>
+            <span class="n">{i + 1}</span>
+            {l}
+          </button>
+        {/each}
+      </nav>
+      <span class="right dim">{status?.loaded ? `${status.entries} entries` : ""}</span>
+    </header>
+  {/if}
 
   <main>
     {#if error}
@@ -80,21 +109,23 @@
     {:else if !status}
       <p class="dim">Loading…</p>
     {:else if section === "compendium" && status.loaded}
-      {#key status.entries}<Compendium bind:this={compendium} />{/key}
+      {#key status.entries}<Compendium bind:this={compendium} bind:reading touch={touch.current} narrow={narrow.current} />{/key}
     {:else}
-      <Data {status} onchange={changed} />
+      <Data {status} onchange={(s) => (status = s)} />
     {/if}
   </main>
 
-  <footer class="keys">
-    {#if section === "compendium"}
-      <span><span class="keycap">↑↓</span> move</span>
-      <span><span class="keycap">/</span> search</span>
-      <span><span class="keycap">tab</span> complete · category</span>
-      <span><span class="keycap">esc</span> back</span>
-    {/if}
-    <span><span class="keycap">alt+1-2</span> section</span>
-  </footer>
+  {#if !touch.current}
+    <footer class="keys">
+      {#if section === "compendium"}
+        <span><span class="keycap">↑↓</span> move</span>
+        <span><span class="keycap">/</span> search</span>
+        <span><span class="keycap">tab</span> complete · category</span>
+        <span><span class="keycap">esc</span> back</span>
+      {/if}
+      <span><span class="keycap">alt+1-2</span> section</span>
+    </footer>
+  {/if}
 </div>
 
 <style>
@@ -103,9 +134,11 @@
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
-  header {
+  .app.touch {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  .tabs {
     display: flex;
     align-items: center;
     gap: 2ch;
@@ -121,8 +154,6 @@
   nav {
     display: flex;
     gap: 1ch;
-    overflow-x: auto;
-    scrollbar-width: none;
   }
   nav button {
     background: none;
@@ -153,6 +184,9 @@
     flex-direction: column;
     padding: 0.75em 1ch 0.5em;
   }
+  .touch main {
+    padding: 12px 12px max(env(safe-area-inset-bottom), 24px);
+  }
   .keys {
     display: flex;
     gap: 3ch;
@@ -163,20 +197,5 @@
   }
   .err {
     color: var(--red);
-  }
-  /* Touch screens have no keys to show, and keep clear of the gesture bar. */
-  @media (pointer: coarse) {
-    .keys {
-      display: none;
-    }
-    main {
-      padding-bottom: max(env(safe-area-inset-bottom), 28px);
-    }
-  }
-  /* Phones: the sections need the width. */
-  @media (max-width: 760px) {
-    .right {
-      display: none;
-    }
   }
 </style>

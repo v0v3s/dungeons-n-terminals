@@ -18,7 +18,14 @@
       .join(" ");
 </script>
 
-{#each spans as s, i (i)}{#if s.link}<button class="link {classes(s)}" onclick={() => onlink(s.link!)}>{s.text}</button>{:else}<span
+{#each spans as s, i (i)}{#if s.link}<a
+      class="link {classes(s)}"
+      href="#{s.link.tag}"
+      onclick={(e) => {
+        e.preventDefault();
+        onlink(s.link!);
+      }}>{s.text}</a
+    >{:else}<span
       class={classes(s)}>{s.text}</span
     >{/if}{/each}
 
@@ -29,14 +36,11 @@
   .s { text-decoration: line-through; }
   .code { color: var(--code); }
   .mech { color: var(--mechanic); }
+  /* Inline, so links wrap with the text around them. */
   .link {
     color: var(--link);
-    background: none;
-    border: 0;
-    padding: 0;
+    text-decoration: none;
     cursor: pointer;
-    text-align: inherit;
-    white-space: normal;
   }
   .link:hover,
   .link:focus-visible {

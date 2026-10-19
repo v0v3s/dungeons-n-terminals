@@ -102,6 +102,16 @@
     padding: 0.4em 2ch;
     cursor: pointer;
   }
+  @media (pointer: coarse) {
+    .action {
+      min-height: 48px;
+      width: 100%;
+      font-size: 1.05em;
+    }
+    .inner {
+      padding-right: 4px;
+    }
+  }
   .action:disabled {
     opacity: 0.6;
   }

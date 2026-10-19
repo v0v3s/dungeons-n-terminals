@@ -151,4 +151,15 @@
     padding: 0 2ch 0 0;
     vertical-align: top;
   }
+  /* Phones: tables scroll sideways rather than squeezing every column. */
+  @media (max-width: 760px) {
+    th,
+    td {
+      min-width: 8ch;
+      padding: 0.15em 1.5ch 0.15em 0;
+    }
+    tbody tr:nth-child(odd) {
+      background: rgb(65 72 104 / 0.18);
+    }
+  }
 </style>
