@@ -4,10 +4,11 @@
 //! Paths in this module are relative to the notes root and use `/`.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use crate::fs::Fs;
 use crate::{Result, StoreError};
 
 /// Folders created for a new campaign, in their default order.
@@ -64,6 +65,7 @@ pub struct Entry {
 /// A campaign's notes folder.
 #[derive(Debug, Clone)]
 pub struct Notes {
+    fs: Arc<dyn Fs>,
     pub root: PathBuf,
     /// Global template overrides (`<data>/templates`).
     global_templates: PathBuf,
@@ -87,8 +89,13 @@ pub fn file_safe(title: &str) -> String {
 }
 
 impl Notes {
-    pub fn new(root: impl Into<PathBuf>, global_templates: impl Into<PathBuf>, order: Vec<String>) -> Notes {
-        Notes { root: root.into(), global_templates: global_templates.into(), order }
+    pub fn new(fs: Arc<dyn Fs>, root: impl Into<PathBuf>, global_templates: impl Into<PathBuf>, order: Vec<String>) -> Notes {
+        Notes { fs, root: root.into(), global_templates: global_templates.into(), order }
+    }
+
+    /// Whether a note or folder exists.
+    pub fn exists(&self, rel: &str) -> bool {
+        self.fs.exists(&self.abs(rel))
     }
 
     pub fn abs(&self, rel: &str) -> PathBuf {
@@ -96,7 +103,7 @@ impl Notes {
     }
 
     fn has_notes(&self) -> bool {
-        fs::read_dir(&self.root).map(|mut d| d.any(|e| e.is_ok_and(|e| !e.file_name().to_string_lossy().starts_with('.')))).unwrap_or(false)
+        self.fs.list(&self.root).is_ok_and(|d| d.iter().any(|(name, _)| !name.starts_with('.')))
     }
 
     /// Create the default structure if the notes folder is empty.
@@ -107,7 +114,7 @@ impl Notes {
         }
         for folder in DEFAULT_FOLDERS {
             let dir = self.root.join(folder);
-            fs::create_dir_all(&dir).map_err(io_err(&dir))?;
+            self.fs.create_dir_all(&dir).map_err(io_err(&dir))?;
         }
         self.write_new("Campaign.md", &self.template("Campaign"), vars)?;
         self.write_new("Inbox.md", &self.template("Inbox"), vars)?;
@@ -116,8 +123,7 @@ impl Notes {
     }
 
     fn write_new(&self, rel: &str, template: &str, vars: &Vars) -> Result<()> {
-        let path = self.abs(rel);
-        if !path.exists() {
+        if !self.exists(rel) {
             self.write(rel, &vars.apply(template))?;
         }
         Ok(())
@@ -127,7 +133,7 @@ impl Notes {
     /// then the built-in default (falling back to `Note`).
     pub fn template(&self, name: &str) -> String {
         for dir in [self.root.join(".templates"), self.global_templates.clone()] {
-            if let Ok(t) = fs::read_to_string(dir.join(format!("{name}.md"))) {
+            if let Ok(t) = self.fs.read_to_string(&dir.join(format!("{name}.md"))) {
                 return t;
             }
         }
@@ -148,7 +154,8 @@ impl Notes {
             other => other,
         };
         // A user folder without its own template uses the generic one.
-        let custom = [self.root.join(".templates"), self.global_templates.clone()].iter().any(|d| d.join(format!("{name}.md")).is_file());
+        let custom =
+            [self.root.join(".templates"), self.global_templates.clone()].iter().any(|d| self.fs.is_file(&d.join(format!("{name}.md"))));
         if custom || TEMPLATES.iter().any(|(n, _)| *n == name) {
             self.template(name)
         } else {
@@ -162,13 +169,12 @@ impl Notes {
         let dir = self.abs(folder);
         let mut dirs = Vec::new();
         let mut files = Vec::new();
-        for e in fs::read_dir(&dir).into_iter().flatten().flatten() {
-            let name = e.file_name().to_string_lossy().into_owned();
+        for (name, is_dir) in self.fs.list(&dir).into_iter().flatten() {
             if name.starts_with('.') {
                 continue;
             }
             let path = if folder.is_empty() { name.clone() } else { format!("{folder}/{name}") };
-            if e.path().is_dir() {
+            if is_dir {
                 dirs.push(Entry { path, name, is_dir: true });
             } else if name.ends_with(".md") {
                 files.push(Entry { path, name: name.trim_end_matches(".md").to_string(), is_dir: false });
@@ -211,17 +217,12 @@ impl Notes {
 
     pub fn read(&self, rel: &str) -> Result<String> {
         let path = self.abs(rel);
-        fs::read_to_string(&path).map_err(io_err(&path))
+        self.fs.read_to_string(&path).map_err(io_err(&path))
     }
 
     pub fn write(&self, rel: &str, text: &str) -> Result<()> {
         let path = self.abs(rel);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(io_err(parent))?;
-        }
-        let tmp = path.with_extension("md.tmp");
-        fs::write(&tmp, text).map_err(io_err(&tmp))?;
-        fs::rename(&tmp, &path).map_err(io_err(&path))
+        self.fs.write(&path, text.as_bytes()).map_err(io_err(&path))
     }
 
     /// A path in `folder` for `title` that does not exist yet.
@@ -231,7 +232,7 @@ impl Notes {
         let join = |name: &str| if folder.is_empty() { format!("{name}.md") } else { format!("{folder}/{name}.md") };
         let mut rel = join(&base);
         let mut n = 2;
-        while self.abs(&rel).exists() {
+        while self.exists(&rel) {
             rel = join(&format!("{base} ({n})"));
             n += 1;
         }
@@ -255,7 +256,7 @@ impl Notes {
         let name = file_safe(name);
         let rel = if parent.is_empty() { name } else { format!("{parent}/{name}") };
         let path = self.abs(&rel);
-        fs::create_dir_all(&path).map_err(io_err(&path))?;
+        self.fs.create_dir_all(&path).map_err(io_err(&path))?;
         Ok(rel)
     }
 
@@ -263,7 +264,7 @@ impl Notes {
     pub fn rename(&self, rel: &str, new_name: &str) -> Result<String> {
         let from = self.abs(rel);
         let parent = rel.rsplit_once('/').map_or("", |(p, _)| p);
-        let is_dir = from.is_dir();
+        let is_dir = self.fs.is_dir(&from);
         let name = file_safe(new_name);
         let to_rel = match (parent.is_empty(), is_dir) {
             (true, true) => name,
@@ -272,20 +273,20 @@ impl Notes {
             (false, false) => format!("{parent}/{name}.md"),
         };
         let to = self.abs(&to_rel);
-        if to.exists() {
+        if self.fs.exists(&to) {
             return Err(StoreError::Io { path: to, source: io::Error::new(io::ErrorKind::AlreadyExists, "already exists") });
         }
-        fs::rename(&from, &to).map_err(io_err(&from))?;
+        self.fs.rename(&from, &to).map_err(io_err(&from))?;
         Ok(to_rel)
     }
 
     /// Delete a note, or a folder with everything in it.
     pub fn delete(&self, rel: &str) -> Result<()> {
         let path = self.abs(rel);
-        if path.is_dir() {
-            fs::remove_dir_all(&path).map_err(io_err(&path))
+        if self.fs.is_dir(&path) {
+            self.fs.remove_dir_all(&path).map_err(io_err(&path))
         } else {
-            fs::remove_file(&path).map_err(io_err(&path))
+            self.fs.remove_file(&path).map_err(io_err(&path))
         }
     }
 
@@ -698,7 +699,7 @@ mod tests {
 
     fn notes() -> (tempfile::TempDir, Notes) {
         let dir = tempfile::tempdir().unwrap();
-        let n = Notes::new(dir.path().join("notes"), dir.path().join("templates"), Vec::new());
+        let n = Notes::new(Arc::new(crate::fs::OsFs), dir.path().join("notes"), dir.path().join("templates"), Vec::new());
         (dir, n)
     }
 

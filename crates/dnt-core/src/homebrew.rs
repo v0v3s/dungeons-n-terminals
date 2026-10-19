@@ -6,7 +6,8 @@
 
 use dnt_data::homebrew::{self, CloneMode, Template};
 use dnt_data::{EntityId, Key, Kind, Library};
-use dnt_store::GLOBAL_SOURCE;
+use dnt_store::notes::Notes;
+use dnt_store::{Campaign, Store, GLOBAL_SOURCE};
 use serde_json::{Map, Value};
 
 /// Which homebrew document an entry lives in.
@@ -193,8 +194,21 @@ pub fn promote(lib: &Library, campaign: &mut Value, global: &mut Value, entry: &
     })
 }
 
+/// After a promotion, point the campaign's characters and its notes'
+/// `[[kind:Name@Source]]` links at the global entry. Returns the status
+/// message.
+pub fn rewrite_references(store: &Store, campaign: &Campaign, notes: Option<&Notes>, kind: Kind, p: &Promoted) -> String {
+    let characters = store.rewrite_refs(campaign, &p.from, &p.to);
+    let kind_ok = |tag: &str| Kind::for_tag(tag).contains(&kind) || Kind::from_json_key(tag) == Some(kind);
+    let notes = notes.map(|n| n.rewrite_entity_source(&kind_ok, &p.name, &p.old_source, GLOBAL_SOURCE)).transpose();
+    match (characters, notes) {
+        (Ok(c), Ok(n)) => promoted_message(&p.name, c, n.unwrap_or(0)),
+        (Err(err), _) | (_, Err(err)) => format!("{} is now global homebrew, but updating references failed: {err}", p.name),
+    }
+}
+
 /// "X is now global homebrew (2 character file(s) and 1 note(s) updated)".
-pub fn promoted_message(name: &str, characters: usize, notes: usize) -> String {
+fn promoted_message(name: &str, characters: usize, notes: usize) -> String {
     let mut updated = Vec::new();
     if characters > 0 {
         updated.push(format!("{characters} character file(s)"));

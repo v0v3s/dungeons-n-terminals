@@ -106,7 +106,7 @@ pub fn capture(notes: &Notes, text: &str) -> Result<String, String> {
 /// template when missing. Returns its path.
 pub fn character_note(notes: &Notes, campaign: &str, name: &str) -> Result<String, String> {
     let path = format!("Party/{}.md", notes::file_safe(name));
-    if !notes.abs(&path).exists() {
+    if !notes.exists(&path) {
         let vars = Vars { character: name.to_string(), ..vars(campaign, name) };
         notes.write(&path, &vars.apply(&notes.template("Character"))).map_err(|e| format!("Could not create note: {e}"))?;
     }

@@ -399,8 +399,7 @@ impl App {
                 let dir = campaign.dir.join("exports");
                 let md = dir.join(format!("{slug}.md"));
                 let page = dir.join(format!("{slug}.html"));
-                let written =
-                    std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&md, markdown)).and_then(|_| std::fs::write(&page, html));
+                let written = self.store.write_text(&md, &markdown).and_then(|_| self.store.write_text(&page, &html));
                 self.status = match written {
                     Ok(()) => format!("Exported {} and {} (open the .html to print or save as PDF)", md.display(), page.display()),
                     Err(e) => format!("Could not export: {e}"),
@@ -408,7 +407,7 @@ impl App {
             }
             A::EditOverlay(entity) => {
                 let id = crate::overlay_editor::overlay_id(lib, entity);
-                let user = std::fs::read_to_string(self.store.feature_overlay_path(&id)).ok();
+                let user = self.store.feature_overlay(&id);
                 self.characters.open_overlay(lib, &self.overlays, entity, user);
             }
             A::SaveOverlay(id, text) => {
@@ -498,7 +497,7 @@ fn load_overlays(store: &Store, lib: &Library) -> (OverlaySet, usize) {
     let (mut set, diags) = builtin::overlays();
     let mut problems = diags.len();
     for path in store.overlay_files() {
-        match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
+        match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
             Ok((overlay, diags)) => {
                 problems += diags.len() + overlay.unresolved(lib).len();
                 // A user's overlay replaces the built-in one for its feature.

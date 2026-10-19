@@ -5,8 +5,7 @@ use std::path::Path;
 
 use dnt_core::homebrew::{self, Change, Doc};
 use dnt_data::homebrew::{CloneMode, Template};
-use dnt_data::{EntityId, Kind, Library};
-use dnt_store::GLOBAL_SOURCE;
+use dnt_data::{EntityId, Library};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
 
@@ -271,17 +270,12 @@ impl App {
         if let Err(err) = self.save_doc(Doc::Global, gdoc).and_then(|_| self.save_doc(Doc::Campaign, cdoc)) {
             return self.status = err;
         }
-        let characters = self.active_campaign().map(|c| self.store.rewrite_refs(c, &p.from, &p.to)).transpose();
         // Note links that name the old source: `[[item:X@CoS]]`.
         self.notes.save();
-        let kind = entry.kind;
-        let kind_ok = |tag: &str| Kind::for_tag(tag).contains(&kind) || Kind::from_json_key(tag) == Some(kind);
-        let notes = self.notes.notes.as_ref().map(|n| n.rewrite_entity_source(&kind_ok, &p.name, &p.old_source, GLOBAL_SOURCE)).transpose();
+        if let Some(campaign) = self.active_campaign() {
+            self.status = homebrew::rewrite_references(&self.store, campaign, self.notes.notes.as_ref(), entry.kind, &p);
+        }
         self.notes.reload_open();
-        self.status = match (characters, notes) {
-            (Ok(c), Ok(n)) => homebrew::promoted_message(&p.name, c.unwrap_or(0), n.unwrap_or(0)),
-            (Err(err), _) | (_, Err(err)) => format!("{} is now global homebrew, but updating references failed: {err}", p.name),
-        };
         // The characters on disk changed; the open sheet must not save stale refs.
         self.characters.files = self.active_campaign().map(|c| self.store.characters(c).0).unwrap_or_default();
         if let Some(path) = self.characters.sheet.as_ref().map(|s| s.session.file.path.clone()) {

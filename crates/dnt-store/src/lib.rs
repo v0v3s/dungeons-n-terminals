@@ -7,11 +7,14 @@
 //! <config>/config.toml
 //! ```
 
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+pub mod fs;
 pub mod notes;
+
+use fs::{Fs, OsFs};
 
 use dnt_rules::character::Character;
 use serde::{Deserialize, Serialize};
@@ -144,6 +147,7 @@ pub struct CharacterFile {
 }
 
 pub struct Store {
+    fs: Arc<dyn Fs>,
     data_dir: PathBuf,
     config_path: PathBuf,
 }
@@ -158,7 +162,16 @@ impl Store {
     }
 
     pub fn open(data_dir: impl Into<PathBuf>, config_path: impl Into<PathBuf>) -> Store {
-        Store { data_dir: data_dir.into(), config_path: config_path.into() }
+        Store::with_fs(Arc::new(OsFs), data_dir, config_path)
+    }
+
+    /// A store on another file system (in memory, say).
+    pub fn with_fs(fs: Arc<dyn Fs>, data_dir: impl Into<PathBuf>, config_path: impl Into<PathBuf>) -> Store {
+        Store { fs, data_dir: data_dir.into(), config_path: config_path.into() }
+    }
+
+    pub fn fs(&self) -> &dyn Fs {
+        &*self.fs
     }
 
     pub fn config_path(&self) -> &Path {
@@ -166,14 +179,14 @@ impl Store {
     }
 
     pub fn load_config(&self) -> Result<Config> {
-        if !self.config_path.exists() {
+        if !self.fs.exists(&self.config_path) {
             return Ok(Config::default());
         }
-        read_toml(&self.config_path)
+        read_toml(self.fs(), &self.config_path)
     }
 
     pub fn save_config(&self, config: &Config) -> Result<()> {
-        write_toml(&self.config_path, config, "config")
+        write_toml(self.fs(), &self.config_path, config, "config")
     }
 
     fn campaigns_dir(&self) -> PathBuf {
@@ -186,17 +199,15 @@ impl Store {
         let mut campaigns = Vec::new();
         let mut errors = Vec::new();
         let dir = self.campaigns_dir();
-        let entries = match fs::read_dir(&dir) {
+        let entries = match self.fs.list(&dir) {
             Ok(e) => e,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return (campaigns, errors),
             Err(source) => return (campaigns, vec![StoreError::Io { path: dir, source }]),
         };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.join("campaign.toml").is_file() {
+        for (slug, _) in entries {
+            if !self.fs.is_file(&dir.join(&slug).join("campaign.toml")) {
                 continue;
             }
-            let slug = entry.file_name().to_string_lossy().into_owned();
             match self.load_campaign(&slug) {
                 Ok(c) => campaigns.push(c),
                 Err(e) => errors.push(e),
@@ -209,10 +220,10 @@ impl Store {
     pub fn load_campaign(&self, slug: &str) -> Result<Campaign> {
         let dir = self.campaigns_dir().join(slug);
         let file = dir.join("campaign.toml");
-        if !file.is_file() {
+        if !self.fs.is_file(&file) {
             return Err(StoreError::NoSuchCampaign(slug.to_string()));
         }
-        Ok(Campaign { slug: slug.to_string(), settings: read_toml(&file)?, dir })
+        Ok(Campaign { slug: slug.to_string(), settings: read_toml(self.fs(), &file)?, dir })
     }
 
     /// Create a campaign with a unique slug derived from its name.
@@ -220,13 +231,13 @@ impl Store {
         let base = slugify(&settings.name);
         let mut slug = base.clone();
         let mut n = 2;
-        while self.campaigns_dir().join(&slug).exists() {
+        while self.fs.exists(&self.campaigns_dir().join(&slug)) {
             slug = format!("{base}-{n}");
             n += 1;
         }
         let campaign = Campaign { dir: self.campaigns_dir().join(&slug), slug, settings };
         for dir in [campaign.characters_dir(), campaign.notes_dir()] {
-            fs::create_dir_all(&dir).map_err(|source| StoreError::Io { path: dir, source })?;
+            self.fs.create_dir_all(&dir).map_err(|source| StoreError::Io { path: dir, source })?;
         }
         self.save_campaign(&campaign)?;
         self.notes(&campaign)?;
@@ -243,13 +254,13 @@ impl Store {
         } else {
             notes::DEFAULT_FOLDERS.iter().map(|s| s.to_string()).collect()
         };
-        let n = notes::Notes::new(campaign.notes_dir(), self.data_dir.join("templates"), order);
+        let n = notes::Notes::new(self.fs.clone(), campaign.notes_dir(), self.data_dir.join("templates"), order);
         n.scaffold(&notes::Vars { campaign: campaign.settings.name.clone(), ..Default::default() })?;
         Ok(n)
     }
 
     pub fn save_campaign(&self, campaign: &Campaign) -> Result<()> {
-        write_toml(&campaign.dir.join("campaign.toml"), &campaign.settings, "campaign")
+        write_toml(self.fs(), &campaign.dir.join("campaign.toml"), &campaign.settings, "campaign")
     }
 }
 
@@ -260,13 +271,13 @@ impl Store {
         let dir = campaign.characters_dir();
         let mut out = Vec::new();
         let mut errors = Vec::new();
-        let entries = match fs::read_dir(&dir) {
+        let entries = match self.fs.list(&dir) {
             Ok(e) => e,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return (out, errors),
             Err(source) => return (out, vec![StoreError::Io { path: dir, source }]),
         };
-        for entry in entries.flatten() {
-            let path = entry.path();
+        for (name, _) in entries {
+            let path = dir.join(name);
             if path.extension().and_then(|e| e.to_str()) != Some("toml") {
                 continue;
             }
@@ -280,7 +291,7 @@ impl Store {
     }
 
     pub fn load_character(&self, path: &Path) -> Result<CharacterFile> {
-        let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+        let text = self.fs.read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
         let character = Character::from_toml(&text).map_err(|message| StoreError::Character { path: path.to_path_buf(), message })?;
         Ok(CharacterFile { slug: path.file_stem().unwrap_or_default().to_string_lossy().into_owned(), path: path.to_path_buf(), character })
     }
@@ -291,7 +302,7 @@ impl Store {
         let base = slugify(&character.name);
         let mut slug = base.clone();
         let mut n = 2;
-        while dir.join(format!("{slug}.toml")).exists() {
+        while self.fs.exists(&dir.join(format!("{slug}.toml"))) {
             slug = format!("{base}-{n}");
             n += 1;
         }
@@ -301,7 +312,7 @@ impl Store {
     }
 
     pub fn save_character(&self, file: &CharacterFile) -> Result<()> {
-        write_text(&file.path, &file.character.to_toml())
+        write_text(self.fs(), &file.path, &file.character.to_toml())
     }
 
     /// The file holding a user's overlay for one feature (`id` as in the
@@ -314,22 +325,38 @@ impl Store {
     pub fn save_feature_overlay(&self, id: &str, text: &str) -> Result<()> {
         let path = self.feature_overlay_path(id);
         if text.trim().is_empty() {
-            return match fs::remove_file(&path) {
+            return match self.fs.remove_file(&path) {
                 Err(e) if e.kind() != io::ErrorKind::NotFound => Err(StoreError::Io { path, source: e }),
                 _ => Ok(()),
             };
         }
-        write_text(&path, text)
+        write_text(self.fs(), &path, text)
+    }
+
+    /// A user's overlay for one feature, if there is one.
+    pub fn feature_overlay(&self, id: &str) -> Option<String> {
+        self.fs.read_to_string(&self.feature_overlay_path(id)).ok()
+    }
+
+    /// Read a text file of the store (an overlay, say).
+    pub fn read_text(&self, path: &Path) -> Result<String> {
+        self.fs.read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })
+    }
+
+    /// Write a text file of the store (an export, say).
+    pub fn write_text(&self, path: &Path, text: &str) -> Result<()> {
+        write_text(self.fs(), path, text)
     }
 
     /// User overlay files (`<data>/library/overlays/*.toml`), sorted.
     pub fn overlay_files(&self) -> Vec<PathBuf> {
         let dir = self.data_dir.join("library/overlays");
-        let mut files: Vec<PathBuf> = fs::read_dir(&dir)
+        let mut files: Vec<PathBuf> = self
+            .fs
+            .list(&dir)
             .into_iter()
             .flatten()
-            .flatten()
-            .map(|e| e.path())
+            .map(|(name, _)| dir.join(name))
             .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml"))
             .collect();
         files.sort();
@@ -337,8 +364,8 @@ impl Store {
     }
 }
 
-fn read_json(path: &Path) -> Result<serde_json::Value> {
-    let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+fn read_json(fs: &dyn Fs, path: &Path) -> Result<serde_json::Value> {
+    let text = fs.read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
     serde_json::from_str(&text).map_err(|e| StoreError::Json { path: path.to_path_buf(), message: e.to_string() })
 }
 
@@ -382,11 +409,13 @@ impl Store {
 
     /// All global homebrew files (`<data>/library/homebrew/*.json`), sorted.
     pub fn global_homebrew_files(&self) -> Vec<PathBuf> {
-        let mut files: Vec<PathBuf> = fs::read_dir(self.global_homebrew_dir())
+        let dir = self.global_homebrew_dir();
+        let mut files: Vec<PathBuf> = self
+            .fs
+            .list(&dir)
             .into_iter()
             .flatten()
-            .flatten()
-            .map(|e| e.path())
+            .map(|(name, _)| dir.join(name))
             .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("json"))
             .collect();
         files.sort();
@@ -396,17 +425,17 @@ impl Store {
     /// The global homebrew document dnt writes to.
     pub fn global_homebrew(&self) -> Result<serde_json::Value> {
         let path = self.global_homebrew_path();
-        if !path.exists() {
+        if !self.fs.exists(&path) {
             return Ok(serde_json::json!({
                 "_meta": {"sources": [{"json": GLOBAL_SOURCE, "abbreviation": "HB", "full": "Homebrew", "version": "1"}]}
             }));
         }
-        read_json(&path)
+        read_json(self.fs(), &path)
     }
 
     pub fn save_global_homebrew(&self, doc: &serde_json::Value) -> Result<()> {
         let text = serde_json::to_string_pretty(doc).expect("JSON serialises");
-        write_text(&self.global_homebrew_path(), &(text + "\n"))
+        write_text(self.fs(), &self.global_homebrew_path(), &(text + "\n"))
     }
 
     /// Point a campaign's characters at a moved entity: every quoted
@@ -415,9 +444,10 @@ impl Store {
     pub fn rewrite_refs(&self, campaign: &Campaign, from: &str, to: &str) -> Result<usize> {
         let needle = format!("\"{}\"", from.to_ascii_lowercase());
         let mut changed = 0;
-        let paths = fs::read_dir(campaign.characters_dir()).into_iter().flatten().flatten().map(|e| e.path());
+        let dir = campaign.characters_dir();
+        let paths = self.fs.list(&dir).into_iter().flatten().map(|(name, _)| dir.join(name));
         for path in paths.filter(|p| p.extension().and_then(|e| e.to_str()) == Some("toml")) {
-            let text = fs::read_to_string(&path).map_err(|source| StoreError::Io { path: path.clone(), source })?;
+            let text = self.fs.read_to_string(&path).map_err(|source| StoreError::Io { path: path.clone(), source })?;
             let lower = text.to_ascii_lowercase();
             if !lower.contains(&needle) {
                 continue;
@@ -430,7 +460,7 @@ impl Store {
                 last = i + needle.len();
             }
             out.push_str(&text[last..]);
-            write_text(&path, &out)?;
+            write_text(self.fs(), &path, &out)?;
             changed += 1;
         }
         Ok(changed)
@@ -440,7 +470,7 @@ impl Store {
     /// source if the file does not exist yet).
     pub fn homebrew(&self, campaign: &Campaign) -> Result<serde_json::Value> {
         let path = campaign.homebrew_path();
-        if !path.exists() {
+        if !self.fs.exists(&path) {
             return Ok(serde_json::json!({
                 "_meta": {"sources": [{
                     "json": campaign.settings.source,
@@ -450,12 +480,12 @@ impl Store {
                 }]}
             }));
         }
-        read_json(&path)
+        read_json(self.fs(), &path)
     }
 
     pub fn save_homebrew(&self, campaign: &Campaign, doc: &serde_json::Value) -> Result<()> {
         let text = serde_json::to_string_pretty(doc).expect("JSON serialises");
-        write_text(&campaign.homebrew_path(), &(text + "\n"))
+        write_text(self.fs(), &campaign.homebrew_path(), &(text + "\n"))
     }
 
     /// Give a campaign a homebrew source abbreviation if it has none, avoiding
@@ -497,26 +527,18 @@ pub fn slugify(name: &str) -> String {
     }
 }
 
-fn read_toml<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    let text = fs::read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+fn read_toml<T: serde::de::DeserializeOwned>(fs: &dyn Fs, path: &Path) -> Result<T> {
+    let text = fs.read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
     toml::from_str(&text).map_err(|source| StoreError::Parse { path: path.to_path_buf(), source })
 }
 
-fn write_toml<T: Serialize>(path: &Path, value: &T, what: &str) -> Result<()> {
+fn write_toml<T: Serialize>(fs: &dyn Fs, path: &Path, value: &T, what: &str) -> Result<()> {
     let text = toml::to_string_pretty(value).map_err(|source| StoreError::Serialize { what: what.to_string(), source })?;
-    write_text(path, &text)
+    write_text(fs, path, &text)
 }
 
-/// Write via a temporary file and rename, so a crash never leaves a
-/// half-written file.
-fn write_text(path: &Path, text: &str) -> Result<()> {
-    let io_err = |source| StoreError::Io { path: path.to_path_buf(), source };
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(io_err)?;
-    }
-    let tmp = path.with_extension("toml.tmp");
-    fs::write(&tmp, text).map_err(io_err)?;
-    fs::rename(&tmp, path).map_err(io_err)
+fn write_text(fs: &dyn Fs, path: &Path, text: &str) -> Result<()> {
+    fs.write(path, text.as_bytes()).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })
 }
 
 #[cfg(test)]
@@ -621,5 +643,37 @@ mod tests {
         let again = store.load_character(&file.path).unwrap();
         assert_eq!(again.character.feats, vec!["feat:Lucky|XPHB", "feat:Grim|Homebrew"]);
         assert_eq!(store.rewrite_refs(&camp, "feat:grim|c", "x").unwrap(), 0);
+    }
+}
+
+#[cfg(test)]
+mod memory_tests {
+    use super::*;
+    use crate::fs::MemFs;
+
+    #[test]
+    fn a_store_in_memory() {
+        let fs = Arc::new(MemFs::new());
+        let store = Store::with_fs(fs.clone(), "/data", "/config/config.toml");
+        let camp = store.create_campaign(CampaignSettings { name: "Curse of Strahd".into(), ..Default::default() }).unwrap();
+        let file = store.create_character(&camp, Character { name: "Ireena".into(), ..Default::default() }).unwrap();
+        store.save_config(&Config { last_campaign: Some(camp.slug.clone()), ..Default::default() }).unwrap();
+
+        // Everything is in memory, and comes back from what was kept.
+        let (files, dirs) = fs.contents();
+        assert!(files.keys().all(|p| p.starts_with("/data") || p.starts_with("/config")));
+        let again = Store::with_fs(Arc::new(MemFs::from_contents(files, dirs)), "/data", "/config/config.toml");
+        let (campaigns, errors) = again.campaigns();
+        assert!(errors.is_empty());
+        assert_eq!(campaigns, std::slice::from_ref(&camp));
+        assert_eq!(again.characters(&camp).0, [file]);
+        assert_eq!(again.load_config().unwrap().last_campaign.as_deref(), Some("curse-of-strahd"));
+
+        let notes = again.notes(&camp).unwrap();
+        assert!(notes.folders().contains(&"NPCs".to_string()), "scaffolded");
+        let path = notes.create("NPCs", &notes::Vars { title: "Strahd".into(), ..Default::default() }).unwrap();
+        assert!(notes.read(&path).unwrap().contains("Strahd"));
+        notes.rename("NPCs", "People").unwrap();
+        assert!(notes.exists("People/Strahd.md") && !notes.exists("NPCs"));
     }
 }
