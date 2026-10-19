@@ -21,6 +21,9 @@ The Rust crate (`dnt-app`) is a workspace member but not a default one:
 `cargo clippy -p dnt-app` needs the UI built first (`npm run build`).
 
 Data comes in as a zip (Data tab): a whole data folder, or homebrew files.
+`scripts/pack-data.sh --data DIR --homebrew DIR` packs just what the app
+reads into one small zip (see the main README). Homebrew stays off until
+a campaign enables it (Sources › Homebrew).
 On a desktop it is stored in the app's data folder
 (`%APPDATA%\cz.v0v3s.dnt` on Windows), on Android in the app's storage.
 

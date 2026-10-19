@@ -85,14 +85,14 @@ impl<S: DataSource> DataSource for Within<'_, S> {
 }
 
 /// Files that look like data but are not entities to import.
-fn ignored(name: &str) -> bool {
+pub(crate) fn ignored(name: &str) -> bool {
     let file = name.rsplit('/').next().unwrap_or(name);
     file.starts_with("foundry") || file.starts_with("fluff") || file == "index.json"
 }
 
 /// Folders of tooling and generated files (`_generated/`, `.github/`,
 /// `node_modules/`): left out without a word.
-fn hidden(name: &str) -> bool {
+pub(crate) fn hidden(name: &str) -> bool {
     name.split('/').rev().skip(1).any(|dir| dir.starts_with('_') || dir.starts_with('.') || dir == "node_modules")
 }
 

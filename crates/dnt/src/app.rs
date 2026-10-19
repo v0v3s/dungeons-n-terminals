@@ -134,7 +134,16 @@ impl App {
         let mut lib = base.clone();
         self.global_homebrew = self.store.global_homebrew().ok();
         let Some(i) = self.active else { return lib };
-        let taken = |s: &str| base.source_info(s).is_some();
+        // Imported homebrew the campaign enables.
+        let (docs, problems) = dnt_core::import::load_homebrew(&self.store, &self.campaigns.list[i].settings.homebrew);
+        if !docs.is_empty() {
+            lib.load_docs(&docs);
+        }
+        if let Some(p) = problems.first() {
+            self.status = p.clone();
+        }
+        let brew = dnt_core::import::homebrew(&self.store);
+        let taken = |s: &str| base.source_info(s).is_some() || brew.iter().any(|b| b.id.eq_ignore_ascii_case(s));
         if let Err(e) = self.store.ensure_source(&mut self.campaigns.list[i], &taken) {
             self.status = format!("Could not save campaign: {e}");
         }

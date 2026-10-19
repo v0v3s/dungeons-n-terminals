@@ -59,9 +59,9 @@ enum Cmd {
     /// Import data from a zip: a whole data folder, or homebrew files in any
     /// layout. Importing again updates entries instead of doubling them.
     Import { zip: PathBuf },
-    /// List the imported sources.
+    /// List the imported sources, then the imported homebrew.
     Imported,
-    /// Remove an imported source and everything in it.
+    /// Remove an imported source (or homebrew source) and everything in it.
     Forget { source: String },
 }
 
@@ -76,6 +76,14 @@ fn run_command(cmd: Cmd, store: &Store, config: &dnt_store::Config) -> Result<()
             for (file, why) in &report.skipped {
                 println!("  skipped {file}: {why}");
             }
+            let brew = import::homebrew(store);
+            if !brew.is_empty() {
+                println!(
+                    "Homebrew ({} sources) is off until a campaign enables it: list its ids under `homebrew` in the \
+                     campaign's campaign.toml (`dnt imported` shows them), or tick them in the app.",
+                    brew.len()
+                );
+            }
             if let Some(path) = &config.library.path {
                 println!(
                     "Note: dnt reads the data folder {} (set in {}); remove library.path there to use the imported data.",
@@ -88,9 +96,20 @@ fn run_command(cmd: Cmd, store: &Store, config: &dnt_store::Config) -> Result<()
             for (source, count) in import::sources(store).map_err(anyhow::Error::msg)? {
                 println!("{source:<16} {count} entries");
             }
+            let brew = import::homebrew(store);
+            if !brew.is_empty() {
+                println!("\nHomebrew (enable per campaign):");
+                for b in brew {
+                    println!("{:<16} {} entries  {}", b.id, b.entries(), b.name);
+                }
+            }
         }
         Cmd::Forget { source } => {
-            import::remove_source(store, &source).map_err(anyhow::Error::msg)?;
+            if import::homebrew(store).iter().any(|b| b.id.eq_ignore_ascii_case(&source)) {
+                import::remove_homebrew(store, &source).map_err(anyhow::Error::msg)?;
+            } else {
+                import::remove_source(store, &source).map_err(anyhow::Error::msg)?;
+            }
             println!("Removed {source}");
         }
     }

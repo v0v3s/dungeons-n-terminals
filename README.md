@@ -84,6 +84,20 @@ updates entries instead of doubling them; entries a zip does not have
 are kept. A configured data folder (`--data`) is used instead of the
 imported data.
 
+Homebrew files (files that name their sources in `_meta`) are kept
+apart and are off until a campaign enables them: list their ids under
+`homebrew` in the campaign's `campaign.toml` (`dnt imported` shows them),
+or tick them in the app. So a whole homebrew collection can be imported
+without slowing anything down.
+
+To make one zip of just what dnt reads, from a data repository and/or
+a homebrew collection (images, creatures and adventure text are left
+out), run:
+
+```sh
+scripts/pack-data.sh --data path/to/data-repo --homebrew path/to/homebrew -o dnt-data.zip
+```
+
 ## Where things are
 
 Everything is plain files you can read, edit and back up:
@@ -99,6 +113,7 @@ Everything is plain files you can read, edit and back up:
     exports/                         exported sheets
   library/
     imported/                        data imported from zips (one file per source)
+      homebrew/                      imported homebrew, loaded where enabled
     homebrew/*.json                  homebrew shared by every campaign
     overlays/*.toml                  your rules for features
   templates/*.md                     your note templates (override the defaults)

@@ -14,6 +14,7 @@ pub mod import;
 pub mod levelup;
 pub mod notes;
 pub mod options;
+pub mod pack;
 pub mod rolls;
 pub mod session;
 pub mod sheet;
