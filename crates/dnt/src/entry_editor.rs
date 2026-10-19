@@ -1,38 +1,14 @@
 //! Editing a homebrew entity field by field. Changes are returned as
 //! actions; the app applies them to the homebrew file and reloads.
 
+use dnt_core::entry_fields::{json_text, parse_json};
+pub use dnt_core::entry_fields::{Field, Widget};
 use dnt_core::homebrew::EntryRef;
-use dnt_data::forms::{self, Format};
-use dnt_data::{EntityId, Kind, Library};
+use dnt_data::forms::Format;
+use dnt_data::{EntityId, Library};
 use edtui::{EditorEventHandler, EditorMode, EditorState, Lines};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::Value;
-
-/// How a field is edited.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Widget {
-    Text,
-    Number,
-    Bool,
-    /// `entries`-like: Markdown in the big editor.
-    Entries,
-    /// Anything structured: JSON in the big editor.
-    Json,
-    /// Friendly text or a choice list (see `dnt_data::forms`).
-    Form(Format),
-}
-
-pub struct Field {
-    pub name: String,
-    pub value: Option<Value>,
-    /// The value as shown in the list.
-    pub display: String,
-    pub widget: Widget,
-    /// Stored in the homebrew entry (changed from the original, or new).
-    pub changed: bool,
-    /// Not one of the kind's common fields.
-    pub extra: bool,
-}
 
 pub enum Mode {
     List,
@@ -79,58 +55,6 @@ pub struct EntryEditor {
     pub error: Option<String>,
 }
 
-/// Common fields per kind, in order; the rest follow alphabetically.
-fn order(kind: Kind) -> &'static [&'static str] {
-    match kind {
-        Kind::Spell => {
-            &["name", "level", "school", "time", "range", "components", "duration", "meta", "classes", "entries", "entriesHigherLevel"]
-        }
-        Kind::Item | Kind::BaseItem | Kind::MagicVariant => &[
-            "name",
-            "type",
-            "rarity",
-            "reqAttune",
-            "wondrous",
-            "weight",
-            "value",
-            "ac",
-            "bonusAc",
-            "weaponCategory",
-            "dmg1",
-            "dmg2",
-            "dmgType",
-            "bonusWeapon",
-            "property",
-            "entries",
-        ],
-        Kind::Feat => &["name", "category", "prerequisite", "ability", "entries"],
-        _ => &["name", "entries"],
-    }
-}
-
-fn widget_for(kind: Kind, field: &str, value: Option<&Value>) -> Widget {
-    if let Some(f) = forms::format_for(kind, field) {
-        return Widget::Form(f);
-    }
-    match (field, value) {
-        ("entries" | "entriesHigherLevel" | "entriesTemplate", _) => Widget::Entries,
-        (_, Some(Value::Bool(_))) | ("wondrous", None) => Widget::Bool,
-        (_, Some(Value::Number(_))) | ("weight" | "ac", None) => Widget::Number,
-        (_, Some(Value::String(_))) | (_, None) => Widget::Text,
-        _ => Widget::Json,
-    }
-}
-
-/// A short one-line rendering of a JSON value.
-fn preview(v: &Value) -> String {
-    match v {
-        Value::String(s) => s.clone(),
-        Value::Bool(b) => if *b { "yes" } else { "no" }.into(),
-        Value::Array(a) if a.iter().all(|x| x.is_string()) => a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" · "),
-        other => other.to_string(),
-    }
-}
-
 fn text_editor(text: &str) -> Box<EditorState> {
     Box::new(EditorState::new(Lines::from(text)))
 }
@@ -146,58 +70,6 @@ impl EntryEditor {
 
     pub fn entity(&self, lib: &Library) -> Option<EntityId> {
         self.entry.entity(lib)
-    }
-
-    /// Fields to show, given the merged entity and the homebrew entry.
-    pub fn fields(&self, lib: &Library, entry: Option<&serde_json::Map<String, Value>>) -> Vec<Field> {
-        let Some(id) = self.entity(lib) else { return Vec::new() };
-        let data = &lib.entity(id).data;
-        let common: Vec<String> = order(self.entry.kind).iter().map(|s| s.to_string()).collect();
-        let mut rest: Vec<String> = data
-            .as_object()
-            .into_iter()
-            .flatten()
-            .map(|(k, _)| k.clone())
-            .filter(|k| !k.starts_with('_') && !common.contains(k))
-            .filter(|k| {
-                !matches!(k.as_str(), "source" | "page" | "srd" | "srd52" | "basicRules" | "basicRules2024" | "hasFluff" | "hasFluffImages")
-            })
-            .collect();
-        rest.sort();
-        let n_common = common.len();
-        common
-            .into_iter()
-            .chain(rest)
-            .enumerate()
-            .map(|(i, name)| {
-                let mut value = data.get(&name).cloned();
-                if name == "classes" && value.is_none() && self.entry.kind == Kind::Spell {
-                    // Official spells get their classes from a lookup.
-                    let list: Vec<Value> =
-                        lib.spell_classes(id).iter().map(|c| serde_json::json!({"name": c.name, "source": c.source})).collect();
-                    if !list.is_empty() {
-                        value = Some(serde_json::json!({"fromClassList": list}));
-                    }
-                }
-                let widget = widget_for(self.entry.kind, &name, value.as_ref());
-                let display = match (&value, widget) {
-                    (_, Widget::Form(f)) => forms::display(f, value.as_ref()),
-                    (None, _) => "—".to_string(),
-                    (Some(v), Widget::Entries) => {
-                        dnt_data::homebrew::entries_to_markdown(v).split_whitespace().collect::<Vec<_>>().join(" ")
-                    }
-                    (Some(v), _) => preview(v),
-                };
-                Field {
-                    widget,
-                    display,
-                    changed: entry.is_some_and(|e| e.contains_key(&name)) && !(name == "name" && self.entry.replaces),
-                    extra: i >= n_common,
-                    name,
-                    value,
-                }
-            })
-            .collect()
     }
 
     pub fn key(&mut self, key: KeyEvent, fields: &[Field], lib: &Library) -> Action {
@@ -263,26 +135,13 @@ impl EntryEditor {
                 KeyCode::Enter => {
                     let field = field.clone();
                     let text = text.trim().to_string();
-                    let f = fields.iter().find(|f| f.name == field);
-                    let value = match f.map(|f| f.widget) {
-                        Some(Widget::Form(format)) => match forms::parse(format, &text, f.and_then(|f| f.value.as_ref()), lib) {
-                            Ok(v) => v,
-                            Err(e) => {
-                                self.error = Some(e);
-                                return Action::None;
-                            }
-                        },
-                        Some(Widget::Number) => match text.parse::<i64>() {
-                            Ok(n) => Some(Value::from(n)),
-                            Err(_) => match text.parse::<f64>() {
-                                Ok(n) => Some(Value::from(n)),
-                                Err(_) => {
-                                    self.error = Some(format!("{field} needs a number"));
-                                    return Action::None;
-                                }
-                            },
-                        },
-                        _ => Some(Value::String(text)),
+                    let value = match fields.iter().find(|f| f.name == field).map(|f| f.parse(&text, lib)) {
+                        Some(Ok(v)) => v,
+                        Some(Err(e)) => {
+                            self.error = Some(e);
+                            return Action::None;
+                        }
+                        None => Some(Value::String(text)),
                     };
                     self.mode = Mode::List;
                     self.error = None;
@@ -309,11 +168,7 @@ impl EntryEditor {
                     return Action::None;
                 }
                 let text = editor.lines.to_string();
-                let parsed = if *json {
-                    serde_json::from_str::<Value>(&text).map_err(|e| format!("Not valid JSON: {e}"))
-                } else {
-                    dnt_data::homebrew::markdown_to_entries(&text)
-                };
+                let parsed = if *json { parse_json(&text) } else { dnt_data::homebrew::markdown_to_entries(&text) };
                 match parsed {
                     Ok(v) => {
                         let field = field.clone();
@@ -351,8 +206,7 @@ impl EntryEditor {
                     KeyCode::Char('J') => {
                         // Edit any field as JSON.
                         if let Some(f) = field {
-                            let text = serde_json::to_string_pretty(f.value.as_ref().unwrap_or(&Value::Null)).unwrap_or_default();
-                            self.mode = Mode::Big { field: f.name.clone(), editor: text_editor(&text), json: true };
+                            self.mode = Mode::Big { field: f.name.clone(), editor: text_editor(&json_text(f.value.as_ref())), json: true };
                         }
                     }
                     KeyCode::Enter | KeyCode::Char('i') | KeyCode::Char(' ') => {
@@ -363,38 +217,17 @@ impl EntryEditor {
                             );
                         }
                         self.error = None;
-                        match f.widget {
-                            Widget::Bool => {
-                                let on = f.value.as_ref().and_then(Value::as_bool).unwrap_or(false);
-                                return Action::Set(f.name.clone(), Some(Value::Bool(!on)));
+                        let (field, text) = (f.name.clone(), f.text());
+                        self.mode = match (f.widget, f.choices()) {
+                            (Widget::Bool, _) => return Action::Set(field, Some(f.toggled())),
+                            (_, Some(options)) => {
+                                let cursor = options.iter().position(|(_, v)| v.as_ref() == f.value.as_ref()).unwrap_or(0);
+                                Mode::Choose { field, options, cursor }
                             }
-                            Widget::Form(format) => match forms::choices(format) {
-                                Some(options) => {
-                                    let cursor = options.iter().position(|(_, v)| v.as_ref() == f.value.as_ref()).unwrap_or(0);
-                                    self.mode = Mode::Choose { field: f.name.clone(), options, cursor };
-                                }
-                                None => {
-                                    let text = if f.value.is_some() { f.display.clone() } else { String::new() };
-                                    self.mode = Mode::Prompt { field: f.name.clone(), text };
-                                }
-                            },
-                            Widget::Text | Widget::Number => {
-                                let text = match &f.value {
-                                    Some(Value::String(s)) => s.clone(),
-                                    Some(v) => v.to_string(),
-                                    None => String::new(),
-                                };
-                                self.mode = Mode::Prompt { field: f.name.clone(), text };
-                            }
-                            Widget::Entries => {
-                                let md = f.value.as_ref().map(dnt_data::homebrew::entries_to_markdown).unwrap_or_default();
-                                self.mode = Mode::Big { field: f.name.clone(), editor: text_editor(&md), json: false };
-                            }
-                            Widget::Json => {
-                                let text = serde_json::to_string_pretty(f.value.as_ref().unwrap_or(&Value::Null)).unwrap_or_default();
-                                self.mode = Mode::Big { field: f.name.clone(), editor: text_editor(&text), json: true };
-                            }
-                        }
+                            (Widget::Entries, _) => Mode::Big { field, editor: text_editor(&text), json: false },
+                            (Widget::Json, _) => Mode::Big { field, editor: text_editor(&text), json: true },
+                            _ => Mode::Prompt { field, text },
+                        };
                     }
                     _ => {}
                 }
@@ -406,9 +239,6 @@ impl EntryEditor {
     /// The format of the field being prompted for, for its hint.
     pub fn prompt_format(&self, fields: &[Field]) -> Option<Format> {
         let Mode::Prompt { field, .. } = &self.mode else { return None };
-        match fields.iter().find(|f| &f.name == field)?.widget {
-            Widget::Form(f) => Some(f),
-            _ => None,
-        }
+        fields.iter().find(|f| &f.name == field)?.format()
     }
 }

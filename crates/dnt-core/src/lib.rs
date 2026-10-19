@@ -4,6 +4,7 @@
 //! frontends turn input into calls here and draw what comes back.
 
 pub mod commands;
+pub mod entry_fields;
 pub mod export;
 pub mod homebrew;
 pub mod options;

@@ -225,7 +225,7 @@ impl App {
         let Some(editor) = self.editor.as_ref() else { return };
         let entry = self.target_doc(editor.entry.doc).and_then(|doc| editor.entry.entry(lib, doc)).cloned();
         let editor = self.editor.as_mut().unwrap();
-        let fields = editor.fields(lib, entry.as_ref());
+        let fields = dnt_core::entry_fields::fields(lib, &editor.entry, entry.as_ref());
         match editor.key(key, &fields, lib) {
             entry_editor::Action::None => {}
             entry_editor::Action::Close => self.close_editor(),

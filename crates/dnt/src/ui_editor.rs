@@ -36,7 +36,7 @@ pub fn draw(
     let entry = id
         .and_then(|id| homebrew_doc.and_then(|d| Some((d, homebrew::find_entry(d, lib, id)?))))
         .and_then(|(d, at)| homebrew::entry(d, &at).cloned());
-    let fields = ed.fields(lib, entry.as_ref());
+    let fields = dnt_core::entry_fields::fields(lib, &ed.entry, entry.as_ref());
     ed.cursor = ed.cursor.min(fields.len().saturating_sub(1));
     let big = matches!(ed.mode, Mode::Big { .. });
     let left = if big { Constraint::Percentage(50) } else { Constraint::Length(70) };
