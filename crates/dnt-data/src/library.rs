@@ -585,9 +585,11 @@ impl SourceFilter {
             return false;
         }
         if self.hide_reprinted {
+            // Magic variants say it in what their items inherit.
             let reprinted = entity
                 .data
                 .get("reprintedAs")
+                .or_else(|| entity.data.get("inherits").and_then(|i| i.get("reprintedAs")))
                 .and_then(Value::as_array)
                 .into_iter()
                 .flatten()
@@ -728,6 +730,23 @@ fn fill_templates(v: &mut Value, fields: &serde_json::Map<String, Value>) {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn reprints_hide_their_originals() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "spell": [{"name": "Fireball", "source": "PHB", "reprintedAs": ["Fireball|XPHB"]}, {"name": "Fireball", "source": "XPHB"}],
+            "magicvariant": [
+                {"name": "+1 Armor", "inherits": {"source": "DMG", "reprintedAs": ["+1 Armor|XDMG"]}},
+                {"name": "+1 Armor", "inherits": {"source": "XDMG"}}
+            ]
+        }));
+        let filter = SourceFilter { enabled: None, hide_reprinted: true };
+        let mut shown: Vec<String> =
+            lib.entities().iter().filter(|e| filter.allows(e)).map(|e| format!("{} {}", e.name, e.source)).collect();
+        shown.sort();
+        assert_eq!(shown, ["+1 Armor XDMG", "Fireball XPHB"]);
+    }
 
     #[test]
     fn campaign_overrides_patch_in_place() {

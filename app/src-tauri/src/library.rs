@@ -39,11 +39,10 @@ pub struct Status {
 
 pub fn status_of(inner: &Inner) -> Res<Status> {
     let ws = &inner.ws;
-    let imported = if import::has_imported(&ws.store) { import::sources(&ws.store)? } else { Vec::new() };
     Ok(Status {
         loaded: ws.has_data(),
         entries: ws.lib.as_ref().map_or(0, |l| l.entities().len()),
-        imported,
+        imported: ws.imported.clone(),
         homebrew: (ws.homebrew.len(), ws.homebrew.iter().map(|b| b.entries()).sum()),
         campaigns: ws
             .campaigns
@@ -159,6 +158,21 @@ pub async fn set_campaign_sources(
     let mut inner = app.lock();
     inner.ws.set_sources(&slug, sources, homebrew, show_reprinted)?;
     inner.library_changed();
+    status_of(&inner)
+}
+
+/// Delete a campaign with its characters, notes and homebrew.
+#[tauri::command]
+pub async fn delete_campaign(app: State<'_, App>, slug: String) -> Res<Status> {
+    let mut inner = app.lock();
+    let was_active = inner.ws.active_campaign().is_some_and(|c| c.slug == slug);
+    if was_active {
+        inner.sheet = None;
+    }
+    inner.ws.delete_campaign(&slug)?;
+    if was_active {
+        inner.library_changed();
+    }
     status_of(&inner)
 }
 

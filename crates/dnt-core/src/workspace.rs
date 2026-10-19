@@ -25,6 +25,8 @@ pub struct Workspace {
     pub overlays: OverlaySet,
     /// Imported homebrew sources (loaded only where enabled).
     pub homebrew: Vec<import::BrewSource>,
+    /// Imported sources with how many entities each has (read on reload).
+    pub imported: Vec<(String, usize)>,
     /// Campaigns, sorted by name.
     pub campaigns: Vec<Campaign>,
     pub active: Option<usize>,
@@ -51,6 +53,7 @@ impl Workspace {
             lib: None,
             overlays: OverlaySet::default(),
             homebrew: Vec::new(),
+            imported: Vec::new(),
             campaigns,
             active,
             problems,
@@ -76,6 +79,14 @@ impl Workspace {
         };
         self.overlays = self.load_overlays();
         self.homebrew = import::homebrew(&self.store);
+        self.imported = if import::has_imported(&self.store) {
+            import::sources(&self.store).unwrap_or_else(|e| {
+                self.problems.push(e);
+                Vec::new()
+            })
+        } else {
+            Vec::new()
+        };
         self.prepare();
     }
 
@@ -196,6 +207,30 @@ impl Workspace {
         Ok(())
     }
 
+    /// Delete a campaign and everything in it. If it was the active one,
+    /// the first other campaign (if any) becomes active.
+    pub fn delete_campaign(&mut self, slug: &str) -> Result<(), String> {
+        let i = self.find(slug)?;
+        self.store.delete_campaign(&self.campaigns[i]).map_err(|e| e.to_string())?;
+        let was_active = self.active == Some(i);
+        let active = self.active_campaign().map(|c| c.slug.clone());
+        self.campaigns.remove(i);
+        self.active = active.and_then(|s| self.campaigns.iter().position(|c| c.slug == s));
+        if was_active {
+            match self.campaigns.first().map(|c| c.slug.clone()) {
+                Some(next) => {
+                    self.activate(&next)?;
+                }
+                None => {
+                    self.config.last_campaign = None;
+                    self.store.save_config(&self.config).map_err(|e| e.to_string())?;
+                    self.prepare();
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Rename a campaign (its folder keeps its slug).
     pub fn rename_campaign(&mut self, slug: &str, name: &str) -> Result<(), String> {
         let name = name.trim();
@@ -274,7 +309,15 @@ mod tests {
         assert!(lib.entities().iter().filter(|e| ws.filter().allows(e)).any(|e| e.name == "Warden"), "and shows");
 
         // Reopening remembers the active campaign.
-        let again = Workspace::open(ws.store);
-        assert_eq!(again.active_campaign().map(|c| c.settings.name.as_str()), Some("Curse of Strahd"));
+        let mut ws = Workspace::open(ws.store);
+        assert_eq!(ws.active_campaign().map(|c| c.settings.name.as_str()), Some("Curse of Strahd"));
+
+        // Deleting the active campaign activates another, then none.
+        let other = ws.create_campaign("Tomb of Annihilation", vec![]).unwrap();
+        ws.delete_campaign(&slug).unwrap();
+        assert_eq!(ws.active_campaign().map(|c| c.slug.as_str()), Some(other.as_str()));
+        ws.delete_campaign(&other).unwrap();
+        assert!(ws.campaigns.is_empty() && ws.active.is_none());
+        assert!(Workspace::open(ws.store).campaigns.is_empty(), "gone from the store too");
     }
 }

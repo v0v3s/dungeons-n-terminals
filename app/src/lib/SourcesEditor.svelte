@@ -5,6 +5,7 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import * as api from "./api";
+  import { working } from "./busy.svelte";
   import Modal from "./Modal.svelte";
 
   let { campaign, onsave, onclose }: { campaign: api.CampaignInfo; onsave: (s: api.Status) => void; onclose: () => void } = $props();
@@ -30,7 +31,7 @@
 
   async function save() {
     try {
-      onsave(await api.setCampaignSources(campaign.slug, picked, brew, reprinted));
+      onsave(await working("Loading the sources…", () => api.setCampaignSources(campaign.slug, picked, brew, reprinted)));
       onclose();
     } catch (e) {
       error = String(e);

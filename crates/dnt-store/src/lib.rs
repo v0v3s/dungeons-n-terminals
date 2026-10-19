@@ -266,6 +266,11 @@ impl Store {
     pub fn save_campaign(&self, campaign: &Campaign) -> Result<()> {
         write_toml(self.fs(), &campaign.dir.join("campaign.toml"), &campaign.settings, "campaign")
     }
+
+    /// Delete a campaign and everything in it (characters, notes, homebrew).
+    pub fn delete_campaign(&self, campaign: &Campaign) -> Result<()> {
+        self.fs.remove_dir_all(&campaign.dir).map_err(|source| StoreError::Io { path: campaign.dir.clone(), source })
+    }
 }
 
 impl Store {

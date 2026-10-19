@@ -1,6 +1,7 @@
 <!-- Campaigns: which one is active, and the books each one uses. -->
 <script lang="ts">
   import * as api from "./api";
+  import { working } from "./busy.svelte";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
   import Prompt from "./Prompt.svelte";
@@ -11,6 +12,7 @@
   let error = $state("");
   let creating = $state(false);
   let renaming: api.CampaignInfo | null = $state(null);
+  let deleting: api.CampaignInfo | null = $state(null);
   /// The campaign whose sources are being edited.
   let editing: api.CampaignInfo | null = $state(null);
   let available: api.Sources | null = $state(null);
@@ -18,10 +20,11 @@
   /// The books of a new campaign: a preset, or -1 for all official.
   let preset = $state(-1);
 
-  async function run(p: Promise<api.Status>) {
+  /// Run a change (showing what it does while it takes), and show the result.
+  async function run(label: string, change: () => Promise<api.Status>) {
     try {
       error = "";
-      onchange(await p);
+      onchange(await working(label, change));
       return true;
     } catch (e) {
       error = String(e);
@@ -30,7 +33,7 @@
   }
 
   async function loadSources() {
-    available ??= await api.sources();
+    available ??= await working("Reading the sources…", api.sources);
   }
 
   async function startCreate() {
@@ -42,7 +45,7 @@
 
   async function create() {
     const sources = available?.presets[preset]?.[1] ?? [];
-    if (await run(api.createCampaign(newName, [...sources]))) creating = false;
+    if (await run("Creating the campaign…", () => api.createCampaign(newName, [...sources]))) creating = false;
   }
 
   const describe = (c: api.CampaignInfo) => {
@@ -73,9 +76,10 @@
                 </div>
               </div>
               <div class="actions">
-                {#if !c.active}<button class="primary" onclick={() => run(api.activateCampaign(c.slug))}>Activate</button>{/if}
+                {#if !c.active}<button class="primary" onclick={() => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug))}>Activate</button>{/if}
                 <button class="ghost" onclick={() => (editing = c)}>Sources</button>
                 <button class="ghost" onclick={() => (renaming = c)}>Rename</button>
+                <button class="ghost danger" onclick={() => (deleting = c)}>Delete</button>
               </div>
             </li>
           {/each}
@@ -122,9 +126,29 @@
     action="Rename"
     onclose={() => (renaming = null)}
     onsubmit={async (name) => {
-      if (renaming && (await run(api.renameCampaign(renaming.slug, name)))) renaming = null;
+      const c = renaming;
+      if (c && (await run("Renaming…", () => api.renameCampaign(c.slug, name)))) renaming = null;
     }}
   />
+{/if}
+
+{#if deleting}
+  {@const c = deleting}
+  <Modal title="Delete {c.name}" onclose={() => (deleting = null)}>
+    <p>Delete <b>{c.name}</b> with its characters, notes and homebrew? This cannot be undone.</p>
+    {#if c.active && status.campaigns.length > 1}
+      <p class="dim">Another campaign becomes the active one.</p>
+    {/if}
+    <div class="buttons">
+      <button class="ghost" onclick={() => (deleting = null)}>Cancel</button>
+      <button
+        class="primary danger"
+        onclick={async () => {
+          if (await run(`Deleting ${c.name}…`, () => api.deleteCampaign(c.slug))) deleting = null;
+        }}>Delete</button
+      >
+    </div>
+  </Modal>
 {/if}
 
 {#if editing}
@@ -187,6 +211,13 @@
     color: var(--red);
     margin-top: 1em;
   }
+  .ghost.danger {
+    color: var(--red);
+  }
+  .primary.danger {
+    background: var(--red);
+    border-color: var(--red);
+  }
   .line {
     display: flex;
     gap: 1ch;
@@ -235,15 +266,20 @@
     .list li {
       padding: 12px 0;
     }
+    /* Three buttons a row; Activate gets a row of its own. */
     .actions {
       width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .actions button {
-      flex: 1;
+    .actions .primary {
+      grid-column: 1 / -1;
     }
     .preset {
       min-height: 52px;
-      align-items: center;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.15em;
     }
     .buttons button {
       flex: 1;

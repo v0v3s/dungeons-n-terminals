@@ -17,5 +17,6 @@ key.properties
 keystore.properties
 
 /.tauri
-/tauri.settings.gradle*.jks
+/tauri.settings.gradle
+*.jks
 *.keystore

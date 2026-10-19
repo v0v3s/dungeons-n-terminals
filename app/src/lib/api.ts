@@ -72,6 +72,7 @@ export const createCampaign = (name: string, sources: string[]) => invoke<Status
 export const activateCampaign = (slug: string) => invoke<Status>("activate_campaign", { slug });
 export const setCampaignSources = (slug: string, sources: string[], homebrew: string[], showReprinted: boolean) =>
   invoke<Status>("set_campaign_sources", { slug, sources, homebrew, showReprinted });
+export const deleteCampaign = (slug: string) => invoke<Status>("delete_campaign", { slug });
 export const renameCampaign = (slug: string, name: string) => invoke<Status>("rename_campaign", { slug, name });
 
 // ---- compendium ----

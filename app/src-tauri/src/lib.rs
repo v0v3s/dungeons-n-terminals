@@ -104,6 +104,7 @@ pub fn run() {
             library::activate_campaign,
             library::set_campaign_sources,
             library::rename_campaign,
+            library::delete_campaign,
             library::search,
             library::entry,
             library::follow,

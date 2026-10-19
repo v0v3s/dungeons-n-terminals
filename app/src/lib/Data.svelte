@@ -3,6 +3,7 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./api";
+  import { working } from "./busy.svelte";
   import Pane from "./Pane.svelte";
 
   let { status, onchange }: { status: api.Status | null; onchange: (s: api.Status) => void } = $props();
@@ -17,7 +18,7 @@
     if (!path) return;
     busy = true;
     try {
-      result = await api.importZip(path);
+      result = await working("Importing…", () => api.importZip(path));
       onchange(result.status);
     } catch (e) {
       error = String(e);

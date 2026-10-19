@@ -5,6 +5,7 @@
   import { exit, onBackButtonPress } from "@tauri-apps/api/app";
   import * as api from "$lib/api";
   import AppBar from "$lib/AppBar.svelte";
+  import Busy from "$lib/Busy.svelte";
   import Campaigns from "$lib/Campaigns.svelte";
   import Characters from "$lib/Characters.svelte";
   import Compendium from "$lib/Compendium.svelte";
@@ -183,6 +184,7 @@
       <span><span class="keycap">alt+1-5</span> section</span>
     </footer>
   {/if}
+  <Busy />
 </div>
 
 <style>
