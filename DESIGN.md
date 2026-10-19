@@ -37,14 +37,22 @@ user-supplied data directory in the JSON format documented in `schemas/`
 
 ```
 crates/
-  dnt-data/    data model, import, _copy resolution, tag parsing, entry rendering model, search index
+  dnt-data/    data model, import (from any DataSource), _copy resolution, tag parsing, entry rendering model, search index
   dnt-rules/   formula language (lexer/parser/evaluator), overlays, effect/stat dependency graph
-  dnt-store/   on-disk layout: library, campaigns, characters, notes
+  dnt-store/   storage layout: library, campaigns, characters, notes, through an Fs (disk or memory)
+  dnt-core/    the application layer every frontend shares: sessions, commands, flows, view data
   dnt/         the TUI binary
 ```
 
-Dependency direction: `dnt` → `dnt-store` → `dnt-rules` → `dnt-data`.
-UI-free crates stay testable without a terminal.
+Dependency direction: `dnt` → `dnt-core` → `dnt-store` → `dnt-rules` → `dnt-data`.
+UI-free crates stay testable without a terminal, and all but `dnt` build
+for `wasm32` too.
+
+A frontend turns input into `dnt-core` calls and draws what comes back:
+`Command`s change a character (each returns a message and whether to
+save); step-by-step flows (level up, a new character) ask `Question`s and
+take `Answer`s; lists to choose from are `Choice`s. A new frontend (a
+desktop or web app) adds a crate next to `dnt` and reuses all of this.
 
 ## On-disk layout
 

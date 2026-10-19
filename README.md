@@ -133,11 +133,12 @@ built-in rules for it.
 
 ## Development
 
-The workspace has four crates:
+The workspace has five crates:
 
 - `dnt-data` — loading the data, entities, search, rendering entries
 - `dnt-rules` — the rules engine, characters, attacks, spells, dice
-- `dnt-store` — campaigns, characters, notes and homebrew on disk
+- `dnt-store` — campaigns, characters, notes and homebrew on disk (or in memory)
+- `dnt-core` — what any frontend needs: commands, level-up and creation flows, search, notes
 - `dnt` — the terminal app (ratatui)
 
 ```sh
