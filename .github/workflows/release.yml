@@ -95,8 +95,98 @@ jobs:
           name: ${{ matrix.asset }}
           path: dist/${{ matrix.asset }}
 
+  # The app for Windows: an installer.
+  app-windows:
+    needs: [version, tag]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build
+        working-directory: app
+        run: |
+          npm ci
+          npx tauri build --bundles nsis
+      - name: Name the installer
+        shell: bash
+        run: |
+          mkdir dist
+          cp target/release/bundle/nsis/*-setup.exe dist/dnt-app-windows-x86_64-setup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dnt-app-windows
+          path: dist/*
+
+  # The app for Android: an APK signed with the key in the secrets
+  # ANDROID_KEYSTORE (base64 of the .jks), ANDROID_KEY_ALIAS and
+  # ANDROID_KEY_PASSWORD (see app/README.md). Skipped without them.
+  app-android:
+    needs: [version, tag]
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - name: Signing key
+        id: key
+        env:
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::notice::No ANDROID_KEYSTORE secret: the Android app is not built"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/dnt.jks"
+          printf 'storeFile=%s\nkeyAlias=%s\npassword=%s\n' "$RUNNER_TEMP/dnt.jks" "$ALIAS" "$PASSWORD" > app/src-tauri/gen/android/keystore.properties
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.key.outputs.skip != 'true'
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        if: steps.key.outputs.skip != 'true'
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.skip != 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build
+        if: steps.key.outputs.skip != 'true'
+        working-directory: app
+        run: |
+          # The runner comes with the Android SDK and NDKs.
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npm ci
+          npx tauri android build --apk --target aarch64 --target armv7 --target x86_64
+          mkdir ../dist
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk ../dist/dnt-app-android.apk
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.skip != 'true'
+        with:
+          name: dnt-app-android
+          path: dist/*
+
   publish:
-    needs: [version, build]
+    # The terminal app releases even if an app build fails.
+    needs: [version, build, app-windows, app-android]
+    if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

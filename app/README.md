@@ -23,3 +23,28 @@ The Rust crate (`dnt-app`) is a workspace member but not a default one:
 Data comes in as a zip (Data tab): a whole data folder, or homebrew files.
 On a desktop it is stored in the app's data folder
 (`%APPDATA%\cz.v0v3s.dnt` on Windows), on Android in the app's storage.
+
+## Releases
+
+Each release builds the Windows installer (`dnt-app-windows-x86_64-setup.exe`)
+and, when the signing key is set up, the Android app (`dnt-app-android.apk`,
+for phones, tablets and the emulator).
+
+Android only installs updates signed with the same key, so create one once
+and keep it safe (losing it means users must uninstall to update):
+
+```sh
+keytool -genkeypair -keystore dnt.jks -alias dnt -keyalg RSA -keysize 4096 -validity 36500
+base64 -w0 dnt.jks   # the value of the ANDROID_KEYSTORE secret
+```
+
+Then add the repository secrets `ANDROID_KEYSTORE`, `ANDROID_KEY_ALIAS`
+(`dnt`) and `ANDROID_KEY_PASSWORD`. For a signed build on your machine, put
+a `keystore.properties` in `src-tauri/gen/android/` (ignored by git):
+
+```
+storeFile=/path/to/dnt.jks
+keyAlias=dnt
+password=…
+```
+
