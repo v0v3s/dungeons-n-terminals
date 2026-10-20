@@ -1,11 +1,20 @@
-<!-- The mobile top bar: menu (or back) button, then the place as a prompt. -->
+<!-- The mobile top bar: menu (or back) button, the place as a prompt, and
+     the screen's action on the right, if it has one. -->
 <script lang="ts">
   let {
     title,
     back = false,
     onmenu,
     onback,
-  }: { title: string; back?: boolean; onmenu: () => void; onback: () => void } = $props();
+    action = null,
+  }: {
+    title: string;
+    back?: boolean;
+    onmenu: () => void;
+    onback: () => void;
+    /// The screen's action: what it shows, its name, and what it does.
+    action?: { label: string; name: string; onclick: () => void } | null;
+  } = $props();
 </script>
 
 <header class="bar">
@@ -15,10 +24,13 @@
     <button class="icon" aria-label="Menu" onclick={onmenu}>☰</button>
   {/if}
   <div class="title">
-    {#if !back}<span class="brand">dnt</span>{/if}
+    {#if !back}<img class="brand" src="/dnt.svg" alt="dnt" />{/if}
     <span class="prompt">❯</span>
     <span class="name">{title}</span>
   </div>
+  {#if action}
+    <button class="action" aria-label={action.name} onclick={action.onclick}><span class="at">@</span> {action.label}</button>
+  {/if}
 </header>
 
 <style>
@@ -47,6 +59,26 @@
   .icon:active {
     background: var(--dark);
   }
+  .action {
+    margin-left: auto;
+    flex-shrink: 0;
+    min-height: 40px;
+    max-width: 45vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 1.2ch;
+    color: var(--fg);
+  }
+  .action:active {
+    background: var(--dark);
+  }
+  .at {
+    color: var(--blue);
+  }
   .title {
     display: flex;
     align-items: baseline;
@@ -55,12 +87,10 @@
     font-size: 1.1em;
   }
   .brand {
-    background: var(--accent);
-    color: var(--black);
-    font-weight: 700;
-    padding: 0 0.6ch;
-    border-radius: 3px;
-    font-size: 0.85em;
+    height: 1.45em;
+    width: auto;
+    flex-shrink: 0;
+    align-self: center;
   }
   .prompt {
     color: var(--accent);

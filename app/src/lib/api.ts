@@ -26,6 +26,13 @@ export interface CampaignInfo {
   active: boolean;
 }
 
+export interface Startup {
+  ready: boolean;
+  stage: string;
+}
+
+export const startup = () => invoke<Startup>("startup");
+
 export interface Status {
   loaded: boolean;
   entries: number;
@@ -35,6 +42,8 @@ export interface Status {
   campaigns: CampaignInfo[];
   campaign: string | null;
   problems: string[];
+  /// How the last load went: stage, milliseconds.
+  timings: [string, number][];
 }
 
 export interface Imported {

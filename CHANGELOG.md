@@ -8,7 +8,36 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
 - Each release page lists its changes, from this changelog.
+- App: a loading screen says what is being loaded, and the Data screen
+  shows how long each part of the last load took.
+- A new logo: the app icon, the Android splash and the badge in the app.
+
+### Changed
+
+- App: the data is read in parallel, and the compendium is indexed while
+  the app starts.
+- App, phones: the compendium's sources button is in the top bar, so the
+  categories have the whole width.
+- App, notes: tapping a folder makes it where new notes go; *+ Note*
+  creates the note there from the folder's template (in Sessions, today's
+  session note). *Capture* is now *Quick note*, which adds a line to the
+  Inbox note. New folders are under *⋯*.
+- App, sources: presets are a dropdown that ticks sources (which you can
+  then change); "all official" shows every source ticked; the list of
+  ticked sources is gone and the reprint option explains itself behind a
+  *?*. Sheets close when dragged down by their top.
+
+### Fixed
+
+- Homebrew imported before v0.7.0 sat with the official data and was loaded
+  on every start, which made the app slow to open. It is moved to the
+  homebrew store on the first start (where a campaign had it ticked, it
+  stays enabled).
+- Official sources that are not in the book list (some adventures and
+  Unearthed Arcana) are no longer shown as homebrew.
 
 ## v0.8.1 - 2026-10-19
 

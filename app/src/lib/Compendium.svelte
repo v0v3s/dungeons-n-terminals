@@ -109,6 +109,12 @@
     }
   }
 
+  /// Choose the sources (on touch screens, from the app bar).
+  export function openSources() {
+    if (campaign) editingSources = true;
+    else oncampaigns();
+  }
+
   /// Android's back (and the app bar's): one step back, if there is one.
   export function stepBack(): boolean {
     if (!back.length && !open) return false;
@@ -271,7 +277,7 @@
 {/snippet}
 
 {#snippet sourcesButton()}
-  <button class="sources" title="The books the compendium shows" onclick={() => (campaign ? (editingSources = true) : oncampaigns())}>
+  <button class="sources" title="The books the compendium shows" onclick={openSources}>
     <span class="at">@</span> {sourcesLabel} <span class="dim">▾</span>
   </button>
 {/snippet}
@@ -309,7 +315,6 @@
       {:else}
         {@render categories()}
       {/if}
-      {@render sourcesButton()}
       </div>
     </div>
   {:else}

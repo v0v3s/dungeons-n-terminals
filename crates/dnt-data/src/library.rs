@@ -139,7 +139,7 @@ impl Library {
         lib.load_books(books, "book", None);
         lib.load_books(books, "adventure", Some("adventure"));
         for doc in docs {
-            lib.ingest(doc, true);
+            lib.ingest(doc, false);
         }
         lib.pending_spell_lookup = spell_lookup;
         lib.finish();
@@ -284,7 +284,8 @@ impl Library {
                     self.sources.entry(id.to_lowercase()).or_insert(SourceInfo {
                         name: s("full").unwrap_or_else(|| id.clone()),
                         id,
-                        group: Some("homebrew".into()),
+                        // Data sources missing from the books keep no group.
+                        group: homebrew.then(|| "homebrew".into()),
                         published: s("dateReleased"),
                         homebrew,
                     });
@@ -610,22 +611,26 @@ fn read_json(src: &impl DataSource, path: &str) -> Result<Value, LoadError> {
 
 /// Read and parse files, on all cores where there are threads, keeping
 /// their order.
-#[cfg(not(target_arch = "wasm32"))]
 fn parse_all(src: &impl DataSource, files: &[String]) -> Vec<(String, Result<Value, LoadError>)> {
-    let threads = std::thread::available_parallelism().map_or(4, |n| n.get()).min(files.len().max(1));
-    let chunk = files.len().div_ceil(threads).max(1);
+    par_map(files, |p| (p.clone(), read_json(src, p)))
+}
+
+/// `f` over every item, on as many threads as there are cores (one
+/// thread on the web), keeping the order.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get()).min(items.len().max(1));
+    let chunk = items.len().div_ceil(threads).max(1);
+    let f = &f;
     std::thread::scope(|scope| {
-        let handles: Vec<_> = files
-            .chunks(chunk)
-            .map(|chunk| scope.spawn(move || chunk.iter().map(|p| (p.clone(), read_json(src, p))).collect::<Vec<_>>()))
-            .collect();
-        handles.into_iter().flat_map(|h| h.join().expect("parser thread panicked")).collect()
+        let handles: Vec<_> = items.chunks(chunk).map(|chunk| scope.spawn(move || chunk.iter().map(f).collect::<Vec<_>>())).collect();
+        handles.into_iter().flat_map(|h| h.join().expect("worker thread panicked")).collect()
     })
 }
 
 #[cfg(target_arch = "wasm32")]
-fn parse_all(src: &impl DataSource, files: &[String]) -> Vec<(String, Result<Value, LoadError>)> {
-    files.iter().map(|p| (p.clone(), read_json(src, p))).collect()
+pub fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    items.iter().map(f).collect()
 }
 
 /// Whether a base item matches a variant's `requires` (any of them, all

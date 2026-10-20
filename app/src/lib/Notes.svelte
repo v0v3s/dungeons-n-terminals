@@ -69,6 +69,7 @@
     try {
       if (remember && note && note.path !== path) back = [...back, note.path];
       note = await api.noteRead(path);
+      selected = noteFolder(path);
       text = note.text;
       dirty = false;
       editing = false;
@@ -105,10 +106,32 @@
     loadTree();
   }
 
-  /// The folder for new notes: the open note's.
-  const folder = () => note?.path.split("/").slice(0, -1).join("/") ?? "";
+  /// Where new notes go: the folder last tapped, or the open note's.
+  let selected = $state("");
+  const folder = () => selected;
+  /// The open note's folder.
+  const noteFolder = (path: string) => path.split("/").slice(0, -1).join("/");
+  /// The folder's last part, for buttons.
+  const short = (f: string) => f.split("/").at(-1) ?? f;
+
+  /// Tap a folder: open (or close) it, and make it where new notes go.
+  function tapFolder(path: string) {
+    const open = expanded.includes(path);
+    if (open && selected === path) {
+      // Closing the chosen folder chooses its parent again.
+      selected = noteFolder(path);
+    } else {
+      selected = path;
+    }
+    if (!open || selected !== path) toggle(path);
+  }
 
   function newNote(where = folder()) {
+    // A session note is named by its date: no title to ask.
+    if (where.split("/")[0] === "Sessions") {
+      session();
+      return;
+    }
     dialog = {
       kind: "prompt",
       title: where ? `New note in ${where}` : "New note",
@@ -126,12 +149,15 @@
   }
 
   function newFolder() {
+    const parent = folder();
     dialog = {
       kind: "prompt",
-      title: "New folder",
+      title: parent ? `New folder in ${parent}` : "New folder",
       then: async (name) => {
         try {
-          await api.noteCreateFolder("", name);
+          const path = await api.noteCreateFolder(parent, name);
+          if (parent && !expanded.includes(parent)) expanded = [...expanded, parent];
+          selected = path;
           loadTree();
         } catch (e) {
           error = String(e);
@@ -154,8 +180,8 @@
   function capture() {
     dialog = {
       kind: "prompt",
-      title: "Capture to the inbox",
-      hint: "A line for Inbox.md, with the time",
+      title: "Quick note",
+      hint: "Jot something down: it is added to the Inbox note with the time, to sort out later",
       then: async (t) => {
         if (!t.trim()) return;
         try {
@@ -166,6 +192,18 @@
           error = String(e);
         }
       },
+    };
+  }
+
+  function treeMenu() {
+    dialog = {
+      kind: "menu",
+      title: "Notes",
+      actions: [
+        [selected ? `New folder in ${selected}` : "New folder", newFolder],
+        ["Today's session note", session],
+        ...(selected ? ([["Back to the top level", () => (selected = "")]] as [string, () => void][]) : []),
+      ],
     };
   }
 
@@ -263,10 +301,11 @@
   {:else}
     <Pane title="Notes · {status.campaign}" class="tree">
       <div class="tools">
-        <button class="ghost" onclick={() => newNote()}>+ Note</button>
-        <button class="ghost" onclick={session}>+ Session</button>
-        <button class="ghost" onclick={capture}>Capture</button>
-        <button class="ghost" onclick={newFolder}>+ Folder</button>
+        <button class="ghost new" onclick={() => newNote()} title={selected ? `A note in ${selected}, from its template` : "A note at the top level"}
+          >+ Note{#if selected}<span class="dim"> · {short(selected)}</span>{/if}</button
+        >
+        <button class="ghost" onclick={capture}>Quick note</button>
+        <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
       </div>
       <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
       <div class="rows">
@@ -280,9 +319,9 @@
             <button
               class="row"
               class:dir={r.is_dir}
-              class:current={note?.path === r.path}
+              class:current={note?.path === r.path || (r.is_dir && selected === r.path)}
               style:padding-left="{r.depth * 2 + 0.5}ch"
-              onclick={() => (r.is_dir ? toggle(r.path) : open(r.path))}
+              onclick={() => (r.is_dir ? tapFolder(r.path) : open(r.path))}
             >
               <span class="acc">{r.is_dir ? (expanded.includes(r.path) ? "▾" : "▸") : "·"}</span>
               {r.name}
@@ -544,15 +583,21 @@
   .narrow.open :global(.note) {
     display: flex;
   }
+  .tools .new {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   @media (pointer: coarse) {
     .row {
       min-height: 46px;
       align-items: center;
       border-top: 1px solid rgb(65 72 104 / 0.3);
     }
-    .tools {
+      .tools {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
     }
     .menu button {
       min-height: 48px;

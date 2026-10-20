@@ -6,6 +6,7 @@
   import * as api from "$lib/api";
   import AppBar from "$lib/AppBar.svelte";
   import Busy from "$lib/Busy.svelte";
+  import Loading from "$lib/Loading.svelte";
   import Campaigns from "$lib/Campaigns.svelte";
   import Characters from "$lib/Characters.svelte";
   import Compendium from "$lib/Compendium.svelte";
@@ -72,6 +73,15 @@
     return false;
   }
 
+  /// The compendium's sources, as the app bar's action.
+  const appAction = $derived.by(() => {
+    if (section !== "compendium" || opened || !status?.loaded) return null;
+    const c = status.campaigns.find((c) => c.active);
+    const books = !c?.sources.length ? "all" : String(c.sources.length);
+    const label = c?.homebrew.length ? `${books} +${c.homebrew.length}` : books;
+    return { label, name: "Sources", onclick: () => compendium?.openSources() };
+  });
+
   /// The app bar's title: what is open, or the section.
   const title = $derived(
     (section === "compendium" && narrow.current && reading) ||
@@ -93,8 +103,18 @@
     return () => void listener.then((l) => l.unregister());
   });
 
+  /// What the backend is loading, until it is ready.
+  let stage = $state("");
+
   onMount(async () => {
     try {
+      // Ask what is loading (it answers at once) until it is done.
+      for (;;) {
+        const s = await api.startup();
+        if (s.ready) break;
+        stage = s.stage;
+        await new Promise((r) => setTimeout(r, 150));
+      }
       status = await api.status();
       if (!status.loaded) section = "data";
       else if (!status.campaigns.length) section = "campaigns";
@@ -124,7 +144,7 @@
 
 <div class="app" class:touch={touch.current}>
   {#if touch.current}
-    <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} />
+    <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} action={appAction} />
     <Drawer
       bind:open={drawer}
       sections={SECTIONS.map(([id, l]) => [id, l, ""])}
@@ -134,7 +154,7 @@
     />
   {:else}
     <header class="tabs">
-      <span class="brand">dnt</span>
+      <img class="brand" src="/dnt.svg" alt="dnt" />
       <nav class="no-bar">
         {#each SECTIONS as [id, l], i (id)}
           <button class:active={section === id} onclick={() => (section = id)}>
@@ -151,7 +171,7 @@
     {#if error}
       <p class="err">{error}</p>
     {:else if !status}
-      <p class="dim">Loading…</p>
+      <Loading {stage} />
     {:else if section === "compendium" && status.loaded}
       {#key `${status.entries} ${status.campaign}`}<Compendium
           bind:this={compendium}
@@ -205,10 +225,10 @@
     white-space: nowrap;
   }
   .brand {
-    background: var(--accent);
-    color: var(--black);
-    font-weight: 700;
-    padding: 0 1ch;
+    height: 1.3em;
+    width: auto;
+    flex-shrink: 0;
+    align-self: center;
   }
   nav {
     display: flex;

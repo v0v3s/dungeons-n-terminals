@@ -6,7 +6,7 @@ mod library;
 mod notes;
 
 use std::ops::{Deref, DerefMut};
-use std::sync::{Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
 
 use dnt_core::compendium::Search;
@@ -49,6 +49,8 @@ impl Inner {
 pub struct App {
     inner: Mutex<Option<Inner>>,
     ready: Condvar,
+    /// What setup is doing, for the loading screen.
+    stage: Arc<Mutex<String>>,
 }
 
 /// The state, once ready.
@@ -78,6 +80,20 @@ impl App {
 
 pub type Res<T> = Result<T, String>;
 
+#[derive(serde::Serialize)]
+pub struct Startup {
+    ready: bool,
+    /// What is being loaded.
+    stage: String,
+}
+
+/// Whether setup is done, and what it is doing; answers at once.
+#[tauri::command]
+fn startup(app: tauri::State<'_, App>) -> Startup {
+    let ready = app.inner.try_lock().is_ok_and(|i| i.is_some());
+    Startup { ready, stage: app.stage.lock().unwrap().clone() }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -89,14 +105,23 @@ pub fn run() {
             let handle = app.handle().clone();
             // Off the main thread: the window shows while the library loads.
             std::thread::spawn(move || {
-                let ws = Workspace::open(Store::open(dir.join("data"), dir.join("config.toml")));
                 let state = handle.state::<App>();
-                *state.inner.lock().unwrap() = Some(Inner { ws, search: None, sheet: None, levelup: None, creation: None });
+                let stage = state.stage.clone();
+                let report = move |s: &str| *stage.lock().unwrap() = s.to_string();
+                report("Opening");
+                let mut ws = Workspace::open_reporting(Store::open(dir.join("data"), dir.join("config.toml")), report.clone());
+                // The compendium is the first screen: index it now.
+                report("Indexing the compendium");
+                let start = std::time::Instant::now();
+                let search = ws.lib.as_ref().map(|lib| Search::new(lib, ws.filter()));
+                ws.progress.done.push(("Indexing the compendium".into(), start.elapsed()));
+                *state.inner.lock().unwrap() = Some(Inner { ws, search, sheet: None, levelup: None, creation: None });
                 state.ready.notify_all();
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            startup,
             library::status,
             library::import_zip,
             library::sources,

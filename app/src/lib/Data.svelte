@@ -60,6 +60,16 @@
     {#if error}<p class="err">{error}</p>{/if}
   </Pane>
 
+  {#if status?.timings.length}
+    <Pane title="Last load">
+      <div class="timings">
+        {#each status.timings as [stage, ms], i (i)}
+          <div><span>{stage}</span> <span class="dim">{ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`}</span></div>
+        {/each}
+      </div>
+    </Pane>
+  {/if}
+
   {#if status?.homebrew[0]}
     <Pane title="Imported homebrew">
       <p>
@@ -82,6 +92,11 @@
 </div>
 
 <style>
+  .timings div {
+    display: flex;
+    justify-content: space-between;
+    gap: 2ch;
+  }
   /* The whole area scrolls, with its scrollbar just inside the window's
      edge (most of main's padding); the content keeps clear of it. */
   .data {

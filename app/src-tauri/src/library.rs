@@ -35,6 +35,8 @@ pub struct Status {
     /// The active campaign's name.
     campaign: Option<String>,
     problems: Vec<String>,
+    /// How the last load went: (stage, milliseconds).
+    timings: Vec<(String, u64)>,
 }
 
 pub fn status_of(inner: &Inner) -> Res<Status> {
@@ -60,6 +62,7 @@ pub fn status_of(inner: &Inner) -> Res<Status> {
             .collect(),
         campaign: ws.active_campaign().map(|c| c.settings.name.clone()),
         problems: ws.problems.clone(),
+        timings: ws.progress.done.iter().map(|(s, d)| (s.clone(), d.as_millis() as u64)).collect(),
     })
 }
 
@@ -114,7 +117,9 @@ pub async fn sources(app: State<'_, App>) -> Res<Sources> {
     let brew = &inner.ws.homebrew;
     let mut sources: Vec<Source> = lib
         .sources()
-        // Imported homebrew has its own list.
+        // Imported homebrew has its own list, and the campaign's own and the
+        // global homebrew are always on.
+        .filter(|s| !s.homebrew)
         .filter(|s| !brew.iter().any(|b| b.id.eq_ignore_ascii_case(&s.id)))
         .map(|s| Source {
             id: s.id.clone(),

@@ -22,7 +22,7 @@
   <button class="scrim" aria-label="Close menu" onclick={() => (open = false)} transition:fade={{ duration: 150 }}></button>
   <nav class="drawer" transition:fly={{ x: -320, duration: 200, opacity: 1 }}>
     <div class="head">
-      <span class="brand">dnt</span>
+      <img class="brand" src="/dnt.svg" alt="dnt" />
       <div>
         <div class="name">Dungeons &amp; Terminals</div>
         <div class="dim">a D&amp;D 5e companion</div>
@@ -78,12 +78,10 @@
     gap: 1.5ch;
   }
   .brand {
-    background: var(--accent);
-    color: var(--black);
-    font-weight: 700;
-    font-size: 1.2em;
-    padding: 2px 1ch;
-    border-radius: 4px;
+    height: 2em;
+    width: auto;
+    flex-shrink: 0;
+    align-self: center;
   }
   .name {
     font-weight: 700;

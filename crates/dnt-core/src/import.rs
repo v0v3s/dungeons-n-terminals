@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use dnt_data::id::entity_source;
+use dnt_data::library::par_map;
 use dnt_data::source::{DataSource, MemorySource};
 use dnt_data::{Key, Kind, Library};
 use dnt_store::{slugify, Store};
@@ -219,8 +220,9 @@ impl Imported {
             spell_sources: read("spell-sources.json")?.unwrap_or_else(|| json!({})),
             sources: BTreeMap::new(),
         };
-        for (name, _) in store.fs().list(&dir.join("sources")).unwrap_or_default() {
-            if let Some(doc) = read(&format!("sources/{name}"))? {
+        let names: Vec<String> = store.fs().list(&dir.join("sources")).unwrap_or_default().into_iter().map(|(n, _)| n).collect();
+        for doc in par_map(&names, |name| read(&format!("sources/{name}"))) {
+            if let Some(doc) = doc? {
                 if let Some(id) = doc_source(&doc) {
                     lib.sources.insert(id.to_lowercase(), doc);
                 }
@@ -428,14 +430,19 @@ pub fn homebrew(store: &Store) -> Vec<BrewSource> {
 /// those that could not be read.
 pub fn load_homebrew(store: &Store, ids: &[String]) -> (Vec<Value>, Vec<String>) {
     let (mut docs, mut problems) = (Vec::new(), Vec::new());
-    for id in ids {
+    let read = |id: &String| {
         let path = Brew::path(store, &id.to_lowercase());
         if !store.fs().is_file(&path) {
-            continue;
+            return None;
         }
-        match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string())) {
+        let doc =
+            store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| serde_json::from_str::<Value>(&t).map_err(|e| e.to_string()));
+        Some(doc.map_err(|e| format!("Homebrew {id}: {e}")))
+    };
+    for doc in par_map(ids, read).into_iter().flatten() {
+        match doc {
             Ok(doc) => docs.push(doc),
-            Err(e) => problems.push(format!("Homebrew {id}: {e}")),
+            Err(e) => problems.push(e),
         }
     }
     (docs, problems)
@@ -493,6 +500,43 @@ fn merge_objects(into: &mut Value, from: Value) {
         }
         (slot, v) => *slot = v,
     }
+}
+
+const MIGRATED: &str = ".homebrew-moved";
+
+/// Whether [`migrate`] has anything to look at.
+pub fn needs_migration(store: &Store) -> bool {
+    has_imported(store) && !store.fs().is_file(&store.imported_dir().join(MIGRATED))
+}
+
+/// Move homebrew imported before it had a store of its own (it sat with
+/// the data, as an official source) into the homebrew store; done once.
+/// Returns the sources moved.
+pub fn migrate(store: &Store) -> Result<Vec<String>, String> {
+    if !needs_migration(store) {
+        return Ok(Vec::new());
+    }
+    let marker = store.imported_dir().join(MIGRATED);
+    let lib = Imported::open(store)?;
+    let mut brew = Brew::open(store);
+    let mut moved = Vec::new();
+    let mut report = Report::default();
+    for doc in lib.sources.into_values() {
+        // The data's sources are stored with just their id; homebrew keeps
+        // what its file said about it (its name, authors, url…).
+        let meta = doc.get("_meta").and_then(|m| m.get("sources")).and_then(|s| s.get(0)).and_then(Value::as_object);
+        if !meta.is_some_and(|m| m.keys().any(|k| k != "json")) {
+            continue;
+        }
+        let Some(id) = doc_source(&doc).map(str::to_string) else { continue };
+        brew.merge(store, doc, &mut report)?;
+        let path = store.imported_dir().join("sources").join(format!("{}.json", file_name(&id.to_lowercase())));
+        store.fs().remove_file(&path).map_err(|e| format!("{id}: {e}"))?;
+        moved.push(id);
+    }
+    brew.save(store)?;
+    store.write_text(&marker, "").map_err(|e| e.to_string())?;
+    Ok(moved)
 }
 
 /// Whether anything was imported.
@@ -619,6 +663,23 @@ mod tests {
         remove_homebrew(&store, "WRD").unwrap();
         assert!(homebrew(&store).is_empty());
         assert!(load_homebrew(&store, &["WRD".to_string()]).0.is_empty());
+    }
+
+    #[test]
+    fn old_homebrew_moves_out_of_the_data() {
+        let store = store();
+        import_files(&store, &data_folder()).unwrap();
+        // As the import stored homebrew before it had its own store.
+        let old = json!({"_meta": {"sources": [{"json": "WRD", "full": "The Warden", "authors": ["Someone"]}]},
+            "class": [{"name": "Warden", "source": "WRD"}]});
+        store.write_text(&store.imported_dir().join("sources/wrd.json"), &old.to_string()).unwrap();
+        assert_eq!(count(&load(&store).unwrap(), Kind::Class), 2);
+
+        assert_eq!(migrate(&store).unwrap(), ["WRD"]);
+        assert_eq!(count(&load(&store).unwrap(), Kind::Class), 1, "the data keeps only Fighter");
+        assert_eq!(homebrew(&store).iter().map(|b| b.name.as_str()).collect::<Vec<_>>(), ["The Warden"]);
+        assert_eq!(load_homebrew(&store, &["WRD".into()]).0.len(), 1);
+        assert!(migrate(&store).unwrap().is_empty(), "only once");
     }
 
     #[test]

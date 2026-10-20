@@ -1,5 +1,7 @@
 # Dungeons & Terminals
 
+<img src="app/branding/icon.svg" width="112" alt="dnt">
+
 `dnt` is a D&D 5e companion for players, in the terminal: a compendium,
 character sheets that do the maths, dice, campaign notes and campaign
 homebrew. It reads the rules from a data directory you provide, in the

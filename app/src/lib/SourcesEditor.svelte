@@ -1,7 +1,8 @@
-<!-- The books a campaign uses, and its homebrew. Official sources: presets,
-     a filter, and a tick per source in a few sections that can be ticked
-     as a whole. Homebrew (off unless ticked): searched by name or author,
-     the ticked ones first. -->
+<!-- The books a campaign uses, and its homebrew. Official sources: a
+     preset ticks a set of them (to change as you like), a filter, and a
+     tick per source in a few sections that can be ticked as a whole.
+     Homebrew (off unless ticked): searched by name or author, the ticked
+     ones first. -->
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import * as api from "./api";
@@ -14,7 +15,9 @@
   let picked: string[] = $state(untrack(() => [...campaign.sources]));
   let brew: string[] = $state(untrack(() => [...campaign.homebrew]));
   let reprinted = $state(untrack(() => campaign.show_reprinted));
-  let available: api.Sources | null = $state(null);
+  /// Showing what "only the newest printing" means.
+  let explain = $state(false);
+  let available = $state<api.Sources | null>(null);
   let tab: "official" | "homebrew" = $state("official");
   let filter = $state("");
   /// Homebrew of one edition only: "" (any), "one" (2024) or "classic".
@@ -38,8 +41,15 @@
     }
   }
 
+  // No sources listed means all of them: shown as all ticked, and kept
+  // that way when everything is ticked again.
+  const allIds = $derived((available?.sources ?? []).map((s) => s.id));
+  const ticked = $derived(picked.length ? picked : allIds);
+  const isOn = (id: string) => !picked.length || picked.includes(id);
+  const settle = (ids: string[]) => (allIds.every((id) => ids.includes(id)) ? [] : ids);
+
   function toggle(id: string) {
-    picked = picked.includes(id) ? picked.filter((s) => s !== id) : [...picked, id];
+    picked = settle(ticked.includes(id) ? ticked.filter((s) => s !== id) : [...ticked, id]);
   }
 
   function toggleBrew(id: string) {
@@ -49,7 +59,20 @@
   /// Tick a whole section, or untick it when it is all ticked.
   function toggleAll(list: api.Source[]) {
     const ids = list.map((s) => s.id);
-    picked = ids.every((id) => picked.includes(id)) ? picked.filter((id) => !ids.includes(id)) : [...new Set([...picked, ...ids])];
+    picked = settle(ids.every(isOn) ? ticked.filter((id) => !ids.includes(id)) : [...new Set([...ticked, ...ids])]);
+  }
+
+  /// The preset the ticks match, if any.
+  const preset = $derived(
+    !picked.length ? "all" : (available?.presets.find(([, ids]) => same(picked, ids))?.[0] ?? "custom"),
+  );
+
+  function choosePreset(name: string) {
+    if (name === "all") picked = [];
+    else {
+      const ids = available?.presets.find(([n]) => n === name)?.[1];
+      if (ids) picked = [...ids];
+    }
   }
 
   const words = $derived(filter.toLowerCase().split(/\s+/).filter(Boolean));
@@ -65,14 +88,13 @@
   });
 
   /// The data's book groups, merged into a few readable sections.
-  const SECTIONS = ["Core rulebooks", "Supplements", "Settings", "Homebrew", "Adventures", "Other"];
+  const SECTIONS = ["Core rulebooks", "Supplements", "Settings", "Adventures", "Other"];
   function section(group: string): string {
     if (group === "core") return SECTIONS[0];
     if (group.startsWith("supplement")) return SECTIONS[1];
     if (group.startsWith("setting")) return SECTIONS[2];
-    if (group === "homebrew") return SECTIONS[3];
-    if (group === "adventure") return SECTIONS[4];
-    return SECTIONS[5];
+    if (group === "adventure") return SECTIONS[3];
+    return SECTIONS[4];
   }
 
   /// At most this many homebrew rows; the filter narrows the rest.
@@ -111,48 +133,55 @@
 
 <Modal title="Sources · {campaign.name}" {onclose} wide>
   <div class="tabs">
-    <button class:active={tab === "official"} onclick={() => (tab = "official")}>Official</button>
+    <button class:active={tab === "official"} onclick={() => (tab = "official")}>
+      Official <span class="count">{picked.length ? picked.length : "all"}</span>
+    </button>
     <button class:active={tab === "homebrew"} onclick={() => (tab = "homebrew")}>
       Homebrew <span class="count">{brew.length ? `${brew.length} on` : (available?.homebrew.length ?? "")}</span>
     </button>
   </div>
 
   {#if tab === "official"}
-    <div class="presets">
-      <button class="preset" class:on={!picked.length} onclick={() => (picked = [])}>All official</button>
-      {#each available?.presets ?? [] as [name, ids] (name)}
-        <button class="preset" class:on={same(picked, ids)} onclick={() => (picked = [...ids])}>{name}</button>
-      {/each}
+    <div class="row">
+      <label class="line"><span>❯</span><input bind:value={filter} placeholder="filter" spellcheck="false" autocomplete="off" autocapitalize="off" /></label>
+      <select aria-label="Tick a preset" value={preset} onchange={(e) => choosePreset(e.currentTarget.value)}>
+        <option value="all">All official</option>
+        {#each available?.presets ?? [] as [name] (name)}<option value={name}>{name}</option>{/each}
+        {#if preset === "custom"}<option value="custom">Your choice</option>{/if}
+      </select>
     </div>
-    <label class="line"><span>❯</span><input bind:value={filter} placeholder="filter" spellcheck="false" autocomplete="off" autocapitalize="off" /></label>
-    <p class="dim">{picked.length ? `${picked.length} chosen: ${picked.join(" ")}` : "Nothing ticked: every official source is used."}</p>
     <div class="sources">
       {#if !available && !error}<p class="dim">Loading…</p>{/if}
       {#each groups as [group, list] (group)}
-        {@const all = list.every((s) => picked.includes(s.id))}
+        {@const all = list.every((s) => isOn(s.id))}
         <button class="group" onclick={() => toggleAll(list)}>
           <span>{group}</span><span class="dim">{all ? "untick all" : "tick all"}</span>
         </button>
         {#each list as s (s.id)}
-          <button class="source" class:on={picked.includes(s.id)} onclick={() => toggle(s.id)}>
-            <span class="tick">{picked.includes(s.id) ? "◉" : "○"}</span>
+          <button class="source" class:on={isOn(s.id)} onclick={() => toggle(s.id)}>
+            <span class="tick">{isOn(s.id) ? "◉" : "○"}</span>
             <span class="sname">{s.name}</span>
             <span class="dim">{s.id}</span>
           </button>
         {/each}
       {/each}
     </div>
-    <label class="reprinted">
-      <input type="checkbox" checked={!reprinted} onchange={(e) => (reprinted = !e.currentTarget.checked)} />
-      <span>Only the newest printing <span class="dim">(hide entries reprinted in a used book, e.g. PHB spells when XPHB is used)</span></span>
-    </label>
-  {:else}
-    <div class="presets">
-      <button class="preset" class:on={edition === ""} onclick={() => (edition = "")}>Any rules</button>
-      <button class="preset" class:on={edition === "one"} onclick={() => (edition = "one")}>2024</button>
-      <button class="preset" class:on={edition === "classic"} onclick={() => (edition = "classic")}>2014</button>
+    <div class="reprinted">
+      <label><input type="checkbox" checked={!reprinted} onchange={(e) => (reprinted = !e.currentTarget.checked)} /> Only the newest printing</label>
+      <button class="hint" class:on={explain} aria-label="What is this?" onclick={() => (explain = !explain)}>?</button>
     </div>
-    <label class="line"><span>❯</span><input bind:value={filter} placeholder="name or author" spellcheck="false" autocomplete="off" autocapitalize="off" /></label>
+    {#if explain}
+      <p class="dim explain">An entry reprinted in another ticked book shows only in the newer one: with both PHB and XPHB ticked, Fireball shows once, from XPHB.</p>
+    {/if}
+  {:else}
+    <div class="row">
+      <label class="line"><span>❯</span><input bind:value={filter} placeholder="name or author" spellcheck="false" autocomplete="off" autocapitalize="off" /></label>
+      <select aria-label="Rules" bind:value={edition}>
+        <option value="">Any rules</option>
+        <option value="one">2024</option>
+        <option value="classic">2014</option>
+      </select>
+    </div>
     <div class="sources">
       {#if !available && !error}<p class="dim">Loading…</p>{/if}
       {#if available && !available.homebrew.length}
@@ -179,23 +208,6 @@
 <style>
   p {
     margin: 0 0 0.5em;
-  }
-  .presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1ch;
-    margin-bottom: 0.75em;
-  }
-  .preset {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.2em 1.5ch;
-    cursor: pointer;
-  }
-  .preset.on {
-    border-color: var(--accent);
-    color: var(--accent);
   }
   .line {
     display: flex;
@@ -311,14 +323,57 @@
   .tabs button.active .count {
     color: var(--black);
   }
+  .row {
+    display: flex;
+    gap: 1.5ch;
+    align-items: center;
+    margin-bottom: 0.5em;
+  }
+  .row .line {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+  }
+  select {
+    flex-shrink: 0;
+    max-width: 50%;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.25em 1ch;
+    font: inherit;
+  }
   .reprinted {
     display: flex;
+    gap: 1.5ch;
+    align-items: center;
+    margin-top: 0.6em;
+  }
+  .reprinted label {
+    display: flex;
     gap: 1ch;
-    align-items: baseline;
-    margin-top: 0.75em;
+    align-items: center;
   }
   .reprinted input {
     accent-color: var(--accent);
+  }
+  .hint {
+    width: 1.8em;
+    height: 1.8em;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: none;
+    color: var(--dim);
+    cursor: pointer;
+  }
+  .hint.on {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .explain {
+    margin: 0.4em 0 0;
   }
   .err {
     color: var(--red);
@@ -330,9 +385,6 @@
     margin-top: 1em;
   }
   @media (pointer: coarse) {
-    .preset {
-      min-height: 44px;
-    }
     .group,
     .source {
       min-height: 44px;

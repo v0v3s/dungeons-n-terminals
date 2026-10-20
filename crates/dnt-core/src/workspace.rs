@@ -6,6 +6,8 @@
 //! homebrew the active campaign enables and its own homebrew; the
 //! campaign's sources decide what shows.
 
+use std::time::{Duration, Instant};
+
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::builtin;
 use dnt_rules::overlay::{Overlay, OverlaySet};
@@ -13,6 +15,47 @@ use dnt_store::notes::Notes;
 use dnt_store::{Campaign, CampaignSettings, CharacterFile, Config, Store};
 
 use crate::import;
+
+/// Told each stage of loading as it starts.
+type Report = Box<dyn Fn(&str) + Send + Sync>;
+
+/// The stages of loading, as they happen: reported (for a loading screen)
+/// and timed (to see where the time goes).
+#[derive(Default)]
+pub struct Progress {
+    report: Option<Report>,
+    current: Option<(String, Option<Instant>)>,
+    /// The stages done, with how long each took.
+    pub done: Vec<(String, Duration)>,
+}
+
+impl Progress {
+    fn begin(&mut self, stage: impl Into<String>) {
+        self.end();
+        let stage = stage.into();
+        if let Some(report) = &self.report {
+            report(&stage);
+        }
+        self.current = Some((stage, now()));
+    }
+
+    fn end(&mut self) {
+        if let Some((stage, start)) = self.current.take() {
+            self.done.push((stage, start.map_or(Duration::ZERO, |t| t.elapsed())));
+        }
+    }
+}
+
+// There is no clock on the web.
+#[cfg(not(target_arch = "wasm32"))]
+fn now() -> Option<Instant> {
+    Some(Instant::now())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn now() -> Option<Instant> {
+    None
+}
 
 pub struct Workspace {
     pub store: Store,
@@ -32,12 +75,19 @@ pub struct Workspace {
     pub active: Option<usize>,
     /// Problems found while loading, for a status line.
     pub problems: Vec<String>,
+    /// How the last load went, stage by stage.
+    pub progress: Progress,
 }
 
 impl Workspace {
     /// Open the store: configuration, campaigns, the last active one, and
     /// the library if there is data.
     pub fn open(store: Store) -> Workspace {
+        Workspace::open_reporting(store, |_| {})
+    }
+
+    /// [`Workspace::open`], telling `report` each stage as it starts.
+    pub fn open_reporting(store: Store, report: impl Fn(&str) + Send + Sync + 'static) -> Workspace {
         let mut problems = Vec::new();
         let config = store.load_config().unwrap_or_else(|e| {
             problems.push(format!("Configuration: {e}"));
@@ -57,6 +107,7 @@ impl Workspace {
             campaigns,
             active,
             problems,
+            progress: Progress { report: Some(Box::new(report)), ..Default::default() },
         };
         ws.reload();
         ws
@@ -70,6 +121,9 @@ impl Workspace {
     /// Rebuild the library from scratch (after an import, or a change to the
     /// global homebrew or the rules).
     pub fn reload(&mut self) {
+        self.progress.done.clear();
+        self.move_old_homebrew();
+        self.progress.begin("Reading the data");
         self.base = match self.load_base() {
             Ok(b) => b,
             Err(e) => {
@@ -77,6 +131,7 @@ impl Workspace {
                 None
             }
         };
+        self.progress.begin("Reading the rules");
         self.overlays = self.load_overlays();
         self.homebrew = import::homebrew(&self.store);
         self.imported = if import::has_imported(&self.store) {
@@ -87,7 +142,40 @@ impl Workspace {
         } else {
             Vec::new()
         };
-        self.prepare();
+        self.prepare_campaign();
+    }
+
+    /// Homebrew imported before it had a store of its own: move it there,
+    /// and keep it enabled where a campaign had it as a source.
+    fn move_old_homebrew(&mut self) {
+        if !import::needs_migration(&self.store) {
+            return;
+        }
+        self.progress.begin("Moving homebrew out of the data");
+        let moved = match import::migrate(&self.store) {
+            Ok(m) if !m.is_empty() => m,
+            Ok(_) => return,
+            Err(e) => {
+                self.problems.push(format!("Moving homebrew: {e}"));
+                return;
+            }
+        };
+        for c in &mut self.campaigns {
+            let (brew, books): (Vec<String>, Vec<String>) =
+                c.settings.sources.drain(..).partition(|s| moved.iter().any(|m| m.eq_ignore_ascii_case(s)));
+            c.settings.sources = books;
+            if brew.is_empty() {
+                continue;
+            }
+            for b in brew {
+                if !c.settings.homebrew.iter().any(|h| h.eq_ignore_ascii_case(&b)) {
+                    c.settings.homebrew.push(b);
+                }
+            }
+            if let Err(e) = self.store.save_campaign(c) {
+                self.problems.push(format!("Could not save the campaign: {e}"));
+            }
+        }
     }
 
     fn load_base(&self) -> Result<Option<Library>, String> {
@@ -125,12 +213,24 @@ impl Workspace {
 
     /// Layer the active campaign's homebrew on the base.
     pub fn prepare(&mut self) {
+        self.progress.done.clear();
+        self.prepare_campaign();
+    }
+
+    fn prepare_campaign(&mut self) {
         let Some(base) = &self.base else {
             self.lib = None;
+            self.progress.end();
             return;
         };
+        let name = self.active_campaign().map(|c| c.settings.name.clone());
+        self.progress.begin(name.map_or("Preparing the library".into(), |n| format!("Opening {n}")));
         let mut lib = base.clone();
         if let Some(i) = self.active {
+            let enabled = &self.campaigns[i].settings.homebrew;
+            if !enabled.is_empty() {
+                self.progress.begin(format!("Loading {} homebrew source(s)", enabled.len()));
+            }
             let (docs, problems) = import::load_homebrew(&self.store, &self.campaigns[i].settings.homebrew);
             if !docs.is_empty() {
                 lib.load_docs(&docs);
@@ -147,6 +247,7 @@ impl Workspace {
             }
         }
         self.lib = Some(lib);
+        self.progress.end();
     }
 
     pub fn active_campaign(&self) -> Option<&Campaign> {
