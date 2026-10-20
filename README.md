@@ -6,6 +6,10 @@ homebrew. It reads the rules from a data directory you provide, in the
 JSON format described in [`schemas/`](schemas/README.md), and works with
 the 2024 and the 2014 rules. dnt ships no game content.
 
+There is also **the dnt app** for Windows and Android (phones and
+tablets): the same compendium, campaigns, characters and notes, in the
+look of the terminal, made for touch. See [The app](#the-app-windows-and-android).
+
 - **Compendium** — fuzzy search over spells, classes, species, feats,
   items and rules, with filters (`@XPHB #spell ^3 *fire "concentration"`),
   links you can follow, and every specific magic item (+1 Longsword,
@@ -37,7 +41,8 @@ Download the binary from the
 or build it. Either way you need the data (see
 [`schemas/README.md`](schemas/README.md) for the layout): import a zip of
 it once with `dnt import data.zip`, or point dnt at a data folder with
-`--data`.
+`--data`. [`scripts/pack-data.sh`](#data-in-one-zip) makes a small zip of
+just what dnt reads.
 
 ```sh
 # Linux
@@ -90,6 +95,8 @@ apart and are off until a campaign enables them: list their ids under
 or tick them in the app. So a whole homebrew collection can be imported
 without slowing anything down.
 
+### Data in one zip
+
 To make one zip of just what dnt reads, from a data repository and/or
 a homebrew collection (images, creatures and adventure text are left
 out), run:
@@ -97,6 +104,33 @@ out), run:
 ```sh
 scripts/pack-data.sh --data path/to/data-repo --homebrew path/to/homebrew -o dnt-data.zip
 ```
+
+It needs [Rust](https://rustup.rs) (it builds a small packer from this
+repository) and takes a few seconds. The zip works with `dnt import` and
+with the app.
+
+## The app (Windows and Android)
+
+Each release has the app next to the terminal binaries:
+
+- **Windows** — `dnt-app-windows-x86_64-setup.exe`, an installer. It is
+  not code-signed, so Windows SmartScreen asks first: *More info* ›
+  *Run anyway*.
+- **Android** — `dnt-app-android.apk`, for phones and tablets. Open it on
+  the device and allow installing from that app (or
+  `adb install -r dnt-app-android.apk`). It is signed with the project's
+  own key, so newer releases install over older ones.
+
+The app starts on **Data**: *Import a zip…* takes a zip like the one
+`scripts/pack-data.sh` makes (put it on the phone first). Then create a
+campaign under **Campaigns**; it uses all official sources, newest
+printings only. The `@` button in the compendium (or *Sources* on a
+campaign) chooses the books, and its **Homebrew** tab turns on imported
+homebrew, which is off until you do. Campaigns, characters and notes live
+in the app's own storage; the app and the terminal do not share them.
+
+Building and running the app yourself is described in
+[`app/README.md`](app/README.md).
 
 ## Where things are
 
@@ -161,13 +195,16 @@ built-in rules for it.
 
 ## Development
 
-The workspace has five crates:
+The workspace has these crates:
 
 - `dnt-data` — loading the data, entities, search, rendering entries
 - `dnt-rules` — the rules engine, characters, attacks, spells, dice
 - `dnt-store` — campaigns, characters, notes and homebrew on disk (or in memory)
-- `dnt-core` — what any frontend needs: commands, level-up and creation flows, search, notes
+- `dnt-core` — what any frontend needs: commands, level-up and creation
+  flows, search, notes, the import, the workspace and sheet views
 - `dnt` — the terminal app (ratatui)
+- `dnt-app` (in `app/`) — the app: Tauri, with a Svelte frontend; see
+  [`app/README.md`](app/README.md)
 
 ```sh
 cargo test                                   # all crates
@@ -194,12 +231,18 @@ commit on `main` and decides the release.
 | `feat!: …`, or `BREAKING CHANGE:` in the description | major (0.3.1 → 1.0.0) |
 | `docs:`, `chore:`, `ci:`, `refactor:`, `test:`, … | none |
 
+A release gathers the work of a branch: keep a branch going until it is
+worth releasing, then open one pull request for it. Write what it changes
+for users under **Unreleased** in [CHANGELOG.md](CHANGELOG.md).
+
 On a releasing merge, GitHub Actions bumps the version in `Cargo.toml`,
-tags `vX.Y.Z`, builds the Linux and Windows (x86_64) binaries and publishes
-them as a release (`dnt-linux-x86_64`, `dnt-windows-x86_64.exe`,
-`SHA256SUMS`), with notes from the merged pull requests.
-`scripts/next-version.sh "<title>"` shows what a title would do. CI checks
-formatting, clippy and tests on Linux and Windows for every pull request.
+names the changelog's Unreleased section after it, tags `vX.Y.Z`, builds
+the Linux and Windows (x86_64) binaries, the Windows installer and the
+Android app, and publishes them as a release (with `SHA256SUMS`). The
+release notes are that changelog section (or, if it was left empty, the
+commit subjects). `scripts/next-version.sh "<title>"` shows what a title
+would do. CI checks formatting, clippy and tests on Linux and Windows,
+and builds the app, for every pull request.
 
 dnt is a fan project and not affiliated with Wizards of the Coast; it
 ships no game content and reads the data you provide.
