@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v0.10.0 - 2026-10-20
+
 ### Added
 
 - Terminal: **Getting started** when there is no data yet: give a zip to
