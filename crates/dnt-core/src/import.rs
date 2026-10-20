@@ -448,6 +448,15 @@ pub fn load_homebrew(store: &Store, ids: &[String]) -> (Vec<Value>, Vec<String>)
     (docs, problems)
 }
 
+/// Forget imported data: only the homebrew, or everything imported.
+pub fn clear(store: &Store, homebrew_only: bool) -> Result<(), String> {
+    let dir = if homebrew_only { store.imported_homebrew_dir() } else { store.imported_dir() };
+    if store.fs().is_dir(&dir) {
+        store.fs().remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    Ok(())
+}
+
 /// Remove an imported homebrew source.
 pub fn remove_homebrew(store: &Store, id: &str) -> Result<(), String> {
     let mut brew = Brew::open(store);

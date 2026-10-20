@@ -11,6 +11,7 @@
   import Characters from "$lib/Characters.svelte";
   import Compendium from "$lib/Compendium.svelte";
   import Data from "$lib/Data.svelte";
+  import Welcome from "$lib/Welcome.svelte";
   import Drawer from "$lib/Drawer.svelte";
   import Notes from "$lib/Notes.svelte";
   import { closeTop } from "$lib/modals";
@@ -26,6 +27,8 @@
   ];
 
   let section = $state<Section>("compendium");
+  /// Getting started (a new app, or one just reset) instead of a section.
+  let welcome = $state(false);
   let status = $state<api.Status | null>(null);
   let error = $state("");
   let compendium: Compendium | undefined = $state();
@@ -44,6 +47,7 @@
 
   function go(s: string) {
     section = s as Section;
+    welcome = false;
   }
 
   /// Android's back button: close what is open, step back inside the
@@ -75,7 +79,7 @@
 
   /// The compendium's sources, as the app bar's action.
   const appAction = $derived.by(() => {
-    if (section !== "compendium" || opened || !status?.loaded) return null;
+    if (welcome || section !== "compendium" || opened || !status?.loaded) return null;
     const c = status.campaigns.find((c) => c.active);
     const books = !c?.sources.length ? "all" : String(c.sources.length);
     const label = c?.homebrew.length ? `${books} +${c.homebrew.length}` : books;
@@ -87,7 +91,7 @@
     (section === "compendium" && narrow.current && reading) ||
       (section === "characters" && characterOpen) ||
       (section === "notes" && narrow.current && noteOpen) ||
-      label(section).toLowerCase(),
+      (welcome ? "getting started" : label(section).toLowerCase()),
   );
   const opened = $derived(
     (section === "compendium" && narrow.current && !!reading) || (section === "characters" && !!characterOpen) || (section === "notes" && narrow.current && !!noteOpen),
@@ -116,8 +120,7 @@
         await new Promise((r) => setTimeout(r, 150));
       }
       status = await api.status();
-      if (!status.loaded) section = "data";
-      else if (!status.campaigns.length) section = "campaigns";
+      welcome = !status.loaded || !status.campaigns.length;
       // Development: `#characters/<slug>` (or VITE_OPEN) opens a section.
       const target = import.meta.env.DEV ? location.hash.slice(1) || import.meta.env.VITE_OPEN : "";
       if (target) {
@@ -132,7 +135,7 @@
 
   function onkey(e: KeyboardEvent) {
     if (e.altKey && e.key >= "1" && e.key <= String(SECTIONS.length)) {
-      section = SECTIONS[Number(e.key) - 1][0];
+      go(SECTIONS[Number(e.key) - 1][0]);
       e.preventDefault();
     }
   }
@@ -148,7 +151,7 @@
     <Drawer
       bind:open={drawer}
       sections={SECTIONS.map(([id, l]) => [id, l, ""])}
-      current={section}
+      current={welcome ? "" : section}
       onpick={go}
       footer={status?.campaign ? `◈ ${status.campaign} · ${counts}` : counts}
     />
@@ -157,7 +160,7 @@
       <img class="brand" src="/dnt.svg" alt="dnt" />
       <nav class="no-bar">
         {#each SECTIONS as [id, l], i (id)}
-          <button class:active={section === id} onclick={() => (section = id)}>
+          <button class:active={!welcome && section === id} onclick={() => go(id)}>
             <span class="n">{i + 1}</span>
             {l}
           </button>
@@ -172,6 +175,8 @@
       <p class="err">{error}</p>
     {:else if !status}
       <Loading {stage} />
+    {:else if welcome}
+      <Welcome {status} onchange={(s) => (status = s)} ondone={go} />
     {:else if section === "compendium" && status.loaded}
       {#key `${status.entries} ${status.campaign}`}<Compendium
           bind:this={compendium}
@@ -189,13 +194,13 @@
     {:else if section === "campaigns"}
       <Campaigns {status} onchange={(s) => (status = s)} />
     {:else}
-      <Data {status} onchange={(s) => (status = s)} />
+      <Data {status} onchange={(s) => (status = s)} onreset={() => (welcome = true)} />
     {/if}
   </main>
 
   {#if !touch.current}
     <footer class="keys">
-      {#if section === "compendium"}
+      {#if section === "compendium" && !welcome}
         <span><span class="keycap">↑↓</span> move</span>
         <span><span class="keycap">/</span> search</span>
         <span><span class="keycap">tab</span> complete · category</span>

@@ -332,6 +332,25 @@ impl Workspace {
         Ok(())
     }
 
+    /// Forget imported data (only the homebrew, or all of it); campaigns,
+    /// characters and notes stay.
+    pub fn clear_imported(&mut self, homebrew_only: bool) -> Result<(), String> {
+        import::clear(&self.store, homebrew_only)?;
+        self.reload();
+        Ok(())
+    }
+
+    /// Start over: delete the data, every campaign and the configuration.
+    pub fn reset(&mut self) -> Result<(), String> {
+        self.store.reset().map_err(|e| e.to_string())?;
+        self.config = Config::default();
+        self.campaigns.clear();
+        self.active = None;
+        self.problems.clear();
+        self.reload();
+        Ok(())
+    }
+
     /// Rename a campaign (its folder keeps its slug).
     pub fn rename_campaign(&mut self, slug: &str, name: &str) -> Result<(), String> {
         let name = name.trim();
@@ -409,6 +428,14 @@ mod tests {
         let lib = ws.lib.as_ref().unwrap();
         assert!(lib.entities().iter().filter(|e| ws.filter().allows(e)).any(|e| e.name == "Warden"), "and shows");
 
+        // Forgetting the homebrew keeps the data; forgetting all of it does not.
+        ws.clear_imported(true).unwrap();
+        assert!(ws.homebrew.is_empty() && ws.has_data());
+        ws.clear_imported(false).unwrap();
+        assert!(!ws.has_data() && !ws.campaigns.is_empty(), "campaigns stay");
+        import::import_files(&ws.store, &src).unwrap();
+        ws.reload();
+
         // Reopening remembers the active campaign.
         let mut ws = Workspace::open(ws.store);
         assert_eq!(ws.active_campaign().map(|c| c.settings.name.as_str()), Some("Curse of Strahd"));
@@ -420,5 +447,13 @@ mod tests {
         ws.delete_campaign(&other).unwrap();
         assert!(ws.campaigns.is_empty() && ws.active.is_none());
         assert!(Workspace::open(ws.store).campaigns.is_empty(), "gone from the store too");
+
+        // Starting over leaves nothing.
+        ws = Workspace::open(Store::with_fs(Arc::new(MemFs::new()), "/data", "/config.toml"));
+        import::import_files(&ws.store, &src).unwrap();
+        ws.reload();
+        ws.create_campaign("Curse of Strahd", vec![]).unwrap();
+        ws.reset().unwrap();
+        assert!(!ws.has_data() && ws.campaigns.is_empty() && ws.active.is_none());
     }
 }

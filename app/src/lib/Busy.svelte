@@ -2,7 +2,7 @@
      a small pane says what is happening, with a terminal spinner. -->
 <script lang="ts">
   import { fade } from "svelte/transition";
-  import { busy } from "./busy.svelte";
+  import { busy } from "./working.svelte";
 
   const FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
   let frame = $state(0);

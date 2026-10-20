@@ -6,7 +6,7 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import * as api from "./api";
-  import { working } from "./busy.svelte";
+  import { working } from "./working.svelte";
   import Modal from "./Modal.svelte";
 
   let { campaign, onsave, onclose }: { campaign: api.CampaignInfo; onsave: (s: api.Status) => void; onclose: () => void } = $props();
@@ -337,12 +337,6 @@
   select {
     flex-shrink: 0;
     max-width: 50%;
-    background: var(--bg);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.25em 1ch;
-    font: inherit;
   }
   .reprinted {
     display: flex;

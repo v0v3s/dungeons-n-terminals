@@ -124,6 +124,8 @@ pub fn run() {
             startup,
             library::status,
             library::import_zip,
+            library::clear_imported,
+            library::reset_app,
             library::sources,
             library::create_campaign,
             library::activate_campaign,

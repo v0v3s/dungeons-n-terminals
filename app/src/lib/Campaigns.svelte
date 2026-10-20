@@ -1,7 +1,7 @@
 <!-- Campaigns: which one is active, and the books each one uses. -->
 <script lang="ts">
   import * as api from "./api";
-  import { working } from "./busy.svelte";
+  import { working } from "./working.svelte";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
   import Prompt from "./Prompt.svelte";

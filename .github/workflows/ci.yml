@@ -62,3 +62,21 @@ jobs:
           npm run build
       - name: Clippy
         run: cargo clippy -p dnt-app --all-targets --locked -- -D warnings
+
+  # Windows resolves imports without regard to case (Busy.svelte and
+  # busy.svelte.ts are one file there): build the web UI there too.
+  app-windows:
+    name: app (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Web UI
+        working-directory: app
+        run: |
+          npm ci
+          npm run build

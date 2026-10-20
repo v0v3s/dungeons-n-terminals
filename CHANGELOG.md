@@ -12,6 +12,25 @@ become the release page.
 
 ### Added
 
+- App: **Getting started**: a new app (or one just reset) walks through
+  importing the data and creating a campaign, explaining each step, then
+  offers to create a character or browse the compendium.
+- App: **Start over** on the Data screen: remove the imported homebrew,
+  remove all imported data (campaigns stay), or reset the app entirely,
+  each after a confirmation saying what goes and what stays.
+
+### Changed
+
+- App: dropdowns are drawn in the app's style.
+
+### Fixed
+
+- The Windows app builds again (v0.8.2 shipped without its installer).
+
+## v0.8.2 - 2026-10-20
+
+### Added
+
 - Each release page lists its changes, from this changelog.
 - App: a loading screen says what is being loaded, and the Data screen
   shows how long each part of the last load took.

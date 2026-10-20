@@ -267,6 +267,17 @@ impl Store {
         write_toml(self.fs(), &campaign.dir.join("campaign.toml"), &campaign.settings, "campaign")
     }
 
+    /// Delete everything: the data, campaigns, notes and the configuration.
+    pub fn reset(&self) -> Result<()> {
+        if self.fs.is_dir(&self.data_dir) {
+            self.fs.remove_dir_all(&self.data_dir).map_err(|source| StoreError::Io { path: self.data_dir.clone(), source })?;
+        }
+        if self.fs.is_file(&self.config_path) {
+            self.fs.remove_file(&self.config_path).map_err(|source| StoreError::Io { path: self.config_path.clone(), source })?;
+        }
+        Ok(())
+    }
+
     /// Delete a campaign and everything in it (characters, notes, homebrew).
     pub fn delete_campaign(&self, campaign: &Campaign) -> Result<()> {
         self.fs.remove_dir_all(&campaign.dir).map_err(|source| StoreError::Io { path: campaign.dir.clone(), source })

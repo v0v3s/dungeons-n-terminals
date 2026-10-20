@@ -91,6 +91,25 @@ pub async fn import_zip(handle: tauri::AppHandle, app: State<'_, App>, path: Str
     Ok(Imported { summary: report.summary(), skipped: report.skipped, status: status_of(&inner)? })
 }
 
+/// Forget imported data: only the homebrew, or all of it (campaigns stay).
+#[tauri::command]
+pub async fn clear_imported(app: State<'_, App>, homebrew_only: bool) -> Res<Status> {
+    let mut inner = app.lock();
+    inner.ws.clear_imported(homebrew_only)?;
+    inner.library_changed();
+    status_of(&inner)
+}
+
+/// Start over: the data, every campaign, character and note.
+#[tauri::command]
+pub async fn reset_app(app: State<'_, App>) -> Res<Status> {
+    let mut inner = app.lock();
+    inner.sheet = None;
+    inner.ws.reset()?;
+    inner.library_changed();
+    status_of(&inner)
+}
+
 #[derive(Serialize)]
 pub struct Source {
     id: String,
