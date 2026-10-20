@@ -10,10 +10,6 @@ become the release page.
 
 ## v0.9.0 - 2026-10-20
 
-- getting started, and starting over
-
-## v0.8.2 - 2026-10-20
-
 ### Added
 
 - App: **Getting started**: a new app (or one just reset) walks through

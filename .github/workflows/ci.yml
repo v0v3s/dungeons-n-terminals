@@ -41,6 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Changelog
+        run: scripts/release-notes.sh check
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy

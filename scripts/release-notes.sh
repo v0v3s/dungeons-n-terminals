@@ -10,10 +10,20 @@
 #   scripts/release-notes.sh notes VERSION
 #       Print the notes of vVERSION (for the release page), with the
 #       downloads.
+#
+#   scripts/release-notes.sh check
+#       Fail if the changelog has no Unreleased section, or a version
+#       twice (as a merge gone wrong leaves it).
 set -eu
 
 file=CHANGELOG.md
-cmd=${1:?usage: release-notes.sh cut VERSION DATE | notes VERSION}
+cmd=${1:?usage: release-notes.sh cut VERSION DATE | notes VERSION | check}
+if [ "$cmd" = check ]; then
+    grep -q '^## Unreleased$' "$file" || { echo "$file has no '## Unreleased' section" >&2; exit 1; }
+    twice=$(grep '^## v' "$file" | cut -d' ' -f2 | sort | uniq -d)
+    [ -z "$twice" ] || { echo "$file has these versions twice: $twice" >&2; exit 1; }
+    exit 0
+fi
 version=${2:?version}
 
 # The body of a section: from its heading to the next "## " heading.
