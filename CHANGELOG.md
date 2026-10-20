@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v0.8.2 - 2026-10-20
+
 ### Added
 
 - Each release page lists its changes, from this changelog.
