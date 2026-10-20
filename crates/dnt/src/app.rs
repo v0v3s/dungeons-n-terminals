@@ -1,7 +1,7 @@
 //! Top-level application state: sections, the active campaign and global keys.
 
 use dnt_data::{Library, SourceFilter};
-use dnt_store::{CampaignSettings, Config, Store, PRESETS};
+use dnt_store::{CampaignSettings, Config, Store};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use std::path::PathBuf;
@@ -80,6 +80,12 @@ pub struct App {
     config: Config,
 }
 
+/// What shows without a campaign: every source, but only the newest
+/// printing of what was reprinted (as in the app).
+fn no_campaign() -> SourceFilter {
+    SourceFilter { enabled: None, hide_reprinted: true }
+}
+
 impl App {
     pub fn new(lib: &Library, store: Store, config: Config, override_filter: Option<SourceFilter>, status: String) -> App {
         let (list, errors) = store.campaigns();
@@ -88,7 +94,7 @@ impl App {
             status = format!("Campaign error: {e}");
         }
         let active = config.last_campaign.as_ref().and_then(|slug| list.iter().position(|c| &c.slug == slug));
-        let filter = override_filter.clone().or_else(|| active.map(|i| list[i].source_filter())).unwrap_or_default();
+        let filter = override_filter.clone().or_else(|| active.map(|i| list[i].source_filter())).unwrap_or_else(no_campaign);
         let section = if list.is_empty() { Section::Campaigns } else { Section::Compendium };
         let (overlays, problems) = load_overlays(&store, lib);
         if problems > 0 && status.is_empty() {
@@ -96,7 +102,7 @@ impl App {
         }
         let files = active.map(|i| store.characters(&list[i]).0).unwrap_or_default();
         let notes = notes_for(&store, active.map(|i| &list[i]));
-        let mut campaigns = Campaigns::new(lib, list);
+        let mut campaigns = Campaigns::new(lib, list, dnt_core::import::homebrew(&store));
         campaigns.selected = active.unwrap_or(0);
         let mut characters = Characters::new(files);
         characters.filter = filter.clone();
@@ -162,13 +168,15 @@ impl App {
 
     /// Refresh everything derived from the library after it was rebuilt.
     pub fn library_reloaded(&mut self, lib: &Library) {
-        let filter = self.override_filter.clone().or_else(|| self.active_campaign().map(|c| c.source_filter())).unwrap_or_default();
+        let filter = self.override_filter.clone().or_else(|| self.active_campaign().map(|c| c.source_filter())).unwrap_or_else(no_campaign);
         let (category, query) = (self.compendium.category, self.compendium.query.clone());
         self.compendium = Compendium::new(lib, filter.clone());
         self.compendium.restore(lib, category, query);
         let (selected, pane) = (self.campaigns.selected, self.campaigns.pane);
         let list = std::mem::take(&mut self.campaigns.list);
-        self.campaigns = Campaigns::new(lib, list);
+        let brew = (self.campaigns.right, self.campaigns.brew_selected, std::mem::take(&mut self.campaigns.brew_filter));
+        self.campaigns = Campaigns::new(lib, list, dnt_core::import::homebrew(&self.store));
+        (self.campaigns.right, self.campaigns.brew_selected, self.campaigns.brew_filter) = brew;
         self.campaigns.selected = selected;
         self.campaigns.pane = pane;
         self.characters.filter = filter;
@@ -345,8 +353,8 @@ impl App {
             Action::None => {}
             Action::Quit => self.quit = true,
             Action::Create(name) => {
-                let (_, preset) = PRESETS[0];
-                let settings = CampaignSettings { name, sources: preset.iter().map(|s| s.to_string()).collect(), ..Default::default() };
+                // All official sources, newest printings, no homebrew.
+                let settings = CampaignSettings { name, ..Default::default() };
                 match self.store.create_campaign(settings) {
                     Ok(c) => {
                         let slug = c.slug.clone();
@@ -358,12 +366,22 @@ impl App {
                         let active_slug = self.active_campaign().map(|c| c.slug.clone());
                         self.active = active_slug.and_then(|s| self.campaigns.list.iter().position(|c| c.slug == s));
                         self.activate(lib, index);
-                        self.status = format!("Created campaign {slug} with {}", PRESETS[0].0);
+                        self.status = format!("Created campaign {slug} with all official sources (tab: choose the books)");
                     }
                     Err(e) => self.status = format!("Could not create campaign: {e}"),
                 }
             }
             Action::Activate(i) => self.activate(lib, i),
+            Action::HomebrewChanged(i) => {
+                if let Err(e) = self.store.save_campaign(&self.campaigns.list[i]) {
+                    self.status = format!("Could not save campaign: {e}");
+                }
+                if self.active == Some(i) {
+                    // The library carries the enabled homebrew.
+                    self.pending_reload = true;
+                }
+            }
+            Action::Delete(i) => self.delete_campaign(lib, i),
             Action::Changed(i) => {
                 let campaign = &self.campaigns.list[i];
                 if let Err(e) = self.store.save_campaign(campaign) {
@@ -470,6 +488,37 @@ impl App {
         }
     }
 
+    /// Delete a campaign; if it was the active one, the first other one
+    /// (if any) becomes active.
+    fn delete_campaign(&mut self, lib: &Library, index: usize) {
+        let campaign = &self.campaigns.list[index];
+        let name = campaign.settings.name.clone();
+        if let Err(e) = self.store.delete_campaign(campaign) {
+            self.status = format!("Could not delete {name}: {e}");
+            return;
+        }
+        let was_active = self.active == Some(index);
+        let active_slug = self.active_campaign().map(|c| c.slug.clone());
+        self.campaigns.list.remove(index);
+        self.campaigns.selected = self.campaigns.selected.min(self.campaigns.list.len().saturating_sub(1));
+        self.active = active_slug.and_then(|s| self.campaigns.list.iter().position(|c| c.slug == s));
+        if was_active {
+            if self.campaigns.list.is_empty() {
+                self.config.last_campaign = None;
+                let _ = self.store.save_config(&self.config);
+                self.characters = Characters::new(Vec::new());
+                let _ = self.notes.save();
+                self.notes = notes_for(&self.store, None);
+                self.apply_filter(lib);
+                self.pending_reload = true;
+            } else {
+                self.activate(lib, 0);
+            }
+        }
+        self.campaigns.pane = crate::campaigns::Pane::Campaigns;
+        self.status = format!("Deleted {name}");
+    }
+
     fn activate(&mut self, lib: &Library, index: usize) {
         self.active = Some(index);
         let campaign = &self.campaigns.list[index];
@@ -495,7 +544,7 @@ impl App {
             self.status = "Sources are fixed by --sources for this session".into();
             return;
         }
-        let filter = self.active_campaign().map(|c| c.source_filter()).unwrap_or_default();
+        let filter = self.active_campaign().map(|c| c.source_filter()).unwrap_or_else(no_campaign);
         self.characters.filter = filter.clone();
         self.compendium.set_filter(lib, filter);
     }

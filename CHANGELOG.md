@@ -8,6 +8,27 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Terminal: **Getting started** when there is no data yet: give a zip to
+  import (or a data folder) instead of an error.
+- Terminal: the campaign's **Homebrew** (`tab` in Campaigns) turns imported
+  homebrew on and off, searchable by name or author.
+- Terminal: `D` deletes a campaign, after a confirmation.
+- Terminal: `dnt forget --homebrew`, `dnt forget --all` and `dnt reset`
+  start over.
+
+### Changed
+
+- Terminal: new campaigns use all official sources, and without a
+  campaign only the newest printing of reprinted entries shows, as in the
+  app.
+
+### Fixed
+
+- Terminal: homebrew imported before v0.7.0 is moved out of the data
+  there too.
+
 ## v0.9.0 - 2026-10-20
 
 ### Added

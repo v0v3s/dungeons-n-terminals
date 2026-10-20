@@ -1,7 +1,9 @@
-//! Campaign management screen: campaign list and per-campaign source picker.
+//! Campaign management screen: campaign list, and per campaign its books
+//! and the imported homebrew it enables.
 
 use std::collections::BTreeMap;
 
+use dnt_core::import::BrewSource;
 use dnt_data::Library;
 use dnt_store::{Campaign, CampaignSettings, PRESETS};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -10,6 +12,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 pub enum Pane {
     Campaigns,
     Sources,
+    Homebrew,
 }
 
 /// A selectable source row.
@@ -29,6 +32,10 @@ pub enum Action {
     Activate(usize),
     /// The given campaign's settings changed and should be saved/applied.
     Changed(usize),
+    /// The given campaign's homebrew changed: save it and rebuild the library.
+    HomebrewChanged(usize),
+    /// Delete the campaign at this index.
+    Delete(usize),
 }
 
 pub struct Campaigns {
@@ -44,6 +51,16 @@ pub struct Campaigns {
     pub filtering: bool,
     pub preset: usize,
     pub source_height: usize,
+    /// The imported homebrew a campaign can enable.
+    pub brew: Vec<BrewSource>,
+    pub brew_selected: usize,
+    pub brew_offset: usize,
+    pub brew_filter: String,
+    pub brew_height: usize,
+    /// What the right side shows: the books or the homebrew.
+    pub right: Pane,
+    /// Asking whether to delete this campaign.
+    pub delete_confirm: Option<usize>,
 }
 
 const GROUP_ORDER: &[&str] = &["core", "supplement", "setting", "adventure", "homebrew"];
@@ -60,10 +77,12 @@ fn group_label(group: &str) -> String {
 }
 
 impl Campaigns {
-    pub fn new(lib: &Library, list: Vec<Campaign>) -> Campaigns {
+    pub fn new(lib: &Library, list: Vec<Campaign>, brew: Vec<BrewSource>) -> Campaigns {
         let counts = lib.entity_counts();
         let mut sources: Vec<SourceRow> = counts
             .into_iter()
+            // Imported homebrew has its own pane.
+            .filter(|(id, _)| !brew.iter().any(|b| b.id.eq_ignore_ascii_case(id)))
             .map(|(id, count)| {
                 let info = lib.source_info(&id);
                 SourceRow {
@@ -88,6 +107,13 @@ impl Campaigns {
             filtering: false,
             preset: 0,
             source_height: 0,
+            brew,
+            brew_selected: 0,
+            brew_offset: 0,
+            brew_filter: String::new(),
+            brew_height: 0,
+            right: Pane::Sources,
+            delete_confirm: None,
         }
     }
 
@@ -106,7 +132,36 @@ impl Campaigns {
             .collect()
     }
 
+    /// Indices into `brew`: the campaign's enabled ones first, then those
+    /// matching the filter.
+    pub fn visible_brew(&self, campaign: &Campaign) -> Vec<usize> {
+        let f = self.brew_filter.to_lowercase();
+        let on = |b: &BrewSource| campaign.settings.homebrew.iter().any(|h| h.eq_ignore_ascii_case(&b.id));
+        let matches = |b: &BrewSource| {
+            f.is_empty()
+                || b.name.to_lowercase().contains(&f)
+                || b.id.to_lowercase().contains(&f)
+                || b.authors.iter().any(|a| a.to_lowercase().contains(&f))
+        };
+        let (mut first, mut rest) = (Vec::new(), Vec::new());
+        for (i, b) in self.brew.iter().enumerate() {
+            if on(b) {
+                first.push(i);
+            } else if matches(b) {
+                rest.push(i);
+            }
+        }
+        first.extend(rest);
+        first
+    }
+
     pub fn handle_key(&mut self, key: KeyEvent) -> Action {
+        if let Some(i) = self.delete_confirm.take() {
+            if matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y')) {
+                return Action::Delete(i);
+            }
+            return Action::None;
+        }
         if let Some(name) = self.name_input.as_mut() {
             match key.code {
                 KeyCode::Esc => self.name_input = None,
@@ -126,20 +181,25 @@ impl Campaigns {
             return Action::None;
         }
         if self.filtering {
+            let brew = self.pane == Pane::Homebrew;
+            let filter = if brew { &mut self.brew_filter } else { &mut self.source_filter };
             match key.code {
                 KeyCode::Esc => {
                     self.filtering = false;
-                    self.source_filter.clear();
+                    filter.clear();
                 }
                 KeyCode::Enter => self.filtering = false,
                 KeyCode::Backspace => {
-                    self.source_filter.pop();
+                    filter.pop();
                 }
-                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => self.source_filter.push(c),
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => filter.push(c),
                 _ => {}
             }
-            self.source_selected = 0;
-            self.source_offset = 0;
+            if brew {
+                (self.brew_selected, self.brew_offset) = (0, 0);
+            } else {
+                (self.source_selected, self.source_offset) = (0, 0);
+            }
             return Action::None;
         }
 
@@ -149,11 +209,18 @@ impl Campaigns {
                 self.name_input = Some(String::new());
                 return Action::None;
             }
-            KeyCode::Tab | KeyCode::BackTab => {
-                self.pane = match self.pane {
-                    Pane::Campaigns if !self.list.is_empty() => Pane::Sources,
-                    _ => Pane::Campaigns,
+            KeyCode::Tab | KeyCode::BackTab if !self.list.is_empty() => {
+                let order: &[Pane] = if self.brew.is_empty() {
+                    &[Pane::Campaigns, Pane::Sources]
+                } else {
+                    &[Pane::Campaigns, Pane::Sources, Pane::Homebrew]
                 };
+                let at = order.iter().position(|p| *p == self.pane).unwrap_or(0);
+                let step = if key.code == KeyCode::BackTab { order.len() - 1 } else { 1 };
+                self.pane = order[(at + step) % order.len()];
+                if self.pane != Pane::Campaigns {
+                    self.right = self.pane;
+                }
                 return Action::None;
             }
             _ => {}
@@ -161,6 +228,7 @@ impl Campaigns {
         match self.pane {
             Pane::Campaigns => self.key_campaigns(key),
             Pane::Sources => self.key_sources(key),
+            Pane::Homebrew => self.key_brew(key),
         }
     }
 
@@ -170,7 +238,8 @@ impl Campaigns {
             KeyCode::Char('j') | KeyCode::Down if n > 0 => self.selected = (self.selected + 1).min(n - 1),
             KeyCode::Char('k') | KeyCode::Up => self.selected = self.selected.saturating_sub(1),
             KeyCode::Enter if n > 0 => return Action::Activate(self.selected),
-            KeyCode::Char('l') | KeyCode::Right if n > 0 => self.pane = Pane::Sources,
+            KeyCode::Char('l') | KeyCode::Right if n > 0 => self.pane = self.right,
+            KeyCode::Char('D') if n > 0 => self.delete_confirm = Some(self.selected),
             _ => {}
         }
         Action::None
@@ -223,6 +292,44 @@ impl Campaigns {
             KeyCode::Char('r') => {
                 settings.show_reprinted = !settings.show_reprinted;
                 return Action::Changed(self.selected);
+            }
+            _ => {}
+        }
+        Action::None
+    }
+
+    fn key_brew(&mut self, key: KeyEvent) -> Action {
+        let Some(campaign) = self.list.get(self.selected) else { return Action::None };
+        let visible = self.visible_brew(campaign);
+        let n = visible.len();
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let half = (self.brew_height / 2).max(1);
+        match key.code {
+            KeyCode::Char('j') | KeyCode::Down if n > 0 => self.brew_selected = (self.brew_selected + 1).min(n - 1),
+            KeyCode::Char('k') | KeyCode::Up => self.brew_selected = self.brew_selected.saturating_sub(1),
+            KeyCode::Char('d') if ctrl && n > 0 => self.brew_selected = (self.brew_selected + half).min(n - 1),
+            KeyCode::Char('u') if ctrl => self.brew_selected = self.brew_selected.saturating_sub(half),
+            KeyCode::Char('g') => self.brew_selected = 0,
+            KeyCode::Char('G') => self.brew_selected = n.saturating_sub(1),
+            KeyCode::Char('h') | KeyCode::Left | KeyCode::Esc => self.pane = Pane::Campaigns,
+            KeyCode::Char('/') => {
+                self.filtering = true;
+                self.brew_filter.clear();
+            }
+            KeyCode::Char(' ') | KeyCode::Enter if n > 0 => {
+                let id = self.brew[visible[self.brew_selected.min(n - 1)]].id.clone();
+                let list = &mut self.list[self.selected].settings.homebrew;
+                match list.iter().position(|h| h.eq_ignore_ascii_case(&id)) {
+                    Some(at) => {
+                        list.remove(at);
+                    }
+                    None => list.push(id),
+                }
+                return Action::HomebrewChanged(self.selected);
+            }
+            KeyCode::Char('x') => {
+                self.list[self.selected].settings.homebrew.clear();
+                return Action::HomebrewChanged(self.selected);
             }
             _ => {}
         }

@@ -226,13 +226,16 @@ mod content {
         keys: &[
             ("j k", "move"),
             ("enter", "make the campaign active"),
-            ("n", "new campaign"),
-            ("tab · l h", "campaigns ⇄ sources"),
-            ("space · enter", "turn a source on or off"),
-            ("p", "next preset of sources"),
-            ("a", "all sources"),
+            ("n", "new campaign (all official sources)"),
+            ("D", "delete the campaign (asks first)"),
+            ("tab", "campaigns → books → homebrew"),
+            ("l h", "into · out of the books or homebrew"),
+            ("space · enter", "turn a book or homebrew source on or off"),
+            ("p", "next preset of books"),
+            ("a", "all books"),
+            ("x", "homebrew: all off"),
             ("r", "show or hide reprinted content"),
-            ("/", "filter the sources"),
+            ("/", "filter the books (or the homebrew by name or author)"),
         ],
     };
     pub const ROSTER: Group = Group {

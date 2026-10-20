@@ -10,6 +10,7 @@ mod notes_view;
 mod overlay_editor;
 mod picker;
 mod render;
+mod setup;
 mod theme;
 mod ui;
 mod ui_editor;
@@ -20,7 +21,7 @@ mod wizard;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use dnt_data::{Library, SourceFilter};
 use dnt_store::Store;
@@ -61,8 +62,25 @@ enum Cmd {
     Import { zip: PathBuf },
     /// List the imported sources, then the imported homebrew.
     Imported,
-    /// Remove an imported source (or homebrew source) and everything in it.
-    Forget { source: String },
+    /// Remove an imported source (or homebrew source) and everything in it;
+    /// with --homebrew all imported homebrew, with --all everything imported.
+    Forget {
+        #[arg(required_unless_present_any = ["homebrew", "all"])]
+        source: Option<String>,
+        /// Remove all imported homebrew (the data stays).
+        #[arg(long, conflicts_with = "all")]
+        homebrew: bool,
+        /// Remove everything imported, data and homebrew (campaigns stay).
+        #[arg(long)]
+        all: bool,
+    },
+    /// Start over: delete the imported data, every campaign (characters,
+    /// notes, homebrew) and the configuration.
+    Reset {
+        /// Do not ask first.
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 /// Run a subcommand (no TUI).
@@ -104,13 +122,39 @@ fn run_command(cmd: Cmd, store: &Store, config: &dnt_store::Config) -> Result<()
                 }
             }
         }
-        Cmd::Forget { source } => {
+        Cmd::Forget { homebrew: true, .. } => {
+            import::clear(store, true).map_err(anyhow::Error::msg)?;
+            println!("Removed all imported homebrew");
+        }
+        Cmd::Forget { all: true, .. } => {
+            import::clear(store, false).map_err(anyhow::Error::msg)?;
+            println!("Removed all imported data; campaigns, characters and notes stay");
+        }
+        Cmd::Forget { source: Some(source), .. } => {
             if import::homebrew(store).iter().any(|b| b.id.eq_ignore_ascii_case(&source)) {
                 import::remove_homebrew(store, &source).map_err(anyhow::Error::msg)?;
             } else {
                 import::remove_source(store, &source).map_err(anyhow::Error::msg)?;
             }
             println!("Removed {source}");
+        }
+        Cmd::Forget { .. } => unreachable!("clap asks for a source"),
+        Cmd::Reset { yes } => {
+            if !yes {
+                println!(
+                    "This deletes everything dnt keeps: the imported data, every campaign with its characters, notes \
+                     and homebrew, and the configuration ({}). Type reset to go on:",
+                    store.config_path().display()
+                );
+                let mut answer = String::new();
+                std::io::stdin().read_line(&mut answer)?;
+                if answer.trim() != "reset" {
+                    println!("Nothing was deleted.");
+                    return Ok(());
+                }
+            }
+            store.reset()?;
+            println!("dnt is reset; it starts as new.");
         }
     }
     Ok(())
@@ -149,12 +193,24 @@ fn main() -> Result<()> {
         }
         (None, Some(path)) => Some(path.clone()),
         (None, None) if dnt_core::import::has_imported(&store) => None,
-        (None, None) => bail!(
-            "no data yet: import a zip of it with `dnt import data.zip`, or use a data folder with \
-             --data /path/to/data (it is then remembered in {})",
-            store.config_path().display()
-        ),
+        // No data yet: getting started asks for it.
+        (None, None) => match setup::run(&store)? {
+            setup::Outcome::Imported => None,
+            setup::Outcome::Folder(path) => {
+                config.library.path = Some(path.clone());
+                store.save_config(&config)?;
+                Some(path)
+            }
+            setup::Outcome::Quit => return Ok(()),
+        },
     };
+    if data.is_none() {
+        // Homebrew imported before it had a store of its own.
+        let (mut campaigns, _) = store.campaigns();
+        if let Some(p) = dnt_core::workspace::move_old_homebrew(&store, &mut campaigns).first() {
+            eprintln!("{p}");
+        }
+    }
 
     let start = Instant::now();
     let extra: Vec<PathBuf> = config.library.homebrew.iter().chain(&args.homebrew).cloned().collect();

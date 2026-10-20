@@ -152,30 +152,8 @@ impl Workspace {
             return;
         }
         self.progress.begin("Moving homebrew out of the data");
-        let moved = match import::migrate(&self.store) {
-            Ok(m) if !m.is_empty() => m,
-            Ok(_) => return,
-            Err(e) => {
-                self.problems.push(format!("Moving homebrew: {e}"));
-                return;
-            }
-        };
-        for c in &mut self.campaigns {
-            let (brew, books): (Vec<String>, Vec<String>) =
-                c.settings.sources.drain(..).partition(|s| moved.iter().any(|m| m.eq_ignore_ascii_case(s)));
-            c.settings.sources = books;
-            if brew.is_empty() {
-                continue;
-            }
-            for b in brew {
-                if !c.settings.homebrew.iter().any(|h| h.eq_ignore_ascii_case(&b)) {
-                    c.settings.homebrew.push(b);
-                }
-            }
-            if let Err(e) = self.store.save_campaign(c) {
-                self.problems.push(format!("Could not save the campaign: {e}"));
-            }
-        }
+        let problems = move_old_homebrew(&self.store, &mut self.campaigns);
+        self.problems.extend(problems);
     }
 
     fn load_base(&self) -> Result<Option<Library>, String> {
@@ -375,6 +353,37 @@ impl Workspace {
     pub fn notes(&self) -> Option<Notes> {
         self.active_campaign().and_then(|c| self.store.notes(c).ok())
     }
+}
+
+/// Move homebrew imported before it had a store of its own (see
+/// [`import::migrate`]) and, in `campaigns`, turn those of their sources
+/// into enabled homebrew (saved). Returns problems.
+pub fn move_old_homebrew(store: &Store, campaigns: &mut [Campaign]) -> Vec<String> {
+    let moved = match import::migrate(store) {
+        Ok(m) => m,
+        Err(e) => return vec![format!("Moving homebrew: {e}")],
+    };
+    let mut problems = Vec::new();
+    if moved.is_empty() {
+        return problems;
+    }
+    for c in campaigns {
+        let (brew, books): (Vec<String>, Vec<String>) =
+            c.settings.sources.drain(..).partition(|s| moved.iter().any(|m| m.eq_ignore_ascii_case(s)));
+        c.settings.sources = books;
+        if brew.is_empty() {
+            continue;
+        }
+        for b in brew {
+            if !c.settings.homebrew.iter().any(|h| h.eq_ignore_ascii_case(&b)) {
+                c.settings.homebrew.push(b);
+            }
+        }
+        if let Err(e) = store.save_campaign(c) {
+            problems.push(format!("Could not save the campaign: {e}"));
+        }
+    }
+    problems
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@ use dnt_store::PRESETS;
 use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState};
+use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap};
 use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
@@ -630,12 +630,27 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         lines.push(line.style(base));
     }
     if c.list.is_empty() && c.name_input.is_none() {
-        lines.push(Line::styled("No campaigns yet.", theme.muted));
-        lines.push(Line::default());
+        // Getting started, step 2 (the data is there: step 1 is done).
+        lines.push(Line::styled("✓ 1 · Import the data", theme.dim));
+        lines.push(Line::styled("▸ 2 · Create a campaign", theme.label));
+        lines.push(Line::styled("It holds your characters, notes and homebrew, and chooses its books.", theme.muted));
         lines.push(Line::from(vec![
             Span::styled("Press ", theme.dim),
             Span::styled(" n ", theme.keycap),
-            Span::styled(" to create one.", theme.dim),
+            Span::styled(" and name it.", theme.dim),
+        ]));
+        lines.push(Line::styled("· 3 · Play: characters (2), the compendium (1), notes (3)", theme.dim));
+    }
+    if let Some(i) = c.delete_confirm {
+        let name = c.list.get(i).map_or(String::new(), |c| c.settings.name.clone());
+        lines.push(Line::default());
+        lines.push(Line::styled(format!("Delete {name}?"), Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)));
+        lines.push(Line::styled("Its characters, notes and homebrew go too.", theme.muted));
+        lines.push(Line::from(vec![
+            Span::styled(" y ", theme.keycap),
+            Span::styled(" delete  ", theme.dim),
+            Span::styled(" any key ", theme.keycap),
+            Span::styled(" keep it", theme.dim),
         ]));
     }
     if let Some(name) = &c.name_input {
@@ -645,15 +660,20 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         let y = inner.y + lines.len() as u16 - 1;
         frame.set_cursor_position((inner.x + 2 + name.width() as u16, y.min(inner.bottom().saturating_sub(1))));
     }
-    frame.render_widget(Paragraph::new(lines), inner);
+    // Rows fit the width; the getting-started and delete texts wrap.
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
 
-    // Sources of the selected campaign.
+    // Sources of the selected campaign: its books, or its homebrew.
     let focused = c.pane == Pane::Sources;
     let Some(campaign) = c.list.get(c.selected) else {
         let block = pane(pane_title("Sources", false, theme), false, theme);
         frame.render_widget(block, right);
         return;
     };
+    if c.right == Pane::Homebrew {
+        draw_brew(frame, right, c, theme);
+        return;
+    }
     let summary_text = if campaign.settings.sources.is_empty() {
         "all sources".to_string()
     } else {
@@ -730,6 +750,86 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         c.source_offset = sel_row + 1 - height;
     }
     let lines: Vec<Line> = rows.into_iter().skip(c.source_offset).take(height).map(|(_, l)| l).collect();
+    frame.render_widget(Paragraph::new(lines), list_area);
+}
+
+/// The imported homebrew a campaign enables: the enabled ones first.
+fn draw_brew(frame: &mut Frame, area: Rect, c: &mut crate::campaigns::Campaigns, theme: &Theme) {
+    let focused = c.pane == Pane::Homebrew;
+    let campaign = &c.list[c.selected];
+    let on = campaign.settings.homebrew.len();
+    let block = pane(pane_title(&format!("Homebrew · {}", campaign.settings.name), focused, theme), focused, theme)
+        .title_bottom(Line::from(Span::styled(format!(" {on} on · {} imported ", c.brew.len()), theme.dim)).right_aligned())
+        .padding(Padding::new(1, 1, 1, 0));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let [info, _, list_area] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(1)]).areas(inner);
+    let mut info_spans = vec![
+        Span::styled(" space ", theme.keycap),
+        Span::styled(" on · off   ", theme.dim),
+        Span::styled(" / ", theme.keycap),
+        Span::styled(" name or author   ", theme.dim),
+        Span::styled(" x ", theme.keycap),
+        Span::styled(" all off", theme.dim),
+    ];
+    if c.filtering || !c.brew_filter.is_empty() {
+        info_spans.push(Span::styled(format!("    /{}", c.brew_filter), Style::new().fg(theme.accent)));
+        if c.filtering && focused {
+            let x: u16 = info_spans.iter().map(|s| s.content.width() as u16).sum();
+            frame.set_cursor_position((info.x + x, info.y));
+        }
+    }
+    frame.render_widget(Paragraph::new(Line::from(info_spans)), info);
+
+    let visible = c.visible_brew(campaign);
+    let height = list_area.height as usize;
+    let width = list_area.width.min(READING_WIDTH) as usize;
+    c.brew_height = height;
+    c.brew_selected = c.brew_selected.min(visible.len().saturating_sub(1));
+    if c.brew_selected < c.brew_offset {
+        c.brew_offset = c.brew_selected;
+    } else if c.brew_selected >= c.brew_offset + height {
+        c.brew_offset = c.brew_selected + 1 - height;
+    }
+    if c.brew.is_empty() {
+        let lines = vec![
+            Line::styled("No homebrew imported.", theme.muted),
+            Line::styled("dnt import FILE.zip takes homebrew files in any layout.", theme.dim),
+        ];
+        frame.render_widget(Paragraph::new(lines), list_area);
+        return;
+    }
+    let lines: Vec<Line> = visible
+        .iter()
+        .enumerate()
+        .skip(c.brew_offset)
+        .take(height)
+        .map(|(pos, &i)| {
+            let b = &c.brew[i];
+            let enabled = campaign.settings.homebrew.iter().any(|h| h.eq_ignore_ascii_case(&b.id));
+            let selected = pos == c.brew_selected && focused;
+            let base = if selected { theme.selected } else { Style::new() };
+            let faint = if selected { theme.muted } else { theme.dim };
+            let edition = if b.edition == "one" { " 2024" } else { "" };
+            let line = spread(
+                vec![
+                    Span::styled(if enabled { "● " } else { "○ " }, if enabled { base.fg(theme.accent) } else { base.patch(faint) }),
+                    Span::styled(b.name.clone(), if enabled || selected { base } else { base.patch(theme.muted) }),
+                    Span::styled(edition, base.fg(theme.mechanic)),
+                ],
+                vec![
+                    Span::styled(format!("{} ", truncate(&b.id, 14)), base.patch(theme.muted).remove_modifier(Modifier::BOLD)),
+                    Span::styled(format!("{:>5} ", b.entries()), base.patch(faint).remove_modifier(Modifier::BOLD)),
+                ],
+                width,
+            );
+            if selected {
+                line.style(base)
+            } else {
+                line
+            }
+        })
+        .collect();
     frame.render_widget(Paragraph::new(lines), list_area);
 }
 

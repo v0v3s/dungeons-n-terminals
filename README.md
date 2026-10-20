@@ -66,10 +66,11 @@ cargo build --release
 ./target/release/dnt
 ```
 
-A data path is remembered, so afterwards `dnt` is enough. On the first
-run you land in **Campaigns** (`4`): press `n` to create one, choose its
-sources with `space` (or a preset with `p`), and press `enter` on it to
-make it active. Then go to **Characters** (`2`) and press `n`.
+A data path is remembered, so afterwards `dnt` is enough. Without data,
+dnt starts with **Getting started**, which asks for a zip to import (or
+a data folder). Then you land in **Campaigns** (`4`): press `n` to create
+one (all official sources; `tab` to change its books or homebrew), and
+go to **Characters** (`2`) and press `n`. `D` deletes a campaign.
 
 Press `?` on any screen for its keys (F1 works while typing too).
 
@@ -83,7 +84,9 @@ Press `?` on any screen for its keys (F1 works while typing too).
 | `--show-reprinted` | with `--sources`: keep entries that were reprinted |
 | `import FILE.zip` | import data: a whole data folder, or homebrew files in any layout |
 | `imported` | list the imported sources |
-| `forget SOURCE` | remove an imported source |
+| `forget SOURCE` | remove an imported source (or homebrew source) |
+| `forget --homebrew` · `forget --all` | remove all imported homebrew · everything imported (campaigns stay) |
+| `reset` | start over: delete the data, every campaign and the configuration (asks first) |
 
 Importing merges entries by who they are (kind, name, source), so
 importing the same zip again, or a newer version of a homebrew file,
@@ -92,9 +95,9 @@ are kept. A configured data folder (`--data`) is used instead of the
 imported data.
 
 Homebrew files (files that name their sources in `_meta`) are kept
-apart and are off until a campaign enables them: list their ids under
-`homebrew` in the campaign's `campaign.toml` (`dnt imported` shows them),
-or tick them in the app. So a whole homebrew collection can be imported
+apart and are off until a campaign enables them: in **Campaigns**, `tab`
+to the campaign's Homebrew and tick them with `space` (or tick them in
+the app). So a whole homebrew collection can be imported
 without slowing anything down.
 
 ### Data in one zip
