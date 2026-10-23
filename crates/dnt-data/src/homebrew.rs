@@ -155,8 +155,17 @@ impl Template {
             Template::Gear => json!({"type": "G|XPHB", "rarity": "none", "weight": 1, "value": 100, "entries": ["Describe the item."]}),
             Template::Feat => json!({"category": "G", "entries": ["Describe the feat."]}),
             Template::OptionalFeature => json!({"featureType": ["EI"], "entries": ["Describe the feature."]}),
-            Template::Background => json!({"entries": ["Describe the background."]}),
-            Template::Species => json!({"size": ["M"], "speed": 30, "entries": ["Describe the species."]}),
+            // As the 2024 rules: the background gives the increases.
+            Template::Background => json!({
+                "edition": "one",
+                "ability": [
+                    {"choose": {"weighted": {"from": ["str", "dex", "con"], "weights": [2, 1]}}},
+                    {"choose": {"weighted": {"from": ["str", "dex", "con"], "weights": [1, 1, 1]}}}
+                ],
+                "skillProficiencies": [{"athletics": true, "survival": true}],
+                "entries": ["Describe the background."]
+            }),
+            Template::Species => json!({"edition": "one", "size": ["M"], "speed": 30, "entries": ["Describe the species."]}),
         };
         v["name"] = json!(name);
         v["source"] = json!(source);

@@ -27,16 +27,17 @@
 use std::collections::HashMap;
 
 use dnt_data::{Key, Kind, Library};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::engine::{Effect, Model, Op, StatDef};
 use crate::formula::Formula;
 use crate::value::Value;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Recharge {
     ShortRest,
+    #[default]
     LongRest,
     Dawn,
     Manual,

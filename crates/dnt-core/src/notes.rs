@@ -41,6 +41,21 @@ pub fn vars(campaign: &str, title: &str) -> Vars {
     Vars { title: title.to_string(), date: today(), campaign: campaign.to_string(), character: String::new() }
 }
 
+/// The ```dnt query blocks to show with a note: its own, or, on the
+/// campaign's hub (`Campaign.md`) without any, a few useful ones.
+/// (title, query lines).
+pub fn query_blocks(open: Option<&NoteInfo>, hub: bool) -> Vec<(String, Vec<String>)> {
+    let own = open.map(|n| n.queries.clone()).unwrap_or_default();
+    if !own.is_empty() || !hub {
+        return own;
+    }
+    vec![
+        ("Open quests".into(), vec!["@Quests !status:done !status:failed".into()]),
+        ("Recent sessions".into(), vec!["@Sessions sort:-title limit:5".into()]),
+        ("People".into(), vec!["@NPCs !status:dead sort:title limit:8".into()]),
+    ]
+}
+
 /// Paths of notes matching a search query (all notes when empty).
 pub fn search(index: &[NoteInfo], query: &str) -> Vec<String> {
     notes::NoteQuery::parse(query).run(index).into_iter().map(|n| n.path.clone()).collect()

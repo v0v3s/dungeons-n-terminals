@@ -9,6 +9,7 @@
     hint = "",
     number = false,
     action = "OK",
+    error = "",
     onsubmit,
     onclose,
   }: {
@@ -17,6 +18,8 @@
     hint?: string;
     number?: boolean;
     action?: string;
+    /// Why the last try did not work (shown here, not behind the dialog).
+    error?: string;
     onsubmit: (value: string) => void;
     onclose: () => void;
   } = $props();
@@ -42,6 +45,7 @@
       <input bind:this={input} bind:value={text} inputmode={number ? "numeric" : "text"} spellcheck="false" autocomplete="off" />
     </label>
     {#if hint}<p class="dim">{hint}</p>{/if}
+    {#if error}<p class="err">{error}</p>{/if}
     <div class="actions">
       <button type="button" class="ghost" onclick={onclose}>Cancel</button>
       <button type="submit" class="primary">{action}</button>
@@ -50,6 +54,9 @@
 </Modal>
 
 <style>
+  .err {
+    color: var(--red);
+  }
   .line {
     display: flex;
     gap: 1ch;

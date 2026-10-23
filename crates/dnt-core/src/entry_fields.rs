@@ -32,34 +32,143 @@ pub struct Field {
     pub changed: bool,
     /// Not one of the kind's common fields.
     pub extra: bool,
+    /// Its name for people (empty: the data's name says it).
+    pub label: String,
+    /// What it is, in a few words.
+    pub help: String,
 }
 
-/// Common fields per kind, in order; the rest follow alphabetically.
-fn order(kind: Kind) -> &'static [&'static str] {
+/// What an item is, for which fields it has.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ItemKind {
+    Weapon,
+    Armor,
+    Other,
+}
+
+fn item_kind(data: &Value) -> ItemKind {
+    let ty = data.get("type").and_then(Value::as_str).unwrap_or("").split('|').next().unwrap_or("");
+    if data.get("weapon").and_then(Value::as_bool) == Some(true)
+        || data.get("weaponCategory").is_some()
+        || matches!(ty, "M" | "R" | "A" | "AF")
+    {
+        ItemKind::Weapon
+    } else if data.get("armor").and_then(Value::as_bool) == Some(true) || matches!(ty, "LA" | "MA" | "HA" | "S") {
+        ItemKind::Armor
+    } else {
+        ItemKind::Other
+    }
+}
+
+/// The fields a kind shows, in order (for items, by what the item is); the
+/// rest of what an entry has follows alphabetically.
+fn order(kind: Kind, data: &Value) -> &'static [&'static str] {
     match kind {
         Kind::Spell => {
             &["name", "level", "school", "time", "range", "components", "duration", "meta", "classes", "entries", "entriesHigherLevel"]
         }
-        Kind::Item | Kind::BaseItem | Kind::MagicVariant => &[
+        Kind::Item | Kind::BaseItem | Kind::MagicVariant => match item_kind(data) {
+            ItemKind::Weapon => &[
+                "name",
+                "type",
+                "rarity",
+                "reqAttune",
+                "weaponCategory",
+                "dmg1",
+                "dmg2",
+                "dmgType",
+                "property",
+                "range",
+                "bonusWeapon",
+                "weight",
+                "value",
+                "entries",
+            ],
+            ItemKind::Armor => {
+                &["name", "type", "rarity", "reqAttune", "ac", "strength", "stealth", "bonusAc", "weight", "value", "entries"]
+            }
+            ItemKind::Other => &["name", "type", "rarity", "reqAttune", "wondrous", "bonusAc", "weight", "value", "entries"],
+        },
+        Kind::Feat => &["name", "category", "prerequisite", "repeatable", "ability", "skillProficiencies", "entries"],
+        Kind::Background => &[
             "name",
-            "type",
-            "rarity",
-            "reqAttune",
-            "wondrous",
-            "weight",
-            "value",
-            "ac",
-            "bonusAc",
-            "weaponCategory",
-            "dmg1",
-            "dmg2",
-            "dmgType",
-            "bonusWeapon",
-            "property",
+            "ability",
+            "feats",
+            "skillProficiencies",
+            "toolProficiencies",
+            "languageProficiencies",
+            "startingEquipment",
             "entries",
         ],
-        Kind::Feat => &["name", "category", "prerequisite", "ability", "entries"],
+        Kind::Race | Kind::Subrace => &[
+            "name",
+            "size",
+            "speed",
+            "darkvision",
+            "ability",
+            "feats",
+            "skillProficiencies",
+            "languageProficiencies",
+            "toolProficiencies",
+            "weaponProficiencies",
+            "armorProficiencies",
+            "resist",
+            "entries",
+        ],
         _ => &["name", "entries"],
+    }
+}
+
+/// A field's name for people, and what it is, where the data's name says
+/// little.
+pub fn label(kind: Kind, field: &str) -> (&'static str, &'static str) {
+    let item = matches!(kind, Kind::Item | Kind::BaseItem | Kind::MagicVariant);
+    match field {
+        "name" => ("Name", ""),
+        "entries" => ("Description", ""),
+        "entriesHigherLevel" => ("At higher levels", ""),
+        "type" if item => ("Type", "what kind of item: weapon, armor, potion, ring, …"),
+        "rarity" => ("Rarity", ""),
+        "reqAttune" => ("Attunement", "whether it needs attuning, and by whom"),
+        "wondrous" => ("Wondrous item", "a magic item that is not a weapon, armor, potion, …"),
+        "weight" => ("Weight", "in pounds"),
+        "value" => ("Price", ""),
+        "weaponCategory" => ("Weapon category", "simple or martial"),
+        "dmg1" => ("Damage", "the weapon's damage dice"),
+        "dmg2" => ("Two-handed damage", "versatile weapons: the dice used with two hands"),
+        "dmgType" => ("Damage type", ""),
+        "property" => ("Properties", "finesse, light, versatile, …"),
+        "range" if item => ("Range", "normal/long, in feet: 80/320"),
+        "bonusWeapon" => ("Attack and damage bonus", "a magic weapon's bonus to attack and damage rolls"),
+        "bonusAc" => ("AC bonus", "added to Armor Class: magic armor, a ring of protection"),
+        "ac" => ("Armor Class", "the armor's base AC (a shield: its bonus)"),
+        "strength" => ("Strength needed", "heavy armor: the Strength score to move at full speed"),
+        "stealth" => ("Stealth disadvantage", "whether it gives disadvantage on Stealth"),
+        "level" if kind == Kind::Spell => ("Level", ""),
+        "school" => ("School", ""),
+        "time" => ("Casting time", ""),
+        "range" => ("Range", ""),
+        "components" => ("Components", ""),
+        "duration" => ("Duration", ""),
+        "meta" => ("Ritual", ""),
+        "classes" => ("Classes", "who has it on their spell list"),
+        "category" if kind == Kind::Feat => ("Category", ""),
+        "prerequisite" => ("Prerequisite", ""),
+        "ability" => ("Ability score increases", "which scores go up, and how the player chooses"),
+        "repeatable" => ("Repeatable", "whether it can be taken more than once"),
+        "edition" => ("Rules", "which edition it is written for"),
+        "feats" => ("Feats", "feats it grants"),
+        "skillProficiencies" => ("Skill proficiencies", ""),
+        "toolProficiencies" => ("Tool proficiencies", ""),
+        "languageProficiencies" => ("Languages", ""),
+        "weaponProficiencies" => ("Weapon proficiencies", ""),
+        "armorProficiencies" => ("Armor proficiencies", ""),
+        "startingEquipment" => ("Starting equipment", "what it gives at creation (JSON, as the data writes it)"),
+        "size" => ("Size", ""),
+        "speed" => ("Speed", "walking speed in feet (or JSON for fly, swim, …)"),
+        "darkvision" => ("Darkvision", "its range in feet"),
+        "resist" => ("Resistances", "damage types, e.g. [\"fire\"]"),
+        _ => ("", ""),
     }
 }
 
@@ -69,8 +178,8 @@ fn widget_for(kind: Kind, field: &str, value: Option<&Value>) -> Widget {
     }
     match (field, value) {
         ("entries" | "entriesHigherLevel" | "entriesTemplate", _) => Widget::Entries,
-        (_, Some(Value::Bool(_))) | ("wondrous", None) => Widget::Bool,
-        (_, Some(Value::Number(_))) | ("weight" | "ac", None) => Widget::Number,
+        (_, Some(Value::Bool(_))) | ("wondrous" | "stealth" | "repeatable", None) => Widget::Bool,
+        (_, Some(Value::Number(_))) | ("weight" | "ac" | "speed" | "darkvision", None) => Widget::Number,
         (_, Some(Value::String(_))) | (_, None) => Widget::Text,
         _ => Widget::Json,
     }
@@ -90,7 +199,7 @@ fn preview(v: &Value) -> String {
 pub fn fields(lib: &Library, of: &EntryRef, entry: Option<&serde_json::Map<String, Value>>) -> Vec<Field> {
     let Some(id) = of.entity(lib) else { return Vec::new() };
     let data = &lib.entity(id).data;
-    let common: Vec<String> = order(of.kind).iter().map(|s| s.to_string()).collect();
+    let common: Vec<String> = order(of.kind, data).iter().map(|s| s.to_string()).collect();
     let mut rest: Vec<String> = data
         .as_object()
         .into_iter()
@@ -124,7 +233,10 @@ pub fn fields(lib: &Library, of: &EntryRef, entry: Option<&serde_json::Map<Strin
                 (Some(v), Widget::Entries) => dnt_data::homebrew::entries_to_markdown(v).split_whitespace().collect::<Vec<_>>().join(" "),
                 (Some(v), _) => preview(v),
             };
+            let (label, help) = label(of.kind, &name);
             Field {
+                label: label.to_string(),
+                help: help.to_string(),
                 widget,
                 display,
                 changed: entry.is_some_and(|e| e.contains_key(&name)) && !(name == "name" && of.replaces),
@@ -228,6 +340,32 @@ mod tests {
         assert_eq!(field("wondrous").toggled(), json!(true));
         assert!(field("rarity").choices().is_some());
         assert_eq!(json_text(None), "null");
+
+        // A weapon has weapon fields, armor has armor fields.
+        lib.load_json(&json!({"item": [
+            {"name": "Club", "source": "CS", "weapon": true, "dmg1": "1d4", "property": ["L|XPHB"]},
+            {"name": "Mail", "source": "CS", "type": "HA|XPHB", "ac": 16}
+        ]}));
+        let of = |name: &str| EntryRef {
+            key: dnt_data::Key::new(Kind::Item, &[name, "CS"]),
+            kind: Kind::Item,
+            replaces: false,
+            doc: Doc::Campaign,
+        };
+        let club = super::fields(&lib, &of("Club"), None);
+        let names = |f: &[Field]| f.iter().filter(|f| !f.extra).map(|f| f.name.clone()).collect::<Vec<_>>();
+        assert!(names(&club).contains(&"dmg2".to_string()) && !names(&club).contains(&"ac".to_string()));
+        let mail = super::fields(&lib, &of("Mail"), None);
+        assert!(names(&mail).contains(&"strength".to_string()) && !names(&mail).contains(&"weaponCategory".to_string()));
+        let get = |f: &[Field], n: &str| {
+            f.iter().find(|x| x.name == n).map(|x| (x.label.clone(), x.display.clone(), x.parse("oops", &lib).is_err()))
+        };
+        assert_eq!(get(&club, "dmg1"), Some(("Damage".into(), "1d4".into(), true)), "dice must be dice");
+        let prop = club.iter().find(|f| f.name == "property").unwrap();
+        assert_eq!(prop.display, "Light");
+        assert_eq!(prop.parse("Light, Finesse, Spiky", &lib).unwrap(), Some(json!(["L|XPHB", "F|XPHB", "Spiky"])));
+        let bonus = club.iter().find(|f| f.name == "bonusWeapon").unwrap();
+        assert_eq!(bonus.parse("2", &lib).unwrap(), Some(json!("+2")));
         assert!(parse_json("{").is_err());
     }
 }

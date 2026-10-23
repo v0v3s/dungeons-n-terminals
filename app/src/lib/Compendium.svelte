@@ -8,6 +8,10 @@
   import Blocks from "./Blocks.svelte";
   import Pane from "./Pane.svelte";
   import SourcesEditor from "./SourcesEditor.svelte";
+  import BrewEditor from "./BrewEditor.svelte";
+  import Modal from "./Modal.svelte";
+  import Prompt from "./Prompt.svelte";
+  import { working } from "./working.svelte";
 
   let {
     touch = false,
@@ -28,8 +32,38 @@
   } = $props();
 
   let editingSources = $state(false);
+  /// What can be done with the shown entry (clone, edit, its original).
+  let actions: api.BrewActions | null = $state(null);
+  /// Showing the book original of a campaign version.
+  let original = $state(false);
+  /// Homebrew: the entry being edited, cloning, or making a new one.
+  let editing: api.Editing | null = $state(null);
+  let cloning = $state(false);
+  let copyName: string | null = $state(null);
+  let templates: [number, string][] | null = $state(null);
+  let newTemplate: [number, string] | null = $state(null);
+  /// Why naming a new entry or a copy did not work.
+  let nameError = $state("");
 
   let category = $state(0);
+  /// How results are ordered (remembered here).
+  let order = $state(loadOrder());
+  function loadOrder() {
+    try {
+      return Number(localStorage.getItem("dnt.order") ?? 0) || 0;
+    } catch {
+      return 0;
+    }
+  }
+  function setOrder(o: number) {
+    order = o;
+    try {
+      localStorage.setItem("dnt.order", String(o));
+    } catch {
+      // A preference only.
+    }
+    run();
+  }
   let query = $state("");
   let found: api.Found | null = $state(null);
   let selected = $state(0);
@@ -54,7 +88,7 @@
   async function run() {
     const ask = ++asked;
     try {
-      const f = await api.search(category, query);
+      const f = await api.search(category, query, order);
       if (ask !== asked) return;
       found = f;
       selected = 0;
@@ -76,6 +110,9 @@
     if (keep && entry) back = [...back, entry];
     else if (!keep) back = [];
     entry = e;
+    original = false;
+    actions = null;
+    api.brewActions(id).then((a) => entry?.id === id && (actions = a), () => {});
     await tick();
     detail?.scrollTo({ top: 0 });
   }
@@ -107,6 +144,85 @@
     } else {
       open = false;
     }
+  }
+
+  /// The library changed under the edited entry: search again, keeping
+  /// the search, and show the entry (by its new id).
+  async function refreshTo(id: number | null) {
+    const f = await api.search(category, query, order);
+    found = f;
+    const at = id === null ? -1 : f.rows.findIndex((r) => r.id === id);
+    selected = Math.max(0, at);
+    if (id !== null) await show(id, false);
+    else await show(f.rows[0]?.id, false);
+  }
+
+  async function toggleOriginal() {
+    if (!entry) return;
+    try {
+      if (original) {
+        entry = await api.entry(entry.id);
+        original = false;
+      } else {
+        entry = await api.brewOriginal(entry.id);
+        original = true;
+      }
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function edit() {
+    if (!entry) return;
+    try {
+      editing = await api.brewOpen(entry.id);
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function cloneAs(copy: string | null) {
+    if (!entry) return;
+    const id = entry.id;
+    try {
+      editing = await working("Cloning…", () => api.brewClone(id, copy));
+      cloning = false;
+      copyName = null;
+      nameError = "";
+      await refreshTo(editing.id);
+    } catch (e) {
+      if (copy !== null) nameError = String(e);
+      else error = String(e);
+    }
+  }
+
+  /// A new homebrew entry from a template (on touch screens, from the app bar).
+  export async function newEntry() {
+    if (!campaign) return oncampaigns();
+    try {
+      templates = await api.brewTemplates();
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function create(name: string) {
+    if (!newTemplate) return;
+    const t = newTemplate[0];
+    try {
+      editing = await working("Creating…", () => api.brewCreate(t, name));
+      newTemplate = null;
+      nameError = "";
+      await refreshTo(editing.id);
+    } catch (e) {
+      nameError = String(e);
+    }
+  }
+
+  async function closeEditor(id: number | null) {
+    editing = null;
+    await api.brewClose().catch(() => {});
+    await refreshTo(id);
   }
 
   /// Choose the sources (on touch screens, from the app bar).
@@ -259,6 +375,14 @@
 {/snippet}
 
 {#snippet rows()}
+  {#if found?.orders.length}
+    <label class="order">
+      <span class="dim">sort</span>
+      <select value={order} onchange={(e) => setOrder(Number(e.currentTarget.value))}>
+        {#each found.orders as label, i (i)}<option value={i}>{label}</option>{/each}
+      </select>
+    </label>
+  {/if}
   <ul class="rows" bind:this={list}>
     {#each found?.rows ?? [] as row, i (row.id)}
       <li data-i={i}>
@@ -277,6 +401,7 @@
 {/snippet}
 
 {#snippet sourcesButton()}
+  <button class="sources" title="A new homebrew entry, from a template" onclick={newEntry}>+ new</button>
   <button class="sources" title="The books the compendium shows" onclick={openSources}>
     <span class="at">@</span> {sourcesLabel} <span class="dim">▾</span>
   </button>
@@ -348,6 +473,13 @@
           <div class="sub">
             <span class="g-{entry.group}">{entry.kind}</span><span class="dim">{`  ·  ${entry.source}${entry.page ? ` · p. ${entry.page}` : ""}`}</span>
           </div>
+          {#if actions && (actions.edit || actions.clone || actions.original)}
+            <div class="entry-actions">
+              {#if actions.edit && !original}<button class="ghost" onclick={edit}>Edit</button>{/if}
+              {#if actions.clone}<button class="ghost" onclick={() => (cloning = true)}>Clone into the campaign</button>{/if}
+              {#if actions.original}<button class="ghost" class:on={original} onclick={toggleOriginal}>{original ? "The campaign version" : "Book original"}</button>{/if}
+            </div>
+          {/if}
         </div>
         <div class="doc" bind:this={detail}>
           <Blocks blocks={entry.blocks} {onlink} />
@@ -359,6 +491,56 @@
   </div>
   {#if error}<div class="error">{error}</div>{/if}
 </div>
+
+{#if editing}
+  <BrewEditor bind:editing onchanged={() => {}} onclose={closeEditor} />
+{/if}
+
+{#if cloning && entry}
+  <Modal title="Clone {entry.name}" onclose={() => (cloning = false)}>
+    <p class="dim">Into {campaign?.name}'s homebrew, to change it there.</p>
+    <div class="ways">
+      <button class="way" onclick={() => cloneAs(null)}>
+        <b>A campaign version</b><span class="dim">replaces the book entry in this campaign; what you change shows everywhere in it</span>
+      </button>
+      <button class="way" onclick={() => ((copyName = `${entry?.name} (copy)`), (cloning = false))}>
+        <b>A separate copy</b><span class="dim">a new entry under its own name; the book entry stays</span>
+      </button>
+    </div>
+  </Modal>
+{/if}
+
+{#if copyName !== null}
+  <Prompt title="The copy's name" value={copyName} action="Clone" error={nameError} onclose={() => ((copyName = null), (nameError = ""))} onsubmit={(n) => cloneAs(n)} />
+{/if}
+
+{#if templates}
+  <Modal title="New homebrew entry" onclose={() => (templates = null)}>
+    <p class="dim">In {campaign?.name}'s homebrew. Start from:</p>
+    <div class="ways">
+      {#each templates as t (t[0])}
+        <button
+          class="way"
+          onclick={() => {
+            newTemplate = t;
+            templates = null;
+          }}><b>{t[1]}</b></button
+        >
+      {/each}
+    </div>
+  </Modal>
+{/if}
+
+{#if newTemplate}
+  <Prompt
+    title="New {newTemplate[1].toLowerCase()}"
+    hint="Its name"
+    action="Create"
+    error={nameError}
+    onclose={() => ((newTemplate = null), (nameError = ""))}
+    onsubmit={create}
+  />
+{/if}
 
 {#if editingSources && campaign}
   <SourcesEditor {campaign} onsave={onstatus} onclose={() => (editingSources = false)} />
@@ -392,6 +574,46 @@
   }
   .sources .at {
     color: var(--blue);
+  }
+  .order {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1ch;
+    margin: 0.2em 0 0.4em;
+    flex-shrink: 0;
+  }
+  .order select {
+    font-size: 0.9em;
+  }
+  .entry-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1ch;
+    margin: 0.6em 0 0.4em;
+  }
+  .entry-actions .on {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .ways {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+  }
+  .way {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5em 1.5ch;
+    text-align: left;
+    cursor: pointer;
+  }
+  .way:hover {
+    border-color: var(--accent);
   }
   .categories {
     display: flex;

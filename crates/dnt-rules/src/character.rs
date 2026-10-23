@@ -85,6 +85,21 @@ pub struct Character {
     /// Manual overrides: stat key → formula (usually just a number).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub overrides: BTreeMap<String, String>,
+    /// Trackers the player keeps: a magic item's charges, a boon, …
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trackers: Vec<CustomTracker>,
+}
+
+/// Something with uses the player keeps track of, e.g. a ring that gives a
+/// 3rd-level slot once a day. Its uses are spent like a feature's.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CustomTracker {
+    /// A key of its own (letters, digits, `_`), e.g. `custom_ring`.
+    pub key: String,
+    pub name: String,
+    pub max: i64,
+    #[serde(default)]
+    pub recharge: crate::overlay::Recharge,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -481,6 +496,9 @@ pub struct State {
     pub death_successes: i64,
     #[serde(default, skip_serializing_if = "is_zero")]
     pub death_failures: i64,
+    /// Dead: three failed death saves, or killed outright.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dead: bool,
     /// Spell being concentrated on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub concentration: Option<String>,

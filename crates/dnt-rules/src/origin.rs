@@ -107,6 +107,22 @@ pub fn ability_grants(v: Option<&Json>) -> Vec<Vec<AbilityGrant>> {
         .collect()
 }
 
+/// A species' ability score increases: its `ability` list, or, for a
+/// species written for "customizing your origin" (`lineage`, as in
+/// Monsters of the Multiverse), +2 and +1, or +1 to three, to any.
+pub fn species_ability_grants(data: &Json) -> Vec<Vec<AbilityGrant>> {
+    let listed = ability_grants(data.get("ability"));
+    let lineage = data.get("lineage").is_some_and(|l| l.as_bool().unwrap_or(true) && !l.is_null());
+    if !listed.is_empty() || !lineage {
+        return listed;
+    }
+    let all: Vec<String> = ["str", "dex", "con", "int", "wis", "cha"].iter().map(|a| a.to_string()).collect();
+    vec![
+        vec![AbilityGrant::Weighted { from: all.clone(), weights: vec![2, 1] }],
+        vec![AbilityGrant::Weighted { from: all, weights: vec![1, 1, 1] }],
+    ]
+}
+
 /// Feats granted: fixed ones (as entity ids) and/or a choice from categories.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FeatGrant {
@@ -136,6 +152,18 @@ pub fn feat_grant(v: Option<&Json>) -> FeatGrant {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn lineage_species_choose_their_increases() {
+        let kenku = serde_json::json!({"name": "Kenku", "source": "MPMM", "lineage": "VRGR"});
+        let alts = species_ability_grants(&kenku);
+        assert_eq!(alts.len(), 2, "+2/+1, or +1/+1/+1");
+        let elf = serde_json::json!({"name": "Elf", "ability": [{"dex": 2}]});
+        assert_eq!(species_ability_grants(&elf).len(), 1);
+        let xphb = serde_json::json!({"name": "Elf", "source": "XPHB"});
+        assert!(species_ability_grants(&xphb).is_empty());
+        assert!(species_ability_grants(&serde_json::json!({"lineage": null})).is_empty());
+    }
+
     use super::*;
     use serde_json::json;
 

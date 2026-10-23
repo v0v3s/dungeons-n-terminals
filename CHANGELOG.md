@@ -8,6 +8,71 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- App: **homebrew editing**, as in the terminal. A book entry can be cloned
+  into the campaign (a version replacing it, or a separate copy); a
+  campaign version shows its book original. *+ new* (on phones *+* in the
+  top bar) makes an entry from a template (magic item, weapon, armor,
+  gear, spell, feat, optional feature, background, species). The editor
+  lists the fields, changed ones marked; each edits in its own way (a
+  choice, a line with a hint, Markdown or JSON), can go back to the book,
+  and the whole entry can be edited as JSON, given a new field, made
+  global (every campaign) or deleted.
+- App: **export** a character sheet as a printable page (or save it as PDF
+  from a browser) or as Markdown, from the sheet's ⋯.
+- App: **edit the character file** (abilities, species, background, …)
+  from the sheet's ⋯; it is checked before saving.
+- App: **a feature's rules**: *rules* on a feature writes or changes them,
+  checked as you type, listing what they change on the character.
+- App: **rolls into the session note**, switched on from the sheet's ⋯.
+- App: notes show what their ```dnt query blocks find (the campaign note
+  lists open quests, recent sessions and people); comments and the
+  blocks themselves are hidden when reading.
+- **Death saves**: at 0 hit points the sheet rolls them (a natural 20
+  brings 1 hit point back, a 1 fails twice; three successes: stable, three
+  failures: dead). Damage at 0 is a failed save, and damage that leaves as
+  much over 0 as the hit point maximum asks whether the character dies
+  outright. Terminal: `D` rolls a death save.
+- App: the compendium's results can be sorted (best match, name, source,
+  level or rarity).
+- App: the Spells tab shows the spell slots, with − and +.
+- **Custom trackers**: *+ Tracker* in the sheet's Tracking keeps count of
+  anything with uses (a ring's stored spell, a boon), refilled after a long
+  rest, a short rest, at dawn or never.
+- App: swiping sideways on the sheet changes the tab (not from the screen's
+  edges, which are the system's).
+- App, homebrew: backgrounds, species and feats have their own fields:
+  ability score increases (fixed, chosen, or +2/+1 among some), skill, tool,
+  weapon, armor and language proficiencies (ticked, or "any 2", "choose 2:
+  …"), feats by name, size, speed and darkvision. New backgrounds start in
+  the 2024 shape.
+- App: icons from game-icons.net (by Lorc and Delapouite, CC BY 3.0) for
+  the sections, the sheet's tabs, hit points, rolls, death and warnings;
+  the Data screen credits them under About.
+
+### Changed
+
+- App, character sheet: less crowded. The name is in the top bar only (on
+  phones), the numbers fit one row, *Level up* is in ⋯ only, and warnings
+  (like unmet multiclass requirements) are behind a ⚠.
+- App: *N spells to choose* opens the choosing, not just the Spells tab.
+- App: the sheet's latest rolls are folded away, the latest one in view.
+- App: the top bar keeps the menu next to Back.
+- App: a note opened from a character goes back to the character.
+- App, item editing: each kind of item has its own fields (a weapon's
+  damage and properties, armor's AC and Strength), with names people use
+  and what each is for. Damage must be dice, bonuses are +1 to +3, and
+  properties are ticked from a list (custom ones can be added).
+
+### Fixed
+
+- App: naming a new homebrew entry like an existing one says so in the
+  naming window, not behind it.
+- Species written for customizing your origin (Monsters of the Multiverse
+  and others, marked `lineage`) give their ability score increases at
+  creation: +2/+1 or +1/+1/+1, or none when a 2024 background gives them.
+
 ## v0.10.0 - 2026-10-20
 
 ### Added

@@ -543,6 +543,14 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         model.stats.push(StatDef { key: format!("resource.{}.max", r.key), base: r.max.clone(), origin: r.name.clone() });
     }
 
+    // ---- the player's own trackers ----
+    for t in &character.trackers {
+        let max = Formula::constant(Value::int(t.max.max(0)));
+        model.stats.push(StatDef { key: format!("resource.{}.max", t.key), base: max.clone(), origin: t.name.clone() });
+        let r = crate::overlay::Resource { key: t.key.clone(), name: t.name.clone(), max, recharge: t.recharge, short_rest_regain: None };
+        innate.push((r, "Your tracker".into()));
+    }
+
     // ---- overlays ----
     let mut resources = innate;
     let mut toggles = Vec::new();

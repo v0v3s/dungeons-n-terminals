@@ -39,6 +39,24 @@ pub enum Command {
     },
     Damage {
         amount: i64,
+        /// From a critical hit (two death save failures at 0 hit points).
+        #[serde(default)]
+        critical: bool,
+    },
+    /// Roll a death save (at 0 hit points).
+    DeathSave,
+    /// Keep track of something with uses (a magic item's charges).
+    AddTracker {
+        name: String,
+        max: i64,
+        recharge: dnt_rules::overlay::Recharge,
+    },
+    RemoveTracker {
+        key: String,
+    },
+    /// Dead (killed outright), or not.
+    SetDead {
+        dead: bool,
     },
     Heal {
         amount: i64,
@@ -233,9 +251,49 @@ impl CharacterSession {
                 let name = self.build.toggles.iter().find(|(t, _)| t.key == key).map_or(key, |(t, _)| t.name.clone());
                 Outcome::changed(format!("{name} {}", if on { "on" } else { "off" }))
             }
-            Command::Damage { amount } => {
-                play::damage(c, ev, amount);
-                Outcome::changed(format!("Damage {amount}"))
+            Command::Damage { amount, critical } => {
+                let d = play::damage(c, ev, amount, critical);
+                Outcome::changed(match (d.dead, d.failures) {
+                    (true, _) => format!("Damage {amount} at 0 hit points: a third failed death save, dead"),
+                    (_, 0) => format!("Damage {amount}"),
+                    (_, n) => format!("Damage {amount} at 0 hit points: {n} failed death save(s)"),
+                })
+            }
+            Command::DeathSave => {
+                if c.state.dead {
+                    return Err("Dead: no more death saves".into());
+                }
+                if play::current_hp(c, ev) > 0 {
+                    return Err("Death saves are made at 0 hit points".into());
+                }
+                let r = rolls::death_save(self);
+                return Ok(Outcome { message: "Death save".into(), changed: true, rolled: Some(r) });
+            }
+            Command::AddTracker { name, max, recharge } => {
+                let name = name.trim().to_string();
+                if name.is_empty() || max < 1 {
+                    return Err("A tracker needs a name and at least one use".into());
+                }
+                let base: String = name.to_lowercase().chars().map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' }).collect();
+                let base = format!("custom_{}", base.trim_matches('_'));
+                let mut key = base.clone();
+                let mut n = 2;
+                while c.trackers.iter().any(|t| t.key == key) {
+                    key = format!("{base}_{n}");
+                    n += 1;
+                }
+                c.trackers.push(dnt_rules::character::CustomTracker { key, name: name.clone(), max, recharge });
+                Outcome::changed(format!("Tracking {name}"))
+            }
+            Command::RemoveTracker { key } => {
+                let at = c.trackers.iter().position(|t| t.key == key).ok_or("No such tracker")?;
+                let t = c.trackers.remove(at);
+                c.state.resources_used.remove(&t.key);
+                Outcome::changed(format!("No longer tracking {}", t.name))
+            }
+            Command::SetDead { dead } => {
+                play::set_dead(c, dead);
+                Outcome::changed(if dead { "Dead" } else { "No longer dead" })
             }
             Command::Heal { amount } => {
                 play::heal(c, ev, amount);
@@ -505,7 +563,18 @@ mod tests {
         s.apply(&lib, o, Command::SetCondition { condition: "poisoned".into(), on: true }).unwrap();
         assert_eq!(s.character().state.conditions, ["Poisoned"]);
         assert!(s.apply(&lib, o, Command::SetCondition { condition: "sleepy".into(), on: true }).is_err());
-        s.apply(&lib, o, Command::Damage { amount: 3 }).unwrap();
+        s.apply(&lib, o, Command::Damage { amount: 3, critical: false }).unwrap();
+        s.apply(
+            &lib,
+            o,
+            Command::AddTracker { name: "Ring of Spell Storing".into(), max: 1, recharge: dnt_rules::overlay::Recharge::LongRest },
+        )
+        .unwrap();
+        let key = s.character().trackers[0].key.clone();
+        assert_eq!(key, "custom_ring_of_spell_storing");
+        assert!(s.build.resources.iter().any(|(r, _)| r.key == key), "a tracker is a resource");
+        s.apply(&lib, o, Command::Spend { pool: Pool::Resource { key: key.clone() }, amount: 1 }).unwrap();
+        assert!(s.apply(&lib, o, Command::Spend { pool: Pool::Resource { key: key.clone() }, amount: 1 }).is_err(), "only one use");
         assert!(s.apply(&lib, o, Command::LongRest).unwrap().message.starts_with("Long rest"));
         assert!(s.apply(&lib, o, Command::ChangeCoins { change: "+15gp".into() }).is_ok());
         assert_eq!(s.character().currency.gp, 15);

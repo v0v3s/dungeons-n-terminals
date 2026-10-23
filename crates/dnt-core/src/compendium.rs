@@ -84,6 +84,63 @@ impl Category {
     }
 }
 
+/// How results are ordered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Order {
+    /// Best matches first (by name when nothing is typed).
+    #[default]
+    Relevance,
+    Name,
+    NameDescending,
+    Source,
+    /// Spell level, or item rarity; others after.
+    Level,
+}
+
+impl Order {
+    pub const ALL: [Order; 5] = [Order::Relevance, Order::Name, Order::NameDescending, Order::Source, Order::Level];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Order::Relevance => "best match",
+            Order::Name => "name A–Z",
+            Order::NameDescending => "name Z–A",
+            Order::Source => "source",
+            Order::Level => "level · rarity",
+        }
+    }
+}
+
+/// A spell's level or an item's rarity, as a number to sort by.
+fn level_of(lib: &Library, id: EntityId) -> i64 {
+    const RARITY: [&str; 7] = ["none", "common", "uncommon", "rare", "very rare", "legendary", "artifact"];
+    let d = &lib.entity(id).data;
+    if let Some(l) = d.get("level").and_then(serde_json::Value::as_i64) {
+        return l;
+    }
+    match d.get("rarity").and_then(serde_json::Value::as_str) {
+        Some(r) => RARITY.iter().position(|x| *x == r).map_or(99, |p| p as i64),
+        None => 100,
+    }
+}
+
+/// `ids` in the given order (ties by name); relevance keeps them.
+pub fn sorted(lib: &Library, ids: &[EntityId], order: Order) -> Vec<EntityId> {
+    let mut out = ids.to_vec();
+    let name = |id: &EntityId| lib.entity(*id).name.to_lowercase();
+    match order {
+        Order::Relevance => {}
+        Order::Name => out.sort_by_cached_key(name),
+        Order::NameDescending => {
+            out.sort_by_cached_key(name);
+            out.reverse();
+        }
+        Order::Source => out.sort_by_cached_key(|id| (lib.entity(*id).source.to_lowercase(), name(id))),
+        Order::Level => out.sort_by_cached_key(|id| (level_of(lib, *id), name(id))),
+    }
+    out
+}
+
 pub struct Search {
     pub filter: SourceFilter,
     pub category: Category,

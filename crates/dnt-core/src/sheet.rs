@@ -111,6 +111,7 @@ pub struct Hp {
     pub temp: i64,
     pub death_successes: i64,
     pub death_failures: i64,
+    pub dead: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -380,6 +381,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             temp: st.temp_hp,
             death_successes: st.death_successes,
             death_failures: st.death_failures,
+            dead: st.dead,
         },
         conditions: st.conditions.iter().map(|c| Condition { name: c.clone(), summary: conditions::summary(c).into() }).collect(),
         exhaustion: st.exhaustion,

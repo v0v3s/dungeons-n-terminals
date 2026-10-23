@@ -259,15 +259,7 @@ fn draw_info(frame: &mut Frame, area: Rect, v: &NotesView, theme: &Theme) {
         }
     }
     // ```dnt query blocks in the open note; the hub has defaults.
-    let mut blocks: Vec<(String, Vec<String>)> = open.map(|n| n.queries.clone()).unwrap_or_default();
-    if blocks.is_empty() && hub {
-        blocks = vec![
-            ("Open quests".into(), vec!["@Quests !status:done !status:failed".into()]),
-            ("Recent sessions".into(), vec!["@Sessions sort:-title limit:5".into()]),
-            ("People".into(), vec!["@NPCs !status:dead sort:title limit:8".into()]),
-        ];
-    }
-    for (title, queries) in blocks {
+    for (title, queries) in dnt_core::notes::query_blocks(open, hub) {
         for q in queries {
             let results = notes::NoteQuery::parse(&q).run(&v.index);
             let label = if title.is_empty() { q.clone() } else { title.clone() };

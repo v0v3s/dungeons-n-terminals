@@ -97,6 +97,8 @@ pub enum Popup {
     Overlay(Box<crate::overlay_editor::OverlayEditor>),
     /// Conditions and exhaustion (cursor row; the last is exhaustion).
     Conditions(usize),
+    /// Damage this big kills outright: dead, or left at 0 hit points?
+    KillOutright(i64),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -608,6 +610,21 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::None;
             }
+            Popup::KillOutright(amount) => {
+                sheet.popup = None;
+                let dead = match key.code {
+                    KeyCode::Char('y') | KeyCode::Enter => true,
+                    KeyCode::Char('n') => false,
+                    _ => return Action::None,
+                };
+                if let Err(e) = sheet.session.apply(lib, overlays, Command::Damage { amount, critical: false }) {
+                    return Action::Status(e);
+                }
+                if dead {
+                    return run(sheet, lib, overlays, Command::SetDead { dead: true });
+                }
+                return Action::Save(format!("Damage {amount}: at 0 hit points, dying"));
+            }
             Popup::Undo => {
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
@@ -649,8 +666,13 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     KeyCode::Enter => {
                         sheet.popup = None;
                         let Ok(amount) = text.parse::<i64>() else { return Action::None };
+                        let session = &sheet.session;
+                        if prompt == Prompt::Damage && dnt_rules::play::kills_outright(session.character(), &session.ev, amount) {
+                            sheet.popup = Some(Popup::KillOutright(amount));
+                            return Action::None;
+                        }
                         let command = match prompt {
-                            Prompt::Damage => Command::Damage { amount },
+                            Prompt::Damage => Command::Damage { amount, critical: false },
                             Prompt::Heal => Command::Heal { amount },
                             Prompt::TempHp => Command::SetTempHp { amount },
                         };
@@ -675,6 +697,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             sheet.popup = Some(Popup::Input(Prompt::Damage, String::new()));
             return Action::None;
         }
+        KeyCode::Char('D') => return run(sheet, lib, overlays, Command::DeathSave),
         KeyCode::Char('h') => {
             sheet.popup = Some(Popup::Input(Prompt::Heal, String::new()));
             return Action::None;

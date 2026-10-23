@@ -118,6 +118,9 @@ fn skill_name(k: &str) -> &'static str {
 }
 
 fn describe_alternative(parts: &[AbilityGrant]) -> String {
+    if parts.is_empty() {
+        return "None: the background gives the increases (2024 rules)".into();
+    }
     parts
         .iter()
         .map(|p| match p {
@@ -360,12 +363,26 @@ impl NewCharacter {
             Step::BonusAlternative => {
                 // Gather ability grants from species/subspecies/background.
                 if st.alternatives.is_empty() && st.bonus_tasks.is_empty() {
+                    // A 2024 background gives the increases; a species may too
+                    // (older ones, or those for customizing your origin): then
+                    // its increases can be left out.
+                    let background_gives =
+                        st.background.is_some_and(|b| !origin::ability_grants(lib.entity(b).data.get("ability")).is_empty());
                     for (prefix, id) in [("Species", st.species), ("Species", st.subspecies), ("Background", st.background)] {
                         let Some(id) = id else { continue };
-                        let grants = origin::ability_grants(lib.entity(id).data.get("ability"));
-                        if !grants.is_empty() {
-                            st.alternatives.push((format!("{prefix} ({})", lib.entity(id).name), grants));
+                        let data = &lib.entity(id).data;
+                        let mut grants = if prefix == "Species" {
+                            origin::species_ability_grants(data)
+                        } else {
+                            origin::ability_grants(data.get("ability"))
+                        };
+                        if grants.is_empty() {
+                            continue;
                         }
+                        if prefix == "Species" && background_gives {
+                            grants.push(Vec::new());
+                        }
+                        st.alternatives.push((format!("{prefix} ({})", lib.entity(id).name), grants));
                     }
                 }
                 let Some((origin, alts)) = st.alternatives.first().cloned() else { return false };

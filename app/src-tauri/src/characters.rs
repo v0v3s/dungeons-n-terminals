@@ -6,6 +6,7 @@ use dnt_core::flow::{choice_question, Answer, Question};
 use dnt_core::levelup::LevelUp;
 use dnt_core::sheet::{self, Breakdown, Condition, FeatureGroup, Header, Inventory, Overview, SpellRow};
 use dnt_core::{options, rolls, spellbook, CharacterSession, Choice, Command, Outcome};
+use dnt_data::EntityId;
 use dnt_rules::standard::SKILLS;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -300,6 +301,129 @@ pub struct Step {
 
 fn levelup_step(flow: &LevelUp) -> Step {
     Step { question: flow.question.clone(), summary: flow.summary.clone() }
+}
+
+#[derive(Serialize)]
+pub struct RulesDraft {
+    /// The overlay id, e.g. `feat:Tough|XPHB`.
+    id: String,
+    name: String,
+    /// `user`, `builtin` (dnt's) or `new` (a template).
+    origin: &'static str,
+    text: String,
+    checked: Checked,
+}
+
+#[derive(Serialize)]
+pub struct Checked {
+    errors: Vec<String>,
+    changes: Vec<String>,
+}
+
+fn checked(inner: &Inner, entity: EntityId, text: &str) -> Res<Checked> {
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let s = inner.sheet.as_ref().ok_or("No character is open")?;
+    let c = dnt_core::rules::check(lib, entity, text, &s.file.character, &inner.ws.overlays, &s.ev);
+    Ok(Checked { errors: c.errors, changes: c.changes })
+}
+
+/// A feature's rules to edit: the user's, dnt's built-in ones or a
+/// template, checked against the open character.
+#[tauri::command]
+pub async fn rules_open(app: State<'_, App>, entity: EntityId) -> Res<RulesDraft> {
+    use dnt_core::rules::{self, Origin};
+    let inner = app.lock();
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let id = rules::overlay_id(lib, entity);
+    let (origin, text) = rules::start(lib, entity, inner.ws.store.feature_overlay(&id));
+    let checked = checked(&inner, entity, &text)?;
+    Ok(RulesDraft {
+        id,
+        name: lib.entity(entity).name.clone(),
+        origin: match origin {
+            Origin::User => "user",
+            Origin::Builtin => "builtin",
+            Origin::New => "new",
+        },
+        text,
+        checked,
+    })
+}
+
+#[tauri::command]
+pub async fn rules_check(app: State<'_, App>, entity: EntityId, text: String) -> Res<Checked> {
+    checked(&app.lock(), entity, &text)
+}
+
+/// Save a feature's rules (empty: remove yours, back to dnt's), and apply
+/// them.
+#[tauri::command]
+pub async fn rules_save(app: State<'_, App>, entity: EntityId, text: String) -> Res<Sheet> {
+    let mut inner = app.lock();
+    let c = checked(&inner, entity, &text)?;
+    if let Some(e) = c.errors.first() {
+        return Err(format!("Not saved: {e}"));
+    }
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let id = dnt_core::rules::overlay_id(lib, entity);
+    inner.ws.store.save_feature_overlay(&id, &dnt_core::rules::to_save(&text)).map_err(|e| format!("Could not save the rules: {e}"))?;
+    inner.ws.reload_rules();
+    let slug = inner.sheet.as_ref().map(|s| s.file.slug.clone()).ok_or("No character is open")?;
+    open_slug(&mut inner, &slug)?;
+    sheet_of(&inner)
+}
+
+/// Whether `amount` damage would kill the open character outright.
+#[tauri::command]
+pub async fn kills_outright(app: State<'_, App>, amount: i64) -> Res<bool> {
+    let inner = app.lock();
+    let s = inner.sheet.as_ref().ok_or("No character is open")?;
+    Ok(dnt_rules::play::kills_outright(&s.file.character, &s.ev, amount))
+}
+
+/// The open character's file (TOML), to edit as text.
+#[tauri::command]
+pub async fn character_text(app: State<'_, App>) -> Res<String> {
+    let inner = app.lock();
+    let s = inner.sheet.as_ref().ok_or("No character is open")?;
+    inner.ws.store.fs().read_to_string(&s.file.path).map_err(|e| format!("Could not read the character: {e}"))
+}
+
+/// Save the open character's file from edited text (checked first), and
+/// open it again.
+#[tauri::command]
+pub async fn character_set_text(app: State<'_, App>, text: String) -> Res<Sheet> {
+    let mut inner = app.lock();
+    let s = inner.sheet.as_ref().ok_or("No character is open")?;
+    dnt_rules::character::Character::from_toml(&text).map_err(|e| format!("Not saved: {e}"))?;
+    let (path, slug) = (s.file.path.clone(), s.file.slug.clone());
+    inner.ws.store.write_text(&path, &text).map_err(|e| format!("Could not save the character: {e}"))?;
+    open_slug(&mut inner, &slug)?;
+    sheet_of(&inner)
+}
+
+/// Export the open character: `html` (a page to print, or save as PDF
+/// from a browser) or `markdown`, to `path` (a path, or a `content://`
+/// URI on Android) from the save dialog.
+#[tauri::command]
+pub async fn export_sheet(handle: tauri::AppHandle, app: State<'_, App>, format: String, path: String) -> Res<String> {
+    use std::io::Write;
+    use tauri_plugin_fs::{FsExt, OpenOptions};
+    let inner = app.lock();
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let s = inner.sheet.as_ref().ok_or("No character is open")?;
+    let doc = dnt_core::export::character(lib, s);
+    let text = match format.as_str() {
+        "html" => dnt_core::export::to_html(&doc),
+        "markdown" => dnt_core::export::to_markdown(&doc),
+        other => return Err(format!("No export as {other}")),
+    };
+    let file: tauri_plugin_fs::FilePath = path.parse().map_err(|e| format!("{e}"))?;
+    let mut opts = OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    let mut out = handle.fs().open(file, opts).map_err(|e| format!("Could not write the file: {e}"))?;
+    out.write_all(text.as_bytes()).map_err(|e| format!("Could not write the file: {e}"))?;
+    Ok(format!("Exported {}", s.file.character.name))
 }
 
 #[tauri::command]

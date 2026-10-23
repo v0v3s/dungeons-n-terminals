@@ -35,21 +35,104 @@ pub fn current_hp(c: &Character, ev: &Evaluation) -> i64 {
     c.state.hp.unwrap_or(max_hp(ev)).min(max_hp(ev))
 }
 
-/// Take damage: temporary hit points absorb it first.
-pub fn damage(c: &mut Character, ev: &Evaluation, amount: i64) {
+/// What damage did beyond the hit points.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Damaged {
+    /// Death save failures it added (at 0 hit points: 1, 2 for a critical hit).
+    pub failures: i64,
+    /// Three failures now: dead.
+    pub dead: bool,
+}
+
+/// Whether `amount` damage would kill outright: what is left after
+/// dropping to 0 hit points is at least the hit point maximum (also when
+/// already at 0).
+pub fn kills_outright(c: &Character, ev: &Evaluation, amount: i64) -> bool {
+    let after_temp = (amount.max(0) - c.state.temp_hp).max(0);
+    after_temp > 0 && after_temp - current_hp(c, ev) >= max_hp(ev)
+}
+
+/// Take damage: temporary hit points absorb it first. At 0 hit points it
+/// is a failed death save (two for a critical hit).
+pub fn damage(c: &mut Character, ev: &Evaluation, amount: i64, critical: bool) -> Damaged {
     let amount = amount.max(0);
     let absorbed = amount.min(c.state.temp_hp);
     c.state.temp_hp -= absorbed;
-    let hp = (current_hp(c, ev) - (amount - absorbed)).max(0);
+    let was = current_hp(c, ev);
+    let hp = (was - (amount - absorbed)).max(0);
     c.state.hp = Some(hp);
+    let mut out = Damaged::default();
+    if was == 0 && amount > absorbed && !c.state.dead {
+        out.failures = if critical { 2 } else { 1 };
+        c.state.death_failures = (c.state.death_failures + out.failures).min(3);
+        if c.state.death_failures >= 3 {
+            c.state.dead = true;
+            out.dead = true;
+        }
+    }
+    out
 }
 
 pub fn heal(c: &mut Character, ev: &Evaluation, amount: i64) {
+    if c.state.dead {
+        return;
+    }
     let hp = (current_hp(c, ev) + amount.max(0)).min(max_hp(ev));
     c.state.hp = if hp >= max_hp(ev) { None } else { Some(hp) };
     if hp > 0 {
         c.state.death_successes = 0;
         c.state.death_failures = 0;
+    }
+}
+
+/// What a death save did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeathSave {
+    /// A natural 20: back up with 1 hit point.
+    Revived,
+    Success,
+    /// Three successes: stable at 0 hit points.
+    Stable,
+    /// A failure (two on a natural 1).
+    Failure,
+    /// Three failures.
+    Dead,
+}
+
+/// Record a death save rolled as `natural` (the d20) and `total`: 10 or
+/// more succeeds, a natural 20 brings 1 hit point back, a natural 1 counts
+/// twice.
+pub fn death_save(c: &mut Character, natural: i64, total: i64) -> DeathSave {
+    let st = &mut c.state;
+    if natural == 20 {
+        st.hp = Some(1);
+        st.death_successes = 0;
+        st.death_failures = 0;
+        return DeathSave::Revived;
+    }
+    if total >= 10 {
+        st.death_successes = (st.death_successes + 1).min(3);
+        return if st.death_successes >= 3 { DeathSave::Stable } else { DeathSave::Success };
+    }
+    st.death_failures = (st.death_failures + if natural == 1 { 2 } else { 1 }).min(3);
+    if st.death_failures >= 3 {
+        st.dead = true;
+        DeathSave::Dead
+    } else {
+        DeathSave::Failure
+    }
+}
+
+/// Dead (killed outright, or chosen), or back from it.
+pub fn set_dead(c: &mut Character, dead: bool) {
+    c.state.dead = dead;
+    if dead {
+        c.state.hp = Some(0);
+        c.state.temp_hp = 0;
+        c.state.death_failures = 3;
+    } else {
+        c.state.death_failures = 0;
+        c.state.death_successes = 0;
     }
 }
 
@@ -172,6 +255,10 @@ pub fn short_rest(c: &mut Character, build: &Build, ev: &Evaluation) -> RestRepo
 
 pub fn long_rest(c: &mut Character, build: &Build, ev: &Evaluation, edition: Edition) -> RestReport {
     let mut report = RestReport::default();
+    // Resting does not bring the dead back.
+    if c.state.dead {
+        return report;
+    }
     for (r, _) in &build.resources {
         if r.recharge != Recharge::Manual && c.state.resources_used.remove(&r.key).is_some() {
             report.restored.push(r.name.clone());
@@ -282,12 +369,41 @@ mod tests {
         set_temp_hp(&mut c, 5);
         set_temp_hp(&mut c, 3);
         assert_eq!(c.state.temp_hp, 5, "temp HP doesn't stack");
-        damage(&mut c, &ev, 8);
+        damage(&mut c, &ev, 8, false);
         assert_eq!((c.state.temp_hp, current_hp(&c, &ev)), (0, 17));
-        damage(&mut c, &ev, 100);
-        assert_eq!(current_hp(&c, &ev), 0);
+        damage(&mut c, &ev, 15, false);
+        assert_eq!(current_hp(&c, &ev), 2);
         heal(&mut c, &ev, 50);
         assert_eq!(c.state.hp, None, "full HP is stored as None");
+    }
+
+    #[test]
+    fn dying_and_death() {
+        let (mut c, build, ev) = setup();
+        // 20 hit points: 40 damage leaves 20 over, the maximum.
+        assert!(!kills_outright(&c, &ev, 39) && kills_outright(&c, &ev, 40));
+        set_temp_hp(&mut c, 5);
+        assert!(!kills_outright(&c, &ev, 40), "temporary hit points take some");
+
+        damage(&mut c, &ev, 30, false);
+        assert_eq!((current_hp(&c, &ev), c.state.death_failures), (0, 0), "dropping to 0 is no failure");
+        assert_eq!(damage(&mut c, &ev, 1, false).failures, 1);
+        assert_eq!(death_save(&mut c, 12, 12), DeathSave::Success);
+        assert_eq!(death_save(&mut c, 1, 1), DeathSave::Dead, "a natural 1 fails twice");
+        assert!(c.state.dead);
+        heal(&mut c, &ev, 10);
+        long_rest(&mut c, &build, &ev, Edition::Modern);
+        assert_eq!(current_hp(&c, &ev), 0, "neither heals the dead");
+
+        set_dead(&mut c, false);
+        assert_eq!(death_save(&mut c, 20, 20), DeathSave::Revived);
+        assert_eq!(current_hp(&c, &ev), 1);
+        damage(&mut c, &ev, 1, false);
+        for _ in 0..2 {
+            death_save(&mut c, 15, 15);
+        }
+        assert_eq!(death_save(&mut c, 10, 10), DeathSave::Stable);
+        assert_eq!(damage(&mut c, &ev, 2, true).failures, 2, "a critical hit at 0 fails twice");
     }
 
     #[test]
@@ -325,7 +441,7 @@ mod tests {
     #[test]
     fn long_rest_by_edition() {
         let (mut c, build, ev) = setup();
-        damage(&mut c, &ev, 10);
+        damage(&mut c, &ev, 10, false);
         spend_resource(&mut c, &ev, "rage", 3);
         spend_hit_die(&mut c, &ev, 10, 3);
         spend_hit_die(&mut c, &ev, 6, 2);

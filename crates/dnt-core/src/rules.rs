@@ -1,0 +1,155 @@
+//! Writing a feature's rules (an overlay): which rules it starts from (the
+//! user's, dnt's built-in ones, or a template), and checking a draft
+//! against a character: problems with it, and what it changes. The editor
+//! around it is the frontend's.
+
+use dnt_data::{EntityId, Kind, Library};
+use dnt_rules::builder::build;
+use dnt_rules::character::Character;
+use dnt_rules::overlay::{Overlay, OverlaySet};
+use dnt_rules::{builtin, Evaluation};
+
+/// Where the starting text came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    /// The user's own overlay file.
+    User,
+    /// dnt's built-in overlay (saving makes a user version that replaces it).
+    Builtin,
+    /// A template: nothing automates this feature yet.
+    New,
+}
+
+/// The overlay id for an entity: `<type>:<reference>` in the data format's pipe
+/// syntax.
+pub fn overlay_id(lib: &Library, entity: EntityId) -> String {
+    let e = lib.entity(entity);
+    let s = |k: &str| e.data.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let level = e.data.get("level").and_then(|v| v.as_i64()).unwrap_or(0);
+    let reference = match e.kind {
+        Kind::ClassFeature => format!("{}|{}|{}|{level}|{}", e.name, s("className"), s("classSource"), e.source),
+        Kind::SubclassFeature => format!(
+            "{}|{}|{}|{}|{}|{level}|{}",
+            e.name,
+            s("className"),
+            s("classSource"),
+            s("subclassShortName"),
+            s("subclassSource"),
+            e.source
+        ),
+        _ => format!("{}|{}", e.name, e.source),
+    };
+    format!("{}:{reference}", e.kind.json_key())
+}
+
+/// The text to start editing a feature's rules from: the user's overlay
+/// (`user`), dnt's built-in one, or a template.
+pub fn start(lib: &Library, entity: EntityId, user: Option<String>) -> (Origin, String) {
+    let (origin, text) = match user {
+        Some(t) => (Origin::User, t),
+        None => match builtin::source_for(&lib.entity(entity).key) {
+            Some(t) => (Origin::Builtin, t),
+            None => (Origin::New, dnt_rules::overlay::template(&overlay_id(lib, entity), &lib.entity(entity).name)),
+        },
+    };
+    (origin, text.trim_end().to_string())
+}
+
+/// What a draft does: its problems (none: it can be saved) and what it
+/// changes on the character (`stat: before → after`).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Checked {
+    pub errors: Vec<String>,
+    pub changes: Vec<String>,
+}
+
+/// Check a draft of a feature's rules: parse it, make sure it names this
+/// feature, and compare the character with and without it. An empty draft
+/// means the built-in rules (if any).
+pub fn check(lib: &Library, entity: EntityId, text: &str, character: &Character, overlays: &OverlaySet, current: &Evaluation) -> Checked {
+    let mut out = Checked::default();
+    let mut set = overlays.clone();
+    let key = lib.entity(entity).key.clone();
+    if text.trim().is_empty() {
+        // Saving nothing brings back the built-in rules.
+        set.remove(&key);
+        if let Some(b) = builtin::source_for(&key).and_then(|t| Overlay::parse(&t).ok()) {
+            set.add(b.0);
+        }
+    } else {
+        match Overlay::parse(text) {
+            Err(e) => {
+                out.errors.push(e);
+                return out;
+            }
+            Ok((overlay, diags)) => {
+                out.errors.extend(diags.iter().map(|d| format!("{}: {}", d.location, d.message)));
+                out.errors.extend(overlay.unresolved(lib).into_iter().map(|id| format!("not in the library: {id}")));
+                if !overlay.features.iter().any(|f| f.keys.contains(&key)) {
+                    out.errors.push(format!("no [[feature]] with id = \"{}\"", overlay_id(lib, entity)));
+                }
+                set.remove(&key);
+                set.replace(overlay);
+            }
+        }
+    }
+    if !out.errors.is_empty() {
+        return out;
+    }
+    let draft = build(character, lib, &set).evaluate();
+    let value = |ev: &Evaluation, k: &str| ev.stats.get(k).and_then(|r| r.value.as_ref().ok()).map(|v| v.to_string());
+    let mut keys: Vec<&String> = draft.stats.keys().chain(current.stats.keys()).collect();
+    keys.sort();
+    keys.dedup();
+    for k in keys {
+        let (before, after) = (value(current, k), value(&draft, k));
+        if before != after && !k.starts_with("toggle.") {
+            out.changes.push(match (before, after) {
+                (Some(b), Some(a)) => format!("{k}: {b} → {a}"),
+                (None, Some(a)) => format!("{k}: new, {a}"),
+                (Some(b), None) => format!("{k}: {b} → gone"),
+                (None, None) => continue,
+            });
+        }
+    }
+    out
+}
+
+/// The text to save from an editor: empty to remove the user's rules,
+/// else with one final newline.
+pub fn to_save(text: &str) -> String {
+    if text.trim().is_empty() {
+        String::new()
+    } else {
+        text.trim_end().to_string() + "\n"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn checks_drafts_against_the_character() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"feat": [{"name": "Stout", "source": "T", "entries": ["x"]}]}));
+        let feat = lib.get(&dnt_data::Key::new(Kind::Feat, &["Stout", "T"])).unwrap();
+        assert_eq!(overlay_id(&lib, feat), "feat:Stout|T");
+        let c = Character { name: "A".into(), feats: vec!["feat:Stout|T".into()], ..Character::default() };
+        let overlays = OverlaySet::default();
+        let current = build(&c, &lib, &overlays).evaluate();
+
+        let (origin, text) = start(&lib, feat, None);
+        assert_eq!(origin, Origin::New);
+        let checked = check(&lib, feat, &text, &c, &overlays, &current);
+        assert!(checked.errors.is_empty() && checked.changes.is_empty(), "the template changes nothing: {:?}", checked.errors);
+
+        let draft = "[[feature]]\nid = \"feat:Stout|T\"\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"5\"\n";
+        assert_eq!(check(&lib, feat, draft, &c, &overlays, &current).changes, ["speed: 30 → 35"]);
+
+        let other = check(&lib, feat, "[[feature]]\nid = \"feat:Other|T\"\n", &c, &overlays, &current);
+        assert!(other.errors.iter().any(|e| e.contains("no [[feature]] with id")), "{:?}", other.errors);
+        assert_eq!((to_save("  \n"), to_save("x\n\n")), (String::new(), "x\n".to_string()));
+    }
+}

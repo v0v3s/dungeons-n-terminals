@@ -4,6 +4,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./api";
   import { working } from "./working.svelte";
+  import { ICONS } from "./icons";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
 
@@ -40,6 +41,9 @@
       label: "Resetting…",
     },
   };
+
+  /// Who drew the icons, for the credits.
+  const iconAuthors = [...new Set(Object.values(ICONS).map((i) => i.author))].sort();
 
   async function reset(what: Reset) {
     error = "";
@@ -148,6 +152,14 @@
       </details>
     </Pane>
   {/if}
+  <Pane title="About">
+    <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It ships no game content and reads the data you import.</p>
+    <p class="dim">
+      Icons by {iconAuthors.join(" and ")} from <span class="url">game-icons.net</span>, under CC BY 3.0
+      (<span class="url">creativecommons.org/licenses/by/3.0</span>).
+    </p>
+    <p class="dim">Not affiliated with Wizards of the Coast.</p>
+  </Pane>
   </div>
 </div>
 
@@ -165,6 +177,9 @@
 {/if}
 
 <style>
+  .url {
+    color: var(--link);
+  }
   summary {
     cursor: pointer;
     color: var(--gray);

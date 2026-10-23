@@ -45,6 +45,16 @@ pub struct Note {
     text: String,
     /// Notes that link here.
     backlinks: Vec<(String, String)>,
+    /// Its ```dnt query blocks, run: what each found.
+    queries: Vec<Query>,
+}
+
+#[derive(Serialize)]
+pub struct Query {
+    title: String,
+    query: String,
+    /// (path, title).
+    results: Vec<(String, String)>,
 }
 
 #[tauri::command]
@@ -55,7 +65,18 @@ pub async fn note_read(app: State<'_, App>, path: String) -> Res<Note> {
     let index = n.index();
     let info = store_notes::NoteInfo::parse(&path, &text);
     let backlinks = store_notes::backlinks(&index, &info).into_iter().map(|b| (b.path.clone(), b.title.clone())).collect();
-    Ok(Note { title: info.title, path, text, backlinks })
+    // ```dnt query blocks, run (the hub has a few of its own).
+    let queries = core_notes::query_blocks(Some(&info), path == "Campaign.md")
+        .into_iter()
+        .flat_map(|(title, lines)| {
+            let index = &index;
+            lines.into_iter().map(move |q| {
+                let results = store_notes::NoteQuery::parse(&q).run(index).into_iter().map(|r| (r.path.clone(), r.title.clone())).collect();
+                Query { title: if title.is_empty() { q.clone() } else { title.clone() }, query: q, results }
+            })
+        })
+        .collect();
+    Ok(Note { title: info.title, path, text, backlinks, queries })
 }
 
 #[tauri::command]
@@ -131,6 +152,14 @@ pub async fn note_resolve(app: State<'_, App>, target: String) -> Res<Link> {
 pub async fn note_capture(app: State<'_, App>, text: String) -> Res<String> {
     let inner = app.lock();
     core_notes::capture(&notes(&inner)?, &text)
+}
+
+/// Add a roll to the latest session note. Returns its path, or nothing
+/// when there is no session note yet.
+#[tauri::command]
+pub async fn note_log(app: State<'_, App>, line: String) -> Res<Option<String>> {
+    let inner = app.lock();
+    notes(&inner)?.log_to_session(&line).map_err(|e| e.to_string())
 }
 
 /// Today's session note (a new one). Returns its path.

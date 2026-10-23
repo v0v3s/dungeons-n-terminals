@@ -20,7 +20,13 @@ function inline(text: string): string {
 }
 
 export function render(text: string): string {
-  const lines = text.replace(/\r/g, "").split("\n");
+  // Comments are notes to the writer; ```dnt blocks show their results
+  // below the note instead.
+  const shown = text
+    .replace(/\r/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/^[ \t]*```dnt[^\n]*\n[\s\S]*?^[ \t]*```[ \t]*$/gm, "");
+  const lines = shown.split("\n");
   const out: string[] = [];
   let i = 0;
   // Frontmatter as a dim property list.

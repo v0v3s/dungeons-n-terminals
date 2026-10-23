@@ -252,6 +252,11 @@ and builds the app, for every pull request.
 dnt is a fan project and not affiliated with Wizards of the Coast; it
 ships no game content and reads the data you provide.
 
+The app's icons are by Lorc and Delapouite from
+[game-icons.net](https://game-icons.net), under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+(`app/src/lib/icons.ts`); the app credits them on its Data screen.
+
 ## License
 
 MIT

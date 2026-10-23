@@ -359,6 +359,26 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &fill.picker, theme);
         }
+        Some(Popup::KillOutright(amount)) => {
+            let rect = centered(area, 64, 6);
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title("Killed outright?", true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
+            frame.render_widget(
+                Paragraph::new(vec![
+                    Line::raw(format!("{amount} damage leaves as much over 0 as the hit point maximum: instant death.")),
+                    Line::from(vec![
+                        Span::styled(" y ", theme.keycap),
+                        Span::styled(" dead  ", theme.dim),
+                        Span::styled(" n ", theme.keycap),
+                        Span::styled(" leave at 0 hit points  ", theme.dim),
+                        Span::styled(" esc ", theme.keycap),
+                        Span::styled(" cancel", theme.dim),
+                    ]),
+                ])
+                .block(block),
+                rect,
+            );
+        }
         Some(Popup::Undo) => {
             let rect = centered(area, 52, 5);
             frame.render_widget(Clear, rect);
@@ -837,11 +857,19 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         hp_line.push(Span::styled(format!("  +{} temp", ch.state.temp_hp), base.fg(Color::Cyan)));
     }
     lines.push(Line::from(hp_line).style(base));
-    if hp == 0 {
+    if ch.state.dead {
+        lines.push(Line::styled("✝ Dead", Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)));
+    } else if hp == 0 {
+        let st = &ch.state;
+        let state = if st.death_successes >= 3 { "  stable" } else { "  D roll" };
         lines.push(Line::from(vec![
             Span::styled(format!("{:<12}", "Death saves"), theme.label),
-            Span::styled("✓".repeat(ch.state.death_successes as usize), Style::new().fg(Color::Green)),
-            Span::styled("  ✗".repeat(ch.state.death_failures as usize), Style::new().fg(Color::Red)),
+            Span::styled("●".repeat(st.death_successes as usize), Style::new().fg(Color::Green)),
+            Span::styled("○".repeat(3 - st.death_successes.min(3) as usize), theme.dim),
+            Span::raw("  "),
+            Span::styled("●".repeat(st.death_failures as usize), Style::new().fg(Color::Red)),
+            Span::styled("○".repeat(3 - st.death_failures.min(3) as usize), theme.dim),
+            Span::styled(state, theme.dim),
         ]));
     }
     // Conditions (C to change) and what they do.

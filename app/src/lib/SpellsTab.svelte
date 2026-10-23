@@ -1,10 +1,10 @@
 <!-- Spells per casting class and per feature, favorites first. Tap a
      spell for what you can do with it. -->
 <script lang="ts">
-  import type { SpellRow } from "./api";
-  import type { SheetCtx } from "./sheetctx";
+  import type { SpellRow, Tracker } from "./api";
+  import { pool, type SheetCtx } from "./sheetctx";
 
-  let { rows, ctx }: { rows: SpellRow[]; ctx: SheetCtx } = $props();
+  let { rows, slots = [], ctx }: { rows: SpellRow[]; slots?: Tracker[]; ctx: SheetCtx } = $props();
 
   const MARK = { cantrip: "◦", prepared: "●", book: "○", granted: "◆" };
 
@@ -39,6 +39,19 @@
 </script>
 
 <div class="spells">
+  {#if slots.length}
+    <div class="slots">
+      {#each slots as t (t.id)}
+        <div class="slot">
+          <span class="sname">{t.name}</span>
+          <span class="pips"><span class="acc">{"●".repeat(Math.max(t.left, 0))}</span><span class="dim">{"○".repeat(Math.max(t.max - t.left, 0))}</span></span>
+          <span class="count">{t.left}/{t.max}</span>
+          <button class="step" aria-label="Use" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: 1 })}>−</button>
+          <button class="step" aria-label="Restore" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: -1 })}>+</button>
+        </div>
+      {/each}
+    </div>
+  {/if}
   {#if !rows.length}
     <p class="muted">No spellcasting yet.</p>
     <p class="dim">Spellcasting classes, subclasses and feats like Magic Initiate add spells here.</p>
@@ -71,6 +84,34 @@
 </div>
 
 <style>
+  .slots {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5em 1.5ch;
+    margin-bottom: 1.2em;
+  }
+  .slot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 5ch 2.4em 2.4em;
+    gap: 1ch;
+    align-items: center;
+  }
+  .slot .count {
+    text-align: right;
+    color: var(--gray);
+  }
+  .slot .pips {
+    letter-spacing: 0.15ch;
+  }
+  .step {
+    border: 1px solid var(--border) !important;
+    border-radius: 4px;
+    text-align: center !important;
+    min-height: 2em;
+  }
   .spells {
     max-width: 110ch;
     padding-top: 0.6em;
@@ -144,6 +185,13 @@
     margin-top: 1.5em;
   }
   @media (max-width: 760px) {
+    .slot {
+      min-height: 44px;
+      grid-template-columns: minmax(0, 1fr) auto 4ch 44px 44px;
+    }
+    .step {
+      min-height: 40px;
+    }
     .spell {
       grid-template-columns: 2ch minmax(0, 1fr);
       min-height: 48px;

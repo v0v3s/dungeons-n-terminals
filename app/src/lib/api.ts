@@ -102,6 +102,9 @@ export interface Found {
   category: number;
   hints: [string, string][];
   suggestions: [string, number][];
+  /// The orders results can be in, and the one used.
+  orders: string[];
+  order: number;
 }
 
 export interface Style {
@@ -151,7 +154,7 @@ export interface Entry {
   blocks: Block[];
 }
 
-export const search = (category: number, query: string) => invoke<Found>("search", { category, query });
+export const search = (category: number, query: string, order = 0) => invoke<Found>("search", { category, query, order });
 export const entry = (id: number) => invoke<Entry>("entry", { id });
 export const follow = (link: Link) => invoke<number | null>("follow", { tag: link.tag, args: link.args });
 
@@ -230,7 +233,7 @@ export interface Overview {
   casting: { name: string; dc: string; attack: string }[];
   skills: Skill[];
   tiles: { key: string; label: string; value: string }[];
-  hp: { current: number; max: number; temp: number; death_successes: number; death_failures: number };
+  hp: { current: number; max: number; temp: number; death_successes: number; death_failures: number; dead: boolean };
   conditions: Condition[];
   exhaustion: number;
   exhaustion_summary: string;
@@ -446,6 +449,8 @@ export interface Note {
   title: string;
   text: string;
   backlinks: [string, string][];
+  /// Its query blocks, run: (title, query, results as (path, title)).
+  queries: { title: string; query: string; results: [string, string][] }[];
 }
 
 export type NoteLink =
@@ -465,3 +470,91 @@ export const noteResolve = (target: string) => invoke<NoteLink>("note_resolve", 
 export const noteCapture = (text: string) => invoke<string>("note_capture", { text });
 export const noteNewSession = () => invoke<string>("note_new_session");
 export const noteForCharacter = (name: string) => invoke<string>("note_character_note", { name });
+
+// ---- homebrew editing ----
+
+export interface BrewActions {
+  /// Your own entry: it can be edited.
+  edit: boolean;
+  /// A book entry: it can be cloned into the campaign.
+  clone: boolean;
+  /// A campaign version: its book original can be shown.
+  original: boolean;
+  why: string;
+}
+
+export interface FieldRow {
+  name: string;
+  display: string;
+  widget: "text" | "number" | "bool" | "entries" | "json" | "form";
+  hint: string;
+  choices: string[] | null;
+  /// Several choices can be ticked (and custom ones added).
+  multi: boolean;
+  /// Its name for people (empty: use name).
+  label: string;
+  help: string;
+  text: string;
+  changed: boolean;
+  extra: boolean;
+}
+
+export interface Editing {
+  id: number;
+  name: string;
+  kind: string;
+  doc: "campaign" | "global";
+  replaces: boolean;
+  fields: FieldRow[];
+  message: string;
+}
+
+export type SetTo =
+  | { type: "text"; value: string }
+  | { type: "choice"; value: number }
+  | { type: "toggle" }
+  | { type: "json"; value: string }
+  | { type: "clear" };
+
+export const brewActions = (id: number) => invoke<BrewActions>("brew_actions", { id });
+export const brewOriginal = (id: number) => invoke<Entry>("brew_original", { id });
+export const brewOpen = (id: number) => invoke<Editing>("brew_open", { id });
+/// Clone into the campaign: replacing the book entry, or (with a name) as a copy.
+export const brewClone = (id: number, copy: string | null) => invoke<Editing>("brew_clone", { id, copy });
+export const brewTemplates = () => invoke<[number, string][]>("brew_templates");
+export const brewCreate = (template: number, name: string) => invoke<Editing>("brew_create", { template, name });
+export const brewSet = (field: string, to: SetTo) => invoke<Editing>("brew_set", { field, to });
+export const brewJson = () => invoke<string>("brew_json");
+export const brewReplace = (json: string) => invoke<Editing>("brew_replace", { json });
+export const brewDelete = () => invoke<string>("brew_delete");
+export const brewPromote = () => invoke<Editing>("brew_promote");
+export const brewClose = () => invoke<void>("brew_close");
+
+/// Export the open character, to a path from the save dialog.
+export const exportSheet = (format: "html" | "markdown", path: string) => invoke<string>("export_sheet", { format, path });
+/// Add a roll to the latest session note (its path, or null without one).
+export const noteLog = (line: string) => invoke<string | null>("note_log", { line });
+/// The open character's file (TOML), and saving it from edited text.
+export const characterText = () => invoke<string>("character_text");
+export const characterSetText = (text: string) => invoke<Sheet>("character_set_text", { text });
+
+// ---- a feature's rules ----
+
+export interface Checked {
+  errors: string[];
+  changes: string[];
+}
+
+export interface RulesDraft {
+  id: string;
+  name: string;
+  origin: "user" | "builtin" | "new";
+  text: string;
+  checked: Checked;
+}
+
+export const rulesOpen = (entity: number) => invoke<RulesDraft>("rules_open", { entity });
+export const rulesCheck = (entity: number, text: string) => invoke<Checked>("rules_check", { entity, text });
+export const rulesSave = (entity: number, text: string) => invoke<Sheet>("rules_save", { entity, text });
+/// Whether this much damage would kill the open character outright.
+export const killsOutright = (amount: number) => invoke<boolean>("kills_outright", { amount });

@@ -12,6 +12,7 @@
   import Compendium from "$lib/Compendium.svelte";
   import Data from "$lib/Data.svelte";
   import Welcome from "$lib/Welcome.svelte";
+  import Icon from "$lib/Icon.svelte";
   import Drawer from "$lib/Drawer.svelte";
   import Notes from "$lib/Notes.svelte";
   import { closeTop } from "$lib/modals";
@@ -48,7 +49,11 @@
   function go(s: string) {
     section = s as Section;
     welcome = false;
+    returnTo = null;
   }
+
+  /// A note opened from somewhere else (a character's): Back returns there.
+  let returnTo = $state<Section | null>(null);
 
   /// Android's back button: close what is open, step back inside the
   /// section, go back to the compendium, and only then leave.
@@ -73,17 +78,30 @@
   async function stepBack(): Promise<boolean> {
     if (section === "compendium") return compendium?.stepBack() ?? false;
     if (section === "characters") return (await characters?.back()) ?? false;
-    if (section === "notes") return (await notes?.stepBack()) ?? false;
+    if (section === "notes") {
+      // Opened from a character: back to it once there is no note to go back to.
+      if (returnTo && !notes?.canGoBack()) {
+        await notes?.save();
+        section = returnTo;
+        returnTo = null;
+        return true;
+      }
+      return (await notes?.stepBack()) ?? false;
+    }
     return false;
   }
 
-  /// The compendium's sources, as the app bar's action.
-  const appAction = $derived.by(() => {
-    if (welcome || section !== "compendium" || opened || !status?.loaded) return null;
+  /// The compendium's actions in the app bar: a new homebrew entry, and
+  /// its sources.
+  const appActions = $derived.by(() => {
+    if (welcome || section !== "compendium" || opened || !status?.loaded) return [];
     const c = status.campaigns.find((c) => c.active);
     const books = !c?.sources.length ? "all" : String(c.sources.length);
     const label = c?.homebrew.length ? `${books} +${c.homebrew.length}` : books;
-    return { label, name: "Sources", onclick: () => compendium?.openSources() };
+    return [
+      { label: "+", name: "New homebrew entry", onclick: () => compendium?.newEntry() },
+      { label: `@ ${label}`, name: "Sources", onclick: () => compendium?.openSources() },
+    ];
   });
 
   /// The app bar's title: what is open, or the section.
@@ -94,11 +112,12 @@
       (welcome ? "getting started" : label(section).toLowerCase()),
   );
   const opened = $derived(
-    (section === "compendium" && narrow.current && !!reading) || (section === "characters" && !!characterOpen) || (section === "notes" && narrow.current && !!noteOpen),
+    (section === "compendium" && narrow.current && !!reading) || (section === "characters" && !!characterOpen) || (section === "notes" && ((narrow.current && !!noteOpen) || !!returnTo)),
   );
 
   function openNote(path: string) {
     notePath = path;
+    returnTo = section === "characters" ? "characters" : null;
     section = "notes";
   }
 
@@ -147,7 +166,7 @@
 
 <div class="app" class:touch={touch.current}>
   {#if touch.current}
-    <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} action={appAction} />
+    <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} actions={appActions} />
     <Drawer
       bind:open={drawer}
       sections={SECTIONS.map(([id, l]) => [id, l, ""])}
@@ -162,6 +181,7 @@
         {#each SECTIONS as [id, l], i (id)}
           <button class:active={!welcome && section === id} onclick={() => go(id)}>
             <span class="n">{i + 1}</span>
+            <Icon name={id} />
             {l}
           </button>
         {/each}

@@ -53,7 +53,7 @@
     }
   }
 
-  async function save() {
+  export async function save() {
     if (!note || !dirty) return;
     try {
       await api.noteWrite(note.path, text);
@@ -83,6 +83,11 @@
     } catch (e) {
       error = String(e);
     }
+  }
+
+  /// Whether Back goes to a previous note.
+  export function canGoBack(): boolean {
+    return back.length > 0;
   }
 
   /// Back: to the previous note, then (narrow) to the tree.
@@ -345,6 +350,13 @@
         {:else}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <div class="read" onclick={onread}>{@html render(text)}</div>
+          {#each note.queries as q, i (i)}
+            <div class="query">
+              <div class="qtitle"><span class="acc">{q.title}</span> <span class="dim">· {q.results.length}</span></div>
+              {#if !q.results.length}<div class="dim">Nothing yet.</div>{/if}
+              {#each q.results as [path, title] (path)}<button onclick={() => open(path)}>{title}</button>{/each}
+            </div>
+          {/each}
           {#if note.backlinks.length}
             <div class="backlinks">
               <span class="dim">Linked from</span>
@@ -393,6 +405,25 @@
 {/if}
 
 <style>
+  .query {
+    margin-top: 1em;
+    padding-top: 0.5em;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .query button {
+    background: none;
+    border: 0;
+    padding: 0.15em 0;
+    color: var(--link);
+    cursor: pointer;
+    text-align: left;
+  }
+  .qtitle {
+    margin-bottom: 0.2em;
+  }
   .notes {
     flex: 1;
     min-height: 0;

@@ -2,6 +2,8 @@
      left over a dimmed screen. -->
 <script lang="ts">
   import { fade, fly } from "svelte/transition";
+  import Icon from "./Icon.svelte";
+  import { ICONS, type IconName } from "./icons";
 
   let {
     open = $bindable(false),
@@ -39,7 +41,7 @@
             open = false;
           }}
         >
-          <span class="keycap">{i + 1}</span>
+          {#if id in ICONS}<span class="sicon"><Icon name={id as IconName} size="1.4em" /></span>{:else}<span class="keycap">{i + 1}</span>{/if}
           <span class="label">{label}</span>
           {#if hint}<span class="dim hint">{hint}</span>{/if}
         </button>
@@ -50,6 +52,13 @@
 {/if}
 
 <style>
+  .sicon {
+    color: var(--dim);
+    display: inline-flex;
+  }
+  .item.active .sicon {
+    color: var(--accent);
+  }
   .scrim {
     position: fixed;
     inset: 0;

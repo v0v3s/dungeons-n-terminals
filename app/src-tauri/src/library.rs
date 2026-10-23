@@ -95,6 +95,8 @@ pub async fn import_zip(handle: tauri::AppHandle, app: State<'_, App>, path: Str
 #[tauri::command]
 pub async fn clear_imported(app: State<'_, App>, homebrew_only: bool) -> Res<Status> {
     let mut inner = app.lock();
+    // An entry being edited belongs to the old campaign or data.
+    inner.editing = None;
     inner.ws.clear_imported(homebrew_only)?;
     inner.library_changed();
     status_of(&inner)
@@ -104,6 +106,8 @@ pub async fn clear_imported(app: State<'_, App>, homebrew_only: bool) -> Res<Sta
 #[tauri::command]
 pub async fn reset_app(app: State<'_, App>) -> Res<Status> {
     let mut inner = app.lock();
+    // An entry being edited belongs to the old campaign or data.
+    inner.editing = None;
     inner.sheet = None;
     inner.ws.reset()?;
     inner.library_changed();
@@ -165,6 +169,8 @@ pub async fn create_campaign(app: State<'_, App>, name: String, sources: Vec<Str
 #[tauri::command]
 pub async fn activate_campaign(app: State<'_, App>, slug: String) -> Res<Status> {
     let mut inner = app.lock();
+    // An entry being edited belongs to the old campaign or data.
+    inner.editing = None;
     inner.sheet = None;
     inner.ws.activate(&slug)?;
     inner.library_changed();
@@ -189,6 +195,8 @@ pub async fn set_campaign_sources(
 #[tauri::command]
 pub async fn delete_campaign(app: State<'_, App>, slug: String) -> Res<Status> {
     let mut inner = app.lock();
+    // An entry being edited belongs to the old campaign or data.
+    inner.editing = None;
     let was_active = inner.ws.active_campaign().is_some_and(|c| c.slug == slug);
     if was_active {
         inner.sheet = None;
@@ -239,12 +247,16 @@ pub struct Found {
     /// What `#`, `*` and `^` mean in this category.
     hints: &'static [(char, &'static str)],
     suggestions: Vec<(String, usize)>,
+    /// The orders results can be in (labels), and the one used.
+    orders: Vec<&'static str>,
+    order: usize,
 }
 
 const MAX_ROWS: usize = 400;
 
 #[tauri::command]
-pub async fn search(app: State<'_, App>, category: usize, query: String) -> Res<Found> {
+pub async fn search(app: State<'_, App>, category: usize, query: String, order: Option<usize>) -> Res<Found> {
+    use dnt_core::compendium::{sorted, Order};
     let mut guard = app.lock();
     let inner = &mut *guard;
     let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
@@ -257,8 +269,9 @@ pub async fn search(app: State<'_, App>, category: usize, query: String) -> Res<
     if s.query != query {
         s.set_query(lib, query);
     }
-    let rows = s
-        .results
+    let order = order.unwrap_or(0).min(Order::ALL.len() - 1);
+    let ids = sorted(lib, &s.results, Order::ALL[order]);
+    let rows = ids
         .iter()
         .take(MAX_ROWS)
         .map(|&id| {
@@ -273,6 +286,8 @@ pub async fn search(app: State<'_, App>, category: usize, query: String) -> Res<
         category,
         hints: s.category.hints(),
         suggestions: s.suggestions.clone(),
+        orders: Order::ALL.iter().map(|o| o.label()).collect(),
+        order,
     })
 }
 
@@ -285,6 +300,17 @@ pub struct Entry {
     source: String,
     page: Option<u64>,
     blocks: Vec<dnt_data::doc::Block>,
+}
+
+impl Entry {
+    pub fn set_blocks(&mut self, blocks: Vec<dnt_data::doc::Block>) {
+        self.blocks = blocks;
+    }
+
+    /// Say where it is from beyond its source (e.g. "book original").
+    pub fn set_source_note(&mut self, note: &str) {
+        self.source = format!("{} · {note}", self.source);
+    }
 }
 
 pub fn entry_of(inner: &Inner, id: EntityId) -> Res<Entry> {

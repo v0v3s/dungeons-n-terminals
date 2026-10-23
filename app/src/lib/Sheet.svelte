@@ -1,6 +1,7 @@
 <!-- A character sheet: the header, the tabs, and the dialogs they use. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import { save } from "@tauri-apps/plugin-dialog";
   import * as api from "./api";
   import Ask from "./Ask.svelte";
   import EntryModal from "./EntryModal.svelte";
@@ -10,6 +11,9 @@
   import OverviewTab from "./OverviewTab.svelte";
   import Picker from "./Picker.svelte";
   import Prompt from "./Prompt.svelte";
+  import RulesEditor from "./RulesEditor.svelte";
+  import Icon from "./Icon.svelte";
+  import type { IconName } from "./icons";
   import SpellsTab from "./SpellsTab.svelte";
   import type { SheetCtx } from "./sheetctx";
 
@@ -20,6 +24,13 @@
   }: { sheet: api.Sheet; onclose: () => void; onnote: (path: string) => void } = $props();
 
   const TABS = ["Overview", "Features", "Spells", "Inventory", "Notes"] as const;
+  const TAB_ICONS: Record<(typeof TABS)[number], IconName> = {
+    Overview: "characters",
+    Features: "features",
+    Spells: "spells",
+    Inventory: "inventory",
+    Notes: "notes",
+  };
   type Tab = (typeof TABS)[number];
   let tab: Tab = $state("Overview");
 
@@ -34,6 +45,34 @@
     timer = setTimeout(() => ((message = ""), (rolled = null)), r ? 9000 : 4000);
   }
 
+  // ---- rolls into the session note ----
+  /// Write each roll into the latest session note too (remembered here).
+  let logRolls = $state(load());
+  function load() {
+    try {
+      return localStorage.getItem("dnt.logRolls") === "1";
+    } catch {
+      return false;
+    }
+  }
+  function setLogRolls(on: boolean) {
+    logRolls = on;
+    try {
+      localStorage.setItem("dnt.logRolls", on ? "1" : "0");
+    } catch {
+      // A preference only.
+    }
+    say(on ? "Rolls also go into the latest session note" : "Rolls are no longer written into the session note");
+  }
+  async function log(line: string) {
+    if (!logRolls) return;
+    try {
+      if ((await api.noteLog(line)) === null) say(`${line} · no session note yet (Notes: + Note in Sessions)`);
+    } catch (e) {
+      say(String(e));
+    }
+  }
+
   // ---- dialogs ----
   type Dialog =
     | { kind: "menu"; title: string; actions: [string, () => void][] }
@@ -44,7 +83,10 @@
     | { kind: "conditions"; list: [api.Condition, boolean][] }
     | { kind: "levelup"; step: api.Step }
     | { kind: "pending"; p: api.PendingChoice }
-    | { kind: "confirm"; title: string; text: string; then: () => void };
+    | { kind: "confirm"; title: string; text: string; then: () => void }
+    | { kind: "file"; text: string; error: string }
+    | { kind: "rules"; entity: number }
+    | { kind: "warnings" };
   let dialog: Dialog | null = $state(null);
   const close = () => (dialog = null);
 
@@ -54,6 +96,7 @@
       sheet = done.sheet;
       const r = done.outcome.rolled;
       say(done.outcome.message, r);
+      if (r) log(done.outcome.message);
       return true;
     } catch (e) {
       say(String(e));
@@ -68,6 +111,7 @@
         const r = await api.roll(what);
         sheet = r.sheet;
         say(r.line, r.rolled);
+        log(r.line);
       } catch (e) {
         say(String(e));
       }
@@ -84,6 +128,7 @@
     menu: (title, actions) => (dialog = { kind: "menu", title, actions }),
     prompt: (title, then, opts = {}) => (dialog = { kind: "prompt", title, then, ...opts }),
     show: (id) => (dialog = { kind: "entry", id }),
+    rules: (entity) => (dialog = { kind: "rules", entity }),
     async explain(key) {
       const b = await api.breakdown(key);
       if (b) dialog = { kind: "breakdown", b };
@@ -172,7 +217,94 @@
           }),
       ],
       ["Open the character's note", openNote],
+      ["Edit the character file…", editFile],
+      [logRolls ? "Stop writing rolls into the session note" : "Write rolls into the session note", () => setLogRolls(!logRolls)],
+      ["Export as a printable page…", () => exportAs("html")],
+      ["Export as Markdown…", () => exportAs("markdown")],
     ]);
+  }
+
+  // A new tab starts at its top.
+  let body: HTMLElement | undefined = $state();
+  $effect(() => {
+    void tab;
+    body?.scrollTo({ top: 0 });
+  });
+
+  // ---- swiping between tabs ----
+  /// Where a touch started; swipes from the screen's edges are the system's.
+  let touchFrom: { x: number; y: number; t: number } | null = null;
+  const EDGE = 40;
+  const SWIPED = TABS.filter((t) => t !== "Notes");
+
+  function swipeStart(e: TouchEvent) {
+    const p = e.touches[0];
+    touchFrom = e.touches.length === 1 && p.clientX > EDGE && p.clientX < window.innerWidth - EDGE ? { x: p.clientX, y: p.clientY, t: Date.now() } : null;
+  }
+
+  function swipeEnd(e: TouchEvent) {
+    const from = touchFrom;
+    touchFrom = null;
+    const p = e.changedTouches[0];
+    if (!from || !p || Date.now() - from.t > 600) return;
+    const dx = p.clientX - from.x;
+    const dy = p.clientY - from.y;
+    // A clear sideways swipe, not a scroll.
+    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    const at = SWIPED.indexOf(tab as (typeof SWIPED)[number]);
+    const next = SWIPED[at + (dx < 0 ? 1 : -1)];
+    if (next) tab = next;
+  }
+
+  /// Spells to choose: go to the Spells tab and choose the first that are
+  /// missing (a feature's grant, else a class short of its spells).
+  function chooseSpells() {
+    tab = "Spells";
+    const add = (o: api.Options, ids: string[]) => ctx.act({ command: "add_spells", to: o.target, ids });
+    const choice = sheet.spells.find((r) => r.type === "choice");
+    if (choice?.type === "choice") {
+      return ctx.pick({ type: "grant_spells", key: choice.key, filter: choice.filter, missing: choice.missing }, (ids, o) => add(o, ids));
+    }
+    const short = sheet.spells.find((r) => r.type === "header" && r.class_id && r.counts.some(([, have, max]) => have < max));
+    if (short?.type === "header" && short.class_id) {
+      ctx.pick({ type: "class_spells", class_id: short.class_id }, (ids, o) => add(o, ids));
+    }
+  }
+
+  /// The character's file as text: abilities, species, background and
+  /// anything else, as stored.
+  async function editFile() {
+    try {
+      dialog = { kind: "file", text: await api.characterText(), error: "" };
+    } catch (e) {
+      say(String(e));
+    }
+  }
+
+  async function saveFile(text: string) {
+    try {
+      sheet = await api.characterSetText(text);
+      close();
+      say("Saved the character");
+    } catch (e) {
+      if (dialog?.kind === "file") dialog = { ...dialog, error: String(e) };
+    }
+  }
+
+  /// Save the sheet as a page to print (or save as PDF from a browser), or
+  /// as Markdown.
+  async function exportAs(format: "html" | "markdown") {
+    const ext = format === "html" ? "html" : "md";
+    const path = await save({
+      defaultPath: `${sheet.header.name}.${ext}`,
+      filters: [{ name: format === "html" ? "Web page" : "Markdown", extensions: [ext] }],
+    });
+    if (!path) return;
+    try {
+      say(await api.exportSheet(format, path));
+    } catch (e) {
+      say(String(e));
+    }
   }
 
   async function openNote() {
@@ -195,27 +327,34 @@
       <div class="muted id">{sheet.header.identity}</div>
     </div>
     <div class="actions">
-      {#if sheet.header.pending}<button class="flag" onclick={nextPending}>{sheet.header.pending} choice(s) to make</button>{/if}
-      {#if sheet.header.spells_to_choose}<button class="flag" onclick={() => (tab = "Spells")}>{sheet.header.spells_to_choose} spell(s) to choose</button>{/if}
-      <button class="primary" onclick={levelUp}>{sheet.header.level ? "Level up" : "First level"}</button>
-      <button class="ghost" onclick={more} aria-label="More">⋯</button>
+      {#if sheet.header.warnings.length}
+        <button class="ghost icon warnbtn" aria-label="Warnings" onclick={() => (dialog = { kind: "warnings" })}><Icon name="warning" /></button>
+      {/if}
+      <button class="ghost icon" onclick={more} aria-label="More">⋯</button>
     </div>
   </div>
-  {#if sheet.header.warnings.length}<div class="warn">⚠ {sheet.header.warnings.join(" · ")}</div>{/if}
+  {#if sheet.header.pending || sheet.header.spells_to_choose || !sheet.header.level}
+    <div class="flags">
+      {#if !sheet.header.level}<button class="flag" onclick={levelUp}>Take the first level</button>{/if}
+      {#if sheet.header.pending}<button class="flag" onclick={nextPending}>{sheet.header.pending} {sheet.header.pending === 1 ? "choice" : "choices"}<span class="wide"> to make</span></button>{/if}
+      {#if sheet.header.spells_to_choose}<button class="flag" onclick={chooseSpells}>{sheet.header.spells_to_choose} {sheet.header.spells_to_choose === 1 ? "spell" : "spells"}<span class="wide"> to choose</span></button>{/if}
+    </div>
+  {/if}
 
   <div class="tabs no-bar">
     {#each TABS as t (t)}
-      <button class:active={tab === t} onclick={() => (t === "Notes" ? openNote() : (tab = t))}>{t}</button>
+      <button class:active={tab === t} onclick={() => (t === "Notes" ? openNote() : (tab = t))}><Icon name={TAB_ICONS[t]} /> {t}</button>
     {/each}
   </div>
 
-  <div class="body">
+  <!-- Swiping sideways changes the tab (the tabs above do the same). -->
+  <div class="body" role="presentation" bind:this={body} ontouchstart={swipeStart} ontouchend={swipeEnd}>
     {#if tab === "Overview"}
       <OverviewTab o={sheet.overview} {ctx} onconditions={conditions} />
     {:else if tab === "Features"}
       <FeaturesTab groups={sheet.features} {ctx} />
     {:else if tab === "Spells"}
-      <SpellsTab rows={sheet.spells} {ctx} />
+      <SpellsTab rows={sheet.spells} slots={sheet.overview.trackers.filter((t) => t.id.startsWith("slot:") || t.id === "pact")} {ctx} />
     {:else if tab === "Inventory"}
       <InventoryTab inv={sheet.inventory} {ctx} />
     {/if}
@@ -224,7 +363,7 @@
   {#if message}
     <div class="status" class:roll={rolled}>
       {#if rolled}
-        <span class="rtitle">{rolled.title}</span>
+        <span class="rtitle"><Icon name="d20" /> {rolled.title}</span>
         <b class:crit={rolled.crit === true} class:fumble={rolled.crit === false}>{rolled.result}</b>
         <span class="dim">{rolled.detail}</span>
         {#each rolled.extra as e, i (i)}<div>{e}</div>{/each}
@@ -232,6 +371,40 @@
     </div>
   {/if}
 </div>
+
+{#if dialog?.kind === "warnings"}
+  <Modal title="Warnings" onclose={close}>
+    <ul class="warnings">
+      {#each sheet.header.warnings as w (w)}<li><Icon name="warning" /> {w}</li>{/each}
+    </ul>
+  </Modal>
+{/if}
+
+{#if dialog?.kind === "rules"}
+  <RulesEditor
+    entity={dialog.entity}
+    character={sheet.header.name}
+    onclose={close}
+    onsaved={(s, m) => {
+      sheet = s;
+      close();
+      say(m);
+    }}
+  />
+{/if}
+
+{#if dialog?.kind === "file"}
+  {@const d = dialog}
+  <Modal title="{sheet.header.name} · the file" onclose={close} wide>
+    <p class="dim">The character as stored (TOML): abilities, species, background, levels and choices, inventory, notes. It is checked before saving.</p>
+    <textarea class="file" bind:value={d.text} spellcheck="false" autocapitalize="off" autocomplete="off" rows="18"></textarea>
+    {#if d.error}<p class="file-err">{d.error}</p>{/if}
+    <div class="file-buttons">
+      <button class="ghost" onclick={close}>Cancel</button>
+      <button class="primary" onclick={() => saveFile(d.text)}>Save</button>
+    </div>
+  </Modal>
+{/if}
 
 {#if dialog?.kind === "menu"}
   {@const d = dialog}
@@ -342,6 +515,27 @@
 {/if}
 
 <style>
+  textarea.file {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 16em;
+    background: var(--black);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.6em 1ch;
+    font: inherit;
+    resize: vertical;
+  }
+  .file-err {
+    color: var(--red);
+  }
+  .file-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1.5ch;
+    margin-top: 1em;
+  }
   .sheet {
     flex: 1;
     min-height: 0;
@@ -354,7 +548,32 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 2ch;
+  }
+  .who {
+    min-width: 0;
+  }
+  .icon {
+    min-width: 2.6em;
+    font-size: 1.1em;
+  }
+  .warnbtn {
+    color: var(--yellow);
+    border-color: rgb(224 175 104 / 0.5);
+  }
+  .flags {
+    display: flex;
     flex-wrap: wrap;
+    gap: 1ch;
+    margin-top: 0.6em;
+  }
+  .warnings {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+    color: var(--yellow);
   }
   h1 {
     font-size: 1.1em;
@@ -371,20 +590,15 @@
     display: flex;
     gap: 1ch;
     align-items: center;
-    flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .flag {
-    background: var(--cyan);
-    color: var(--black);
-    border: 0;
+    background: rgb(125 207 255 / 0.08);
+    color: var(--cyan);
+    border: 1px solid rgb(125 207 255 / 0.55);
     border-radius: 3px;
-    font-weight: 700;
     padding: 0.1em 1ch;
     cursor: pointer;
-  }
-  .warn {
-    color: var(--yellow);
-    margin-top: 0.3em;
   }
   .tabs {
     display: flex;
@@ -505,15 +719,24 @@
     gap: 1.5ch;
   }
   @media (max-width: 760px) {
-    .head .actions {
-      width: 100%;
+    .icon {
+      min-height: 44px;
+      min-width: 44px;
     }
-    .head .actions .flag {
-      flex-basis: 100%;
+    .flag .wide {
+      display: none;
+    }
+    /* The top bar has the name. */
+    .who h1 {
+      display: none;
+    }
+    .who {
+      align-self: center;
+    }
+    .flag {
       min-height: 36px;
-    }
-    .head .actions .primary {
-      flex: 1;
+      padding: 0 1.5ch;
+      border-radius: 18px;
     }
     .tabs button {
       height: 36px;

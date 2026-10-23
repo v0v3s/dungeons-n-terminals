@@ -14,7 +14,7 @@ use dnt_rules::overlay::{Overlay, OverlaySet};
 use dnt_store::notes::Notes;
 use dnt_store::{Campaign, CampaignSettings, CharacterFile, Config, Store};
 
-use crate::import;
+use crate::{homebrew, import};
 
 /// Told each stage of loading as it starts.
 type Report = Box<dyn Fn(&str) + Send + Sync>;
@@ -168,6 +168,11 @@ impl Workspace {
             base.load_json(&doc);
         }
         Ok(Some(base))
+    }
+
+    /// Read the rules again (after the user's rules for a feature changed).
+    pub fn reload_rules(&mut self) {
+        self.overlays = self.load_overlays();
     }
 
     fn load_overlays(&mut self) -> OverlaySet {
@@ -341,6 +346,39 @@ impl Workspace {
         let active = self.active_campaign().map(|c| c.slug.clone());
         self.campaigns.sort_by_key(|c| c.settings.name.to_lowercase());
         self.active = active.and_then(|s| self.campaigns.iter().position(|c| c.slug == s));
+        Ok(())
+    }
+
+    /// The active campaign's homebrew source (new entries get it).
+    pub fn campaign_source(&self) -> Option<String> {
+        self.active_campaign().map(|c| c.settings.source.clone()).filter(|s| !s.is_empty())
+    }
+
+    /// A homebrew document as stored: the active campaign's or the global one.
+    pub fn homebrew_doc(&self, doc: homebrew::Doc) -> Result<serde_json::Value, String> {
+        match doc {
+            homebrew::Doc::Campaign => {
+                let c = self.active_campaign().ok_or("Homebrew needs an active campaign")?;
+                self.store.homebrew(c).map_err(|e| format!("Could not read the homebrew: {e}"))
+            }
+            homebrew::Doc::Global => self.store.global_homebrew().map_err(|e| format!("Could not read the global homebrew: {e}")),
+        }
+    }
+
+    /// Save a homebrew document and rebuild what reads it: the campaign's
+    /// layer, or (global homebrew is in the base) everything.
+    pub fn save_homebrew_doc(&mut self, doc: homebrew::Doc, value: &serde_json::Value) -> Result<(), String> {
+        match doc {
+            homebrew::Doc::Campaign => {
+                let c = self.active_campaign().ok_or("Homebrew needs an active campaign")?;
+                self.store.save_homebrew(c, value).map_err(|e| format!("Could not save the homebrew: {e}"))?;
+                self.prepare();
+            }
+            homebrew::Doc::Global => {
+                self.store.save_global_homebrew(value).map_err(|e| format!("Could not save the global homebrew: {e}"))?;
+                self.reload();
+            }
+        }
         Ok(())
     }
 

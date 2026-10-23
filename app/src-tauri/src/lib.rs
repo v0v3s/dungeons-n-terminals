@@ -2,6 +2,7 @@
 //! dnt-core; these modules hold the app's state and turn it into JSON.
 
 mod characters;
+mod homebrew;
 mod library;
 mod notes;
 
@@ -26,6 +27,8 @@ pub struct Inner {
     pub sheet: Option<CharacterSession>,
     pub levelup: Option<LevelUp>,
     pub creation: Option<NewCharacter>,
+    /// The homebrew entry being edited.
+    pub editing: Option<dnt_core::homebrew::EntryRef>,
 }
 
 impl Inner {
@@ -115,7 +118,7 @@ pub fn run() {
                 let start = std::time::Instant::now();
                 let search = ws.lib.as_ref().map(|lib| Search::new(lib, ws.filter()));
                 ws.progress.done.push(("Indexing the compendium".into(), start.elapsed()));
-                *state.inner.lock().unwrap() = Some(Inner { ws, search, sheet: None, levelup: None, creation: None });
+                *state.inner.lock().unwrap() = Some(Inner { ws, search, sheet: None, levelup: None, creation: None, editing: None });
                 state.ready.notify_all();
             });
             Ok(())
@@ -135,6 +138,18 @@ pub fn run() {
             library::search,
             library::entry,
             library::follow,
+            homebrew::brew_actions,
+            homebrew::brew_original,
+            homebrew::brew_open,
+            homebrew::brew_clone,
+            homebrew::brew_templates,
+            homebrew::brew_create,
+            homebrew::brew_set,
+            homebrew::brew_json,
+            homebrew::brew_replace,
+            homebrew::brew_delete,
+            homebrew::brew_promote,
+            homebrew::brew_close,
             characters::roster,
             characters::open_character,
             characters::close_character,
@@ -146,6 +161,13 @@ pub fn run() {
             characters::conditions,
             characters::options,
             characters::pending,
+            characters::export_sheet,
+            characters::character_text,
+            characters::kills_outright,
+            characters::rules_open,
+            characters::rules_check,
+            characters::rules_save,
+            characters::character_set_text,
             characters::levelup_start,
             characters::levelup_answer,
             characters::levelup_apply,
@@ -165,6 +187,7 @@ pub fn run() {
             notes::note_resolve,
             notes::note_capture,
             notes::note_new_session,
+            notes::note_log,
             notes::note_character_note,
         ])
         .run(tauri::generate_context!())

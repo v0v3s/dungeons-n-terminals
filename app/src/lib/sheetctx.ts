@@ -13,6 +13,8 @@ export interface SheetCtx {
   prompt: (title: string, then: (value: string) => void, opts?: { number?: boolean; value?: string; hint?: string }) => void;
   /// Show a compendium entry.
   show: (entity: number) => void;
+  /// Write or change a feature's rules.
+  rules: (entity: number) => void;
   /// How a stat is made up.
   explain: (key: string) => void;
   /// Normal → advantage → disadvantage for the next roll.

@@ -16,6 +16,7 @@ pub mod notes;
 pub mod options;
 pub mod pack;
 pub mod rolls;
+pub mod rules;
 pub mod session;
 pub mod sheet;
 pub mod spellbook;

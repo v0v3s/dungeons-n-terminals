@@ -131,6 +131,25 @@ pub fn save(sheet: &mut CharacterSession, ab: &str) -> Rolled {
     d20_test(sheet, format!("{} save", ability_name(ab)), modifier, RollKind::Save(ab))
 }
 
+/// A death save: a d20 with no modifier (advantage still applies), then
+/// recorded (see [`dnt_rules::play::death_save`]).
+pub fn death_save(sheet: &mut CharacterSession) -> Rolled {
+    use dnt_rules::play::{self, DeathSave};
+    let (m, why) = mode(sheet, RollKind::Save("death"));
+    let r = roll::d20(&mut sheet.roller.rng, 0, m);
+    let natural = r.total;
+    let result = match play::death_save(&mut sheet.file.character, natural, r.total) {
+        DeathSave::Revived => "a natural 20: up with 1 hit point",
+        DeathSave::Success => "a success",
+        DeathSave::Stable => "a third success: stable",
+        DeathSave::Failure if natural == 1 => "a natural 1: two failures",
+        DeathSave::Failure => "a failure",
+        DeathSave::Dead => "a third failure: dead",
+    };
+    let crit = r.natural_20().then_some(true).or(r.natural_1().then_some(false));
+    sheet.roller.push(Rolled { title: "Death save".into(), result: result.into(), detail: detail(&r, &why), extra: Vec::new(), crit })
+}
+
 pub fn initiative(sheet: &mut CharacterSession) -> Rolled {
     let modifier = sheet.ev.int("initiative").unwrap_or(0);
     d20_test(sheet, "Initiative".into(), modifier, RollKind::Initiative)
