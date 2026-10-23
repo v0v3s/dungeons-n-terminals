@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v0.11.0 - 2026-10-23
+
 ### Added
 
 - App: **homebrew editing**, as in the terminal. A book entry can be cloned
