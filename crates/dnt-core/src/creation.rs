@@ -117,9 +117,13 @@ fn skill_name(k: &str) -> &'static str {
     SKILLS.iter().find(|(s, _, _)| *s == k).map_or("?", |(_, n, _)| n)
 }
 
-fn describe_alternative(parts: &[AbilityGrant]) -> String {
+fn describe_alternative(origin: &str, parts: &[AbilityGrant]) -> String {
     if parts.is_empty() {
-        return "None: the background gives the increases (2024 rules)".into();
+        return if origin.starts_with("Background") {
+            "Skip: no increases from the background".into()
+        } else {
+            "None: the background gives the increases (2024 rules)".into()
+        };
     }
     parts
         .iter()
@@ -379,7 +383,10 @@ impl NewCharacter {
                         if grants.is_empty() {
                             continue;
                         }
-                        if prefix == "Species" && background_gives {
+                        // Increases can be left out: a species' when the
+                        // background gives them, a background's always
+                        // (a table's own rules, or a species that has them).
+                        if prefix == "Background" || background_gives {
                             grants.push(Vec::new());
                         }
                         st.alternatives.push((format!("{prefix} ({})", lib.entity(id).name), grants));
@@ -391,7 +398,8 @@ impl NewCharacter {
                     queue_alternative(st, &origin, &alts[0]);
                     return self.enter(Step::Bonus, lib, filter);
                 }
-                let items = alts.iter().enumerate().map(|(i, a)| Choice::new(describe_alternative(a), "", i.to_string())).collect();
+                let items =
+                    alts.iter().enumerate().map(|(i, a)| Choice::new(describe_alternative(&origin, a), "", i.to_string())).collect();
                 pick(format!("{origin}: ability increases"), items)
             }
             Step::Bonus => {

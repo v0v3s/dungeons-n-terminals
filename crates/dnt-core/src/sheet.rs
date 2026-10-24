@@ -133,6 +133,8 @@ pub struct Tracker {
     pub recharge: String,
     /// The stat to break down.
     pub stat: String,
+    /// The feature whose rules keep it, for a feature's resource.
+    pub feature: Option<EntityId>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -244,7 +246,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
 
     let st = &ch.state;
     let mut trackers = Vec::new();
-    for (r, _) in &build.resources {
+    for (r, origin) in &build.resources {
         let recharge = match (r.recharge, r.short_rest_regain.is_some()) {
             (Recharge::ShortRest, _) => "short rest",
             (Recharge::LongRest, true) => "long rest · 1 on a short",
@@ -259,6 +261,8 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             max: play::resource_max(ev, &r.key),
             recharge: recharge.into(),
             stat: format!("resource.{}.max", r.key),
+            // The rules are named after their feature (maybe with more after it).
+            feature: build.features.iter().map(|f| f.entity).find(|&e| origin.starts_with(lib.entity(e).name.as_str())),
         });
     }
     for l in (1..=9).filter(|l| play::slot_max(ev, *l) > 0) {
@@ -269,6 +273,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             max: play::slot_max(ev, l),
             recharge: "long rest".into(),
             stat: format!("slots.{l}.max"),
+            feature: None,
         });
     }
     let pact = ev.int("pact.slots.max").unwrap_or(0);
@@ -281,6 +286,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             max: pact,
             recharge: "short rest".into(),
             stat: "pact.slots.max".into(),
+            feature: None,
         });
     }
     let mut dice: Vec<i64> = ev.stats.keys().filter_map(|k| k.strip_prefix("hit_dice.d")?.strip_suffix(".max")?.parse().ok()).collect();
@@ -294,6 +300,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             max,
             recharge: "long rest".into(),
             stat: format!("hit_dice.d{f}.max"),
+            feature: None,
         });
     }
 

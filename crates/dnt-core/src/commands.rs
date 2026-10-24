@@ -45,6 +45,10 @@ pub enum Command {
     },
     /// Roll a death save (at 0 hit points).
     DeathSave,
+    /// Spend a hit die: roll it, add Constitution and heal that much.
+    RollHitDie {
+        faces: i64,
+    },
     /// Keep track of something with uses (a magic item's charges).
     AddTracker {
         name: String,
@@ -268,6 +272,19 @@ impl CharacterSession {
                 }
                 let r = rolls::death_save(self);
                 return Ok(Outcome { message: "Death save".into(), changed: true, rolled: Some(r) });
+            }
+            Command::RollHitDie { faces } => {
+                if c.state.dead {
+                    return Err("Dead: no healing".into());
+                }
+                if play::current_hp(c, ev) >= play::max_hp(ev) {
+                    return Err("Hit points are full".into());
+                }
+                if !play::spend_hit_die(c, ev, faces, 1) {
+                    return Err(format!("No d{faces} hit die left"));
+                }
+                let r = rolls::hit_die(self, faces);
+                return Ok(Outcome { message: format!("Spent a d{faces} hit die"), changed: true, rolled: Some(r) });
             }
             Command::AddTracker { name, max, recharge } => {
                 let name = name.trim().to_string();
@@ -578,6 +595,34 @@ mod tests {
         assert!(s.apply(&lib, o, Command::LongRest).unwrap().message.starts_with("Long rest"));
         assert!(s.apply(&lib, o, Command::ChangeCoins { change: "+15gp".into() }).is_ok());
         assert_eq!(s.character().currency.gp, 15);
+    }
+
+    #[test]
+    fn hit_dice_roll_and_heal() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"class": [{"name": "Monk", "source": "T", "hd": {"faces": 8}}]}));
+        let mut c = Character { name: "A".into(), ..Default::default() };
+        c.abilities.con = 14;
+        c.levels =
+            vec![dnt_rules::character::Level { class: "class:Monk|T".into(), hp: Default::default(), choices: Default::default() }; 2];
+        let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
+        let o = &OverlaySet::default();
+        let mut s = CharacterSession::new(file, &lib, o, &Default::default());
+        assert!(s.apply(&lib, o, Command::RollHitDie { faces: 8 }).is_err(), "full hit points");
+
+        s.apply(&lib, o, Command::Damage { amount: 15, critical: false }).unwrap();
+        let before = play::current_hp(s.character(), &s.ev);
+        let out = s.apply(&lib, o, Command::RollHitDie { faces: 8 }).unwrap();
+        let healed = play::current_hp(s.character(), &s.ev) - before;
+        assert!((3..=10).contains(&healed), "d8 + 2: {healed}");
+        assert_eq!(out.rolled.unwrap().result, format!("+{healed} hit points"));
+        assert_eq!(s.character().state.hit_dice_used["d8"], 1);
+
+        s.apply(&lib, o, Command::RollHitDie { faces: 8 }).ok();
+        s.apply(&lib, o, Command::Damage { amount: 30, critical: false }).unwrap();
+        s.apply(&lib, o, Command::Heal { amount: 1 }).unwrap();
+        assert_eq!(s.apply(&lib, o, Command::RollHitDie { faces: 8 }).unwrap_err(), "No d8 hit die left");
+        assert!(s.apply(&lib, o, Command::RollHitDie { faces: 6 }).is_err(), "no d6 at all");
     }
 
     #[test]

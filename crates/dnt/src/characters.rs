@@ -234,6 +234,8 @@ pub enum Action {
     Edit(std::path::PathBuf),
     /// Open this character's note in the Notes section.
     OpenNote(String),
+    /// Delete a character (an index into the roster).
+    Delete(usize),
     /// Create a campaign item and add it to the inventory.
     CreateItem,
     /// Open the rules editor for a feature.
@@ -256,6 +258,8 @@ pub struct Characters {
     pub selected: usize,
     pub sheet: Option<Sheet>,
     pub name_input: Option<String>,
+    /// The roster line asked about deleting.
+    pub delete_confirm: Option<usize>,
     pub wizard: Option<Wizard>,
     /// The active campaign's source filter.
     pub filter: SourceFilter,
@@ -271,7 +275,15 @@ impl Characters {
     }
 
     pub fn new(files: Vec<CharacterFile>) -> Characters {
-        Characters { files, selected: 0, sheet: None, name_input: None, wizard: None, filter: SourceFilter::default() }
+        Characters {
+            files,
+            selected: 0,
+            sheet: None,
+            name_input: None,
+            delete_confirm: None,
+            wizard: None,
+            filter: SourceFilter::default(),
+        }
     }
 
     pub fn wants_text(&self) -> bool {
@@ -322,6 +334,12 @@ impl Characters {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent, lib: &Library, overlays: &OverlaySet, filter: &SourceFilter) -> Action {
+        if let Some(i) = self.delete_confirm.take() {
+            if matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y')) {
+                return Action::Delete(i);
+            }
+            return Action::None;
+        }
         if let Some(name) = self.name_input.as_mut() {
             match key.code {
                 KeyCode::Esc => self.name_input = None,
@@ -380,6 +398,7 @@ impl Characters {
             KeyCode::Enter | KeyCode::Char('l') if n > 0 => self.open(self.selected, lib, overlays),
             KeyCode::Char('n') => self.name_input = Some(String::new()),
             KeyCode::Char('e') if n > 0 => return Action::Edit(self.files[self.selected].path.clone()),
+            KeyCode::Char('D') if n > 0 => self.delete_confirm = Some(self.selected),
             _ => {}
         }
         Action::None
@@ -808,7 +827,7 @@ fn roll_item(sheet: &mut Sheet, save: bool) -> Action {
             let Some(a) = sheet.session.build.attacks.iter().find(|a| a.slug == slug).cloned() else { return Action::None };
             dnt_core::rolls::attack(sheet, &a)
         }
-        _ => return Action::Status("Roll an ability, skill, initiative or attack (r), or a save on an ability (R)".into()),
+        _ => return Action::Status("Roll an ability, skill, initiative, attack or hit die (r), or a save on an ability (R)".into()),
     };
     Action::Rolled { line: rolled.line(), to_notes: sheet.session.roller.to_notes, save: false }
 }
@@ -836,6 +855,10 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
             } else if let Some(Item::Toggle(_)) = items.get(sheet.cursor) {
                 return toggle(sheet, lib, overlays);
             }
+        }
+        KeyCode::Char('r') if matches!(items.get(sheet.cursor), Some(Item::HitDie(_))) => {
+            let Some(Item::HitDie(faces)) = items.get(sheet.cursor) else { unreachable!() };
+            return run(sheet, lib, overlays, Command::RollHitDie { faces: *faces });
         }
         KeyCode::Char('r') => return roll_item(sheet, false),
         KeyCode::Char('R') => return roll_item(sheet, true),

@@ -14,7 +14,7 @@
 
 <div class="features">
   {#each groups as g (g.title)}
-    <Pane title={g.title}>
+    <Pane title={g.title} fold="sheet.features.{g.title}" summary={`${g.features.length} feature${g.features.length === 1 ? "" : "s"}`}>
       {#each g.features as f (f.index)}
         <div class="row">
           <button class="feature" onclick={() => ctx.show(f.entity)}>

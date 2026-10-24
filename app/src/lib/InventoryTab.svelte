@@ -42,7 +42,7 @@
 </script>
 
 <div class="inventory">
-  <Pane title="Inventory" class="items">
+  <Pane title="Inventory" class="items" fold="sheet.inventory" summary="{inv.lines.length} item{inv.lines.length === 1 ? '' : 's'} · {inv.carried.toFixed(1)} lb">
     <div class="buttons">
       <button class="primary" onclick={add}>+ Add item</button>
       <button class="ghost" onclick={custom}>+ Custom</button>
@@ -68,7 +68,7 @@
     <p class="legend dim">◉ worn · ◈ in hand · ★ attuned · ☆ needs attunement</p>
   </Pane>
 
-  <Pane title="Equipment" class="equipment">
+  <Pane title="Equipment" class="equipment" fold="sheet.equipment">
     <div class="eq-title">Worn</div>
     {#each inv.worn as w (w.slot)}
       <div class="slot"><span class="dim">{w.label}</span><span>{w.items.length ? w.items.map(([, n]) => n).join(", ") : "—"}</span></div>

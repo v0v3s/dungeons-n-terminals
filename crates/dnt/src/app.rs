@@ -454,6 +454,18 @@ impl App {
                     Err(e) => format!("Could not save the rules: {e}"),
                 };
             }
+            A::Delete(i) => {
+                let Some(file) = self.characters.files.get(i) else { return };
+                let name = file.character.name.clone();
+                self.status = match self.store.delete_character(file) {
+                    Ok(()) => {
+                        self.characters.files.remove(i);
+                        self.characters.selected = self.characters.selected.min(self.characters.files.len().saturating_sub(1));
+                        format!("Deleted {name} (their notes stay)")
+                    }
+                    Err(e) => format!("Could not delete {name}: {e}"),
+                };
+            }
             A::OpenNote(name) => {
                 self.section = Section::Notes;
                 self.status = match self.notes.open_character(&name) {

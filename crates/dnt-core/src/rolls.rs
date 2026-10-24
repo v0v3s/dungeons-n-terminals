@@ -150,6 +150,27 @@ pub fn death_save(sheet: &mut CharacterSession) -> Rolled {
     sheet.roller.push(Rolled { title: "Death save".into(), result: result.into(), detail: detail(&r, &why), extra: Vec::new(), crit })
 }
 
+/// Healing from a spent hit die: the die plus the Constitution modifier,
+/// at least 1 hit point under the 2024 rules (0 under the 2014 ones),
+/// and healed (see [`dnt_rules::play::heal`]).
+pub fn hit_die(sheet: &mut CharacterSession, faces: i64) -> Rolled {
+    use dnt_rules::play;
+    let con = sheet.ev.int("mod.con").unwrap_or(0);
+    let die = sheet.roller.rng.die(faces.clamp(1, u32::MAX as i64) as u32);
+    let healed = (die + con).max(if rules_2024(sheet) { 1 } else { 0 });
+    let c = &mut sheet.file.character;
+    let before = play::current_hp(c, &sheet.ev);
+    play::heal(c, &sheet.ev, healed);
+    let (now, max) = (play::current_hp(c, &sheet.ev), play::max_hp(&sheet.ev));
+    let sign = if con < 0 { '-' } else { '+' };
+    let mut detail = format!("d{faces} {die} {sign} {} Con", con.abs());
+    if die + con < healed {
+        detail.push_str(&format!(" · at least {healed}"));
+    }
+    let extra = vec![if now - before < healed { format!("{now}/{max} hit points: full") } else { format!("{now}/{max} hit points") }];
+    sheet.roller.push(Rolled { title: format!("Hit die d{faces}"), result: format!("+{healed} hit points"), detail, extra, crit: None })
+}
+
 pub fn initiative(sheet: &mut CharacterSession) -> Rolled {
     let modifier = sheet.ev.int("initiative").unwrap_or(0);
     d20_test(sheet, "Initiative".into(), modifier, RollKind::Initiative)

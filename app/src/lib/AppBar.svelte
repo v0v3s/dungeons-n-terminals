@@ -21,7 +21,7 @@
   <!-- The menu is always there; Back comes after it when something is open. -->
   <button class="icon" aria-label="Menu" onclick={onmenu}>☰</button>
   {#if back}
-    <button class="icon" aria-label="Back" onclick={onback}>‹</button>
+    <button class="icon back" aria-label="Back" onclick={onback}>‹</button>
   {/if}
   <div class="title">
     {#if !back}<img class="brand" src="/dnt.svg" alt="dnt" />{/if}
@@ -57,10 +57,15 @@
     background: none;
     border: 0;
     border-radius: 50%;
-    color: var(--fg);
+    /* Coloured: it can be tapped (the prompt sign is not). */
+    color: var(--accent);
     font-size: 1.5em;
     line-height: 1;
     cursor: pointer;
+  }
+  .back {
+    font-size: 2em;
+    font-weight: 700;
   }
   .icon:active {
     background: var(--dark);
@@ -105,7 +110,7 @@
     align-self: center;
   }
   .prompt {
-    color: var(--accent);
+    color: var(--dim);
   }
   .name {
     font-weight: 700;

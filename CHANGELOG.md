@@ -8,6 +8,32 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Hit dice can be rolled: spending one rolls the die plus Constitution
+  and heals that much (at least 1 under the 2024 rules). In the app, each
+  die size has its own *Roll* button; in the terminal, `r` on a hit die.
+- App: tapping a tracker offers what can be done with it: remove your own
+  trackers; see a feature's, and change or remove the rules that keep it.
+- App: the sheet's panes fold: tap a title (▾) to fold it to one line
+  with a summary (hit points, what is in hand, how many items), and tap
+  it (▸) again to open it. Folded panes stay folded.
+- Characters can be deleted (their notes stay): in the app from the
+  sheet's ⋯ menu, in the terminal with `D` on the roster; both ask first.
+
+### Changed
+
+- Character creation: a background's ability score increases can be
+  skipped.
+- App: a new character in progress stays while other sections are open (to
+  look something up in the compendium); it ends when it is created or
+  cancelled.
+- App: *+ New character* and *+ New campaign* stand on their own above
+  the list; each character and each campaign is a card of its own (a
+  campaign's buttons in its card, the active one marked).
+- App: in the top bar, the buttons (menu, back) are coloured and the `❯`
+  before the place is grey, so what can be tapped stands out.
+
 ## v0.11.0 - 2026-10-23
 
 ### Added

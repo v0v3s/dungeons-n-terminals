@@ -1,7 +1,7 @@
 <!-- The overview: hit points and the numbers, abilities, skills, attacks
      and what is tracked. Tap a number to roll it or see how it is made up. -->
 <script lang="ts">
-  import { killsOutright, type Overview } from "./api";
+  import { killsOutright, type Overview, type Tracker } from "./api";
   import Pane from "./Pane.svelte";
   import Icon from "./Icon.svelte";
   import { pool, type SheetCtx } from "./sheetctx";
@@ -76,12 +76,27 @@
     );
   }
 
-  function trackerMenu(t: { id: string; name: string; stat: string }) {
+  /// Spend a hit die: rolled, with Constitution, and healed.
+  const rollHitDie = (id: string) => ctx.act({ command: "roll_hit_die", faces: Number(id.slice("hit_die:".length)) });
+
+  /// What can be done with a tracker: your own can be removed; a
+  /// feature's is kept by its rules, which can be changed or removed.
+  function trackerMenu(t: Tracker) {
+    const explain: [string, () => void] = ["How the uses are made up", () => ctx.explain(t.stat)];
     const key = t.id.startsWith("resource:") ? t.id.slice("resource:".length) : "";
-    if (!key.startsWith("custom_")) return ctx.explain(t.stat);
-    ctx.menu(t.name, [
-      ["Remove the tracker", () => ctx.act({ command: "remove_tracker", key })],
-    ]);
+    if (t.id.startsWith("hit_die:")) {
+      return ctx.menu(t.name, [["Roll one and heal", () => rollHitDie(t.id)], ["How the dice are made up", () => ctx.explain(t.stat)]]);
+    }
+    if (key.startsWith("custom_")) return ctx.menu(t.name, [["Remove the tracker", () => ctx.act({ command: "remove_tracker", key })], explain]);
+    if (t.feature !== null) {
+      const feature = t.feature;
+      return ctx.menu(t.name, [
+        explain,
+        ["Show the feature", () => ctx.show(feature)],
+        ["Change or remove its rules (and this tracker)", () => ctx.rules(feature)],
+      ]);
+    }
+    ctx.explain(t.stat);
   }
 
   function attackMenu(slug: string, name: string, line: number | null) {
@@ -101,7 +116,7 @@
 <div class="overview">
  <div class="mid">
   <!-- Hit points first: what changes most in play. -->
-  <Pane title="Hit points" class="hp">
+  <Pane title="Hit points" class="hp" fold="sheet.hp" summary="{o.hp.current}/{o.hp.max}{o.hp.temp ? ` +${o.hp.temp}` : ''}">
     <div class="hprow">
       <div class="bar"><div class="fill" style:width="{pct}%" style:background={hpColor}></div></div>
       <div class="hpnum"><span class="hearticon" class:down={o.hp.current === 0}><Icon name="heart" /></span> <b>{o.hp.current}</b><span class="muted">/{o.hp.max}</span>{#if o.hp.temp}<span class="temp">+{o.hp.temp} temp</span>{/if}</div>
@@ -170,7 +185,7 @@
     </details>
   {/if}
 
-  <Pane title="Attacks" class="attacks">
+  <Pane title="Attacks" class="attacks" fold="sheet.attacks" summary={o.held.length ? o.held.join(" · ") : `${o.attacks.length} attack${o.attacks.length === 1 ? "" : "s"}`}>
     <div class="held"><span class="dim">In hand</span> {o.held.length ? o.held.join(" · ") : "nothing"}</div>
     {#each o.attacks as a (a.slug)}
       <div class="attack">
@@ -199,7 +214,7 @@
 
  </div>
  <div class="left">
-  <Pane title="Abilities" class="abilities">
+  <Pane title="Abilities" class="abilities" fold="sheet.abilities">
     <div class="grid abil">
       <span></span><span class="dim c">score</span><span class="dim c">check</span><span class="dim c">save</span>
       {#each o.abilities as a (a.key)}
@@ -217,7 +232,7 @@
   {@render tracking()}
  </div>
  <div class="right">
-  <Pane title="Skills" class="skills">
+  <Pane title="Skills" class="skills" fold="sheet.skills">
     {#each o.skills as s (s.key)}
       <button class="skill" onclick={() => ctx.roll({ type: "skill", key: s.key })}>
         <span class="mark" class:on={s.proficiency !== "none"}>{MARK[s.proficiency]}</span>
@@ -231,7 +246,7 @@
 </div>
 
 {#snippet tracking()}
-    <Pane title="Tracking" class="tracking">
+    <Pane title="Tracking" class="tracking" fold="sheet.tracking" summary="{o.trackers.length} tracked">
       {#each o.trackers as t (t.id)}
         <div class="tracker">
           <button class="tname" onclick={() => trackerMenu(t)}>{t.name}</button>
@@ -239,7 +254,14 @@
           <span class="count">{t.left}/{t.max}</span>
           <button class="step" aria-label="Use" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: 1 })}>−</button>
           <button class="step" aria-label="Restore" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: -1 })}>+</button>
-          <span class="dim recharge">{t.recharge}</span>
+          {#if t.id.startsWith("hit_die:")}
+            <div class="recharge hd">
+              <span class="dim">{t.recharge}</span>
+              <button class="hdroll" disabled={t.left <= 0} onclick={() => rollHitDie(t.id)}>⚄ Roll d{t.id.slice(8)} + Con, heal</button>
+            </div>
+          {:else}
+            <span class="dim recharge">{t.recharge}</span>
+          {/if}
         </div>
       {/each}
       <button class="ghost addtracker" onclick={addTracker}>+ Tracker</button>
@@ -389,6 +411,11 @@
   .step { border: 1px solid var(--border); border-radius: 3px; text-align: center; color: var(--accent); }
   .recharge { grid-column: 1 / -1; font-size: 0.8em; margin-top: -0.3em; }
   .toggle { display: flex; gap: 1ch; padding: 0.15em 0; }
+  .recharge.hd { display: flex; align-items: center; justify-content: space-between; gap: 1ch; margin-top: 0.1em; font-size: 1em; }
+  .recharge.hd .dim { font-size: 0.8em; }
+  .hdroll { border: 1px solid var(--accent); border-radius: 3px; color: var(--accent); padding: 0.1em 1.2ch; }
+  .hdroll:hover { background: var(--selected); }
+  .hdroll:disabled { border-color: var(--border); color: var(--dim); }
 
   /* Tablets and narrow windows: the middle on top, then two columns. */
   @media (max-width: 1100px) {
@@ -415,5 +442,6 @@
     .tracker { min-height: 44px; grid-template-columns: minmax(0, 1fr) auto 5ch 44px 44px; }
     .step { height: 40px; font-size: 1.2em; }
     .toggle { min-height: 44px; align-items: center; }
+    .hdroll { min-height: 40px; }
   }
 </style>

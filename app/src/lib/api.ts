@@ -199,6 +199,8 @@ export interface Tracker {
   max: number;
   recharge: string;
   stat: string;
+  /// The feature whose rules keep it, for a feature's resource.
+  feature: number | null;
 }
 
 export interface AttackRow {
@@ -417,6 +419,7 @@ export interface PendingChoice {
 export const roster = () => invoke<RosterRow[]>("roster");
 export const openCharacter = (slug: string) => invoke<Sheet>("open_character", { slug });
 export const closeCharacter = () => invoke<void>("close_character");
+export const deleteCharacter = () => invoke<string>("delete_character");
 export const sheet = () => invoke<Sheet>("sheet");
 export const command = (command: Command) => invoke<Done>("command", { command });
 export const roll = (what: Roll) => invoke<{ line: string; rolled: Rolled; sheet: Sheet }>("roll", { what });
@@ -558,3 +561,6 @@ export const rulesCheck = (entity: number, text: string) => invoke<Checked>("rul
 export const rulesSave = (entity: number, text: string) => invoke<Sheet>("rules_save", { entity, text });
 /// Whether this much damage would kill the open character outright.
 export const killsOutright = (amount: number) => invoke<boolean>("kills_outright", { amount });
+/// The new character in progress (kept while other sections are open), and giving it up.
+export const creationCurrent = () => invoke<CreationStep | null>("creation_current");
+export const creationCancel = () => invoke<void>("creation_cancel");

@@ -83,7 +83,7 @@
     | { kind: "conditions"; list: [api.Condition, boolean][] }
     | { kind: "levelup"; step: api.Step }
     | { kind: "pending"; p: api.PendingChoice }
-    | { kind: "confirm"; title: string; text: string; then: () => void }
+    | { kind: "confirm"; title: string; text: string; then: () => void; danger?: string }
     | { kind: "file"; text: string; error: string }
     | { kind: "rules"; entity: number }
     | { kind: "warnings" };
@@ -221,7 +221,25 @@
       [logRolls ? "Stop writing rolls into the session note" : "Write rolls into the session note", () => setLogRolls(!logRolls)],
       ["Export as a printable page…", () => exportAs("html")],
       ["Export as Markdown…", () => exportAs("markdown")],
+      ["Delete the character…", remove],
     ]);
+  }
+
+  function remove() {
+    dialog = {
+      kind: "confirm",
+      title: `Delete ${sheet.header.name}`,
+      text: "The character is gone for good; their notes stay.",
+      danger: "Delete",
+      then: async () => {
+        try {
+          say(await api.deleteCharacter());
+          onclose();
+        } catch (e) {
+          say(String(e));
+        }
+      },
+    };
   }
 
   // A new tab starts at its top.
@@ -504,11 +522,12 @@
       <button class="ghost" onclick={close}>Cancel</button>
       <button
         class="primary"
+        class:danger={!!d.danger}
         onclick={() => {
           const then = d.then;
           close();
           then();
-        }}>Yes</button
+        }}>{d.danger ?? "Yes"}</button
       >
     </div>
   </Modal>
@@ -717,6 +736,10 @@
     display: flex;
     justify-content: flex-end;
     gap: 1.5ch;
+  }
+  .confirm .danger {
+    background: var(--red);
+    border-color: var(--red);
   }
   @media (max-width: 760px) {
     .icon {

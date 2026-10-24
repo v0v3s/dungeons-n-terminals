@@ -245,6 +245,7 @@ mod content {
             ("enter · l", "open the sheet"),
             ("n", "new character (the creation wizard)"),
             ("e", "edit the character file in $EDITOR"),
+            ("D", "delete the character (asks first; notes stay)"),
         ],
     };
     pub const WIZARD: Group = Group {
@@ -275,12 +276,12 @@ mod content {
         keys: &[
             ("j k · g G", "move"),
             ("enter", "how a number is made up; on a toggle, turn it on or off"),
-            ("r", "roll the check, skill, initiative or attack under the cursor"),
+            ("r", "roll the check, skill, initiative or attack under the cursor; on a hit die, spend it and heal"),
             ("R", "roll the saving throw of an ability"),
             ("v", "advantage, then disadvantage, for the next roll"),
             ("C", "conditions and exhaustion"),
             ("N", "also write rolls into the latest session note"),
-            ("space · -", "use a resource, spell slot or hit die"),
+            ("space · -", "use a resource, spell slot or hit die (without rolling)"),
             ("+", "restore one"),
             ("space · w (attack)", "hold in the main hand, or put away"),
             ("o · b (attack)", "off hand · both hands"),

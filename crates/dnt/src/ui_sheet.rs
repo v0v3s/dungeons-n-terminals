@@ -80,6 +80,18 @@ fn draw_roster(
             Span::styled(" to create one.", theme.dim),
         ]));
     }
+    if let Some(i) = c.delete_confirm {
+        let name = c.files.get(i).map_or(String::new(), |f| f.character.name.clone());
+        lines.push(Line::default());
+        lines.push(Line::styled(format!("Delete {name}?"), Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)));
+        lines.push(Line::styled("The character file goes; their notes stay.", theme.muted));
+        lines.push(Line::from(vec![
+            Span::styled(" y ", theme.keycap),
+            Span::styled(" delete  ", theme.dim),
+            Span::styled(" any key ", theme.keycap),
+            Span::styled(" keep", theme.dim),
+        ]));
+    }
     if let Some(name) = &c.name_input {
         lines.push(Line::default());
         lines.push(Line::styled("New character", theme.label));

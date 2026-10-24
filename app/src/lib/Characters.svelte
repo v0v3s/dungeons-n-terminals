@@ -23,6 +23,8 @@
     try {
       roster = await api.roster();
       sheet = await api.sheet().catch(() => null);
+      // A new character in progress carries on where it was left.
+      creating = await api.creationCurrent().catch(() => null);
     } catch (e) {
       error = String(e);
     }
@@ -77,7 +79,10 @@
       sheet = s;
       load();
     }}
-    oncancel={() => (creating = null)}
+    oncancel={async () => {
+      await api.creationCancel().catch(() => {});
+      creating = null;
+    }}
   />
 {:else if sheet}
   <Sheet bind:sheet onclose={back} {onnote} />
@@ -86,17 +91,24 @@
     {#if !status.campaign}
       <Pane title="Characters" focused><p>Create or activate a campaign first (Campaigns).</p></Pane>
     {:else}
-      <Pane title="Characters · {status.campaign}" focused>
+      <!-- The action on its own, then the characters: each a card to open. -->
+      <div class="bar">
+        <h2>Characters <span class="dim">· {status.campaign}</span></h2>
+        <button class="primary" onclick={() => (naming = true)}>+ New character</button>
+      </div>
+      {#if !roster.length}<p class="dim empty">No characters yet: start one with <b>+ New character</b>.</p>{/if}
+      <div class="cards">
         {#each roster as r (r.slug)}
-          <button class="row" onclick={() => openOne(r.slug)}>
+          <button class="card" onclick={() => openOne(r.slug)}>
             <span class="acc">◆</span>
-            <span class="name">{r.name}</span>
-            <span class="dim id">{r.identity}</span>
+            <span class="what">
+              <span class="name">{r.name}</span>
+              <span class="dim id">{r.identity}</span>
+            </span>
+            <span class="dim go">›</span>
           </button>
         {/each}
-        {#if !roster.length}<p class="dim">No characters yet.</p>{/if}
-        <div class="new"><button class="primary" onclick={() => (naming = true)}>+ New character</button></div>
-      </Pane>
+      </div>
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
   </div>
@@ -114,19 +126,44 @@
     padding: 0.8em 1ch 1em 0;
     max-width: 100ch;
   }
-  .row {
-    width: 100%;
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2ch;
+    flex-wrap: wrap;
+    margin-bottom: 1em;
+  }
+  h2 {
+    margin: 0;
+    font-size: 1.05em;
+    color: var(--accent);
+  }
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8em;
+  }
+  .card {
     display: grid;
-    grid-template-columns: 2ch minmax(0, 24ch) minmax(0, 1fr);
+    grid-template-columns: 2ch minmax(0, 1fr) auto;
     gap: 1ch;
+    align-items: center;
     background: none;
-    border: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7em 1.5ch;
     text-align: left;
-    padding: 0.3em 0.5ch;
     cursor: pointer;
   }
-  .row:hover {
-    background: var(--selected);
+  .card:hover {
+    border-color: var(--accent);
+  }
+  .what {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15em;
+    min-width: 0;
   }
   .acc {
     color: var(--accent);
@@ -137,10 +174,12 @@
   .id {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
-  .new {
-    margin-top: 0.75em;
+  .go {
+    font-size: 1.3em;
+  }
+  .empty {
+    margin: 0 0 1em;
   }
   .err {
     color: var(--red);
@@ -149,19 +188,15 @@
     margin: 0 0 0.5em;
   }
   @media (max-width: 760px) {
-    .row {
-      grid-template-columns: 2ch minmax(0, 1fr);
-      min-height: 56px;
-      align-content: center;
-      border-top: 1px solid rgb(65 72 104 / 0.3);
+    .bar button {
+      width: 100%;
+      min-height: 48px;
+    }
+    .card {
+      min-height: 64px;
     }
     .id {
-      grid-column: 2;
-      font-size: 0.85em;
-      white-space: normal;
-    }
-    .new button {
-      width: 100%;
+      font-size: 0.9em;
     }
   }
 </style>

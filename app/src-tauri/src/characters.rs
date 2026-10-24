@@ -84,6 +84,18 @@ pub async fn close_character(app: State<'_, App>) -> Res<()> {
     Ok(())
 }
 
+/// Delete the open character's file (their notes stay) and close it.
+#[tauri::command]
+pub async fn delete_character(app: State<'_, App>) -> Res<String> {
+    let mut inner = app.lock();
+    let s = inner.sheet.as_ref().ok_or("No character open")?;
+    let name = s.character().name.clone();
+    inner.ws.store.delete_character(&s.file).map_err(|e| format!("Could not delete {name}: {e}"))?;
+    inner.sheet = None;
+    inner.levelup = None;
+    Ok(format!("Deleted {name}"))
+}
+
 #[tauri::command]
 pub async fn sheet(app: State<'_, App>) -> Res<Sheet> {
     sheet_of(&app.lock())
@@ -497,6 +509,20 @@ pub async fn creation_start(app: State<'_, App>, name: String) -> Res<CreationSt
     let step = creation_step(&flow);
     inner.creation = Some(flow);
     Ok(step)
+}
+
+/// The new character in progress, if any (it lasts until it is created
+/// or cancelled, whatever else is opened meanwhile).
+#[tauri::command]
+pub async fn creation_current(app: State<'_, App>) -> Res<Option<CreationStep>> {
+    Ok(app.lock().creation.as_ref().map(creation_step))
+}
+
+/// Give up the new character in progress.
+#[tauri::command]
+pub async fn creation_cancel(app: State<'_, App>) -> Res<()> {
+    app.lock().creation = None;
+    Ok(())
 }
 
 #[tauri::command]

@@ -64,28 +64,29 @@
         <div><button class="primary" onclick={startCreate}>Create a campaign…</button></div>
       </Pane>
     {:else}
-      <Pane title="Campaigns" focused>
-        <ul class="list">
-          {#each status.campaigns as c (c.slug)}
-            <li class:active={c.active}>
-              <div class="main">
-                <span class="mark">{c.active ? "◈" : "◇"}</span>
-                <div class="what">
-                  <div class="name">{c.name}</div>
-                  <div class="dim">{describe(c)}{c.source ? ` · homebrew ${c.source}` : ""}</div>
-                </div>
-              </div>
-              <div class="actions">
-                {#if !c.active}<button class="primary" onclick={() => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug))}>Activate</button>{/if}
-                <button class="ghost" onclick={() => (editing = c)}>Sources</button>
-                <button class="ghost" onclick={() => (renaming = c)}>Rename</button>
-                <button class="ghost danger" onclick={() => (deleting = c)}>Delete</button>
-              </div>
-            </li>
-          {/each}
-        </ul>
-        <div class="new"><button class="ghost" onclick={startCreate}>+ New campaign</button></div>
-      </Pane>
+      <!-- The action on its own, then each campaign as a card with its own buttons. -->
+      <div class="bar">
+        <h2>Campaigns</h2>
+        <button class="primary" onclick={startCreate}>+ New campaign</button>
+      </div>
+      <div class="cards">
+        {#each status.campaigns as c (c.slug)}
+          <section class="card" class:active={c.active}>
+            <div class="head">
+              <span class="mark">{c.active ? "◈" : "◇"}</span>
+              <span class="name">{c.name}</span>
+              {#if c.active}<span class="badge">active</span>{/if}
+            </div>
+            <div class="dim books">{describe(c)}{c.source ? ` · its own entries are source ${c.source}` : ""}</div>
+            <div class="actions">
+              {#if !c.active}<button class="primary" onclick={() => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug))}>Make active</button>{/if}
+              <button class="ghost" onclick={() => (editing = c)}>Books &amp; homebrew</button>
+              <button class="ghost" onclick={() => (renaming = c)}>Rename</button>
+              <button class="ghost danger" onclick={() => (deleting = c)}>Delete</button>
+            </div>
+          </section>
+        {/each}
+      </div>
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
   </div>
@@ -168,27 +169,39 @@
   p {
     margin: 0 0 1em;
   }
-  .list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .list li {
+  .bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 2ch;
-    padding: 0.5em 0;
     flex-wrap: wrap;
+    margin-bottom: 1em;
   }
-  .list li + li {
-    border-top: 1px solid rgb(65 72 104 / 0.35);
+  h2 {
+    margin: 0;
+    font-size: 1.05em;
+    color: var(--accent);
   }
-  .main {
+  .cards {
     display: flex;
-    gap: 1.5ch;
+    flex-direction: column;
+    gap: 1em;
+  }
+  .card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.8em 1.5ch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+  }
+  .card.active {
+    border-color: var(--accent);
+  }
+  .head {
+    display: flex;
     align-items: baseline;
-    min-width: 0;
+    gap: 1.5ch;
   }
   .mark {
     color: var(--dim);
@@ -200,12 +213,19 @@
   .name {
     font-weight: 700;
   }
+  .badge {
+    margin-left: auto;
+    font-size: 0.85em;
+    color: var(--black);
+    background: var(--accent);
+    border-radius: 3px;
+    padding: 0 0.8ch;
+  }
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 1ch;
-  }
-  .new {
-    margin-top: 0.75em;
+    margin-top: 0.2em;
   }
   .err {
     color: var(--red);
@@ -263,16 +283,17 @@
     margin-top: 1em;
   }
   @media (pointer: coarse) {
-    .list li {
-      padding: 12px 0;
-    }
-    /* Three buttons a row; Activate gets a row of its own. */
-    .actions {
+    .bar button {
       width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      min-height: 48px;
     }
-    .actions .primary {
+    /* Make active and the books on rows of their own; Rename and Delete share one. */
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .actions .primary,
+    .actions button:nth-last-child(3) {
       grid-column: 1 / -1;
     }
     .preset {

@@ -331,6 +331,11 @@ impl Store {
         Ok(file)
     }
 
+    /// Delete a character's file (its notes stay).
+    pub fn delete_character(&self, file: &CharacterFile) -> Result<()> {
+        self.fs.remove_file(&file.path).map_err(|source| StoreError::Io { path: file.path.clone(), source })
+    }
+
     pub fn save_character(&self, file: &CharacterFile) -> Result<()> {
         write_text(self.fs(), &file.path, &file.character.to_toml())
     }
