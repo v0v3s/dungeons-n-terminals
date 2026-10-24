@@ -159,7 +159,9 @@ Everything is plain files you can read, edit and back up:
 ```
 
 (On macOS both are under `~/Library/Application Support/dnt`. The
-`XDG_DATA_HOME` and `XDG_CONFIG_HOME` variables move them on Linux.)
+`XDG_DATA_HOME` and `XDG_CONFIG_HOME` variables move them on Linux.
+`DNT_HOME` moves them anywhere, on any system: the data into
+`$DNT_HOME/data`, the config to `$DNT_HOME/config.toml`.)
 
 `e` on a character opens its file in `$EDITOR`; changes are read back when
 you return. Homebrew files are data files like any other (a `_meta` block

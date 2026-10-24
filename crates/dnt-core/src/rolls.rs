@@ -52,9 +52,11 @@ pub struct Roller {
 
 impl Default for Roller {
     fn default() -> Roller {
-        // The clock through chrono, which also works in a browser.
-        let nanos = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64;
-        Roller { rng: Rng::new(nanos ^ 0x9E37_79B9_7F4A_7C15), next: Advantage::Normal, log: Vec::new(), to_notes: false }
+        // `DNT_SEED` makes the dice repeatable (the end-to-end tests);
+        // otherwise the clock, through chrono, which also works in a browser.
+        let seed = std::env::var("DNT_SEED").ok().and_then(|s| s.parse::<u64>().ok());
+        let seed = seed.unwrap_or_else(|| chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64);
+        Roller { rng: Rng::new(seed ^ 0x9E37_79B9_7F4A_7C15), next: Advantage::Normal, log: Vec::new(), to_notes: false }
     }
 }
 

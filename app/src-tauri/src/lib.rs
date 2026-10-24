@@ -104,7 +104,12 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(App::default())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            // `DNT_HOME` moves everything elsewhere, as for the terminal app
+            // (a portable install, or the end-to-end tests).
+            let dir = match std::env::var_os("DNT_HOME").filter(|h| !h.is_empty()) {
+                Some(home) => std::path::PathBuf::from(home),
+                None => app.path().app_data_dir()?,
+            };
             let handle = app.handle().clone();
             // Off the main thread: the window shows while the library loads.
             std::thread::spawn(move || {

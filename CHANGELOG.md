@@ -29,6 +29,9 @@ become the release page.
 - App: note folders can be renamed, deleted (asks first) and the
   top-level ones moved up or down, from the Notes menu with a folder
   chosen.
+- `DNT_HOME` keeps everything (data, campaigns, configuration) in one
+  folder of your choice, on any system, for the terminal app and the app on
+  Windows: a portable install, or a second setup to try things in.
 
 ### Fixed
 
