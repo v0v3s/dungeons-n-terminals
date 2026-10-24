@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v0.12.0 - 2026-10-24
+
 ### Added
 
 - Hit dice can be rolled: spending one rolls the die plus Constitution
