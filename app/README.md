@@ -27,6 +27,25 @@ a campaign enables it (Sources › Homebrew).
 On a desktop it is stored in the app's data folder
 (`%APPDATA%\cz.v0v3s.dnt` on Windows), on Android in the app's storage.
 
+## Tests on a device
+
+`e2e/` holds end-to-end tests ([Playwright](https://playwright.dev)) that
+drive the app on an Android phone over USB: they reach the app's WebView
+over the DevTools protocol and press its buttons, as a user would.
+
+```sh
+npm run e2e:android -- --data ~/path/to/data    # or --zip dnt-data.zip
+npm run e2e:android -- --no-build --zip dnt-data.zip -g notes   # some of them
+npx playwright show-report e2e/report           # what failed, with screenshots
+```
+
+The script builds the app with the `e2e` feature (the WebView can be
+debugged; never a build to release), installs it and runs the tests. They
+**reset the app** and start from a known state: the data imported, a
+campaign *E2E* and a level 1 wizard *Tester*. So use a test device: they
+refuse to run when the app has other campaigns (`DNT_E2E_RESET=1` wipes
+them anyway). With more devices connected, `DNT_DEVICE` picks one.
+
 ## Releases
 
 Each release builds the Windows installer (`dnt-app-windows-x86_64-setup.exe`)

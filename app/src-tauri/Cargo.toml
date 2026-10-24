@@ -10,6 +10,11 @@ license.workspace = true
 name = "dnt_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# For the end-to-end tests (app/e2e): the WebView can be debugged, so the
+# tests drive it over the DevTools protocol. Never in a release.
+e2e = ["tauri/devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

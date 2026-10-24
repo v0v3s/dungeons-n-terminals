@@ -127,6 +127,7 @@ pub fn run() {
             startup,
             library::status,
             library::import_zip,
+            library::e2e_import_zip,
             library::clear_imported,
             library::reset_app,
             library::sources,
