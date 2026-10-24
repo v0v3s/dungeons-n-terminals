@@ -748,6 +748,13 @@ pub struct Line {
     pub weightless: bool,
     /// An equipment pack, to unpack into its contents.
     pub pack: bool,
+    /// Its container settings as typed (`30`, `no limit weightless`); empty
+    /// when it is not a container.
+    pub container: String,
+    /// A weapon a monk might use: whether it counts as a monk weapon.
+    /// `None` for other lines, and for characters without Martial Arts
+    /// (unless marked by hand).
+    pub monk_weapon: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -811,6 +818,19 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                 over,
                 weightless: container.is_some_and(|k| k.weightless),
                 pack: entity.is_some_and(|e| lib.entity(e).data.get("packContents").is_some()),
+                container: container
+                    .map(|k| {
+                        let mut t = k.capacity.map_or_else(|| "no limit".to_string(), |w| format!("{w}"));
+                        if k.weightless {
+                            t.push_str(" weightless");
+                        }
+                        t
+                    })
+                    .unwrap_or_default(),
+                monk_weapon: entity
+                    .and_then(|e| dnt_rules::attacks::Weapon::from_item(&lib.entity(e).name.to_lowercase(), &lib.entity(e).data))
+                    .filter(|_| s.build.martial_arts.is_some() || line.monk_weapon.is_some())
+                    .map(|w| line.monk_weapon.unwrap_or_else(|| s.build.martial_arts.is_some_and(|m| m.preset(&w)))),
             }
         })
         .collect();

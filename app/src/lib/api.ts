@@ -301,6 +301,11 @@ export interface Line {
   pack: boolean;
   over: boolean;
   weightless: boolean;
+  /// Its container settings as typed (`30`, `no limit weightless`), or "".
+  container: string;
+  /// A weapon: whether it counts as a monk weapon (null when that does
+  /// not apply).
+  monk_weapon: boolean | null;
 }
 
 export interface Inventory {
@@ -472,6 +477,8 @@ export const noteCreate = (folder: string, title: string) => invoke<string>("not
 export const noteCreateFolder = (parent: string, name: string) => invoke<string>("note_create_folder", { parent, name });
 export const noteRename = (path: string, name: string) => invoke<string>("note_rename", { path, name });
 export const noteDelete = (path: string) => invoke<void>("note_delete", { path });
+/// Move a top-level folder up (-1) or down (+1).
+export const noteMoveFolder = (name: string, delta: number) => invoke<void>("note_move_folder", { name, delta });
 export const noteSearch = (query: string) => invoke<[string, string][]>("note_search", { query });
 export const noteResolve = (target: string) => invoke<NoteLink>("note_resolve", { target });
 export const noteCapture = (text: string) => invoke<string>("note_capture", { text });
@@ -530,6 +537,9 @@ export const brewOpen = (id: number) => invoke<Editing>("brew_open", { id });
 export const brewClone = (id: number, copy: string | null) => invoke<Editing>("brew_clone", { id, copy });
 export const brewTemplates = () => invoke<[number, string][]>("brew_templates");
 export const brewCreate = (template: number, name: string) => invoke<Editing>("brew_create", { template, name });
+export const brewItemTemplates = () => invoke<[number, string][]>("brew_item_templates");
+/// A new campaign item, added to the open character; then edit it.
+export const brewCreateItem = (template: number, name: string) => invoke<Editing>("brew_create_item", { template, name });
 export const brewSet = (field: string, to: SetTo) => invoke<Editing>("brew_set", { field, to });
 export const brewJson = () => invoke<string>("brew_json");
 export const brewReplace = (json: string) => invoke<Editing>("brew_replace", { json });

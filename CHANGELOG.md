@@ -17,6 +17,18 @@ become the release page.
 - Terminal: `o` orders the compendium's results (best match, name A–Z
   or Z–A, source, level or rarity), as the app does.
 - Terminal: an About section at the end of the help screen (`?`).
+- App: hold a number (an ability check, save, skill or initiative), or
+  right-click it, to see how it is made up; tap an ability's name for its
+  score.
+- App: inventory containers fold (▾/▸); a container's menu adds items
+  straight into it; any line's menu sets its container settings
+  (capacity, no limit, weightless) and, for weapons, whether it counts as
+  a monk weapon.
+- App: *+ Homebrew* in the inventory creates a campaign item from a
+  template, adds it to the character and opens it for editing.
+- App: note folders can be renamed, deleted (asks first) and the
+  top-level ones moved up or down, from the Notes menu with a folder
+  chosen.
 
 ### Fixed
 

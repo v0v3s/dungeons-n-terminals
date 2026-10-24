@@ -21,6 +21,8 @@ export interface SheetCtx {
   cycle: () => void;
   /// Say something in the status line.
   say: (message: string) => void;
+  /// Read the sheet again (after something changed it from outside).
+  refresh: () => Promise<void>;
 }
 
 /// A pool for the `spend` command from a tracker id.

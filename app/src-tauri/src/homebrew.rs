@@ -200,6 +200,40 @@ pub async fn brew_create(app: State<'_, App>, template: usize, name: String) -> 
     editing_of(&inner, message)
 }
 
+/// The item templates (index, label), for a new item from the inventory.
+#[tauri::command]
+pub async fn brew_item_templates() -> Vec<(usize, &'static str)> {
+    Template::ITEMS.iter().enumerate().map(|(i, t)| (i, t.label())).collect()
+}
+
+/// A new campaign item from an item template, added to the open
+/// character; then edit it.
+#[tauri::command]
+pub async fn brew_create_item(app: State<'_, App>, template: usize, name: String) -> Res<Editing> {
+    let mut inner = app.lock();
+    let source = inner.ws.campaign_source().ok_or("New items need an active campaign")?;
+    let template = *Template::ITEMS.get(template).ok_or("No such template")?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("The item needs a name".into());
+    }
+    inner.sheet.as_ref().ok_or("No character open")?;
+    let mut doc = inner.ws.homebrew_doc(Doc::Campaign)?;
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let (entry, message) = homebrew::create(lib, &mut doc, template, &name, &source)?;
+    inner.ws.save_homebrew_doc(Doc::Campaign, &doc)?;
+    inner.editing = Some(entry);
+    // The library has the item now; the sheet is opened again with it.
+    inner.library_changed();
+    let inner = &mut *inner;
+    let (lib, s) = (inner.ws.lib.as_ref().ok_or("No data yet")?, inner.sheet.as_mut().ok_or("No character open")?);
+    dnt_rules::equipment::add_item(&mut s.file.character, &format!("item:{name}|{source}"), 1, None);
+    s.rebuild(lib, &inner.ws.overlays);
+    inner.ws.store.save_character(&s.file).map_err(|e| format!("Could not save: {e}"))?;
+    let added = format!("{message} · added to {}", s.character().name);
+    editing_of(inner, added)
+}
+
 /// What to set a field to.
 #[derive(serde::Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "lowercase")]

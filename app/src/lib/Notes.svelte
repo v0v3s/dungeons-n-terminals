@@ -202,15 +202,73 @@
   }
 
   function treeMenu() {
+    const f = selected;
+    const folderActions: [string, () => void][] = f
+      ? [
+          [`Rename ${short(f)}`, () => renameFolder(f)],
+          [`Delete ${short(f)}…`, () => deleteFolder(f)],
+          ...(f.includes("/")
+            ? []
+            : ([
+                [`Move ${f} up`, () => moveFolder(f, -1)],
+                [`Move ${f} down`, () => moveFolder(f, 1)],
+              ] as [string, () => void][])),
+          ["Back to the top level", () => (selected = "")],
+        ]
+      : [];
     dialog = {
       kind: "menu",
-      title: "Notes",
-      actions: [
-        [selected ? `New folder in ${selected}` : "New folder", newFolder],
-        ["Today's session note", session],
-        ...(selected ? ([["Back to the top level", () => (selected = "")]] as [string, () => void][]) : []),
-      ],
+      title: f ? short(f) : "Notes",
+      actions: [[f ? `New folder in ${f}` : "New folder", newFolder], ["Today's session note", session], ...folderActions],
     };
+  }
+
+  function renameFolder(f: string) {
+    dialog = {
+      kind: "prompt",
+      title: `Rename ${short(f)}`,
+      value: short(f),
+      then: async (name) => {
+        if (!name.trim()) return;
+        try {
+          const to = await api.noteRename(f, name.trim());
+          expanded = expanded.map((p) => (p === f || p.startsWith(f + "/") ? to + p.slice(f.length) : p));
+          selected = to;
+          if (note?.path.startsWith(f + "/")) note = null;
+          await loadTree();
+        } catch (e) {
+          error = String(e);
+        }
+      },
+    };
+  }
+
+  function deleteFolder(f: string) {
+    dialog = {
+      kind: "confirm",
+      title: `Delete ${short(f)}`,
+      text: "The folder and every note in it are gone for good.",
+      action: "Delete",
+      then: async () => {
+        try {
+          await api.noteDelete(f);
+          if (note?.path.startsWith(f + "/")) note = null;
+          selected = noteFolder(f);
+          await loadTree();
+        } catch (e) {
+          error = String(e);
+        }
+      },
+    };
+  }
+
+  async function moveFolder(f: string, delta: number) {
+    try {
+      await api.noteMoveFolder(f, delta);
+      await loadTree();
+    } catch (e) {
+      error = String(e);
+    }
   }
 
   function noteMenu() {

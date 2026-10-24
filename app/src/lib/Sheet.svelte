@@ -137,6 +137,9 @@
       sheet = await api.cycleAdvantage();
     },
     say,
+    async refresh() {
+      sheet = await api.sheet();
+    },
   };
 
   async function conditions() {
