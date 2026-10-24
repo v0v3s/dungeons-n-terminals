@@ -448,6 +448,19 @@ fn stat_label(s: &CharacterSession, key: &str) -> String {
     if let Some((_, name, _)) = key.strip_prefix("skill.").and_then(|k| SKILLS.iter().find(|(s, _, _)| *s == k)) {
         return name.to_string();
     }
+    let ability = |k: &str| ABILITIES.iter().find(|(a, _)| *a == k).map(|(_, n)| *n);
+    if let Some(name) = key.strip_prefix("save.").and_then(ability) {
+        return format!("{name} save");
+    }
+    if let Some(name) = key.strip_prefix("mod.").and_then(ability) {
+        return format!("{name} modifier");
+    }
+    if let Some(l) = key.strip_prefix("slots.").and_then(|k| k.strip_suffix(".max")) {
+        return format!("Level {l} slots");
+    }
+    if let Some(d) = key.strip_prefix("hit_dice.").and_then(|k| k.strip_suffix(".max")) {
+        return format!("Hit dice {d}");
+    }
     if let Some((r, _)) =
         key.strip_prefix("resource.").and_then(|k| k.strip_suffix(".max")).and_then(|k| s.build.resources.iter().find(|(r, _)| r.key == k))
     {
@@ -901,6 +914,12 @@ mod tests {
         let inv = inventory(&lib, &s);
         assert_eq!(inv.lines[0].name, "Club");
         assert!(breakdown(&s, "ac").is_some_and(|b| !b.parts.is_empty()));
+        let title = |k: &str| breakdown(&s, k).map(|b| b.title);
+        assert_eq!(title("save.cha").as_deref(), Some("Charisma save"));
+        assert_eq!(title("mod.str").as_deref(), Some("Strength modifier"));
+        assert_eq!(title("hit_dice.d10.max").as_deref(), Some("Hit dice d10"));
+        let club = &inv.lines[0];
+        assert_eq!((club.pack, club.container.as_str(), club.monk_weapon), (false, "", None), "no Martial Arts: no monk weapon choice");
         // All of it goes over the wire.
         serde_json::to_string(&(h, o, inv, features(&lib, &OverlaySet::default(), &s), spells(&lib, &s))).unwrap();
     }
