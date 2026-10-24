@@ -1,0 +1,11 @@
+{
+ "sense": [
+  {
+   "name": "Tremorsight",
+   "source": "TST",
+   "entries": [
+    "You feel movement through the ground."
+   ]
+  }
+ ]
+}

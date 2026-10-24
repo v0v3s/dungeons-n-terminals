@@ -1,0 +1,93 @@
+{
+ "_meta": {
+  "sources": [
+   {
+    "json": "TSTB",
+    "abbreviation": "TSTB",
+    "full": "Proving Grounds Brew",
+    "authors": [
+     "The Test Guild"
+    ],
+    "version": "1.0"
+   }
+  ],
+  "edition": "one"
+ },
+ "item": [
+  {
+   "name": "Pocket Sundial",
+   "source": "TSTB",
+   "type": "G",
+   "rarity": "common",
+   "weight": 0.5,
+   "value": 2500,
+   "entries": [
+    "Tells the time when the sun is out."
+   ]
+  }
+ ],
+ "spell": [
+  {
+   "name": "Sun Glint",
+   "source": "TSTB",
+   "level": 0,
+   "school": "V",
+   "time": [
+    {
+     "number": 1,
+     "unit": "action"
+    }
+   ],
+   "range": {
+    "type": "point",
+    "distance": {
+     "type": "feet",
+     "amount": 30
+    }
+   },
+   "components": {
+    "v": true,
+    "s": true
+   },
+   "duration": [
+    {
+     "type": "instant"
+    }
+   ],
+   "classes": {
+    "fromClassList": [
+     {
+      "name": "Mage",
+      "source": "TST"
+     }
+    ]
+   },
+   "spellAttack": [
+    "R"
+   ],
+   "damageInflict": [
+    "radiant"
+   ],
+   "scalingLevelDice": {
+    "label": "Radiant damage",
+    "scaling": {
+     "1": "1d6",
+     "5": "2d6"
+    }
+   },
+   "entries": [
+    "A ranged spell attack: {@damage 1d6} radiant damage."
+   ]
+  }
+ ],
+ "feat": [
+  {
+   "name": "Brewed Luck",
+   "source": "TSTB",
+   "category": "O",
+   "entries": [
+    "Reroll one die a day."
+   ]
+  }
+ ]
+}

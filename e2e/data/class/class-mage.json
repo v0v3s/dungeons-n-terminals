@@ -1,0 +1,607 @@
+{
+ "class": [
+  {
+   "name": "Mage",
+   "source": "TST",
+   "edition": "one",
+   "page": 10,
+   "hd": {
+    "number": 1,
+    "faces": 6
+   },
+   "proficiency": [
+    "int",
+    "wis"
+   ],
+   "spellcastingAbility": "int",
+   "casterProgression": "full",
+   "cantripProgression": [
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5
+   ],
+   "preparedSpellsProgression": [
+    4,
+    5,
+    6,
+    7,
+    9,
+    10,
+    11,
+    12,
+    14,
+    15,
+    16,
+    16,
+    17,
+    18,
+    19,
+    21,
+    22,
+    23,
+    24,
+    25
+   ],
+   "spellsKnownProgressionFixed": [
+    6,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "primaryAbility": [
+    {
+     "int": true
+    }
+   ],
+   "subclassTitle": "Mage Order",
+   "classTableGroups": [
+    {
+     "title": "Spell Slots per Spell Level",
+     "colLabels": [
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "5th",
+      "6th",
+      "7th",
+      "8th",
+      "9th"
+     ],
+     "rowsSpellProgression": [
+      [
+       2,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       3,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       2,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       2,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       1,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       2,
+       0,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       1,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       1,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       1,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       1,
+       1,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       1,
+       1,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2,
+       1,
+       1,
+       1,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       3,
+       1,
+       1,
+       1,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       3,
+       2,
+       1,
+       1,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       3,
+       2,
+       2,
+       1,
+       1
+      ]
+     ]
+    }
+   ],
+   "startingProficiencies": {
+    "weapons": [
+     "simple"
+    ],
+    "skills": [
+     {
+      "choose": {
+       "from": [
+        "arcana",
+        "history",
+        "insight",
+        "investigation",
+        "medicine",
+        "nature",
+        "religion"
+       ],
+       "count": 2
+      }
+     }
+    ]
+   },
+   "startingEquipment": {
+    "defaultData": [
+     {
+      "A": [
+       {
+        "item": "thornknife|TST",
+        "quantity": 2
+       },
+       "ashstaff|TST",
+       "grimoire|TST",
+       "scribe's pack|TST",
+       "quilted robe|TST",
+       {
+        "value": 500
+       }
+      ],
+      "B": [
+       {
+        "value": 5500
+       }
+      ]
+     }
+    ]
+   },
+   "multiclassing": {
+    "requirements": {
+     "int": 13
+    }
+   },
+   "classFeatures": [
+    "Spellcasting|Mage|TST|1",
+    "Arcane Recall|Mage|TST|1",
+    "Ritual Adept|Mage|TST|1",
+    "Scholar's Insight|Mage|TST|2",
+    {
+     "classFeature": "Mage Order|Mage|TST|3",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Mage|TST|4",
+    "Ability Score Improvement|Mage|TST|8",
+    "Ability Score Improvement|Mage|TST|12",
+    "Ability Score Improvement|Mage|TST|16",
+    "Memorize Spell|Mage|TST|5",
+    "Spell Mastery|Mage|TST|18",
+    "Epic Boon|Mage|TST|19"
+   ]
+  }
+ ],
+ "subclass": [
+  {
+   "name": "Order of Sparks",
+   "shortName": "Sparks",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "edition": "one",
+   "subclassFeatures": [
+    "Order of Sparks|Mage|TST|Sparks|TST|3",
+    "Charged Mind|Mage|TST|Sparks|TST|6"
+   ],
+   "additionalSpells": [
+    {
+     "prepared": {
+      "3": [
+       "spark|TST#c"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Order of Wards",
+   "shortName": "Wards",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "edition": "one",
+   "subclassFeatures": [
+    "Order of Wards|Mage|TST|Wards|TST|3"
+   ]
+  }
+ ],
+ "classFeature": [
+  {
+   "name": "Spellcasting",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "You cast mage spells from your {@item Grimoire|TST}. See {@variantrule Proving Rule|TST}."
+   ]
+  },
+  {
+   "name": "Arcane Recall",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "Once per long rest, after a short rest, recover spell slots."
+   ]
+  },
+  {
+   "name": "Ritual Adept",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "You can cast any {@i ritual} in your grimoire as a ritual."
+   ]
+  },
+  {
+   "name": "Scholar's Insight",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 2,
+   "entries": [
+    "Choose one of your skills; you gain expertise in it."
+   ]
+  },
+  {
+   "name": "Mage Order",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 3,
+   "entries": [
+    "You join a {@subclass Order of Sparks|Mage|TST|Sparks|TST} or another order."
+   ]
+  },
+  {
+   "name": "Memorize Spell",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 5,
+   "entries": [
+    "Swap one prepared spell after a short rest."
+   ]
+  },
+  {
+   "name": "Spell Mastery",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 18,
+   "entries": [
+    "Cast one 1st-level spell at will."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 4,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 8,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 12,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 16,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Epic Boon",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "level": 19,
+   "entries": [
+    "Take an epic boon feat."
+   ]
+  }
+ ],
+ "subclassFeature": [
+  {
+   "name": "Order of Sparks",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "subclassShortName": "Sparks",
+   "subclassSource": "TST",
+   "level": 3,
+   "entries": [
+    "Lightning answers you.",
+    {
+     "type": "refSubclassFeature",
+     "subclassFeature": "Spark Affinity|Mage|TST|Sparks|TST|3"
+    }
+   ]
+  },
+  {
+   "name": "Spark Affinity",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "subclassShortName": "Sparks",
+   "subclassSource": "TST",
+   "level": 3,
+   "entries": [
+    "Add your Intelligence modifier to lightning damage."
+   ]
+  },
+  {
+   "name": "Charged Mind",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "subclassShortName": "Sparks",
+   "subclassSource": "TST",
+   "level": 6,
+   "entries": [
+    "Resistance to lightning damage."
+   ]
+  },
+  {
+   "name": "Order of Wards",
+   "source": "TST",
+   "className": "Mage",
+   "classSource": "TST",
+   "subclassShortName": "Wards",
+   "subclassSource": "TST",
+   "level": 3,
+   "entries": [
+    "Your wards absorb {@dice 2d6} damage."
+   ]
+  }
+ ]
+}

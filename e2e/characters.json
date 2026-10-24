@@ -1,0 +1,26 @@
+{
+  "_comment": "The test party, made by every target's harness through character creation. A question takes the preferred labels it offers (`A:` means an equipment choice starting with it), then its first choices up to the count; ability scores stay as offered.",
+  "campaign": "E2E",
+  "characters": [
+    {
+      "name": "Tester",
+      "about": "A level 1 Mage: spells (a prepared caster with a grimoire), the Scribe's Pack, an origin feat chosen by the species.",
+      "prefer": ["Kindred", "Archivist", "Standard array", "Lucky Charm", "Mage", "A:"]
+    },
+    {
+      "name": "Brawler",
+      "about": "A level 1 Monk: Martial Arts and monk weapons, a subspecies, an instrument picked from the equipment.",
+      "prefer": ["Stoneling", "Stoneling (Deep)", "Drifter", "Standard array", "Monk", "A:", "Reed Pipe"]
+    },
+    {
+      "name": "Hexa",
+      "about": "A level 1 Hexer: pact magic, a subclass at level 1, a lineage, a feat with versions, a focus picked from the equipment.",
+      "prefer": ["Emberkin", "Emberkin; Ash Lineage", "Acolyte of Gears", "Standard array", "Hexer", "The Lantern", "A:", "Crystal Orb"]
+    },
+    {
+      "name": "Ranger",
+      "about": "A level 1 Warden: a half caster with weapon masteries, a feature choice and a species with a lineage choice.",
+      "prefer": ["Skyborn", "Drifter", "Standard array", "Warden", "Forest Ground", "A:"]
+    }
+  ]
+}

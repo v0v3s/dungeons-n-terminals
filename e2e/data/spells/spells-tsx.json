@@ -1,0 +1,75 @@
+{
+ "spell": [
+  {
+   "name": "Spark",
+   "source": "TSX",
+   "level": 0,
+   "school": "V",
+   "time": [
+    {
+     "number": 1,
+     "unit": "action"
+    }
+   ],
+   "range": {
+    "type": "point",
+    "distance": {
+     "type": "feet",
+     "amount": 60
+    }
+   },
+   "components": {
+    "v": true,
+    "s": true
+   },
+   "duration": [
+    {
+     "type": "instant"
+    }
+   ],
+   "entries": [
+    "The old spark: {@damage 1d4} lightning damage."
+   ],
+   "reprintedAs": [
+    "Spark|TST"
+   ],
+   "savingThrow": [
+    "dexterity"
+   ],
+   "damageInflict": [
+    "lightning"
+   ]
+  },
+  {
+   "name": "Outskirt Gust",
+   "source": "TSX",
+   "level": 1,
+   "school": "V",
+   "time": [
+    {
+     "number": 1,
+     "unit": "action"
+    }
+   ],
+   "range": {
+    "type": "cone",
+    "distance": {
+     "type": "feet",
+     "amount": 15
+    }
+   },
+   "components": {
+    "v": true,
+    "s": true
+   },
+   "duration": [
+    {
+     "type": "instant"
+    }
+   ],
+   "entries": [
+    "A gust pushes creatures 10 feet away."
+   ]
+  }
+ ]
+}

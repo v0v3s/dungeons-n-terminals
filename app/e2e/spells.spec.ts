@@ -1,30 +1,27 @@
-import { dialog, expect, openSheet, test } from "./fixtures";
+import type { Page } from "@playwright/test";
+import { dialog, expect, openSheet, pick, test } from "./fixtures";
 
-// In order: the spells are chosen once, then used.
-test.describe.configure({ mode: "serial" });
+/// Add spells to the first class on the Spells tab, one at a time.
+async function addSpells(page: Page, names: string[]) {
+  for (const name of names) {
+    await page.getByRole("button", { name: "+ add" }).first().click();
+    await pick(page, [name]);
+    await expect(page.locator("button.spell", { hasText: name })).toBeVisible();
+  }
+}
 
-test.beforeEach(async ({ page }) => openSheet(page, "Spells"));
-
-test("a new wizard chooses cantrips from the list", async ({ page }) => {
-  const choose = page.locator("button.choice", { hasText: "cantrip" }).first();
-  const what = (await choose.textContent()) ?? "";
-  const count = Number(what.match(/choose (\d+)/)?.[1] ?? 1);
-  await choose.click();
-  const picker = page.getByRole("dialog").last();
-  for (let i = 0; i < count; i++) await picker.locator("li button").nth(i).click();
-  await expect(page.locator("button.spell")).toHaveCount(count);
+test("a new mage adds cantrips and spells to the grimoire", { tag: "@spells.add" }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  await addSpells(page, ["Frost Needle", "Spark", "Glimmer"]);
+  await expect(page.locator("button.spell")).toHaveCount(3);
+  await addSpells(page, ["Ember Bolt"]);
+  await expect(page.locator("button.spell", { hasText: "Ember Bolt" })).toBeVisible();
 });
 
-test("a cantrip rolls with the wizard's numbers", async ({ page }) => {
-  await page.locator("button.spell").first().click();
-  await page.getByRole("dialog").last().getByRole("button", { name: "Roll it" }).click();
-  await expect(page.locator(".status.roll")).toBeVisible();
-});
-
-test("a spell's menu reads it", async ({ page }) => {
-  const first = page.locator("button.spell").first();
-  const name = (await first.locator(".name").textContent())?.trim() ?? "";
-  await first.click();
-  await dialog(page, name).getByRole("button", { name: "Read it" }).click();
-  await expect(page.getByRole("dialog").last()).toContainText(name);
+test("a cantrip rolls with the mage's numbers", { tag: "@spells.roll" }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  await addSpells(page, ["Frost Needle"]);
+  await page.locator("button.spell", { hasText: "Frost Needle" }).click();
+  await dialog(page, "Frost Needle").getByRole("button", { name: "Roll it" }).click();
+  await expect(page.locator(".status.roll")).toContainText("Frost Needle");
 });

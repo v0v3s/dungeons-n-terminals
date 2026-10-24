@@ -1,0 +1,148 @@
+{
+ "skill": [
+  {
+   "name": "Acrobatics",
+   "source": "TST",
+   "ability": "dex",
+   "entries": [
+    "Acrobatics checks use dex."
+   ]
+  },
+  {
+   "name": "Animal Handling",
+   "source": "TST",
+   "ability": "wis",
+   "entries": [
+    "Animal Handling checks use wis."
+   ]
+  },
+  {
+   "name": "Arcana",
+   "source": "TST",
+   "ability": "int",
+   "entries": [
+    "Arcana checks use int."
+   ]
+  },
+  {
+   "name": "Athletics",
+   "source": "TST",
+   "ability": "str",
+   "entries": [
+    "Athletics checks use str."
+   ]
+  },
+  {
+   "name": "Deception",
+   "source": "TST",
+   "ability": "cha",
+   "entries": [
+    "Deception checks use cha."
+   ]
+  },
+  {
+   "name": "History",
+   "source": "TST",
+   "ability": "int",
+   "entries": [
+    "History checks use int."
+   ]
+  },
+  {
+   "name": "Insight",
+   "source": "TST",
+   "ability": "wis",
+   "entries": [
+    "Insight checks use wis."
+   ]
+  },
+  {
+   "name": "Intimidation",
+   "source": "TST",
+   "ability": "cha",
+   "entries": [
+    "Intimidation checks use cha."
+   ]
+  },
+  {
+   "name": "Investigation",
+   "source": "TST",
+   "ability": "int",
+   "entries": [
+    "Investigation checks use int."
+   ]
+  },
+  {
+   "name": "Medicine",
+   "source": "TST",
+   "ability": "wis",
+   "entries": [
+    "Medicine checks use wis."
+   ]
+  },
+  {
+   "name": "Nature",
+   "source": "TST",
+   "ability": "int",
+   "entries": [
+    "Nature checks use int."
+   ]
+  },
+  {
+   "name": "Perception",
+   "source": "TST",
+   "ability": "wis",
+   "entries": [
+    "Perception checks use wis."
+   ]
+  },
+  {
+   "name": "Performance",
+   "source": "TST",
+   "ability": "cha",
+   "entries": [
+    "Performance checks use cha."
+   ]
+  },
+  {
+   "name": "Persuasion",
+   "source": "TST",
+   "ability": "cha",
+   "entries": [
+    "Persuasion checks use cha."
+   ]
+  },
+  {
+   "name": "Religion",
+   "source": "TST",
+   "ability": "int",
+   "entries": [
+    "Religion checks use int."
+   ]
+  },
+  {
+   "name": "Sleight of Hand",
+   "source": "TST",
+   "ability": "dex",
+   "entries": [
+    "Sleight of Hand checks use dex."
+   ]
+  },
+  {
+   "name": "Stealth",
+   "source": "TST",
+   "ability": "dex",
+   "entries": [
+    "Stealth checks use dex."
+   ]
+  },
+  {
+   "name": "Survival",
+   "source": "TST",
+   "ability": "wis",
+   "entries": [
+    "Survival checks use wis."
+   ]
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "action": [
+  {
+   "name": "Brace",
+   "source": "TST",
+   "time": [
+    {
+     "number": 1,
+     "unit": "action"
+    }
+   ],
+   "entries": [
+    "Until your next turn, you can't be pushed."
+   ]
+  }
+ ]
+}

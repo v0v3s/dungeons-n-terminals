@@ -1,0 +1,268 @@
+{
+ "race": [
+  {
+   "name": "Kindred",
+   "source": "TST",
+   "edition": "one",
+   "page": 50,
+   "size": [
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "skillProficiencies": [
+    {
+     "any": 1
+    }
+   ],
+   "feats": [
+    {
+     "anyFromCategory": {
+      "category": [
+       "O"
+      ],
+      "count": 1
+     }
+    }
+   ],
+   "languageProficiencies": [
+    {
+     "common tongue": true,
+     "anyStandard": 1
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Versatile",
+     "entries": [
+      "You gain an {@feat Quick Wits|TST|origin feat} of your choice."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Skillful",
+     "entries": [
+      "You gain proficiency in one skill."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Emberkin",
+   "source": "TST",
+   "edition": "one",
+   "page": 51,
+   "size": [
+    "M"
+   ],
+   "speed": 30,
+   "darkvision": 60,
+   "resist": [
+    "fire"
+   ],
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "additionalSpells": [
+    {
+     "known": {
+      "1": [
+       "glimmer|TST#c"
+      ]
+     },
+     "innate": {
+      "3": {
+       "daily": {
+        "1": [
+         "ember bolt|TST"
+        ]
+       }
+      }
+     },
+     "ability": "cha"
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Ember Heart",
+     "entries": [
+      "You resist fire and know {@spell Glimmer|TST}."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Ember Lineage",
+     "entries": [
+      "Choose a lineage."
+     ]
+    }
+   ],
+   "_versions": [
+    {
+     "name": "Emberkin; Ash Lineage",
+     "source": "TST",
+     "darkvision": 120,
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Ember Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Ember Lineage (Ash)",
+        "entries": [
+         "You see far in the dark."
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Emberkin; Cinder Lineage",
+     "source": "TST",
+     "speed": 35,
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Ember Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Ember Lineage (Cinder)",
+        "entries": [
+         "You are quick."
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stoneling",
+   "source": "TST",
+   "edition": "classic",
+   "page": 52,
+   "size": [
+    "M"
+   ],
+   "speed": 25,
+   "darkvision": 60,
+   "ability": [
+    {
+     "con": 2
+    }
+   ],
+   "weaponProficiencies": [
+    {
+     "heavy cleaver|TST": true
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Stone Body",
+     "entries": [
+      "Advantage on saves against {@condition Poisoned|TST|poison}."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Skyborn",
+   "source": "TST",
+   "edition": "one",
+   "page": 53,
+   "size": [
+    "S",
+    "M"
+   ],
+   "speed": {
+    "walk": 30,
+    "fly": 30
+   },
+   "lineage": true,
+   "skillProficiencies": [
+    {
+     "perception": true
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Wings",
+     "entries": [
+      "You have a flying speed of 30 feet."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Mirefolk",
+   "source": "TSX",
+   "edition": "one",
+   "page": 5,
+   "size": [
+    "S"
+   ],
+   "speed": {
+    "walk": 25,
+    "swim": 30
+   },
+   "darkvision": 60,
+   "skillProficiencies": [
+    {
+     "choose": {
+      "from": [
+       "stealth",
+       "survival",
+       "nature"
+      ],
+      "count": 1
+     }
+    }
+   ],
+   "entries": [
+    "Mirefolk live in the marshes past the Outskirts."
+   ]
+  }
+ ],
+ "subrace": [
+  {
+   "name": "Deep",
+   "source": "TST",
+   "raceName": "Stoneling",
+   "raceSource": "TST",
+   "ability": [
+    {
+     "str": 1
+    }
+   ],
+   "skillProficiencies": [
+    {
+     "perception": true
+    }
+   ],
+   "entries": [
+    "Deep stonelings see in the dark."
+   ]
+  },
+  {
+   "name": "Hill",
+   "source": "TST",
+   "raceName": "Stoneling",
+   "raceSource": "TST",
+   "ability": [
+    {
+     "wis": 1
+    }
+   ],
+   "speed": 30,
+   "entries": [
+    "Hill stonelings walk farther."
+   ]
+  }
+ ]
+}

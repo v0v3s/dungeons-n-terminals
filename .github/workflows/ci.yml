@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -32,6 +33,10 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --exclude dnt-app --all-targets --locked -- -D warnings
+      # The rule (e2e/README.md): every scenario has a test on every target.
+      - name: Scenarios
+        run: cargo test -p dnt --test scenarios --locked
+      # Everything else, the terminal app's end-to-end tests among them.
       - name: Test
         run: cargo test --workspace --exclude dnt-app --locked
 
@@ -65,13 +70,16 @@ jobs:
       - name: Clippy
         run: cargo clippy -p dnt-app --all-targets --locked -- -D warnings
 
-  # Windows resolves imports without regard to case (Busy.svelte and
-  # busy.svelte.ts are one file there): build the web UI there too.
+  # The app on Windows: its end-to-end tests (app/e2e), on the build with
+  # the e2e feature. (Windows also resolves imports without regard to case,
+  # which the build checks.)
   app-windows:
     name: app (windows)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -79,6 +87,16 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - name: Web UI
         working-directory: app
-        run: |
-          npm ci
-          npm run build
+        run: npm ci
+      - name: End-to-end tests
+        working-directory: app
+        shell: bash
+        run: sh scripts/e2e-app.sh --target windows
+      - name: Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-windows-e2e
+          path: |
+            app/e2e/report
+            app/e2e/results

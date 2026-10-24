@@ -11,7 +11,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
-    "e2e:android": "sh scripts/e2e-android.sh"
+    "e2e:android": "sh scripts/e2e-app.sh --target android",
+    "e2e:windows": "sh scripts/e2e-app.sh --target windows"
   },
   "license": "MIT",
   "dependencies": {

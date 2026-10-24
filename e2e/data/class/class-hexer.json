@@ -1,0 +1,374 @@
+{
+ "class": [
+  {
+   "name": "Hexer",
+   "source": "TST",
+   "edition": "one",
+   "page": 30,
+   "hd": {
+    "number": 1,
+    "faces": 8
+   },
+   "proficiency": [
+    "wis",
+    "cha"
+   ],
+   "spellcastingAbility": "cha",
+   "casterProgression": "pact",
+   "cantripProgression": [
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ],
+   "spellsKnownProgression": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    10,
+    11,
+    11,
+    12,
+    12,
+    13,
+    13,
+    14,
+    14,
+    15,
+    15
+   ],
+   "primaryAbility": [
+    {
+     "cha": true
+    }
+   ],
+   "subclassTitle": "Hexer Patron",
+   "classTableGroups": [
+    {
+     "title": "Pact Magic",
+     "colLabels": [
+      "Spell Slots",
+      "Slot Level"
+     ],
+     "rows": [
+      [
+       1,
+       "1st"
+      ],
+      [
+       2,
+       "1st"
+      ],
+      [
+       2,
+       "2nd"
+      ],
+      [
+       2,
+       "2nd"
+      ],
+      [
+       2,
+       "3rd"
+      ],
+      [
+       2,
+       "3rd"
+      ],
+      [
+       2,
+       "4th"
+      ],
+      [
+       2,
+       "4th"
+      ],
+      [
+       2,
+       "5th"
+      ],
+      [
+       2,
+       "5th"
+      ],
+      [
+       3,
+       "5th"
+      ],
+      [
+       3,
+       "5th"
+      ],
+      [
+       3,
+       "5th"
+      ],
+      [
+       3,
+       "5th"
+      ],
+      [
+       3,
+       "5th"
+      ],
+      [
+       3,
+       "5th"
+      ],
+      [
+       4,
+       "5th"
+      ],
+      [
+       4,
+       "5th"
+      ],
+      [
+       4,
+       "5th"
+      ],
+      [
+       4,
+       "5th"
+      ]
+     ]
+    }
+   ],
+   "startingProficiencies": {
+    "armor": [
+     "light"
+    ],
+    "weapons": [
+     "simple"
+    ],
+    "skills": [
+     {
+      "choose": {
+       "from": [
+        "arcana",
+        "deception",
+        "history",
+        "intimidation",
+        "investigation",
+        "nature",
+        "religion"
+       ],
+       "count": 2
+      }
+     }
+    ]
+   },
+   "startingEquipment": {
+    "defaultData": [
+     {
+      "A": [
+       {
+        "equipmentType": "focusSpellcastingArcane"
+       }
+      ],
+      "B": [
+       "hex pouch|TST"
+      ]
+     },
+     {
+      "_": [
+       "quilted coat|TST",
+       {
+        "item": "thornknife|TST",
+        "quantity": 2
+       },
+       "trail pack|TST",
+       {
+        "value": 1500
+       }
+      ]
+     }
+    ]
+   },
+   "multiclassing": {
+    "requirements": {
+     "cha": 13
+    }
+   },
+   "classFeatures": [
+    {
+     "classFeature": "Hexer Patron|Hexer|TST|1",
+     "gainSubclassFeature": true
+    },
+    "Pact Magic|Hexer|TST|1",
+    "Hexing Gaze|Hexer|TST|2",
+    "Ability Score Improvement|Hexer|TST|4",
+    "Ability Score Improvement|Hexer|TST|8",
+    "Ability Score Improvement|Hexer|TST|12",
+    "Ability Score Improvement|Hexer|TST|16",
+    "Epic Boon|Hexer|TST|19"
+   ]
+  }
+ ],
+ "subclass": [
+  {
+   "name": "The Lantern",
+   "shortName": "Lantern",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "edition": "one",
+   "subclassFeatures": [
+    "The Lantern|Hexer|TST|Lantern|TST|1"
+   ],
+   "additionalSpells": [
+    {
+     "expanded": {
+      "s1": [
+       "soothing light|TST"
+      ],
+      "s2": [
+       "mist step|TST"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "The Tide",
+   "shortName": "Tide",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "edition": "one",
+   "subclassFeatures": [
+    "The Tide|Hexer|TST|Tide|TST|1"
+   ]
+  }
+ ],
+ "classFeature": [
+  {
+   "name": "Hexer Patron",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "Choose the patron that hears you."
+   ]
+  },
+  {
+   "name": "Pact Magic",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "Your slots come back on a short rest."
+   ]
+  },
+  {
+   "name": "Hexing Gaze",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 2,
+   "entries": [
+    "A target you can see has {@condition Dazed|TST|disadvantage} on its next save."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 4,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 8,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 12,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 16,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Epic Boon",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "level": 19,
+   "entries": [
+    "Take an epic boon feat."
+   ]
+  }
+ ],
+ "subclassFeature": [
+  {
+   "name": "The Lantern",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "subclassShortName": "Lantern",
+   "subclassSource": "TST",
+   "level": 1,
+   "entries": [
+    "A small light follows you."
+   ]
+  },
+  {
+   "name": "The Tide",
+   "source": "TST",
+   "className": "Hexer",
+   "classSource": "TST",
+   "subclassShortName": "Tide",
+   "subclassSource": "TST",
+   "level": 1,
+   "entries": [
+    "You can breathe water."
+   ]
+  }
+ ]
+}

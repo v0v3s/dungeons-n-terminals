@@ -1,0 +1,371 @@
+{
+ "item": [
+  {
+   "name": "Satchel",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 5,
+   "value": 200,
+   "containerCapacity": {
+    "weight": [
+     30
+    ]
+   },
+   "entries": [
+    "Holds 30 pounds."
+   ]
+  },
+  {
+   "name": "Waxed Sack",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 0.5,
+   "value": 1,
+   "containerCapacity": {
+    "weight": [
+     30
+    ]
+   }
+  },
+  {
+   "name": "Water Skin",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 5,
+   "value": 20,
+   "containerCapacity": {
+    "volume": [
+     4
+    ]
+   }
+  },
+  {
+   "name": "Grimoire",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 3,
+   "value": 5000,
+   "entries": [
+    "A mage's spellbook."
+   ]
+  },
+  {
+   "name": "Ink Quill",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 0,
+   "value": 2
+  },
+  {
+   "name": "Ink Pot",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 0,
+   "value": 1000
+  },
+  {
+   "name": "Parchment Sheet",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 0,
+   "value": 10
+  },
+  {
+   "name": "Lantern",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 2,
+   "value": 500
+  },
+  {
+   "name": "Lamp Oil",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 1,
+   "value": 10
+  },
+  {
+   "name": "Bedroll",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 7,
+   "value": 100
+  },
+  {
+   "name": "Rope Coil",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 5,
+   "value": 100
+  },
+  {
+   "name": "Tinderbox",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 1,
+   "value": 50
+  },
+  {
+   "name": "Chalk",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 0,
+   "value": 1
+  },
+  {
+   "name": "Quilted Robe",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 4,
+   "value": 100
+  },
+  {
+   "name": "Rations",
+   "source": "TST",
+   "type": "FD|TST",
+   "rarity": "none",
+   "weight": 2,
+   "value": 50
+  },
+  {
+   "name": "Scribe's Pack",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 10,
+   "value": 4000,
+   "packContents": [
+    "satchel|TST",
+    "ink quill|TST",
+    "ink pot|TST",
+    {
+     "item": "parchment sheet|TST",
+     "quantity": 10
+    },
+    "lantern|TST",
+    {
+     "item": "lamp oil|TST",
+     "quantity": 5
+    },
+    {
+     "special": "a little bag of sand"
+    }
+   ],
+   "entries": [
+    "Everything a scribe needs."
+   ]
+  },
+  {
+   "name": "Trail Pack",
+   "source": "TST",
+   "type": "G|TST",
+   "rarity": "none",
+   "weight": 20,
+   "value": 1000,
+   "packContents": [
+    "waxed sack|TST",
+    "bedroll|TST",
+    {
+     "item": "rations|TST",
+     "quantity": 5
+    },
+    "rope coil|TST",
+    "tinderbox|TST",
+    {
+     "item": "chalk|TST",
+     "quantity": 5
+    },
+    "water skin|TST"
+   ]
+  },
+  {
+   "name": "Crystal Orb",
+   "source": "TST",
+   "type": "SCF|TST",
+   "scfType": "arcane",
+   "rarity": "none",
+   "weight": 3,
+   "value": 2000
+  },
+  {
+   "name": "Hex Pouch",
+   "source": "TST",
+   "type": "SCF|TST",
+   "scfType": "arcane",
+   "rarity": "none",
+   "weight": 2,
+   "value": 2500
+  },
+  {
+   "name": "Holy Token",
+   "source": "TST",
+   "type": "SCF|TST",
+   "scfType": "holy",
+   "rarity": "none",
+   "weight": 1,
+   "value": 500
+  },
+  {
+   "name": "Oak Sprig",
+   "source": "TST",
+   "type": "SCF|TST",
+   "scfType": "druid",
+   "rarity": "none",
+   "weight": 0,
+   "value": 100
+  },
+  {
+   "name": "Reed Pipe",
+   "source": "TST",
+   "type": "INS|TST",
+   "rarity": "none",
+   "weight": 1,
+   "value": 200
+  },
+  {
+   "name": "Hand Drum",
+   "source": "TST",
+   "type": "INS|TST",
+   "rarity": "none",
+   "weight": 3,
+   "value": 600
+  },
+  {
+   "name": "Bone Dice",
+   "source": "TST",
+   "type": "GS|TST",
+   "rarity": "none",
+   "weight": 0,
+   "value": 10
+  },
+  {
+   "name": "Tinker's Kit",
+   "source": "TST",
+   "type": "AT|TST",
+   "rarity": "none",
+   "weight": 10,
+   "value": 5000
+  },
+  {
+   "name": "Bag of Many Pockets",
+   "source": "TST",
+   "type": "G|TST",
+   "wondrous": true,
+   "rarity": "uncommon",
+   "weight": 15,
+   "containerCapacity": {
+    "weight": [
+     500
+    ],
+    "weightless": true
+   },
+   "entries": [
+    "Holds 500 pounds and weighs the same however full."
+   ]
+  },
+  {
+   "name": "Ring of Warding",
+   "source": "TST",
+   "type": "RG|TST",
+   "rarity": "rare",
+   "reqAttune": true,
+   "bonusAc": "+1",
+   "bonusSavingThrow": "+1",
+   "entries": [
+    "+1 to AC and saving throws while attuned."
+   ]
+  },
+  {
+   "name": "Potion of Mending",
+   "source": "TST",
+   "type": "P|TST",
+   "rarity": "common",
+   "weight": 0.5,
+   "value": 5000,
+   "entries": [
+    "You regain {@dice 2d4 + 2} hit points."
+   ]
+  },
+  {
+   "name": "Wand of Sparks",
+   "source": "TST",
+   "type": "WD|TST",
+   "rarity": "uncommon",
+   "reqAttune": "by a spellcaster",
+   "weight": 1,
+   "entries": [
+    "Cast {@spell Spark|TST} as a bonus action."
+   ]
+  },
+  {
+   "name": "Cloak of Mist",
+   "source": "TST",
+   "type": "G|TST",
+   "wondrous": true,
+   "rarity": "rare",
+   "reqAttune": true,
+   "bonusAc": "+1",
+   "entries": [
+    "You are hard to see in fog."
+   ]
+  },
+  {
+   "name": "Longfang of Embers",
+   "source": "TST",
+   "type": "M|TST",
+   "baseItem": "Longfang|TST",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmg2": "1d10",
+   "dmgType": "S",
+   "property": [
+    "V|TST"
+   ],
+   "rarity": "rare",
+   "reqAttune": true,
+   "bonusWeapon": "+1",
+   "weight": 3,
+   "entries": [
+    "+1 to attack and damage rolls; it deals an extra {@damage 1d6} fire damage."
+   ]
+  },
+  {
+   "name": "Old Lantern",
+   "source": "TSX",
+   "type": "G|TSX",
+   "rarity": "none",
+   "weight": 3,
+   "value": 300
+  }
+ ],
+ "itemGroup": [
+  {
+   "name": "Arcane Focus",
+   "source": "TST",
+   "type": "SCF|TST",
+   "rarity": "none",
+   "items": [
+    "crystal orb|TST",
+    "hex pouch|TST"
+   ],
+   "entries": [
+    "An arcane spellcasting focus."
+   ]
+  }
+ ]
+}
