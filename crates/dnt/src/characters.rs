@@ -99,6 +99,8 @@ pub enum Popup {
     Conditions(usize),
     /// Damage this big kills outright: dead, or left at 0 hit points?
     KillOutright(i64),
+    /// Confirm removing one of your own trackers: (key, name).
+    RemoveTracker(String, String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,6 +109,8 @@ pub enum TextPrompt {
     Currency,
     /// Container settings of the line under the cursor.
     Container,
+    /// A tracker of your own: `name, uses, recharge`.
+    Tracker,
 }
 
 impl TextPrompt {
@@ -115,6 +119,7 @@ impl TextPrompt {
             TextPrompt::CustomItem => "Custom item name",
             TextPrompt::Currency => "Coins (+15gp, -3sp, 20 sets gold)",
             TextPrompt::Container => "Container: 30 lb · weightless · no limit · off · empty resets",
+            TextPrompt::Tracker => "New tracker: name, uses, recharge (long · short · dawn · manual)",
         }
     }
 }
@@ -498,6 +503,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                             }
                             TextPrompt::Container => Command::SetContainer { line: sheet.inventory_cursor, settings: text },
                             TextPrompt::Currency => Command::ChangeCoins { change: text },
+                            TextPrompt::Tracker => match new_tracker(&text) {
+                                Ok(command) => command,
+                                Err(e) => return Action::Status(e),
+                            },
                         };
                         let custom = prompt == TextPrompt::CustomItem;
                         let action = run(sheet, lib, overlays, command);
@@ -644,6 +653,13 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::Save(format!("Damage {amount}: at 0 hit points, dying"));
             }
+            Popup::RemoveTracker(tracker, _) => {
+                sheet.popup = None;
+                if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
+                    return run(sheet, lib, overlays, Command::RemoveTracker { key: tracker });
+                }
+                return Action::None;
+            }
             Popup::Undo => {
                 sheet.popup = None;
                 if matches!(key.code, KeyCode::Char('y') | KeyCode::Enter) {
@@ -717,6 +733,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             return Action::None;
         }
         KeyCode::Char('D') => return run(sheet, lib, overlays, Command::DeathSave),
+        // The dead are not healed; h says they are not dead after all.
+        KeyCode::Char('h') if sheet.session.character().state.dead => {
+            return run(sheet, lib, overlays, Command::SetDead { dead: false });
+        }
         KeyCode::Char('h') => {
             sheet.popup = Some(Popup::Input(Prompt::Heal, String::new()));
             return Action::None;
@@ -906,6 +926,16 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         }
         KeyCode::Char(' ' | '-') => return spend(sheet, lib, overlays, 1),
         KeyCode::Char('+' | '=') => return spend(sheet, lib, overlays, -1),
+        KeyCode::Char('a') => sheet.popup = Some(Popup::Text(TextPrompt::Tracker, String::new())),
+        KeyCode::Char('x') => {
+            let Some(Item::Resource(key)) = items.get(sheet.cursor) else {
+                return Action::Status("x removes a tracker of your own (a adds one)".into());
+            };
+            let Some(t) = sheet.session.character().trackers.iter().find(|t| &t.key == key) else {
+                return Action::Status("Only your own trackers can be removed; a feature's come with its rules".into());
+            };
+            sheet.popup = Some(Popup::RemoveTracker(t.key.clone(), t.name.clone()));
+        }
         _ => {}
     }
     Action::None
@@ -1148,6 +1178,26 @@ fn spend(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, n: i64) -> Act
     run(sheet, lib, overlays, Command::Spend { pool, amount: n })
 }
 
+/// `name, uses, recharge` (uses 1 and a long rest when left out) as the
+/// command that adds the tracker.
+fn new_tracker(text: &str) -> Result<Command, String> {
+    use dnt_rules::overlay::Recharge;
+    let mut parts = text.split(',').map(str::trim);
+    let name = parts.next().unwrap_or("").to_string();
+    let max = match parts.next() {
+        None | Some("") => 1,
+        Some(n) => n.parse().map_err(|_| format!("{n}: uses must be a number"))?,
+    };
+    let recharge = match parts.next().unwrap_or("").to_lowercase().as_str() {
+        "" | "long" | "long rest" => Recharge::LongRest,
+        "short" | "short rest" => Recharge::ShortRest,
+        "dawn" => Recharge::Dawn,
+        "manual" | "never" => Recharge::Manual,
+        r => return Err(format!("{r}: recharge is long, short, dawn or manual")),
+    };
+    Ok(Command::AddTracker { name, max, recharge })
+}
+
 /// Apply a core command: a changed character is saved, a refusal shown.
 fn run(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, command: Command) -> Action {
     match sheet.session.apply(lib, overlays, command) {
@@ -1169,4 +1219,23 @@ fn spell_pick(c: spellbook::SpellChoices) -> Popup {
 fn changed(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, status: String) -> Action {
     sheet.rebuild(lib, overlays);
     Action::Save(status)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dnt_rules::overlay::Recharge;
+
+    #[test]
+    fn tracker_lines() {
+        let t = |s: &str| new_tracker(s);
+        assert_eq!(
+            t("Ring of Warmth, 3, dawn"),
+            Ok(Command::AddTracker { name: "Ring of Warmth".into(), max: 3, recharge: Recharge::Dawn })
+        );
+        assert_eq!(t("Boon"), Ok(Command::AddTracker { name: "Boon".into(), max: 1, recharge: Recharge::LongRest }));
+        assert_eq!(t("Wand, 7, Short Rest"), Ok(Command::AddTracker { name: "Wand".into(), max: 7, recharge: Recharge::ShortRest }));
+        assert!(t("Wand, many").is_err());
+        assert!(t("Wand, 2, weekly").is_err());
+    }
 }

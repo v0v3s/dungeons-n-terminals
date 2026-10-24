@@ -8,6 +8,16 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Terminal: trackers of your own on the Overview: `a` adds one
+  (`Ring of Warmth, 3, dawn`), `x` removes it (asks first).
+- Terminal: `h` on a dead character marks them not dead.
+- Terminal: `r` renames a campaign.
+- Terminal: `o` orders the compendium's results (best match, name A–Z
+  or Z–A, source, level or rarity), as the app does.
+- Terminal: an About section at the end of the help screen (`?`).
+
 ### Fixed
 
 - App: equipment packs (Explorer's Pack, Scholar's Pack, …) can be

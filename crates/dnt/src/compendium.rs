@@ -1,7 +1,7 @@
 //! Compendium browser state and key handling.
 
 pub use dnt_core::compendium::Category;
-use dnt_core::compendium::Search;
+use dnt_core::compendium::{sorted, Order, Search};
 use dnt_data::tags::Link;
 use dnt_data::{doc::Block, view, EntityId, Library, SourceFilter};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -55,6 +55,8 @@ pub struct Compendium {
     pub detail_height: usize,
     pub detail_lines: usize,
     pub list_height: usize,
+    /// How the results are ordered (o cycles it).
+    pub order: Order,
 }
 
 /// Reading the search's query, results and counts.
@@ -78,14 +80,16 @@ impl Compendium {
             detail_height: 0,
             detail_lines: 0,
             list_height: 0,
+            order: Order::default(),
         };
         c.searched(lib);
         c
     }
 
-    /// Restore the category and query after a rebuild.
-    pub fn restore(&mut self, lib: &Library, category: Category, query: String) {
+    /// Restore the category, query and order after a rebuild.
+    pub fn restore(&mut self, lib: &Library, category: Category, query: String, order: Order) {
         self.search.query = query;
+        self.order = order;
         self.search.set_category(lib, category);
         self.searched(lib);
     }
@@ -110,8 +114,11 @@ impl Compendium {
         self.searched(lib);
     }
 
-    /// New results: back to the top.
+    /// New results: in the chosen order, back to the top.
     fn searched(&mut self, lib: &Library) {
+        if self.order != Order::Relevance {
+            self.search.results = sorted(lib, &self.search.results, self.order);
+        }
         self.selected = 0;
         self.list_offset = 0;
         self.sync_detail(lib);
@@ -228,6 +235,12 @@ impl Compendium {
                 }
             }
             KeyCode::Char('n') => return Outcome::New,
+            KeyCode::Char('o') => {
+                let i = Order::ALL.iter().position(|o| *o == self.order).unwrap_or(0);
+                self.order = Order::ALL[(i + 1) % Order::ALL.len()];
+                // Back to the search's own order first, then this one.
+                self.research(lib);
+            }
             KeyCode::Char('/' | 'i') => self.focus = Focus::Search,
             KeyCode::Char('j') | KeyCode::Down => self.move_selection(lib, 1),
             KeyCode::Char('k') | KeyCode::Up => self.move_selection(lib, -1),

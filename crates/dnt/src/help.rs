@@ -138,6 +138,7 @@ pub fn draw(frame: &mut Frame, area: Rect, help: &mut Help, theme: &Theme) {
     left.extend(group_lines(&groups, key_w, theme));
     let mut right = vec![Line::styled("Other screens", theme.dim.add_modifier(Modifier::ITALIC)), Line::default()];
     right.extend(group_lines(&others, key_w, theme));
+    right.extend(about(theme));
     if inner.width >= 150 {
         let [l, _, r] = Layout::horizontal([Constraint::Percentage(48), Constraint::Length(4), Constraint::Min(40)]).areas(inner);
         let max = (left.len().max(right.len()) as u16).saturating_sub(inner.height);
@@ -151,6 +152,18 @@ pub fn draw(frame: &mut Frame, area: Rect, help: &mut Help, theme: &Theme) {
         help.scroll = help.scroll.min(max);
         frame.render_widget(Paragraph::new(left).scroll((help.scroll, 0)), inner);
     }
+}
+
+/// Who made dnt and on what terms, after the keys.
+fn about(theme: &Theme) -> Vec<Line<'static>> {
+    vec![
+        Line::default(),
+        Line::styled("About", theme.label),
+        Line::raw(format!("dnt {} · MIT license", env!("CARGO_PKG_VERSION"))),
+        Line::styled("github.com/v0v3s/dungeons-n-terminals", theme.muted),
+        Line::styled("A fan project, not affiliated with Wizards of the Coast.", theme.muted),
+        Line::styled("It ships no game content and reads the data you provide.", theme.muted),
+    ]
 }
 
 mod content {
@@ -168,6 +181,7 @@ mod content {
             ("c", "clone into the campaign (replace the original, or a separate copy)"),
             ("e", "edit a campaign or global homebrew entry"),
             ("n", "new homebrew entry from a template"),
+            ("o", "order: best match · name A–Z · Z–A · source · level or rarity"),
             ("esc", "clear the search"),
         ],
     };
@@ -227,6 +241,7 @@ mod content {
             ("j k", "move"),
             ("enter", "make the campaign active"),
             ("n", "new campaign (all official sources)"),
+            ("r", "rename the campaign"),
             ("D", "delete the campaign (asks first)"),
             ("tab", "campaigns → books → homebrew"),
             ("l h", "into · out of the books or homebrew"),
@@ -261,7 +276,7 @@ mod content {
         title: "Character sheet (every tab)",
         keys: &[
             ("tab · shift+tab", "next · previous tab"),
-            ("d · h · t", "take damage · heal · temporary hit points"),
+            ("d · h · t", "take damage · heal (when dead: not dead) · temporary hit points"),
             ("D", "roll a death save (at 0 hit points)"),
             ("s · L", "short rest · long rest"),
             ("u · U", "level up · undo the last level"),
@@ -283,6 +298,7 @@ mod content {
             ("N", "also write rolls into the latest session note"),
             ("space · -", "use a resource, spell slot or hit die (without rolling)"),
             ("+", "restore one"),
+            ("a · x", "a tracker of your own (name, uses, recharge) · remove yours"),
             ("space · w (attack)", "hold in the main hand, or put away"),
             ("o · b (attack)", "off hand · both hands"),
             ("S", "take up or put away the shield"),

@@ -350,7 +350,9 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             draw_picker(frame, inner, &picker, theme);
         }
         Some(Popup::Text(prompt, text)) => {
-            let rect = centered(area, 56, 5);
+            // Wide enough for the title, which says what to type.
+            let width = (prompt.label().width() as u16 + 8).max(56);
+            let rect = centered(area, width, 5);
             frame.render_widget(Clear, rect);
             let block = pane(pane_title(prompt.label(), true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
             let inner = block.inner(rect);
@@ -404,6 +406,22 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             frame.render_widget(
                 Paragraph::new(Line::from(vec![
                     Span::raw(format!("Remove the latest level ({last})?  ")),
+                    Span::styled(" y ", theme.keycap),
+                    Span::styled(" yes  ", theme.dim),
+                    Span::styled(" n ", theme.keycap),
+                    Span::styled(" no", theme.dim),
+                ]))
+                .block(block),
+                rect,
+            );
+        }
+        Some(Popup::RemoveTracker(_, name)) => {
+            let rect = centered(area, 56, 5);
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title("Remove the tracker", true, theme), true, theme).padding(Padding::new(2, 2, 1, 0));
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::raw(format!("Stop tracking {name}?  ")),
                     Span::styled(" y ", theme.keycap),
                     Span::styled(" yes  ", theme.dim),
                     Span::styled(" n ", theme.keycap),
@@ -870,7 +888,12 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     }
     lines.push(Line::from(hp_line).style(base));
     if ch.state.dead {
-        lines.push(Line::styled("✝ Dead", Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)));
+        lines.push(Line::from(vec![
+            Span::styled("✝ Dead", Style::new().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw("  "),
+            Span::styled(" h ", theme.keycap),
+            Span::styled(" not dead", theme.dim),
+        ]));
     } else if hp == 0 {
         let st = &ch.state;
         let state = if st.death_successes >= 3 { "  stable" } else { "  D roll" };

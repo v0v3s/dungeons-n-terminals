@@ -161,17 +161,26 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             ("/", "search"),
             ("tab", "category"),
             ("c e n", "clone/edit/new"),
+            ("o", "order"),
             ("1-4", "section"),
             ("q", "quit"),
         ],
         (Section::Compendium, Focus::Detail) => {
             &[("j k", "scroll"), ("tab n", "next link"), ("enter", "follow"), ("bksp", "back"), ("esc", "list")]
         }
+        (Section::Campaigns, _) if app.campaigns.renaming.is_some() => &[("enter", "rename"), ("esc", "cancel")],
         (Section::Campaigns, _) if app.campaigns.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
         (Section::Campaigns, _) if app.campaigns.filtering => &[("enter", "done"), ("esc", "clear")],
-        (Section::Campaigns, _) if app.campaigns.pane == Pane::Campaigns => {
-            &[("j k", "move"), ("enter", "activate"), ("n", "new"), ("tab", "sources"), ("1-4", "section"), ("q", "quit")]
-        }
+        (Section::Campaigns, _) if app.campaigns.pane == Pane::Campaigns => &[
+            ("j k", "move"),
+            ("enter", "activate"),
+            ("n", "new"),
+            ("r", "rename"),
+            ("D", "delete"),
+            ("tab", "sources"),
+            ("1-4", "section"),
+            ("q", "quit"),
+        ],
         (Section::Campaigns, _) => {
             &[("j k", "move"), ("space", "toggle"), ("p", "preset"), ("a", "all"), ("r", "reprints"), ("/", "filter"), ("tab", "campaigns")]
         }
@@ -240,6 +249,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             Some(_) => &[
                 ("j k", "move"),
                 ("space +", "use/restore"),
+                ("a x", "tracker"),
                 ("r R", "roll/save"),
                 ("v", "adv/dis"),
                 ("C", "conditions"),
@@ -396,7 +406,8 @@ fn query_line(query: &str, theme: &Theme) -> Vec<Span<'static>> {
 /// Search box, hints and result list in one pane.
 fn draw_browser(frame: &mut Frame, area: Rect, lib: &Library, c: &mut Compendium, theme: &Theme) {
     let focused = matches!(c.focus, Focus::Search | Focus::List);
-    let count = Line::from(Span::styled(format!(" {} results ", c.results.len()), theme.dim)).right_aligned();
+    let order = if c.order == dnt_core::compendium::Order::Relevance { String::new() } else { format!("· {} ", c.order.label()) };
+    let count = Line::from(Span::styled(format!(" {} results {order}", c.results.len()), theme.dim)).right_aligned();
     let block = pane(pane_title("Browse", focused, theme), focused, theme).title_bottom(count);
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -657,7 +668,7 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     }
     if let Some(name) = &c.name_input {
         lines.push(Line::default());
-        lines.push(Line::styled("New campaign", theme.label));
+        lines.push(Line::styled(if c.renaming.is_some() { "Rename the campaign" } else { "New campaign" }, theme.label));
         lines.push(Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(name.clone())]));
         let y = inner.y + lines.len() as u16 - 1;
         frame.set_cursor_position((inner.x + 2 + name.width() as u16, y.min(inner.bottom().saturating_sub(1))));

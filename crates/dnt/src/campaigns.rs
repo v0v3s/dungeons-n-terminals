@@ -36,14 +36,18 @@ pub enum Action {
     HomebrewChanged(usize),
     /// Delete the campaign at this index.
     Delete(usize),
+    /// Rename the campaign at this index.
+    Rename(usize, String),
 }
 
 pub struct Campaigns {
     pub list: Vec<Campaign>,
     pub selected: usize,
     pub pane: Pane,
-    /// `Some` while typing a new campaign's name.
+    /// `Some` while typing a new campaign's name (or a new name).
     pub name_input: Option<String>,
+    /// The campaign being renamed (the name is in `name_input`).
+    pub renaming: Option<usize>,
     pub sources: Vec<SourceRow>,
     pub source_selected: usize,
     pub source_offset: usize,
@@ -100,6 +104,7 @@ impl Campaigns {
             selected: 0,
             pane: Pane::Campaigns,
             name_input: None,
+            renaming: None,
             sources,
             source_selected: 0,
             source_offset: 0,
@@ -164,12 +169,14 @@ impl Campaigns {
         }
         if let Some(name) = self.name_input.as_mut() {
             match key.code {
-                KeyCode::Esc => self.name_input = None,
+                KeyCode::Esc => (self.name_input, self.renaming) = (None, None),
                 KeyCode::Enter => {
                     let name = name.trim().to_string();
                     self.name_input = None;
-                    if !name.is_empty() {
-                        return Action::Create(name);
+                    match self.renaming.take() {
+                        Some(i) if !name.is_empty() => return Action::Rename(i, name),
+                        None if !name.is_empty() => return Action::Create(name),
+                        _ => {}
                     }
                 }
                 KeyCode::Backspace => {
@@ -240,6 +247,10 @@ impl Campaigns {
             KeyCode::Enter if n > 0 => return Action::Activate(self.selected),
             KeyCode::Char('l') | KeyCode::Right if n > 0 => self.pane = self.right,
             KeyCode::Char('D') if n > 0 => self.delete_confirm = Some(self.selected),
+            KeyCode::Char('r') if n > 0 => {
+                self.renaming = Some(self.selected);
+                self.name_input = Some(self.list[self.selected].settings.name.clone());
+            }
             _ => {}
         }
         Action::None
