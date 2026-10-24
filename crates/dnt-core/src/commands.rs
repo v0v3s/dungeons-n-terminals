@@ -80,15 +80,20 @@ pub enum Command {
     EndConcentration,
 
     // ---- inventory (lines are indexes into the inventory) ----
-    /// Add a library item (`item:Longsword|XPHB`), inside a container if given.
+    /// Add a library item (`item:Longsword|XPHB`), inside a container if
+    /// given: by its id (`inside`), or by its line (`into`).
     AddItem {
         id: String,
         inside: Option<String>,
+        #[serde(default)]
+        into: Option<usize>,
     },
     /// A custom item: just a name.
     AddCustomItem {
         name: String,
         inside: Option<String>,
+        #[serde(default)]
+        into: Option<usize>,
     },
     ChangeQuantity {
         line: usize,
@@ -365,21 +370,27 @@ impl CharacterSession {
                 None => return Err("Not concentrating".into()),
             },
 
-            Command::AddItem { id, inside } => {
+            Command::AddItem { id, inside, into } => {
                 let before = c.inventory.len();
                 equipment::add_item(c, &id, 1, None);
                 if c.inventory.len() > before {
                     c.inventory[before].inside = inside;
+                    if into.is_some() {
+                        equipment::put_in(lib, c, before, into)?;
+                    }
                 }
                 let name = dnt_rules::overlay::resolve_id(lib, &id).map(|e| lib.entity(e).name.clone()).unwrap_or(id);
                 Outcome::changed(format!("Added {name}"))
             }
-            Command::AddCustomItem { name, inside } => {
+            Command::AddCustomItem { name, inside, into } => {
                 let name = name.trim().to_string();
                 if name.is_empty() {
                     return Err("A custom item needs a name".into());
                 }
                 c.inventory.push(InventoryItem { name: Some(name.clone()), quantity: 1, inside, ..Default::default() });
+                if into.is_some() {
+                    equipment::put_in(lib, c, c.inventory.len() - 1, into)?;
+                }
                 Outcome::changed(format!("Added {name}"))
             }
             Command::ChangeQuantity { line: i, delta } => {
@@ -577,7 +588,7 @@ mod tests {
         let (lib, mut s) = session();
         let o = &OverlaySet::default();
         for id in ["item:Club|T", "item:Cloak|T", "item:Sack|T"] {
-            s.apply(&lib, o, Command::AddItem { id: id.into(), inside: None }).unwrap();
+            s.apply(&lib, o, Command::AddItem { id: id.into(), inside: None, into: None }).unwrap();
         }
         // Equip picks holding or wearing.
         assert!(s.apply(&lib, o, Command::Equip { line: 0 }).unwrap().message.contains("main hand"));
@@ -585,6 +596,12 @@ mod tests {
         assert_eq!(s.build.attacks[0].hand, Some(Hand::Main), "the session was rebuilt");
         s.apply(&lib, o, Command::PutIn { line: 0, into: Some(2) }).unwrap();
         assert!(s.character().inventory[0].inside.is_some());
+        // Added straight into a container, by its line (the app's way).
+        s.apply(&lib, o, Command::AddCustomItem { name: "Pebble".into(), inside: None, into: Some(2) }).unwrap();
+        let inv = &s.character().inventory;
+        assert_eq!(inv[3].inside, inv[2].id, "the pebble is in the sack");
+        let added: Command = serde_json::from_str(r#"{"command":"add_custom_item","name":"Pebble","inside":null,"into":2}"#).unwrap();
+        assert!(matches!(added, Command::AddCustomItem { into: Some(2), .. }));
         assert!(s.apply(&lib, o, Command::ChangeQuantity { line: 0, delta: -1 }).is_err());
         assert!(s.apply(&lib, o, Command::Hold { line: 1, hand: Hand::Main }).is_err(), "a cloak is not held");
         s.apply(&lib, o, Command::SetCondition { condition: "poisoned".into(), on: true }).unwrap();

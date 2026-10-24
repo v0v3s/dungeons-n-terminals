@@ -478,7 +478,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         // New items go where the cursor is (into its container).
                         let inv = &sheet.session.character().inventory;
                         let inside = inv.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
-                        let action = run(sheet, lib, overlays, Command::AddItem { id: v.clone(), inside });
+                        let action = run(sheet, lib, overlays, Command::AddItem { id: v.clone(), inside, into: None });
                         let inv = &sheet.session.character().inventory;
                         sheet.inventory_cursor = inv
                             .iter()
@@ -499,7 +499,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let command = match prompt {
                             TextPrompt::CustomItem => {
                                 let inside = sheet.session.character().inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
-                                Command::AddCustomItem { name: text, inside }
+                                Command::AddCustomItem { name: text, inside, into: None }
                             }
                             TextPrompt::Container => Command::SetContainer { line: sheet.inventory_cursor, settings: text },
                             TextPrompt::Currency => Command::ChangeCoins { change: text },

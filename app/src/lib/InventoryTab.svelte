@@ -9,13 +9,13 @@
 
   let { inv, ctx }: { inv: Inventory; ctx: SheetCtx } = $props();
 
-  /// `inside`: the container line to put it in (null: carried loose).
-  function add(inside: number | null = null) {
-    ctx.pick({ type: "items" }, ([id]) => ctx.act({ command: "add_item", id, inside }));
+  /// `into`: the container line to put it in (null: carried loose).
+  function add(into: number | null = null) {
+    ctx.pick({ type: "items" }, ([id]) => ctx.act({ command: "add_item", id, inside: null, into }));
   }
 
-  function custom(inside: number | null = null) {
-    ctx.prompt("A custom item", (name) => name.trim() && ctx.act({ command: "add_custom_item", name: name.trim(), inside }));
+  function custom(into: number | null = null) {
+    ctx.prompt("A custom item", (name) => name.trim() && ctx.act({ command: "add_custom_item", name: name.trim(), inside: null, into }));
   }
 
   /// A new campaign item from a template, added here, then edited.
