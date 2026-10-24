@@ -28,7 +28,7 @@
     if (r.entity !== null) actions.push(["Read it", () => ctx.show(r.entity!)]);
     if (r.castable) actions.push([r.free ? "Cast (a free cast)" : "Cast…", () => cast(r.id, r.free)]);
     if (r.free) actions.push(["Cast with a slot…", () => cast(r.id, false)]);
-    actions.push(["Roll it", () => ctx.roll({ type: "spell", id: r.id })]);
+    actions.push(["Roll it", () => ctx.roll({ type: "spell", id: r.id, caster: r.caster })]);
     if (r.class_id && r.mark !== "cantrip") {
       actions.push([r.mark === "prepared" ? "Unprepare" : "Prepare", () => ctx.act({ command: "toggle_prepared", class_id: r.class_id, id: r.id })]);
     }

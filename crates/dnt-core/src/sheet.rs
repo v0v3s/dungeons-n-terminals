@@ -587,6 +587,8 @@ pub enum SpellRow {
         class_id: Option<String>,
         /// Shown again among the favorites.
         in_favorites: bool,
+        /// The casting class's slug, for a class spell's attack and DC.
+        caster: Option<String>,
     },
     /// A feature's spell choice with picks still missing.
     Choice { key: String, filter: String, missing: usize, text: String },
@@ -601,6 +603,11 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
             Row::Favorite(inner) => (&**inner, true),
             r => (r, false),
         };
+        // The class a class spell is cast with, for its attack and DC.
+        let caster = match row {
+            Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.clone()),
+            _ => None,
+        };
         let spell = |id: &str, mark: &'static str, how: String, class_id: Option<String>, free: bool| {
             let e = resolve_id(lib, id);
             let mut detail = Vec::new();
@@ -612,11 +619,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 let lvl = spells::spell_level(lib, e);
                 castable = lvl > 0;
                 let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
-                let caster = match row {
-                    Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.as_str()),
-                    _ => None,
-                };
-                let (_, dc) = crate::rolls::spell_numbers(s, caster);
+                let (_, dc) = crate::rolls::spell_numbers(s, caster.as_deref());
                 let modifier = dc - 8 - ev.int("prof").unwrap_or(2);
                 if let Some(d) = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() }) {
                     detail.push(format!("{d} {}", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
@@ -648,6 +651,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 target: row.target(&data.casters),
                 class_id,
                 in_favorites,
+                caster: caster.clone(),
             }
         };
         out.push(match row {
@@ -742,6 +746,8 @@ pub struct Line {
     pub fill: Option<String>,
     pub over: bool,
     pub weightless: bool,
+    /// An equipment pack, to unpack into its contents.
+    pub pack: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -804,6 +810,7 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                 fill,
                 over,
                 weightless: container.is_some_and(|k| k.weightless),
+                pack: entity.is_some_and(|e| lib.entity(e).data.get("packContents").is_some()),
             }
         })
         .collect();

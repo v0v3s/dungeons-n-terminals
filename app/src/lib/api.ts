@@ -278,6 +278,8 @@ export type SpellRow =
       free: boolean;
       target: Target | null;
       class_id: string | null;
+      /// The casting class, for a class spell's attack and DC.
+      caster: string | null;
       in_favorites: boolean;
     }
   | { type: "choice"; key: string; filter: string; missing: number; text: string };
@@ -295,6 +297,8 @@ export interface Line {
   attuned: boolean;
   needs_attunement: boolean;
   fill: string | null;
+  /// An equipment pack, to unpack into its contents.
+  pack: boolean;
   over: boolean;
   weightless: boolean;
 }
@@ -368,7 +372,7 @@ export type Roll =
   | { type: "skill"; key: string }
   | { type: "initiative" }
   | { type: "attack"; slug: string }
-  | { type: "spell"; id: string };
+  | { type: "spell"; id: string; caster?: string | null };
 
 export type Wanted =
   | { type: "items" }

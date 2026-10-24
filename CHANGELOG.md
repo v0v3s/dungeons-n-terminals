@@ -8,6 +8,15 @@ become the release page.
 
 ## Unreleased
 
+### Fixed
+
+- App: equipment packs (Explorer's Pack, Scholar's Pack, …) can be
+  unpacked: *Unpack* was only offered on containers, which packs are not.
+- A multiclass caster's spell rolls use the attack and DC of the class
+  the spell belongs to (rolling it in the app, and the roll after
+  casting it in both), not the best class's.
+- App: deleting a note asks first.
+
 ## v0.12.0 - 2026-10-24
 
 ### Added

@@ -31,7 +31,7 @@
     actions.push(["Hold in the off hand", () => ctx.act({ command: "hold", line, hand: "off" })]);
     if (l.attuned || l.needs_attunement) actions.push([l.attuned ? "End attunement" : "Attune", () => ctx.act({ command: "toggle_attuned", line })]);
     actions.push(["Put it in…", () => ctx.pick({ type: "containers", line }, ([v]) => ctx.act({ command: "put_in", line, into: v === "loose" ? null : Number(v) }))]);
-    if (l.fill !== null) actions.push(["Unpack", () => ctx.act({ command: "unpack", line })]);
+    if (l.pack) actions.push(["Unpack", () => ctx.act({ command: "unpack", line })]);
     actions.push(["One more", () => ctx.act({ command: "change_quantity", line, delta: 1 })]);
     if (l.quantity > 1) actions.push(["One fewer", () => ctx.act({ command: "change_quantity", line, delta: -1 })]);
     actions.push(["Remove", () => ctx.act({ command: "remove_line", line })]);

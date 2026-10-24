@@ -131,12 +131,25 @@ pub async fn command(app: State<'_, App>, command: Command) -> Res<Done> {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Roll {
-    Ability { key: String },
-    Save { key: String },
-    Skill { key: String },
+    Ability {
+        key: String,
+    },
+    Save {
+        key: String,
+    },
+    Skill {
+        key: String,
+    },
     Initiative,
-    Attack { slug: String },
-    Spell { id: String },
+    Attack {
+        slug: String,
+    },
+    /// A spell, with the casting class's slug for its attack and DC.
+    Spell {
+        id: String,
+        #[serde(default)]
+        caster: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -164,12 +177,12 @@ pub async fn roll(app: State<'_, App>, what: Roll) -> Res<Rolled> {
             let a = s.build.attacks.iter().find(|a| a.slug == slug).cloned().ok_or("No such attack")?;
             rolls::attack(s, &a)
         }
-        Roll::Spell { id } => {
+        Roll::Spell { id, caster } => {
             let spell = dnt_rules::overlay::resolve_id(lib, &id).ok_or("No such spell")?;
             if !rolls::spell_rolls(lib, spell) {
                 return Err(format!("{} has nothing to roll", lib.entity(spell).name));
             }
-            let (atk, dc) = rolls::spell_numbers(s, None);
+            let (atk, dc) = rolls::spell_numbers(s, caster.as_deref());
             let level = dnt_rules::spells::spell_level(lib, spell);
             rolls::spell(s, lib, spell, level, atk, dc)
         }

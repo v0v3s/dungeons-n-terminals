@@ -32,7 +32,8 @@
   type Dialog =
     | { kind: "prompt"; title: string; hint?: string; value?: string; then: (v: string) => void }
     | { kind: "entry"; id: number }
-    | { kind: "menu"; title: string; actions: [string, () => void][] };
+    | { kind: "menu"; title: string; actions: [string, () => void][] }
+    | { kind: "confirm"; title: string; text: string; action: string; then: () => void };
   let dialog: Dialog | null = $state(null);
   const close = () => (dialog = null);
 
@@ -238,16 +239,23 @@
             }),
         ],
         [
-          "Delete",
-          async () => {
-            try {
-              await api.noteDelete(n.path);
-              note = null;
-              loadTree();
-            } catch (e) {
-              error = String(e);
-            }
-          },
+          "Delete…",
+          () =>
+            (dialog = {
+              kind: "confirm",
+              title: `Delete ${n.title}`,
+              text: "The note is gone for good.",
+              action: "Delete",
+              then: async () => {
+                try {
+                  await api.noteDelete(n.path);
+                  note = null;
+                  loadTree();
+                } catch (e) {
+                  error = String(e);
+                }
+              },
+            }),
         ],
       ],
     };
@@ -402,9 +410,40 @@
       {/each}
     </div>
   </Modal>
+{:else if dialog?.kind === "confirm"}
+  {@const d = dialog}
+  <Modal title={d.title} onclose={close}>
+    <p>{d.text}</p>
+    <div class="confirm">
+      <button class="ghost" onclick={close}>Cancel</button>
+      <button
+        class="primary danger"
+        onclick={() => {
+          const then = d.then;
+          close();
+          then();
+        }}>{d.action}</button
+      >
+    </div>
+  </Modal>
 {/if}
 
 <style>
+  .confirm {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1.5ch;
+  }
+  .confirm .danger {
+    background: var(--red);
+    border-color: var(--red);
+  }
+  @media (pointer: coarse) {
+    .confirm button {
+      flex: 1;
+      min-height: 44px;
+    }
+  }
   .query {
     margin-top: 1em;
     padding-top: 0.5em;
