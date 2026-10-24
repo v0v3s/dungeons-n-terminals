@@ -218,8 +218,9 @@ pub fn env(home: &Path) -> Vec<(&'static str, String)> {
     ]
 }
 
-/// Run `dnt` with arguments, not in a terminal (its subcommands).
-pub fn run(home: &Home, args: &[&str]) -> std::process::Output {
+/// Run `dnt` with arguments, not in a terminal (its subcommands), for a
+/// scenario of `e2e/scenarios.toml`.
+pub fn run(_scenario: &'static str, home: &Home, args: &[&str]) -> std::process::Output {
     let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_dnt"));
     cmd.args(args).current_dir(home.path()).env_remove("DNT_DATA");
     for (k, v) in env(home.path()) {

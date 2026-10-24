@@ -36,8 +36,10 @@ jobs:
       # The rule (e2e/README.md): every scenario has a test on every target.
       - name: Scenarios
         run: cargo test -p dnt --test scenarios --locked
-      # Everything else, the terminal app's end-to-end tests among them.
+      # Everything else, the terminal app's end-to-end tests among them
+      # (also when the rule is broken: both results count).
       - name: Test
+        if: ${{ !cancelled() }}
         run: cargo test --workspace --exclude dnt-app --locked
 
   # The Tauri app (app/): its web UI and its Rust side.
