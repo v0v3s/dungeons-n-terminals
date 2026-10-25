@@ -59,11 +59,22 @@ impl Tui {
     }
 
     pub fn with_args(scenario: &'static str, home: Home, args: &[&str]) -> Tui {
+        Tui::start(scenario, home, args, Vec::new())
+    }
+
+    /// Run `dnt` with an editor ($EDITOR) that replaces `from` with `to` in
+    /// the file it is given, as a user editing it would.
+    pub fn with_editor(scenario: &'static str, home: Home, from: &str, to: &str) -> Tui {
+        let editor = editor_script(home.path(), from, to);
+        Tui::start(scenario, home, &[], vec![("EDITOR", editor.clone()), ("VISUAL", editor)])
+    }
+
+    fn start(scenario: &'static str, home: Home, args: &[&str], extra: Vec<(&'static str, String)>) -> Tui {
         let pty = native_pty_system().openpty(PtySize { rows: ROWS, cols: COLS, pixel_width: 0, pixel_height: 0 }).expect("a terminal");
         let mut cmd = CommandBuilder::new(env!("CARGO_BIN_EXE_dnt"));
         cmd.args(args);
         cmd.cwd(home.path());
-        for (k, v) in env(home.path()) {
+        for (k, v) in env(home.path()).into_iter().chain(extra) {
             cmd.env(k, v);
         }
         cmd.env_remove("DNT_DATA");
@@ -216,6 +227,30 @@ pub fn env(home: &Path) -> Vec<(&'static str, String)> {
         ("VISUAL", editor.into()),
         ("TERM", "xterm-256color".into()),
     ]
+}
+
+/// A script that edits the file it is given: `from` becomes `to` (plain
+/// text, without quotes or slashes).
+fn editor_script(dir: &Path, from: &str, to: &str) -> String {
+    assert!(!format!("{from}{to}").contains(['\'', '"', '/', '\\']), "the editor replaces plain text");
+    editor_file(dir, from, to).display().to_string()
+}
+
+#[cfg(windows)]
+fn editor_file(dir: &Path, from: &str, to: &str) -> std::path::PathBuf {
+    let path = dir.join("edit.cmd");
+    let ps = format!("$f = '%~1'; $t = [IO.File]::ReadAllText($f); [IO.File]::WriteAllText($f, $t.Replace('{from}', '{to}'))");
+    std::fs::write(&path, format!("@powershell -NoProfile -Command \"{ps}\"\r\n")).unwrap();
+    path
+}
+
+#[cfg(unix)]
+fn editor_file(dir: &Path, from: &str, to: &str) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join("edit.sh");
+    std::fs::write(&path, format!("#!/bin/sh\nexec perl -0pi -e 's/\\Q{from}\\E/{to}/g' \"$1\"\n")).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    path
 }
 
 /// Run `dnt` with arguments, not in a terminal (its subcommands), for a

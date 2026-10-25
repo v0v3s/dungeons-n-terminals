@@ -47,14 +47,15 @@ fn ids_after(text: &str, calls: &[&str]) -> Vec<String> {
     ids
 }
 
-/// The terminal tests' scenarios: `Tui::scenario("id"`, `Tui::with_args("id"`, `run("id"`.
+/// The terminal tests' scenarios: `Tui::scenario("id"`, `Tui::with_args("id"`,
+/// `Tui::with_editor("id"`, `run("id"`.
 fn tui_tests() -> BTreeMap<String, Vec<String>> {
     let mut found: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut paths = Vec::new();
     files(&root().join("crates/dnt/tests/e2e"), ".rs", &mut paths);
     for path in paths {
         let text = std::fs::read_to_string(&path).unwrap();
-        for id in ids_after(&text, &["Tui::scenario(", "Tui::with_args(", "run("]) {
+        for id in ids_after(&text, &["Tui::scenario(", "Tui::with_args(", "Tui::with_editor(", "run("]) {
             found.entry(id).or_default().push(path.display().to_string());
         }
     }
