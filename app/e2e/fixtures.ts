@@ -99,7 +99,9 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
     async ({}, use) => {
       const endpoint = TARGET === "windows" ? await windows.connect() : await android.connect();
       const browser = await chromium.connectOverCDP(endpoint);
-      const page = browser.contexts()[0].pages()[0];
+      // The WebView's page may come a moment after its DevTools port.
+      const context = browser.contexts()[0];
+      const page = context.pages()[0] ?? (await context.waitForEvent("page"));
       // The frontend is up when it can call the app.
       await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
       await use(page);
@@ -127,7 +129,8 @@ export const phone = (page: Page) => page.evaluate(() => matchMedia("(max-width:
 export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data") {
   const menu = page.getByRole("button", { name: "Menu" });
   if (await menu.isVisible()) await menu.click();
-  await page.getByRole("button", { name: section, exact: true }).filter({ visible: true }).first().click();
+  // The desktop header numbers them ("2 Characters"): Alt+2.
+  await page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).filter({ visible: true }).first().click();
 }
 
 /// Open a character's sheet (Tester by default) on a tab.
