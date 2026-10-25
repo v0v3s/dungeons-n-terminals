@@ -12,9 +12,12 @@ mod campaigns;
 mod characters;
 mod compendium;
 mod concentration;
+mod creation;
 mod data;
+mod features;
 mod homebrew;
 mod hp;
+mod levelup;
 mod nav;
 mod notes;
 mod overview;
@@ -24,3 +27,5 @@ mod setup;
 #[allow(dead_code)]
 mod sheet_play;
 mod sources;
+#[allow(dead_code)]
+mod steps;
