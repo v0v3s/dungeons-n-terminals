@@ -1,12 +1,16 @@
 <!-- The data: import zips (a whole data folder, or homebrew files), what
      has been imported, and starting over. -->
 <script lang="ts">
+  import { getVersion } from "@tauri-apps/api/app";
   import { open } from "@tauri-apps/plugin-dialog";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import { ICONS } from "./icons";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
+
+  let version = $state("");
+  getVersion().then((v) => (version = v));
 
   let {
     status,
@@ -154,6 +158,7 @@
   {/if}
   <Pane title="About">
     <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It ships no game content and reads the data you import.</p>
+    <p>dnt {version} · MIT license · <span class="url">github.com/v0v3s/dungeons-n-terminals</span></p>
     <p class="dim">
       Icons by {iconAuthors.join(" and ")} from <span class="url">game-icons.net</span>, under CC BY 3.0
       (<span class="url">creativecommons.org/licenses/by/3.0</span>).
