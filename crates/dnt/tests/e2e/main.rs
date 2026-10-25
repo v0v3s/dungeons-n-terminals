@@ -10,8 +10,15 @@ mod seed;
 
 mod campaigns;
 mod characters;
+mod concentration;
 mod data;
+mod hp;
 mod nav;
 mod notes;
+mod overview;
+mod rest;
+mod rolls;
 mod setup;
+#[allow(dead_code)]
+mod sheet_play;
 mod sources;
