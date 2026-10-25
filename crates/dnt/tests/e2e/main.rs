@@ -17,6 +17,7 @@ mod data;
 mod features;
 mod homebrew;
 mod hp;
+mod inventory;
 mod levelup;
 mod nav;
 mod notes;
@@ -27,5 +28,6 @@ mod setup;
 #[allow(dead_code)]
 mod sheet_play;
 mod sources;
+mod spells;
 #[allow(dead_code)]
 mod steps;
