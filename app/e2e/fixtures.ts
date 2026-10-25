@@ -130,7 +130,7 @@ export const phone = (page: Page) => page.evaluate(() => matchMedia("(max-width:
 
 /// Go to a section: through the menu (☰) on a phone, the header on a desktop.
 export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data") {
-  const menu = page.getByRole("button", { name: "Menu" });
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
   if (await menu.isVisible()) await menu.click();
   // The desktop header numbers them ("2 Characters").
   await page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).filter({ visible: true }).first().click();

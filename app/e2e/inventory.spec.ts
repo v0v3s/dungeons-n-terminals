@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, openSheet, status, test } from "./fixtures";
+import { answer, choose, dialog, expect, openSheet, pick, status, test } from "./fixtures";
 
 const line = (page: Page, name: string) => page.locator("button.line", { hasText: name });
 
@@ -86,4 +86,179 @@ test("+ Homebrew makes a campaign item from a template and carries it", { tag: "
   await prompt.getByRole("textbox").press("Enter");
   await page.keyboard.press("Escape");
   await expect(line(page, "Test Trinket")).toBeVisible();
+});
+
+/// Add an item from the library through + Add item.
+async function addItem(page: Page, name: string) {
+  await page.getByRole("button", { name: "+ Add item" }).click();
+  await expect(dialog(page, "Add an item")).toBeVisible();
+  await pick(page, [name]);
+  await expect(line(page, name)).toBeVisible();
+}
+
+/// The sheet's Armor Class, read on the Overview tab (then back to Inventory).
+async function armorClass(page: Page): Promise<number> {
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  const ac = Number(await page.locator("button.tile", { hasText: "Armor Class" }).locator("b").textContent());
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  return ac;
+}
+
+/// An Equipment slot's row (Body, Main hand, …).
+const slot = (page: Page, label: string) => page.locator(".equipment .slot").filter({ has: page.getByText(label, { exact: true }) });
+
+test("an item is added from the library", { tag: "@inventory.add" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  await expect(line(page, "Bone Dice")).toHaveCount(0);
+  await addItem(page, "Bone Dice");
+});
+
+test("a custom item is added by its name", { tag: "@inventory.add-custom" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  await page.getByRole("button", { name: "+ Custom" }).click();
+  await answer(page, "A custom item", "Strange Feather");
+  await expect(line(page, "Strange Feather")).toBeVisible();
+  // A custom item has no entry to read.
+  await line(page, "Strange Feather").click();
+  await expect(dialog(page, "Strange Feather").getByRole("button", { name: "Read it" })).toHaveCount(0);
+});
+
+test("armor is worn in a slot, a weapon and a shield held; AC and attacks follow", { tag: "@inventory.equip" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  const bare = await armorClass(page);
+
+  await addItem(page, "Quilted Coat");
+  await line(page, "Quilted Coat").click();
+  await choose(page, "Quilted Coat", "Wear it in…");
+  await expect(dialog(page, "Wear it where?")).toBeVisible();
+  await pick(page, ["Body"]);
+  await expect(line(page, "Quilted Coat")).toContainText("◉");
+  await expect(slot(page, "Body")).toContainText("Quilted Coat");
+  const coat = await armorClass(page);
+  expect(coat).toBe(bare + 1);
+
+  await addItem(page, "Buckler");
+  await line(page, "Buckler").click();
+  await choose(page, "Buckler", "Hold in the off hand");
+  await expect(slot(page, "Off hand")).toContainText("Buckler");
+  expect(await armorClass(page)).toBe(coat + 2);
+
+  await line(page, "Thornknife").click();
+  await choose(page, "Thornknife", "Hold in the main hand");
+  await expect(slot(page, "Main hand")).toContainText("Thornknife");
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await expect(page.locator(".attacks .held")).toContainText("Thornknife");
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+
+  // Put away and taken off: back to bare.
+  await line(page, "Thornknife").click();
+  await choose(page, "Thornknife", "Put it away");
+  await expect(slot(page, "Main hand")).not.toContainText("Thornknife");
+  await line(page, "Buckler").click();
+  await choose(page, "Buckler", "Put it away");
+  await line(page, "Quilted Coat").click();
+  await choose(page, "Quilted Coat", "Take it off");
+  await expect(slot(page, "Body")).not.toContainText("Quilted Coat");
+  expect(await armorClass(page)).toBe(bare);
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await expect(page.locator(".attacks .held")).toContainText("nothing");
+});
+
+test("attuning to an item adds its bonuses; ending it takes them away", { tag: "@inventory.attune" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  const bare = await armorClass(page);
+  await addItem(page, "Ring of Warding");
+  await expect(line(page, "Ring of Warding")).toContainText("☆");
+  await line(page, "Ring of Warding").click();
+  await choose(page, "Ring of Warding", "Equip (wear or hold)");
+  await line(page, "Ring of Warding").click();
+  await choose(page, "Ring of Warding", "Attune");
+  await expect(line(page, "Ring of Warding")).toContainText("★");
+  await expect(page.locator(".totals")).toContainText(/Attuned\s*1\s*\/ 3/);
+  expect(await armorClass(page)).toBe(bare + 1);
+
+  await line(page, "Ring of Warding").click();
+  await choose(page, "Ring of Warding", "End attunement");
+  await expect(line(page, "Ring of Warding")).not.toContainText("★");
+  await expect(page.locator(".totals")).toContainText(/Attuned\s*0\s*\/ 3/);
+  expect(await armorClass(page)).toBe(bare);
+});
+
+test("one more, one fewer", { tag: "@inventory.quantity" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  const knives = line(page, "Thornknife");
+  await expect(knives).toContainText("×2");
+  await knives.click();
+  await choose(page, "Thornknife", "One more");
+  await expect(knives).toContainText("×3");
+  await knives.click();
+  await choose(page, "Thornknife", "One fewer");
+  await knives.click();
+  await choose(page, "Thornknife", "One fewer");
+  await expect(knives).not.toContainText("×");
+  // One left: no fewer to take.
+  await knives.click();
+  await expect(dialog(page, "Thornknife").getByRole("button", { name: "One fewer" })).toHaveCount(0);
+});
+
+test("an item is removed", { tag: "@inventory.remove" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  await line(page, "Ashstaff").click();
+  await choose(page, "Ashstaff", "Remove");
+  await expect(line(page, "Ashstaff")).toHaveCount(0);
+  await expect(line(page, "Grimoire")).toBeVisible();
+});
+
+test("an item goes into a container and back out loose", { tag: "@inventory.put-in" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  await unpack(page);
+  const grimoire = page.locator(".lrow", { hasText: "Grimoire" });
+  const indent = () => grimoire.evaluate((e) => parseFloat(getComputedStyle(e).paddingLeft));
+  expect(await indent()).toBe(0);
+  await line(page, "Grimoire").click();
+  await choose(page, "Grimoire", "Put it in…");
+  await expect(dialog(page, "Put it in…")).toBeVisible();
+  await pick(page, ["Satchel"]);
+  await expect.poll(indent).toBeGreaterThan(0);
+  // Folding the satchel hides it with the rest.
+  await page.locator(".lrow", { hasText: "Satchel" }).getByRole("button", { name: "Fold" }).click();
+  await expect(line(page, "Grimoire")).toHaveCount(0);
+  await page.locator(".lrow", { hasText: "Satchel" }).getByRole("button", { name: "Unfold" }).click();
+
+  await line(page, "Grimoire").click();
+  await choose(page, "Grimoire", "Put it in…");
+  await pick(page, ["Carried loose"]);
+  await expect.poll(indent).toBe(0);
+});
+
+test("coins change by amounts, or gold is set", { tag: "@inventory.coins" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  const coins = page.locator("button.coins");
+  const amount = async (c: string) => {
+    const span = coins.locator("span", { has: page.locator(`b.c-${c}`) }).first();
+    return (await span.count()) ? Number(await span.locator("b").textContent()) : 0;
+  };
+  const gold = await amount("gp");
+  await coins.click();
+  await answer(page, "Coins", "+15gp");
+  await expect.poll(() => amount("gp")).toBe(gold + 15);
+  await coins.click();
+  await answer(page, "Coins", "+5sp");
+  await expect.poll(() => amount("sp")).toBe(5);
+  await coins.click();
+  await answer(page, "Coins", "-3sp");
+  await expect.poll(() => amount("sp")).toBe(2);
+  await coins.click();
+  await answer(page, "Coins", "20");
+  await expect.poll(() => amount("gp")).toBe(20);
+  await expect.poll(() => amount("sp")).toBe(2);
+});
+
+test("an item's entry is read from the inventory", { tag: "@inventory.read" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  await line(page, "Grimoire").click();
+  await choose(page, "Grimoire", "Read it");
+  // The menu, titled the same, closes as the entry opens.
+  await expect(dialog(page, "Grimoire").last()).toContainText("A mage's spellbook.");
+  await expect(dialog(page, "Grimoire").last()).toContainText("The Proving Grounds");
 });

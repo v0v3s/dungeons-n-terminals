@@ -44,6 +44,9 @@ become the release page.
   casting it in both), not the best class's.
 - App: deleting a note asks first.
 - App: removing a tracker of your own asks first, as the terminal does.
+- App: on a phone, the inventory's buttons and the notes' Quick note no
+  longer wrap their labels; the inventory leaves room for fold arrows only
+  when something can fold, and the arrows are bigger.
 - Restoring a feature use, a spell slot or a hit die that was not spent
   says it is full, instead of "Restored" with nothing changed.
 

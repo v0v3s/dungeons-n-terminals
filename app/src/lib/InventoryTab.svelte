@@ -50,6 +50,8 @@
   let folded = $state(new Set<string>());
   const foldKey = (l: Line) => `${l.index}:${l.name}`;
   const hasContents = (i: number) => inv.lines[i + 1]?.depth > inv.lines[i].depth;
+  /// Room for the fold arrows only when some line has one.
+  const folds = $derived(inv.lines.some((_, i) => hasContents(i)));
   /// The lines not hidden in a folded container.
   const shown = $derived.by(() => {
     const out: Line[] = [];
@@ -122,7 +124,7 @@
       <div class="lrow" style:padding-left="{l.depth * 2}ch">
         {#if hasContents(i)}
           <button class="foldbtn" aria-label={folded.has(foldKey(l)) ? "Unfold" : "Fold"} onclick={() => toggleFold(l)}>{folded.has(foldKey(l)) ? "▸" : "▾"}</button>
-        {:else}
+        {:else if folds}
           <span class="foldbtn"></span>
         {/if}
         <button class="line" onclick={() => menu(l)}>
@@ -189,6 +191,7 @@
   }
   .buttons button {
     text-align: center;
+    white-space: nowrap;
   }
   .lrow {
     display: flex;
@@ -293,8 +296,14 @@
     .lb {
       display: none;
     }
+    /* Shared by their labels' widths: equal thirds wrap "+ Homebrew". */
     .buttons button {
-      flex: 1;
+      flex: 1 1 auto;
+      padding-inline: 1ch;
+    }
+    .foldbtn {
+      flex-basis: 5ch;
+      font-size: 1.3em;
     }
     .coins {
       min-height: 44px;

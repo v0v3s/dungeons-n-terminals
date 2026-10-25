@@ -723,9 +723,13 @@
       align-items: center;
       border-top: 1px solid rgb(65 72 104 / 0.3);
     }
-      .tools {
+    .tools {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+      /* "+ Note · <folder>" gives way (its folder ends in "…"); the others keep their label. */
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+    .tools button {
+      white-space: nowrap;
     }
     .menu button {
       min-height: 48px;
