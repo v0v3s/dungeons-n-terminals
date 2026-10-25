@@ -86,6 +86,8 @@ async function seed(page: Page, what: Seed) {
     );
   }
   await invoke(page, "reset_app");
+  // What the frontend remembers (folded panes, the compendium's order) too.
+  await page.evaluate(() => localStorage.clear());
   if (what !== "empty") await importData(page);
   if (what === "campaign" || what === "party") await invoke(page, "create_campaign", { name: CAMPAIGN, sources: [] });
   if (what === "party") for (const c of PARTY.characters) await createCharacter(page, c.name, c.prefer);
@@ -138,11 +140,12 @@ export async function go(page: Page, section: "Compendium" | "Characters" | "Not
 
 /// Open a character's sheet (Tester by default) on a tab.
 export async function openSheet(page: Page, tab: "Overview" | "Features" | "Spells" | "Inventory" = "Overview", name = "Tester") {
-  // Another sheet open: close it (the app reopens an open character
-  // after a reload) and start from a fresh frontend, on the roster.
-  if (await page.locator(".sheet").count()) {
+  // A character open (shown or not): close it, as the app shows an open
+  // character's sheet in Characters, and start from a fresh frontend.
+  if (await invoke(page, "sheet").then(() => true, () => false)) {
     await invoke(page, "close_character");
     await page.reload();
+    await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
   }
   await go(page, "Characters");
   await page.locator("button.card", { hasText: name }).click();
