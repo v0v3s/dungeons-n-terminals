@@ -52,6 +52,7 @@ case "$target" in
       npx tauri build --no-bundle --features e2e
     fi
     export DNT_E2E_APP="$(native "$here/../target/release/dnt-app.exe")"
+    echo "the app: $DNT_E2E_APP"; ls -la "$here/../target/release/" | grep -i dnt || true
     set -- --grep-invert @android "$@"
     ;;
   *) echo "unknown target: $target (android or windows)" >&2; exit 2 ;;

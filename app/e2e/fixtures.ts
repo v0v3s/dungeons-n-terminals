@@ -106,7 +106,8 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
       await browser.close();
       if (TARGET === "windows") windows.stop();
     },
-    { scope: "worker" },
+    // Starting the app (and its WebView) the first time takes a while.
+    { scope: "worker", timeout: 120_000 },
   ],
   page: async ({ app, seed: what }, use, info) => {
     await seed(app, what);
