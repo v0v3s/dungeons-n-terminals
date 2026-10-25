@@ -127,15 +127,19 @@ impl Tui {
         }
     }
 
-    /// Send keys (text, or the key constants), then let the screen settle.
+    /// Send keys (text, or the key constants), then let the screen settle:
+    /// the program redraws after every key, so wait for that redraw (or a
+    /// moment, for a key that changes nothing), then for quiet.
     pub fn send(&mut self, keys: &str) -> &mut Tui {
+        let sent = Instant::now();
         {
             let mut w = self.writer.lock().unwrap();
             w.write_all(keys.as_bytes()).unwrap();
             w.flush().unwrap();
         }
-        // Make sure the program saw the keys before waiting for quiet.
-        std::thread::sleep(Duration::from_millis(30));
+        while sent.elapsed() < Duration::from_millis(500) && self.screen.lock().unwrap().drawn < sent {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         self.settle();
         self
     }
