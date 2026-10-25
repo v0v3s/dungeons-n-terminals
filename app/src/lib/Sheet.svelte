@@ -106,6 +106,9 @@
 
   const ctx: SheetCtx = {
     act,
+    confirm(title, text, then, danger) {
+      dialog = { kind: "confirm", title, text, then, danger };
+    },
     async roll(what) {
       try {
         const r = await api.roll(what);

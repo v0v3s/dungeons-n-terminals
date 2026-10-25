@@ -87,7 +87,10 @@
     if (t.id.startsWith("hit_die:")) {
       return ctx.menu(t.name, [["Roll one and heal", () => rollHitDie(t.id)], ["How the dice are made up", () => ctx.explain(t.stat)]]);
     }
-    if (key.startsWith("custom_")) return ctx.menu(t.name, [["Remove the tracker", () => ctx.act({ command: "remove_tracker", key })], explain]);
+    if (key.startsWith("custom_")) {
+      const remove = () => ctx.confirm(`Remove ${t.name}`, "The tracker and its count are gone.", () => ctx.act({ command: "remove_tracker", key }), "Remove");
+      return ctx.menu(t.name, [["Remove the tracker…", remove], explain]);
+    }
     if (t.feature !== null) {
       const feature = t.feature;
       return ctx.menu(t.name, [

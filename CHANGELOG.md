@@ -43,6 +43,9 @@ become the release page.
   the spell belongs to (rolling it in the app, and the roll after
   casting it in both), not the best class's.
 - App: deleting a note asks first.
+- App: removing a tracker of your own asks first, as the terminal does.
+- Restoring a feature use, a spell slot or a hit die that was not spent
+  says it is full, instead of "Restored" with nothing changed.
 
 ## v0.12.0 - 2026-10-24
 
