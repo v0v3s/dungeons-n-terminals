@@ -9,3 +9,4 @@ mod harness;
 mod seed;
 
 mod characters;
+mod notes;
