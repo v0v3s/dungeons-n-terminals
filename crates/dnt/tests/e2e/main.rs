@@ -10,8 +10,10 @@ mod seed;
 
 mod campaigns;
 mod characters;
+mod compendium;
 mod concentration;
 mod data;
+mod homebrew;
 mod hp;
 mod nav;
 mod notes;
