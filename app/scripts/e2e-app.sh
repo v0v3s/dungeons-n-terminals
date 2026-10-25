@@ -49,7 +49,18 @@ case "$target" in
     ;;
   windows)
     if [ "$build" = 1 ]; then
-      npx tauri build --no-bundle --features e2e
+      # WebView2 opens the DevTools port through the window's browser
+      # arguments (the app's own replace WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS):
+      # the app's windows, with the port added to the default arguments.
+      conf=$(mktemp -d)/e2e.conf.json
+      node --input-type=module -e '
+        import { readFileSync, writeFileSync } from "node:fs";
+        const c = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
+        const args = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9333";
+        const windows = c.app.windows.map((w) => ({ ...w, additionalBrowserArgs: args }));
+        writeFileSync(process.argv[1], JSON.stringify({ app: { windows } }));
+      ' "$(native "$conf")"
+      npx tauri build --no-bundle --features e2e --config "$(native "$conf")"
     fi
     export DNT_E2E_APP="$(native "$here/../target/release/dnt-app.exe")"
     echo "the app: $DNT_E2E_APP"; ls -la "$here/../target/release/" | grep -i dnt || true
