@@ -2,7 +2,7 @@
      has been imported, and starting over. -->
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
-  import { open } from "@tauri-apps/plugin-dialog";
+  import { openZip } from "./files";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import { ICONS } from "./icons";
@@ -68,7 +68,7 @@
 
   async function pick() {
     error = "";
-    const path = await open({ multiple: false, directory: false, filters: [{ name: "Zip", extensions: ["zip"] }] });
+    const path = await openZip();
     if (!path) return;
     busy = true;
     try {

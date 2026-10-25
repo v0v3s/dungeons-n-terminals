@@ -443,6 +443,10 @@ pub async fn export_sheet(handle: tauri::AppHandle, app: State<'_, App>, format:
         "markdown" => dnt_core::export::to_markdown(&doc),
         other => return Err(format!("No export as {other}")),
     };
+    if let Some(file) = crate::e2e::save_path(&handle, &path) {
+        std::fs::write(file, text).map_err(|e| format!("Could not write the file: {e}"))?;
+        return Ok(format!("Exported {}", s.file.character.name));
+    }
     let file: tauri_plugin_fs::FilePath = path.parse().map_err(|e| format!("{e}"))?;
     let mut opts = OpenOptions::new();
     opts.write(true).create(true).truncate(true);

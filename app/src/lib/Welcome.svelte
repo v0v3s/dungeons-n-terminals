@@ -2,7 +2,7 @@
      create a campaign, then start. Each step says what it is for and does
      it in place; the done ones are ticked. -->
 <script lang="ts">
-  import { open } from "@tauri-apps/plugin-dialog";
+  import { openZip } from "./files";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import Pane from "./Pane.svelte";
@@ -33,7 +33,7 @@
 
   async function importZip() {
     error = "";
-    const path = await open({ multiple: false, directory: false, filters: [{ name: "Zip", extensions: ["zip"] }] });
+    const path = await openZip();
     if (!path) return;
     try {
       const r = await working("Importing…", () => api.importZip(path));

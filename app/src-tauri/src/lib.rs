@@ -2,6 +2,7 @@
 //! dnt-core; these modules hold the app's state and turn it into JSON.
 
 mod characters;
+mod e2e;
 mod homebrew;
 mod library;
 mod notes;
@@ -133,6 +134,8 @@ pub fn run() {
             library::status,
             library::import_zip,
             library::e2e_import_zip,
+            e2e::e2e_stash_zip,
+            e2e::e2e_read,
             library::clear_imported,
             library::reset_app,
             library::sources,

@@ -82,6 +82,9 @@ pub struct Imported {
 #[tauri::command]
 pub async fn import_zip(handle: tauri::AppHandle, app: State<'_, App>, path: String) -> Res<Imported> {
     use tauri_plugin_fs::FsExt;
+    if let Some(bytes) = crate::e2e::stashed(&path) {
+        return imported(&app, bytes);
+    }
     let file: tauri_plugin_fs::FilePath = path.parse().map_err(|e| format!("{e}"))?;
     let bytes = handle.fs().read(file).map_err(|e| format!("Could not read the file: {e}"))?;
     imported(&app, bytes)

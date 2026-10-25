@@ -1,7 +1,7 @@
 <!-- A character sheet: the header, the tabs, and the dialogs they use. -->
 <script lang="ts">
   import { onMount } from "svelte";
-  import { save } from "@tauri-apps/plugin-dialog";
+  import { saveAs } from "./files";
   import * as api from "./api";
   import Ask from "./Ask.svelte";
   import EntryModal from "./EntryModal.svelte";
@@ -319,10 +319,7 @@
   /// as Markdown.
   async function exportAs(format: "html" | "markdown") {
     const ext = format === "html" ? "html" : "md";
-    const path = await save({
-      defaultPath: `${sheet.header.name}.${ext}`,
-      filters: [{ name: format === "html" ? "Web page" : "Markdown", extensions: [ext] }],
-    });
+    const path = await saveAs(`${sheet.header.name}.${ext}`, format === "html" ? "Web page" : "Markdown", ext);
     if (!path) return;
     try {
       say(await api.exportSheet(format, path));

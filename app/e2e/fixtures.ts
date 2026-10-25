@@ -102,6 +102,9 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
       // The WebView's page may come a moment after its DevTools port.
       const context = browser.contexts()[0];
       const page = context.pages()[0] ?? (await context.waitForEvent("page"));
+      // A test that does not answer the file dialogs cancels them: the
+      // system's own would stop the run (fakeFilePicker answers them).
+      await context.addInitScript(() => ((window as any).dntE2eFiles = { open: null, save: null }));
       // The frontend is up when it can call the app.
       await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
       await use(page);
@@ -129,7 +132,7 @@ export const phone = (page: Page) => page.evaluate(() => matchMedia("(max-width:
 export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data") {
   const menu = page.getByRole("button", { name: "Menu" });
   if (await menu.isVisible()) await menu.click();
-  // The desktop header numbers them ("2 Characters"): Alt+2.
+  // The desktop header numbers them ("2 Characters").
   await page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).filter({ visible: true }).first().click();
 }
 
@@ -177,23 +180,14 @@ export async function pick(page: Page, labels: string[]) {
 /// The status line under the sheet (messages and rolls).
 export const status = (page: Page): Locator => page.locator(".status");
 
-/// Let the app's file pickers answer instead of asking the system (whose
-/// own dialogs cannot be driven): opening picks `e2e.zip`, which imports
-/// the test data; saving picks `saveTo`.
-export async function fakeFilePicker(page: Page, saveTo = "") {
-  await page.evaluate(
-    ([zip, saveTo]) => {
-      const tauri = (window as any).__TAURI_INTERNALS__;
-      const real = tauri.invoke.bind(tauri);
-      tauri.invoke = (cmd: string, args: any, opts: any) => {
-        if (cmd === "plugin:dialog|open") return Promise.resolve("e2e.zip");
-        if (cmd === "plugin:dialog|save") return Promise.resolve(saveTo);
-        if (cmd === "import_zip" && args?.path === "e2e.zip") {
-          return real("e2e_import_zip", { bytes: Array.from(atob(zip), (c: string) => c.charCodeAt(0)) });
-        }
-        return real(cmd, args, opts);
-      };
-    },
-    [dataZip().toString("base64"), saveTo] as const,
-  );
+/// Answer the app's file dialogs instead of the system (whose own dialogs
+/// cannot be driven): opening picks the test data, handed over to the app
+/// first; saving picks `e2e:<the name it suggests>`, read back with
+/// `invoke(page, "e2e_read", { path: "e2e:<name>" })`.
+export async function fakeFilePicker(page: Page) {
+  await page.evaluate((b64) => {
+    const bytes = Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return (window as any).__TAURI_INTERNALS__.invoke("e2e_stash_zip", { bytes });
+  }, dataZip().toString("base64"));
+  await page.evaluate(() => ((window as any).dntE2eFiles = { open: "e2e:stash", save: "e2e:" }));
 }
