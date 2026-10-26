@@ -3,20 +3,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { exit, onBackButtonPress } from "@tauri-apps/api/app";
-  import * as api from "$lib/api";
-  import AppBar from "$lib/AppBar.svelte";
-  import Busy from "$lib/Busy.svelte";
-  import Loading from "$lib/Loading.svelte";
-  import Campaigns from "$lib/Campaigns.svelte";
-  import Characters from "$lib/Characters.svelte";
-  import Compendium from "$lib/Compendium.svelte";
-  import Data from "$lib/Data.svelte";
-  import Welcome from "$lib/Welcome.svelte";
-  import Icon from "$lib/Icon.svelte";
-  import Drawer from "$lib/Drawer.svelte";
-  import Notes from "$lib/Notes.svelte";
-  import { closeTop } from "$lib/modals";
-  import { narrow, touch } from "$lib/screen";
+  import * as api from "../lib/api";
+  import AppBar from "../lib/AppBar.svelte";
+  import Busy from "../lib/Busy.svelte";
+  import Loading from "../lib/Loading.svelte";
+  import Campaigns from "../lib/Campaigns.svelte";
+  import Characters from "../lib/Characters.svelte";
+  import Compendium from "../lib/Compendium.svelte";
+  import Data from "../lib/Data.svelte";
+  import Welcome from "../lib/Welcome.svelte";
+  import Icon from "../lib/Icon.svelte";
+  import Drawer from "../lib/Drawer.svelte";
+  import Notes from "../lib/Notes.svelte";
+  import { closeTop } from "../lib/modals";
+  import { narrow, touch } from "../lib/screen";
 
   type Section = "compendium" | "characters" | "notes" | "campaigns" | "data";
   const SECTIONS: [Section, string][] = [
