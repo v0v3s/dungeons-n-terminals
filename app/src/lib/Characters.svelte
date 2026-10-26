@@ -6,12 +6,14 @@
   import Pane from "./Pane.svelte";
   import Prompt from "./Prompt.svelte";
   import Sheet from "./Sheet.svelte";
+  import type { SheetTab } from "./sheetctx";
 
   let {
     status,
     open = $bindable(null),
+    tab = $bindable("Overview"),
     onnote,
-  }: { status: api.Status; open?: string | null; onnote: (path: string) => void } = $props();
+  }: { status: api.Status; open?: string | null; tab?: SheetTab; onnote: (path: string) => void } = $props();
 
   let roster: api.RosterRow[] = $state([]);
   let unreadable: string[] = $state([]);
@@ -35,6 +37,7 @@
   async function openOne(slug: string) {
     try {
       sheet = await api.openCharacter(slug);
+      tab = "Overview";
     } catch (e) {
       error = String(e);
     }
@@ -87,7 +90,7 @@
     }}
   />
 {:else if sheet}
-  <Sheet bind:sheet onclose={back} {onnote} />
+  <Sheet bind:sheet bind:tab onclose={back} {onnote} />
 {:else}
   <div class="roster">
     {#if !status.campaign}

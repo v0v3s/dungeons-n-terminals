@@ -11,12 +11,17 @@
   import BrewEditor from "./BrewEditor.svelte";
   import Modal from "./Modal.svelte";
   import Prompt from "./Prompt.svelte";
+  import { Swipe } from "./swipe.svelte";
+  import SwipeHint from "./SwipeHint.svelte";
+  import TabSelect from "./TabSelect.svelte";
   import { working } from "./working.svelte";
 
   let {
     touch = false,
     narrow = false,
     reading = $bindable(null),
+    category = $bindable(0),
+    categories = $bindable([]),
     campaign = null,
     onstatus,
     oncampaigns,
@@ -24,6 +29,9 @@
     touch?: boolean;
     narrow?: boolean;
     reading?: string | null;
+    /// The category shown, and every one with its count (for the menu).
+    category?: number;
+    categories?: [string, number][];
     /// The active campaign, whose sources the compendium shows.
     campaign?: api.CampaignInfo | null;
     onstatus: (s: api.Status) => void;
@@ -45,7 +53,6 @@
   /// Why naming a new entry or a copy did not work.
   let nameError = $state("");
 
-  let category = $state(0);
   /// How results are ordered (remembered here).
   let order = $state(loadOrder());
   function loadOrder() {
@@ -91,6 +98,7 @@
       const f = await api.search(category, query, order);
       if (ask !== asked) return;
       found = f;
+      categories = f.categories;
       selected = 0;
       error = "";
       // On a phone nothing opens by itself; elsewhere the first result
@@ -244,6 +252,21 @@
     run();
   }
 
+  /// Show a category's results (from the menu), leaving an open entry.
+  export function showCategory(i: number) {
+    open = false;
+    setCategory(i);
+  }
+
+  // ---- swiping between categories (the results list, on touch) ----
+  let swipeBody: HTMLElement | undefined = $state();
+  const swipe = new Swipe<number>({
+    items: () => (found?.categories ?? []).map((_, i) => i),
+    current: () => category,
+    open: (i) => setCategory(i),
+    body: () => swipeBody,
+  });
+
   /// Complete the facet being typed (with the first completion by default).
   function complete(value?: string) {
     const v = value ?? found?.suggestions[0]?.[0];
@@ -383,14 +406,33 @@
       </select>
     </label>
   {/if}
+  {#if touch}
+    <!-- Swiping sideways changes the category (the select above does the same). -->
+    <div class="swipe" role="presentation" bind:this={swipeBody} ontouchstart={swipe.start} ontouchmove={swipe.move} ontouchend={swipe.end} ontouchcancel={swipe.end}>
+      <div class="slide" class:settling={swipe.settling} style:transform={swipe.drag ? `translateX(${swipe.drag}px)` : null} ontransitionend={swipe.settled}>
+        {@render list_()}
+      </div>
+      {#if swipe.beside !== null}
+        {@const [name, count] = found?.categories[swipe.beside] ?? ["", 0]}
+        <SwipeHint {swipe} label="{name} · {count}" />
+      {/if}
+    </div>
+  {:else}
+    {@render list_()}
+  {/if}
+{/snippet}
+
+{#snippet row_(row: api.Row)}
+  <span class="glyph g-{row.group}">{GLYPH[row.group]}</span>
+  <span class="name">{row.name}</span>
+  <span class="dim src">{row.source}</span>
+{/snippet}
+
+{#snippet list_()}
   <ul class="rows" bind:this={list}>
     {#each found?.rows ?? [] as row, i (row.id)}
       <li data-i={i}>
-        <button class:selected={i === selected && !(narrow && touch)} onclick={() => pick(i, true)}>
-          <span class="glyph g-{row.group}">{GLYPH[row.group]}</span>
-          <span class="name">{row.name}</span>
-          <span class="dim src">{row.source}</span>
-        </button>
+        <button class:selected={i === selected && !(narrow && touch)} onclick={() => pick(i, true)}>{@render row_(row)}</button>
       </li>
     {/each}
     {#if found && found.total > found.rows.length}
@@ -407,11 +449,14 @@
   </button>
 {/snippet}
 
-{#snippet categories()}
-  <div class="categories no-bar">
-    {#each found?.categories ?? [] as [label, count], i (label)}
-      <button class:active={i === category} onclick={() => setCategory(i)}>{label} <span class="count">{count}</span></button>
-    {/each}
+{#snippet categoryBar()}
+  <div class="categories">
+    <TabSelect
+      label="Category"
+      options={(found?.categories ?? []).map(([label, count], i) => [String(i), `${label} · ${count}`])}
+      value={String(category)}
+      onpick={(i) => setCategory(Number(i))}
+    />
   </div>
 {/snippet}
 
@@ -438,13 +483,13 @@
           {/each}
         </div>
       {:else}
-        {@render categories()}
+        {@render categoryBar()}
       {/if}
       </div>
     </div>
   {:else}
     <div class="bar">
-      {@render categories()}
+      {@render categoryBar()}
       {@render sourcesButton()}
     </div>
   {/if}
@@ -616,30 +661,29 @@
     border-color: var(--accent);
   }
   .categories {
-    display: flex;
-    gap: 2ch;
-    padding: 0 1ch 0.75em;
-    overflow-x: auto;
+    max-width: 40ch;
+    padding: 0 1ch 0.75em 0;
     flex-shrink: 0;
   }
-  .categories button {
-    background: none;
-    border: 0;
-    padding: 0 0.5ch;
-    color: var(--gray);
-    white-space: nowrap;
-    cursor: pointer;
+  .swipe {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Sideways drags are the categories' (see swipe.svelte.ts); scrolling stays native. */
+    touch-action: pan-y;
   }
-  .categories .count {
-    color: var(--dim);
+  .slide {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
-  .categories button.active {
-    background: var(--cyan);
-    color: var(--black);
-    font-weight: 700;
-  }
-  .categories button.active .count {
-    color: var(--black);
+  .slide.settling {
+    transition: transform 0.2s ease-out;
   }
   .split {
     flex: 1;
@@ -821,15 +865,16 @@
   .key:disabled {
     color: var(--dim);
   }
-  .chips,
-  .touch .categories {
+  .chips {
     display: flex;
     gap: 8px;
     overflow-x: auto;
     padding: 0;
   }
-  .chip,
-  .touch .categories button {
+  .touch .categories {
+    padding: 0;
+  }
+  .chip {
     flex-shrink: 0;
     height: 36px;
     padding: 0 14px;
@@ -842,12 +887,6 @@
   }
   .chip {
     color: var(--green);
-  }
-  .touch .categories button.active {
-    background: var(--cyan);
-    border-color: var(--cyan);
-    color: var(--black);
-    font-weight: 700;
   }
   .touch .split {
     padding-top: 20px;

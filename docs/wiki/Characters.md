@@ -19,8 +19,10 @@ the terminal) to see how it adds up.
 
 ![The overview on a phone](images/app-sheet.png)
 
-On a phone, swipe sideways to change tabs: the next one slides in, and
-opens once you are past 60% of the way.
+The tab select above the sheet changes the tab. On a phone, swipe sideways
+too: the gap names the tab you are going to, and lights up once letting go
+opens it (a little under half the way). Unfold *Characters* in the menu (▸) for
+the open character's tabs: from the compendium straight to their spells.
 
 ## Levels
 

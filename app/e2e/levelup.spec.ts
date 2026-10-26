@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
 
 /// Choose an action from the sheet's ⋯ menu.
 async function more(page: Page, name: string, action: string) {
@@ -119,7 +119,7 @@ test("the subclass is chosen at the level the class gets it", { tag: "@levelup.s
   await pick(page, ["Average"]);
   await apply(page);
   await expect(identity(page)).toContainText("Mage 3");
-  await page.getByRole("button", { name: "Features", exact: true }).click();
+  await sheetTab(page, "Features");
   await expect(page.locator(".pane", { hasText: "Order of Wards" }).first()).toBeVisible();
 });
 
@@ -146,7 +146,7 @@ test("an ability score improvement can be a feat instead", { tag: "@levelup.asi"
   await pick(page, ["Take a feat instead…"]);
   await pick(page, ["Tough as Roots"]);
   await apply(page);
-  await page.getByRole("button", { name: "Features", exact: true }).click();
+  await sheetTab(page, "Features");
   await expect(page.locator(".feature", { hasText: "Tough as Roots" })).toBeVisible();
 });
 
@@ -204,7 +204,7 @@ test("choices a level left open are made afterwards", { tag: "@choices.pending" 
   await expect(tricks).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /choices? to make|^\d+ choices?$/ })).toHaveCount(0);
-  await page.getByRole("button", { name: "Features", exact: true }).click();
+  await sheetTab(page, "Features");
   await expect(page.locator(".feature", { hasText: "Guardian Style" })).toBeVisible();
   await expect(page.locator(".feature", { hasText: "Quick Step" })).toBeVisible();
   await expect(page.locator(".feature", { hasText: "Thorn Shot" })).toBeVisible();

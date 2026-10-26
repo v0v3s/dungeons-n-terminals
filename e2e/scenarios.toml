@@ -150,7 +150,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "compendium.category"
-does = "Switch the category (spells, classes, items, …)."
+does = "Switch the category (spells, classes, items, …): its select in the app."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -405,8 +405,14 @@ targets = ["android"]
 not = { tui = "no touch in a terminal" }
 
 [[scenario]]
+id = "compendium.swipe-categories"
+does = "Swipe the results sideways on a phone: the gap names the next category, and it opens as the sheet's tabs do."
+targets = ["android"]
+not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the category" }
+
+[[scenario]]
 id = "sheet.swipe-tabs"
-does = "Swipe sideways on a phone: the next tab slides in under the finger, opens past 60% of the width (or with a flick) and slides back otherwise; the tab bar keeps the open tab in sight."
+does = "Swipe sideways on a phone: the sheet follows the finger and the gap it leaves names the next tab (its icon and name), lit once letting go opens it: past 45% of the width, or with a flick; otherwise it slides back. The tab select shows the open tab."
 targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the tab, and every tab is always in sight" }
 
@@ -668,6 +674,12 @@ not = { app = "the app has buttons and menus, not a command line" }
 id = "nav.sections"
 does = "Move between the sections (compendium, characters, notes, campaigns)."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "nav.menu-inside"
+does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories and the open character's tabs, so the menu goes from anywhere to, say, the character's spells."
+targets = ["android"]
+not = { tui = "no menu: the number keys change the section, Tab the category or the tab" }
 
 [[scenario]]
 id = "nav.help"

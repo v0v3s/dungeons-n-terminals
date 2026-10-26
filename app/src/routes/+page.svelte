@@ -17,6 +17,7 @@
   import Notes from "../lib/Notes.svelte";
   import { closeTop } from "../lib/modals";
   import { narrow, touch } from "../lib/screen";
+  import { SHEET_TABS, type SheetTab } from "../lib/sheetctx";
 
   type Section = "compendium" | "characters" | "notes" | "campaigns" | "data";
   const SECTIONS: [Section, string][] = [
@@ -41,6 +42,38 @@
   /// A note to open in the Notes section.
   let notePath = $state<string | null>(null);
   let drawer = $state(false);
+  /// The open character's tab, and the compendium's category with every
+  /// one there is: the menu lists them under their sections.
+  let sheetTab = $state<SheetTab>("Overview");
+  let category = $state(0);
+  let categories = $state<[string, number][]>([]);
+  // A sheet, not a character being made (`new: <name>`).
+  const sheetOpen = $derived(!!characterOpen && !characterOpen.startsWith("new: "));
+  const menu = $derived(
+    SECTIONS.map(([id, l]): [string, string, string, [string, string, string][]] => [
+      id,
+      l,
+      "",
+      id === "compendium" && status?.loaded
+        ? categories.map(([c, n], i) => [String(i), c, String(n)])
+        : id === "characters" && sheetOpen
+          ? SHEET_TABS.map((t) => [t, t, ""])
+          : [],
+    ]),
+  );
+  const menuChild = $derived(section === "compendium" ? String(category) : section === "characters" && sheetOpen ? sheetTab : "");
+
+  /// A section from the menu, or something inside it.
+  function pick(id: string, child?: string) {
+    if (child !== undefined && id === "compendium") {
+      category = Number(child);
+      // Shown already: show that category (its list, not an open entry).
+      if (section === "compendium" && !welcome) compendium?.showCategory(category);
+    } else if (child !== undefined && id === "characters") {
+      sheetTab = child as SheetTab;
+    }
+    go(id);
+  }
   /// The entry open full-screen on a phone (its name), if any.
   let reading = $state<string | null>(null);
 
@@ -169,9 +202,10 @@
     <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} actions={appActions} />
     <Drawer
       bind:open={drawer}
-      sections={SECTIONS.map(([id, l]) => [id, l, ""])}
+      sections={menu}
       current={welcome ? "" : section}
-      onpick={go}
+      currentChild={menuChild}
+      onpick={pick}
       footer={status?.campaign ? `◈ ${status.campaign} · ${counts}` : counts}
     />
   {:else}
@@ -201,6 +235,8 @@
       {#key `${status.entries} ${status.campaign}`}<Compendium
           bind:this={compendium}
           bind:reading
+          bind:category
+          bind:categories
           touch={touch.current}
           narrow={narrow.current}
           campaign={status.campaigns.find((c) => c.active) ?? null}
@@ -208,7 +244,7 @@
           oncampaigns={() => (section = "campaigns")}
         />{/key}
     {:else if section === "characters"}
-      {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} {status} onnote={openNote} />{/key}
+      {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} bind:tab={sheetTab} {status} onnote={openNote} />{/key}
     {:else if section === "notes"}
       {#key status.campaign}<Notes bind:this={notes} bind:openPath={notePath} bind:reading={noteOpen} {status} narrow={narrow.current} />{/key}
     {:else if section === "campaigns"}

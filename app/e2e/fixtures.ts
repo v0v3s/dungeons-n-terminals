@@ -135,7 +135,9 @@ export async function go(page: Page, section: "Compendium" | "Characters" | "Not
   const menu = page.getByRole("button", { name: "Menu", exact: true });
   if (await menu.isVisible()) await menu.click();
   // The desktop header numbers them ("2 Characters").
-  await page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).filter({ visible: true }).first().click();
+  // A section, not something inside one (the character's Notes tab).
+  const button = page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).and(page.locator(":not(.child)"));
+  await button.filter({ visible: true }).first().click();
 }
 
 /// Open a character's sheet (Tester by default) on a tab.
@@ -149,7 +151,12 @@ export async function openSheet(page: Page, tab: "Overview" | "Features" | "Spel
   }
   await go(page, "Characters");
   await page.locator("button.card", { hasText: name }).click();
-  await page.getByRole("button", { name: tab, exact: true }).click();
+  await sheetTab(page, tab);
+}
+
+/// Change the open sheet's tab (Notes opens the character's note).
+export async function sheetTab(page: Page, tab: "Overview" | "Features" | "Spells" | "Inventory" | "Notes") {
+  await page.locator(".sheet .tabs select").selectOption(tab);
 }
 
 /// The open dialog with this title.

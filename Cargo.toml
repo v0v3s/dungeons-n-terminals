@@ -6,7 +6,7 @@ default-members = ["crates/*"]
 exclude = ["vendor/edtui"]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/v0v3s/dungeons-n-terminals"

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, openSheet, pick, status, test } from "./fixtures";
+import { answer, choose, dialog, expect, openSheet, pick, sheetTab, status, test } from "./fixtures";
 
 const line = (page: Page, name: string) => page.locator("button.line", { hasText: name });
 
@@ -98,9 +98,9 @@ async function addItem(page: Page, name: string) {
 
 /// The sheet's Armor Class, read on the Overview tab (then back to Inventory).
 async function armorClass(page: Page): Promise<number> {
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   const ac = Number(await page.locator("button.tile", { hasText: "Armor Class" }).locator("b").textContent());
-  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await sheetTab(page, "Inventory");
   return ac;
 }
 
@@ -146,9 +146,9 @@ test("armor is worn in a slot, a weapon and a shield held; AC and attacks follow
   await line(page, "Thornknife").click();
   await choose(page, "Thornknife", "Hold in the main hand");
   await expect(slot(page, "Main hand")).toContainText("Thornknife");
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   await expect(page.locator(".attacks .held")).toContainText("Thornknife");
-  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await sheetTab(page, "Inventory");
 
   // Put away and taken off: back to bare.
   await line(page, "Thornknife").click();
@@ -160,7 +160,7 @@ test("armor is worn in a slot, a weapon and a shield held; AC and attacks follow
   await choose(page, "Quilted Coat", "Take it off");
   await expect(slot(page, "Body")).not.toContainText("Quilted Coat");
   expect(await armorClass(page)).toBe(bare);
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   await expect(page.locator(".attacks .held")).toContainText("nothing");
 });
 

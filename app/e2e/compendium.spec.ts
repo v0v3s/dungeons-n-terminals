@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { answer, choose, dialog, expect, go, phone, test } from "./fixtures";
+import { drag, swipe } from "./touch";
 
 test.use({ seed: "campaign" });
 
@@ -49,10 +50,19 @@ async function back(page: Page) {
   else await page.locator(".detail button.back").click();
 }
 
+/// The category select's option for `label` ("Spells · 12"): its value.
+async function categoryValue(page: Page, label: string) {
+  const options = await page.locator(".categories select option").allTextContents();
+  const i = options.findIndex((o) => o.startsWith(`${label} ·`));
+  if (i < 0) throw new Error(`No category ${label} in ${options.join(", ")}`);
+  return String(i);
+}
+
 async function category(page: Page, label: string) {
   await toList(page);
-  await page.locator(".categories button", { hasText: new RegExp(`^${label}\\b`) }).click();
-  await expect(page.locator(".categories button.active")).toContainText(label);
+  const value = await categoryValue(page, label);
+  await page.locator(".categories select").selectOption(value);
+  await expect(page.locator(".categories select")).toHaveValue(value);
 }
 
 test("the results follow what is typed", { tag: "@compendium.search" }, async ({ page }) => {
@@ -230,4 +240,24 @@ test("a new homebrew entry from a template", { tag: "@compendium.new-homebrew" }
   await search(page, "moth whisper");
   await read(page, "Moth Whisper");
   await expect(page.locator(".detail .sub")).toContainText("Spell");
+});
+
+test("swiping the results changes the category, the gap naming the next one", { tag: ["@compendium.swipe-categories", "@android"] }, async ({ page }) => {
+  await compendium(page);
+  await toList(page);
+  const select = page.locator(".categories select");
+  const first = await select.inputValue();
+  const second = String(Number(first) + 1);
+  const results = page.locator(".swipe");
+  const next = (await select.locator("option").allTextContents())[Number(second)];
+  // Part of the way: the gap names the next category; it slides back.
+  await drag(page, results, 0.8, [0.65, 0.5], async () => {
+    await expect(page.locator(".compendium .swipe-hint")).toHaveText(next);
+  });
+  await expect(page.locator(".compendium .swipe-hint")).toHaveCount(0);
+  await expect(select).toHaveValue(first);
+  await swipe(page, results, 0.8, 0.2);
+  await expect(select).toHaveValue(second);
+  await swipe(page, results, 0.2, 0.8);
+  await expect(select).toHaveValue(first);
 });

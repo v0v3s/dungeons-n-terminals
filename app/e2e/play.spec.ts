@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, invoke, openSheet, pick, status, test } from "./fixtures";
+import { answer, choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
 
 const roll = (page: Page) => page.locator(".status.roll");
 const attack = (page: Page, name: string) => page.locator(".attack").filter({ has: page.locator(".aname", { hasText: name }) });
@@ -16,7 +16,7 @@ async function more(page: Page, name: string, action: string | RegExp) {
 
 /// Write rules for one of the features on the Features tab.
 async function writeRules(page: Page, group: string, feature: string, rules: string) {
-  await page.getByRole("button", { name: "Features", exact: true }).click();
+  await sheetTab(page, "Features");
   const fold = page.locator(".pane").filter({ has: page.locator("button.fold", { hasText: group }) }).locator("button.fold");
   if ((await fold.getAttribute("aria-expanded")) === "false") await fold.click();
   await page.locator(".row", { has: page.locator(".name", { hasText: feature }) }).getByRole("button", { name: "rules" }).click();
@@ -28,7 +28,7 @@ async function writeRules(page: Page, group: string, feature: string, rules: str
   await expect(editor.locator(".check")).not.toContainText("✗");
   await editor.getByRole("button", { name: "Save" }).click();
   await expect(editor).toHaveCount(0);
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
 }
 
 /// Add a tracker of your own through the Tracking pane.
@@ -205,7 +205,7 @@ test("concentration on a spell is ended from the overview", { tag: "@concentrati
   await page.getByRole("dialog").last().locator("li button").first().click();
   await expect(status(page)).toContainText("Ward of Thorns");
 
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   const conc = chip(page).locator("button.conc");
   await expect(conc).toContainText("Ward of Thorns");
   await conc.click();
