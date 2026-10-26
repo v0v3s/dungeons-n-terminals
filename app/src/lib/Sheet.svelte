@@ -511,16 +511,20 @@
 {:else if dialog?.kind === "pick"}
   {@const d = dialog}
   <Modal title={d.options.title} onclose={close} footer="enter choose · esc">
-    <Picker
-      choices={d.options.choices}
-      count={d.options.pick}
-      initial={d.options.default}
-      onpick={(v) => {
-        const { then, options } = d;
-        close();
-        then(v, options);
-      }}
-    />
+    <!-- A new picker each time: one opened while the last still fades out
+         would otherwise keep its filter and ticks. -->
+    {#key d.options}
+      <Picker
+        choices={d.options.choices}
+        count={d.options.pick}
+        initial={d.options.default}
+        onpick={(v) => {
+          const { then, options } = d;
+          close();
+          then(v, options);
+        }}
+      />
+    {/key}
   </Modal>
 {:else if dialog?.kind === "prompt"}
   {@const d = dialog}

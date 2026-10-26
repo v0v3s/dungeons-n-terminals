@@ -48,6 +48,9 @@ become the release page.
   slides back otherwise. The tab bar keeps the open tab in sight.
 - App: removing a tracker of your own asks first, as the terminal does.
 - An innate spell with no free casts left no longer offers a free cast.
+- App: a list opened again right after the last one (adding spells one
+  after another) starts empty of the last one's filter, instead of showing
+  "Nothing matches".
 - Terminal, on Windows: editing a character's file or a homebrew entry in
   `$EDITOR` (Notepad by default) opens the file; the editor was given a
   mangled path.
