@@ -95,9 +95,9 @@
     | { kind: "rules"; entity: number }
     | { kind: "warnings" };
   let dialog: Dialog | null = $state(null);
-  /// Counts closings: a dialog opened after one closes is a new one (one
-  /// opened while the last still fades out would otherwise be that one,
-  /// with what it held: a filter, a draft).
+  /// Counts closings. A dialog opened while the last still fades out is
+  /// that one again, so what holds a state in it (a filter, a draft) is
+  /// keyed on this, and starts afresh.
   let closings = $state(0);
   const close = () => {
     dialog = null;
@@ -467,7 +467,6 @@
   {/if}
 </div>
 
-{#key closings}
 {#if dialog?.kind === "warnings"}
   <Modal title="Warnings" onclose={close}>
     <ul class="warnings">
@@ -477,16 +476,18 @@
 {/if}
 
 {#if dialog?.kind === "rules"}
-  <RulesEditor
-    entity={dialog.entity}
-    character={sheet.header.name}
-    onclose={close}
-    onsaved={(s, m) => {
-      sheet = s;
-      close();
-      say(m);
-    }}
-  />
+  {#key closings}
+    <RulesEditor
+      entity={dialog.entity}
+      character={sheet.header.name}
+      onclose={close}
+      onsaved={(s, m) => {
+        sheet = s;
+        close();
+        say(m);
+      }}
+    />
+  {/key}
 {/if}
 
 {#if dialog?.kind === "file"}
@@ -519,31 +520,35 @@
 {:else if dialog?.kind === "pick"}
   {@const d = dialog}
   <Modal title={d.options.title} onclose={close} footer="enter choose · esc">
-    <Picker
-      choices={d.options.choices}
-      count={d.options.pick}
-      initial={d.options.default}
-      onpick={(v) => {
-        const { then, options } = d;
-        close();
-        then(v, options);
-      }}
-    />
+    {#key closings}
+      <Picker
+        choices={d.options.choices}
+        count={d.options.pick}
+        initial={d.options.default}
+        onpick={(v) => {
+          const { then, options } = d;
+          close();
+          then(v, options);
+        }}
+      />
+    {/key}
   </Modal>
 {:else if dialog?.kind === "prompt"}
   {@const d = dialog}
-  <Prompt
-    title={d.title}
-    number={d.number}
-    value={d.value}
-    hint={d.hint}
-    onclose={close}
-    onsubmit={(v) => {
-      const then = d.then;
-      close();
-      then(v);
-    }}
-  />
+  {#key closings}
+    <Prompt
+      title={d.title}
+      number={d.number}
+      value={d.value}
+      hint={d.hint}
+      onclose={close}
+      onsubmit={(v) => {
+        const then = d.then;
+        close();
+        then(v);
+      }}
+    />
+  {/key}
 {:else if dialog?.kind === "entry"}
   <EntryModal id={dialog.id} onclose={close} />
 {:else if dialog?.kind === "breakdown"}
@@ -585,12 +590,12 @@
     {#if d.step.summary.length}
       <div class="summary">{#each d.step.summary as s (s)}<div><span class="acc">✓</span> <span class="muted">{s}</span></div>{/each}</div>
     {/if}
-    <Ask question={d.step.question} onanswer={levelAnswer} onconfirm={levelApply} confirm="Apply the level" />
+    {#key closings}<Ask question={d.step.question} onanswer={levelAnswer} onconfirm={levelApply} confirm="Apply the level" />{/key}
   </Modal>
 {:else if dialog?.kind === "pending"}
   {@const d = dialog}
   <Modal title="{d.p.from}: {d.p.key}" onclose={close} footer="{d.p.left} left">
-    <Ask question={d.p.question} onanswer={(a) => pendingAnswer(d.p, a)} />
+    {#key closings}<Ask question={d.p.question} onanswer={(a) => pendingAnswer(d.p, a)} />{/key}
   </Modal>
 {:else if dialog?.kind === "confirm"}
   {@const d = dialog}
@@ -610,7 +615,6 @@
     </div>
   </Modal>
 {/if}
-{/key}
 
 <style>
   textarea.file {

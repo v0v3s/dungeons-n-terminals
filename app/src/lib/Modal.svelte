@@ -48,7 +48,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<button class="scrim" aria-label="Close" onclick={onclose} transition:fade|global={{ duration: 120 }}></button>
+<button class="scrim" aria-label="Close" onclick={onclose} transition:fade={{ duration: 120 }}></button>
 <div
   class="modal"
   class:sheet={touch.current}
@@ -57,7 +57,7 @@
   style:translate={drag ? `0 ${drag}px` : null}
   role="dialog"
   aria-label={title}
-  transition:fly|global={touch.current ? { y: 400, duration: 180, opacity: 1 } : { y: 12, duration: 120 }}
+  transition:fly={touch.current ? { y: 400, duration: 180, opacity: 1 } : { y: 12, duration: 120 }}
 >
   {#if touch.current}
     <div class="handle" onpointerdown={grab} onpointermove={move} onpointerup={letGo} onpointercancel={letGo} role="presentation">
