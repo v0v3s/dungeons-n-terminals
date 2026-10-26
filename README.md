@@ -249,16 +249,21 @@ commit on `main` and decides the release.
 
 A release gathers the work of a branch: keep a branch going until it is
 worth releasing, then open one pull request for it. Write what it changes
-for users under **Unreleased** in [CHANGELOG.md](CHANGELOG.md).
+for users under **Unreleased** in [CHANGELOG.md](CHANGELOG.md). A
+releasing pull request carries its version: `scripts/release-pr.sh
+"<title>"` bumps it in `Cargo.toml` and names the changelog's Unreleased
+section after it; commit that (the `versioned` check makes sure it is
+there, and that other pull requests leave the version alone).
 
-On a releasing merge, GitHub Actions bumps the version in `Cargo.toml`,
-names the changelog's Unreleased section after it, tags `vX.Y.Z`, builds
-the Linux and Windows (x86_64) binaries, the Windows installer and the
-Android app, and publishes them as a release (with `SHA256SUMS`). The
-release notes are that changelog section (or, if it was left empty, the
-commit subjects). `scripts/next-version.sh "<title>"` shows what a title
-would do. CI checks formatting, clippy and tests on Linux and Windows,
-and builds the app, for every pull request.
+`main` takes pull requests only, squash-merged, once every check passes:
+formatting, clippy and the tests (the end-to-end ones too) on Linux and
+Windows, the app's on Windows, and the title and version. When a merge
+brings a version that has no tag yet, GitHub Actions runs all of CI on
+it again, tags `vX.Y.Z`, builds the Linux and Windows (x86_64) binaries,
+the Windows installer and the Android app, and publishes them as a
+release (with `SHA256SUMS`) only if every one of them built. The release
+notes are that changelog section (or, if it was left empty, the commit
+subjects). `scripts/next-version.sh "<title>"` shows what a title would do.
 
 dnt is a fan project and not affiliated with Wizards of the Coast; it
 ships no game content and reads the data you provide.

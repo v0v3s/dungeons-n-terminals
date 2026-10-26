@@ -1,7 +1,7 @@
-# Release on every merge to main whose (squash) commit is a releasing
-# Conventional Commit: bump the workspace version, name the changelog's
-# Unreleased section after it, tag vX.Y.Z, build the binaries and apps, and
-# publish a GitHub release with that section as its notes.
+# Release what a merged pull request versioned (scripts/release-pr.sh):
+# when main's workspace version has no tag yet, run CI on it, tag it vX.Y.Z,
+# build the binaries and apps, and publish a GitHub release with the
+# changelog's section as its notes. Nothing is pushed to main.
 name: Release
 
 on:
@@ -19,23 +19,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Everything is tested first: nothing is tagged or released otherwise.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  # The version to release: main's, unless it already has its tag.
   version:
+    needs: ci
     runs-on: ubuntu-latest
-    # The version bump this workflow pushes must not release again.
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
     outputs:
-      version: ${{ steps.next.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - id: next
-        env:
-          MESSAGE: ${{ github.event.head_commit.message }}
+      - id: version
         run: |
-          version=$(scripts/next-version.sh "$MESSAGE")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ -n "$version" ]; then echo "Releasing v$version"; else echo "No release for this commit"; fi
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "v$version is released: nothing to do"
+          else
+            echo "Releasing v$version"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          fi
 
   tag:
     needs: version
@@ -43,22 +49,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: main
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Bump the version, commit and tag
+      - name: Tag the merge
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          sed -i "/^\[workspace.package\]/,/^\[/s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-          cargo update --workspace
-          scripts/release-notes.sh cut "$VERSION" "$(date -u +%F)"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore(release): v$VERSION"
-          git tag "v$VERSION"
-          git push origin main "v$VERSION"
+          git tag "v$VERSION" "$GITHUB_SHA"
+          git push origin "v$VERSION"
 
   build:
     needs: [version, tag]
@@ -106,9 +102,8 @@ jobs:
     secrets: inherit
 
   publish:
-    # The terminal app releases even if an app build fails.
+    # Only when every build passed: the terminal apps and the apps.
     needs: [version, build, app]
-    if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
