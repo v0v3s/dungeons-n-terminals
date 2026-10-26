@@ -189,12 +189,13 @@ fn a_tracker_of_your_own_is_removed_after_confirming() {
 fn weapons_are_held_from_the_attacks() {
     let mut t = Tui::scenario("attacks.hold", Home::party());
     open(&mut t, "Tester");
-    assert!(t.line("In hand").contains("nothing"), "{}", t.screen());
+    // Apart from the keys' hint, not run into it.
+    assert!(t.line("In hand").contains("nothing  "), "{}", t.screen());
     // Thornknife, the first attack, in the main hand.
     to(&mut t, FIRST_ATTACK);
     t.send(" ");
     wait_status(&mut t, "Thornknife: main hand");
-    assert!(t.line("Thornknife  ").contains("main  Thornknife"), "{}", t.screen());
+    t.wait("main  Thornknife");
     // The second Thornknife in the off hand.
     t.send("o");
     wait_status(&mut t, "Thornknife: one in each hand");
@@ -248,6 +249,7 @@ fn the_shield_is_taken_up_and_put_away() {
     assert_eq!(stat_box(&t, "Armor Class"), "14");
     t.send("S");
     wait_status(&mut t, "Put away Buckler");
-    assert!(t.line("In hand").contains("nothing"), "{}", t.screen());
+    // Apart from the keys' hint, not run into it.
+    assert!(t.line("In hand").contains("nothing  "), "{}", t.screen());
     assert_eq!(stat_box(&t, "Armor Class"), "12");
 }

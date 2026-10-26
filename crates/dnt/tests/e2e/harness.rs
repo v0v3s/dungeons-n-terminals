@@ -60,6 +60,11 @@ impl Tui {
         Tui::with_args(scenario, home, &[])
     }
 
+    /// Run `dnt` for the documentation's screenshots, not a scenario.
+    pub fn for_docs(home: Home) -> Tui {
+        Tui::start("docs", home, &[], Vec::new())
+    }
+
     pub fn with_args(scenario: &'static str, home: Home, args: &[&str]) -> Tui {
         Tui::start(scenario, home, args, Vec::new())
     }
@@ -116,6 +121,13 @@ impl Tui {
     /// The screen's text, row by row.
     pub fn screen(&self) -> String {
         self.screen.lock().unwrap().parser.screen().contents()
+    }
+
+    /// The screen as an SVG picture, in the colours of dnt's look (for the
+    /// documentation's screenshots).
+    pub fn svg(&self) -> String {
+        let guard = self.screen.lock().unwrap();
+        svg(guard.parser.screen())
     }
 
     /// Wait until nothing is drawn for a moment.
@@ -280,4 +292,90 @@ pub fn run(_scenario: &'static str, home: &Home, args: &[&str]) -> std::process:
         cmd.env(k, v);
     }
     cmd.output().expect("dnt runs")
+}
+
+/// The 16 colours of a terminal, as dnt's look has them (Tokyo Night).
+const PALETTE: [&str; 16] = [
+    "#15161e", "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#a9b1d6", "#414868", "#f7768e", "#9ece6a", "#e0af68",
+    "#7aa2f7", "#bb9af7", "#7dcfff", "#c0caf5",
+];
+const BACKGROUND: &str = "#1a1b26";
+const FOREGROUND: &str = "#c0caf5";
+
+fn colour(c: vt100::Color, default: &str) -> String {
+    match c {
+        vt100::Color::Default => default.to_string(),
+        vt100::Color::Idx(i) if i < 16 => PALETTE[i as usize].to_string(),
+        // The 6×6×6 cube and the greys of 256-colour terminals.
+        vt100::Color::Idx(i) if i < 232 => {
+            let i = i - 16;
+            let level = |v: u8| if v == 0 { 0 } else { 55 + v * 40 };
+            format!("#{:02x}{:02x}{:02x}", level(i / 36), level(i / 6 % 6), level(i % 6))
+        }
+        vt100::Color::Idx(i) => {
+            let g = 8 + (i - 232) * 10;
+            format!("#{g:02x}{g:02x}{g:02x}")
+        }
+        vt100::Color::Rgb(r, g, b) => format!("#{r:02x}{g:02x}{b:02x}"),
+    }
+}
+
+fn escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+/// A terminal screen as SVG: a cell is `W`×`H`, runs of cells alike are one
+/// piece of text on their background.
+fn svg(screen: &vt100::Screen) -> String {
+    const W: f32 = 8.4;
+    const H: f32 = 18.0;
+    let (rows, cols) = screen.size();
+    let (rows, cols) = (rows.get(), cols.get());
+    let mut back = String::new();
+    let mut text = String::new();
+    for row in 0..rows {
+        let mut col = 0;
+        while col < cols {
+            let Some(cell) = screen.cell(row, col) else { break };
+            let (mut fg, mut bg) = (colour(cell.fgcolor(), FOREGROUND), colour(cell.bgcolor(), BACKGROUND));
+            if cell.inverse() {
+                std::mem::swap(&mut fg, &mut bg);
+            }
+            let bold = cell.bold();
+            // A run of cells with the same look.
+            let start = col;
+            let mut run = String::new();
+            while col < cols {
+                let Some(c) = screen.cell(row, col) else { break };
+                let (mut f, mut b) = (colour(c.fgcolor(), FOREGROUND), colour(c.bgcolor(), BACKGROUND));
+                if c.inverse() {
+                    std::mem::swap(&mut f, &mut b);
+                }
+                if f != fg || b != bg || c.bold() != bold {
+                    break;
+                }
+                if !c.is_wide_continuation() {
+                    run.push_str(if c.contents().is_empty() { " " } else { c.contents() });
+                }
+                col += 1;
+            }
+            let (x, y) = (start as f32 * W, row as f32 * H);
+            if bg != BACKGROUND {
+                back.push_str(&format!(r#"<rect x="{x}" y="{y}" width="{}" height="{H}" fill="{bg}"/>"#, (col - start) as f32 * W));
+            }
+            if !run.trim().is_empty() {
+                let weight = if bold { r#" font-weight="bold""# } else { "" };
+                text.push_str(&format!(
+                    r#"<text x="{x}" y="{}" fill="{fg}"{weight} textLength="{}" lengthAdjust="spacingAndGlyphs" xml:space="preserve">{}</text>"#,
+                    y + H * 0.75,
+                    (col - start) as f32 * W,
+                    escape(&run)
+                ));
+            }
+        }
+    }
+    let (width, height) = (cols as f32 * W, rows as f32 * H);
+    format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" font-family="'JetBrains Mono', 'DejaVu Sans Mono', monospace" font-size="14"><rect width="100%" height="100%" fill="{BACKGROUND}"/>{back}{text}</svg>"#
+    )
 }

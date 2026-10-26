@@ -8,6 +8,11 @@ become the release page.
 
 ## Unreleased
 
+### Fixed
+
+- Terminal: the Attacks pane's "In hand" no longer runs into the keys'
+  hint on narrow panes.
+
 ## v0.13.0 - 2026-10-26
 
 ### Added

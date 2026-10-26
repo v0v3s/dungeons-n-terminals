@@ -14,6 +14,7 @@ mod compendium;
 mod concentration;
 mod creation;
 mod data;
+mod docs;
 mod features;
 mod homebrew;
 mod hp;
