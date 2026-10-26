@@ -17,7 +17,7 @@ fn editing_the_file_changes_the_sheet() {
     let mut t = Tui::with_editor("character.edit-file", Home::party(), "Tester", "Edited");
     t.send("2").send("G").wait("Kindred · Archivist · Mage 1");
     // The roster reads the edited file: Tester is now Edited.
-    t.send("e").wait("◆ Edited");
+    t.send("e").wait_after_editor("◆ Edited");
     assert!(!t.shows("◆ Tester"), "{}", t.screen());
 }
 

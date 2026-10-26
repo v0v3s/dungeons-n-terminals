@@ -14,6 +14,8 @@ pub const COLS: u16 = 140;
 pub const ROWS: u16 = 45;
 /// How long a test waits for the screen to show something.
 const WAIT: Duration = Duration::from_secs(10);
+/// How long a test waits for the editor ($EDITOR) and the screen after it.
+const EDITOR_WAIT: Duration = Duration::from_secs(60);
 /// The screen is settled when nothing was drawn for this long.
 const QUIET: Duration = Duration::from_millis(80);
 
@@ -164,15 +166,27 @@ impl Tui {
         self.wait_until(&format!("{text:?} goes from the screen"), |s| !s.contains(text))
     }
 
+    /// Wait for `text` after a step that runs the editor ($EDITOR), which
+    /// can take long to start (PowerShell, cold, on Windows).
+    #[track_caller]
+    pub fn wait_after_editor(&mut self, text: &str) -> &mut Tui {
+        self.wait_for(&format!("the screen shows {text:?}"), EDITOR_WAIT, |s| s.contains(text))
+    }
+
     #[track_caller]
     pub fn wait_until(&mut self, what: &str, ok: impl Fn(&str) -> bool) -> &mut Tui {
+        self.wait_for(what, WAIT, ok)
+    }
+
+    #[track_caller]
+    fn wait_for(&mut self, what: &str, wait: Duration, ok: impl Fn(&str) -> bool) -> &mut Tui {
         let start = Instant::now();
         loop {
             let s = self.screen();
             if ok(&s) {
                 return self;
             }
-            if start.elapsed() > WAIT {
+            if start.elapsed() > wait {
                 panic!("[{}] waited for {what}; the screen:\n{}", self.scenario, framed(&s));
             }
             std::thread::sleep(Duration::from_millis(20));

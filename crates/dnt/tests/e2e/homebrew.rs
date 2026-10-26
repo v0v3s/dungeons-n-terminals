@@ -62,7 +62,7 @@ fn json_that_does_not_parse_is_not_saved() {
 fn editing_the_whole_entry_in_the_editor() {
     let mut t = Tui::with_editor("homebrew.edit-json", Home::campaign(), "Describe what the spell does.", "Frost bites.");
     new_spell(&mut t);
-    t.send("E").wait("Frost bites.");
+    t.send("E").wait_after_editor("Frost bites.");
     read(&mut t, "frost lance");
     t.wait("Frost bites.");
     assert!(!t.shows("Describe what the spell does."), "{}", t.screen());
