@@ -44,6 +44,9 @@ become the release page.
   casting it in both), not the best class's.
 - App: deleting a note asks first.
 - App: removing a tracker of your own asks first, as the terminal does.
+- An innate spell with no free casts left no longer offers a free cast.
+- The count of spells to choose includes a feat's or a species' choice of
+  spells, which the sheet's flag also leads to.
 - App: on a phone, the inventory's buttons and the notes' Quick note no
   longer wrap their labels; the inventory leaves room for fold arrows only
   when something can fold, and the arrows are bigger.

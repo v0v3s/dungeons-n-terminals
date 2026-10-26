@@ -95,6 +95,14 @@ fn sorted(lib: &Library, ids: &[String]) -> Vec<String> {
     v.into_iter().map(|(_, _, id)| id).collect()
 }
 
+/// How many spells the character may still choose: its classes' and its
+/// grants' (a feat's or a species' choice).
+pub fn to_choose(lib: &Library, s: &CharacterSession) -> i64 {
+    let classes: i64 = spell_gaps(s.character(), &spells::casters(lib, &s.build, &s.ev)).iter().map(|(_, c, sp)| c + sp).sum();
+    let grants: usize = rows(lib, s).rows.iter().map(|r| if let Row::GrantChoice { missing, .. } = r { *missing } else { 0 }).sum();
+    classes + grants as i64
+}
+
 pub fn rows(lib: &Library, s: &CharacterSession) -> Rows {
     let ch = s.character();
     let casters = spells::casters(lib, &s.build, &s.ev);

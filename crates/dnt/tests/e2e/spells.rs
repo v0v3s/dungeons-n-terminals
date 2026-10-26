@@ -69,9 +69,12 @@ fn a_grant_chooses_its_spells() {
     let mut t = Tui::scenario("spells.choose", Home::party());
     spells_of(&mut t, "Hexa");
     t.wait("Spark Initiate; Mage").wait("+ choose 2 Mage cantrip");
+    // The class's 2 cantrips and 2 spells, and the feat's 2 cantrips.
+    t.wait("6 spell(s) to choose");
     t.send("G").send(ENTER).wait("Choose 2 Mage cantrip");
     t.typed("frost").send(" ").send(&ctrl('u')).typed("spark").send(" ").send(ENTER);
     t.wait("Added Frost Needle, Spark").wait_gone("+ choose 2 Mage cantrip");
+    t.wait("4 spell(s) to choose");
     // The chosen cantrips are listed under the feat that grants them.
     let s = t.screen();
     let feat = s.find("Spark Initiate; Mage").unwrap();

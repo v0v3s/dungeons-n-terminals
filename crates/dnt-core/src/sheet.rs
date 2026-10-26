@@ -57,13 +57,12 @@ pub fn identity(lib: &Library, s: &CharacterSession) -> String {
 }
 
 pub fn header(lib: &Library, s: &CharacterSession) -> Header {
-    let gaps = spellbook::spell_gaps(s.character(), &spells::casters(lib, &s.build, &s.ev));
     Header {
         name: s.character().name.clone(),
         identity: identity(lib, s),
         level: s.character().total_level() as i64,
         pending: s.pending.len(),
-        spells_to_choose: gaps.iter().map(|(_, c, sp)| c + sp).sum(),
+        spells_to_choose: spellbook::to_choose(lib, s),
         warnings: s.build.warnings.clone(),
     }
 }
@@ -720,7 +719,8 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                     Grant::Innate(Some(n)) => {
                         let name = resolve_id(lib, id).map(|e| lib.entity(e).name.clone()).unwrap_or_default();
                         let left = play::resource_left(ch, ev, &format!("innate_{}", dnt_rules::class_table::slug(&name)));
-                        (format!("{left}/{n} free"), true)
+                        // No free cast left: cast it with a slot, if at all.
+                        (format!("{left}/{n} free"), left > 0)
                     }
                 };
                 spell(id, "granted", text, None, free)

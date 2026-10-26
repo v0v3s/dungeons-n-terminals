@@ -189,8 +189,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         warn.push(Span::styled(" c ", theme.keycap));
         warn.push(Span::raw("   "));
     }
-    let gaps = dnt_core::spellbook::spell_gaps(ch, &dnt_rules::spells::casters(lib, &sheet.session.build, &sheet.session.ev));
-    let open: i64 = gaps.iter().map(|(_, c, s)| c + s).sum();
+    let open = dnt_core::spellbook::to_choose(lib, &sheet.session);
     if open > 0 {
         warn.push(Span::styled(format!(" {open} spell(s) to choose "), theme.category_active));
         warn.push(Span::styled("  Spells tab ", theme.dim));

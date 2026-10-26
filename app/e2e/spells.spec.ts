@@ -61,19 +61,20 @@ test("a cantrip rolls with the mage's numbers", { tag: "@spells.roll" }, async (
 
 test("the spells to choose: a class's, and a feat's choice", { tag: "@spells.choose" }, async ({ page }) => {
   await openSheet(page, "Overview", "Hexa");
-  // The flag on the sheet goes to the spells to choose.
-  await page.getByRole("button", { name: /4 spells/ }).click();
+  // The flag counts the class's 2 cantrips and 2 spells and the feat's 2
+  // cantrips, and goes to the spells to choose.
+  await page.getByRole("button", { name: /6 spells/ }).click();
   await pick(page, ["Frost Needle", "Mending Hum"]);
   await expect(spell(page, "Frost Needle")).toBeVisible();
   await expect(spell(page, "Mending Hum")).toBeVisible();
   await expect(page.locator("button.choice")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /2 spells/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /4 spells/ })).toBeVisible();
 
   // The class's cantrips.
   await page.getByRole("button", { name: "+ add" }).first().click();
   await pick(page, ["Hex Bolt"]);
   await expect(spell(page, "Hex Bolt")).toBeVisible();
-  await expect(page.getByRole("button", { name: /1 spell/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /3 spells/ })).toBeVisible();
 });
 
 test("a grant's choice is made from its line", { tag: "@spells.choose" }, async ({ page }) => {

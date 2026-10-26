@@ -170,14 +170,17 @@ export async function answer(page: Page, title: string | RegExp, text: string) {
 /// Pick these choices in the open picker, then confirm a multiple pick.
 export async function pick(page: Page, labels: string[]) {
   const picker = page.getByRole("dialog").last();
+  // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
+  // fewer need "done".
+  const counter = picker.locator(".count");
+  const of = (await counter.count()) ? Number((await counter.first().textContent())?.match(/of (\d+)/)?.[1] ?? 1) : 1;
   for (const label of labels) {
     // A long list has a filter.
     const filter = picker.getByRole("textbox");
     if (await filter.count()) await filter.fill(label);
     await picker.locator("li button", { hasText: label }).first().click();
   }
-  const done = picker.getByRole("button", { name: "done" });
-  if (await done.isVisible()) await done.click();
+  if (labels.length < of) await picker.getByRole("button", { name: "done" }).click();
 }
 
 /// The status line under the sheet (messages and rolls).
