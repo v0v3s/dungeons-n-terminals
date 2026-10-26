@@ -26,5 +26,10 @@ Everything is plain files you can read, edit and back up.
 - The app on Windows keeps its own in `%APPDATA%\cz.v0v3s.dnt`; on Android,
   in the app's storage.
 
+**Versions**: character files, `campaign.toml` and the config start with
+`format = 1`. A newer dnt reads what an older one wrote. A file synced from
+a newer dnt than yours is left alone: the character list says it could not
+be read and why; update dnt to open it.
+
 **Starting over**: *Data › Start over* in the app, `dnt reset` in the
 terminal (both ask first). Removing imported data keeps the campaigns.

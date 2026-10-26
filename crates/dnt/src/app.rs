@@ -6,8 +6,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use std::path::PathBuf;
 
-use dnt_rules::builtin;
-use dnt_rules::overlay::{Overlay, OverlaySet};
+use dnt_rules::overlay::OverlaySet;
 
 use crate::campaigns::{Action, Campaigns};
 use crate::characters::{self, Characters};
@@ -82,6 +81,16 @@ pub struct App {
 
 /// What shows without a campaign: every source, but only the newest
 /// printing of what was reprinted (as in the app).
+/// The status for character files that could not be read (they stay as
+/// they are, out of the list).
+fn unread_note(errors: &[dnt_store::StoreError]) -> Option<String> {
+    let first = errors.first()?.brief();
+    Some(match errors.len() {
+        1 => format!("Could not read {first}"),
+        n => format!("Could not read {first} (and {} more)", n - 1),
+    })
+}
+
 fn no_campaign() -> SourceFilter {
     SourceFilter { enabled: None, hide_reprinted: true }
 }
@@ -96,11 +105,17 @@ impl App {
         let active = config.last_campaign.as_ref().and_then(|slug| list.iter().position(|c| &c.slug == slug));
         let filter = override_filter.clone().or_else(|| active.map(|i| list[i].source_filter())).unwrap_or_else(no_campaign);
         let section = if list.is_empty() { Section::Campaigns } else { Section::Compendium };
-        let (overlays, problems) = load_overlays(&store, lib);
-        if problems > 0 && status.is_empty() {
-            status = format!("{problems} overlay problem(s) — run the check_overlays example");
+        let (overlays, problems) = dnt_core::rules::load(&store, Some(lib));
+        if let Some(first) = problems.first() {
+            status = match problems.len() {
+                1 => format!("Rules problem: {first}"),
+                n => format!("Rules problem: {first} (and {} more)", n - 1),
+            };
         }
-        let files = active.map(|i| store.characters(&list[i]).0).unwrap_or_default();
+        let (files, unread) = active.map(|i| store.characters(&list[i])).unwrap_or_default();
+        if let Some(note) = unread_note(&unread) {
+            status = note;
+        }
         let notes = notes_for(&store, active.map(|i| &list[i]));
         let mut campaigns = Campaigns::new(lib, list, dnt_core::import::homebrew(&store));
         campaigns.selected = active.unwrap_or(0);
@@ -455,14 +470,14 @@ impl App {
             A::SaveOverlay(id, text) => {
                 self.status = match self.store.save_feature_overlay(&id, &text) {
                     Ok(()) => {
-                        let (overlays, problems) = load_overlays(&self.store, lib);
+                        let (overlays, problems) = dnt_core::rules::load(&self.store, Some(lib));
                         self.overlays = overlays;
                         self.characters.refresh(lib, &self.overlays);
                         let what = if text.is_empty() { "Removed your rules" } else { "Saved your rules" };
                         let path = self.store.feature_overlay_path(&id);
                         let mut msg = format!("{what} ({})", path.display());
-                        if problems > 0 {
-                            msg.push_str(&format!(" · {problems} overlay problem(s)"));
+                        if !problems.is_empty() {
+                            msg.push_str(&format!(" · {} overlay problem(s)", problems.len()));
                         }
                         msg
                     }
@@ -560,7 +575,11 @@ impl App {
         // The library carries the active campaign's homebrew.
         self.pending_reload = true;
         let filter = self.characters.filter.clone();
-        self.characters = Characters::new(self.store.characters(&self.campaigns.list[index]).0);
+        let (files, unread) = self.store.characters(&self.campaigns.list[index]);
+        if let Some(note) = unread_note(&unread) {
+            self.status = note;
+        }
+        self.characters = Characters::new(files);
         self.characters.filter = filter;
         let _ = self.notes.save();
         self.notes = notes_for(&self.store, Some(&self.campaigns.list[index]));
@@ -578,22 +597,6 @@ impl App {
 }
 
 /// Built-in overlays plus the user's own, and the number of problems found.
-fn load_overlays(store: &Store, lib: &Library) -> (OverlaySet, usize) {
-    let (mut set, diags) = builtin::overlays();
-    let mut problems = diags.len();
-    for path in store.overlay_files() {
-        match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
-            Ok((overlay, diags)) => {
-                problems += diags.len() + overlay.unresolved(lib).len();
-                // A user's overlay replaces the built-in one for its feature.
-                set.replace(overlay);
-            }
-            Err(_) => problems += 1,
-        }
-    }
-    (set, problems)
-}
-
 fn notes_for(store: &Store, campaign: Option<&dnt_store::Campaign>) -> NotesView {
     match campaign {
         Some(c) => NotesView::new(store.notes(c).ok(), c.settings.name.clone()),

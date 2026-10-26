@@ -22,6 +22,19 @@ fn editing_the_file_changes_the_sheet() {
 }
 
 #[test]
+fn a_character_file_from_a_newer_dnt_is_left_alone() {
+    let home = Home::party();
+    let file = home.campaign_file("characters/later.toml");
+    let text = "format = 2\nname = \"Later\"\n";
+    std::fs::write(&file, text).unwrap();
+    let mut t = Tui::scenario("character.newer-file", home);
+    t.wait("Could not read later.toml: written by a newer dnt");
+    t.send("2").wait("◆ Tester");
+    assert!(!t.shows("◆ Later"), "{}", t.screen());
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+}
+
+#[test]
 fn deleting_a_character_asks_first() {
     let mut t = Tui::scenario("roster.delete", Home::party());
     t.send("2").wait("Brawler");

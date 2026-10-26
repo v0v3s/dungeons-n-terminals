@@ -62,6 +62,16 @@ fn stat_boxes(t: &Tui) -> String {
 }
 
 #[test]
+fn a_mistake_in_the_rules_is_named_at_start() {
+    let home = Home::party();
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("mine.toml"), "[[feature]]\nid = \"feat:Nonesuch|TST\"\n").unwrap();
+    let mut t = Tui::scenario("features.rules-problems", home);
+    t.wait("Rules problem: mine.toml: not in the library: feat:Nonesuch|TST");
+}
+
+#[test]
 fn rules_written_for_a_feature_change_the_sheet() {
     let mut t = ranger_features(Tui::scenario("features.rules", Home::party()));
     t.send("j").send("j").send("j");

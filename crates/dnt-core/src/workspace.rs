@@ -9,8 +9,7 @@
 use std::time::{Duration, Instant};
 
 use dnt_data::{Library, SourceFilter};
-use dnt_rules::builtin;
-use dnt_rules::overlay::{Overlay, OverlaySet};
+use dnt_rules::overlay::OverlaySet;
 use dnt_store::notes::Notes;
 use dnt_store::{Campaign, CampaignSettings, CharacterFile, Config, Store};
 
@@ -75,6 +74,8 @@ pub struct Workspace {
     pub active: Option<usize>,
     /// Problems found while loading, for a status line.
     pub problems: Vec<String>,
+    /// What is wrong in the rules (`file: what`), as last read.
+    pub rule_problems: Vec<String>,
     /// How the last load went, stage by stage.
     pub progress: Progress,
 }
@@ -102,6 +103,7 @@ impl Workspace {
             base: None,
             lib: None,
             overlays: OverlaySet::default(),
+            rule_problems: Vec::new(),
             homebrew: Vec::new(),
             imported: Vec::new(),
             campaigns,
@@ -176,21 +178,8 @@ impl Workspace {
     }
 
     fn load_overlays(&mut self) -> OverlaySet {
-        let (mut set, diags) = builtin::overlays();
-        let mut problems = diags.len();
-        for path in self.store.overlay_files() {
-            match self.store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
-                Ok((overlay, diags)) => {
-                    problems += diags.len() + self.base.as_ref().map_or(0, |b| overlay.unresolved(b).len());
-                    // A user's overlay replaces the built-in one for its feature.
-                    set.replace(overlay);
-                }
-                Err(_) => problems += 1,
-            }
-        }
-        if problems > 0 {
-            self.problems.push(format!("{problems} problem(s) in the rules"));
-        }
+        let (set, problems) = crate::rules::load(&self.store, self.base.as_ref());
+        self.rule_problems = problems;
         set
     }
 
@@ -385,6 +374,13 @@ impl Workspace {
     /// The active campaign's characters, sorted by name.
     pub fn characters(&self) -> Vec<CharacterFile> {
         self.active_campaign().map(|c| self.store.characters(c).0).unwrap_or_default()
+    }
+
+    /// The active campaign's character files that could not be read, each
+    /// as `file: why`.
+    pub fn unreadable_characters(&self) -> Vec<String> {
+        let errors = self.active_campaign().map(|c| self.store.characters(c).1).unwrap_or_default();
+        errors.iter().map(|e| e.brief()).collect()
     }
 
     /// The active campaign's notes.

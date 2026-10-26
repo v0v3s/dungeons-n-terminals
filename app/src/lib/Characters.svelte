@@ -14,6 +14,7 @@
   }: { status: api.Status; open?: string | null; onnote: (path: string) => void } = $props();
 
   let roster: api.RosterRow[] = $state([]);
+  let unreadable: string[] = $state([]);
   let sheet: api.Sheet | null = $state(null);
   let creating: api.CreationStep | null = $state(null);
   let naming = $state(false);
@@ -22,6 +23,7 @@
   async function load() {
     try {
       roster = await api.roster();
+      unreadable = await api.unreadableCharacters();
       sheet = await api.sheet().catch(() => null);
       // A new character in progress carries on where it was left.
       creating = await api.creationCurrent().catch(() => null);
@@ -109,6 +111,7 @@
           </button>
         {/each}
       </div>
+      {#each unreadable as u (u)}<p class="err">Could not read {u}</p>{/each}
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
   </div>

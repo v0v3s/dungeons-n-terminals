@@ -8,8 +8,28 @@ become the release page.
 
 ## Unreleased
 
+## v1.0.0 - 2026-10-26
+
+dnt 1.0: from now on the files you keep (characters, campaigns, notes,
+homebrew, overlays) and the command line stay compatible; a change that
+breaks them comes in a new major version. See *Compatibility* in the
+README.
+
+### Added
+
+- Character files, `campaign.toml` and the config start with
+  `format = 1`. A file from a newer dnt is left alone, not read in part
+  and saved over.
+- Character files that cannot be read are no longer silently missing
+  from the list: the terminal's status line and the app's character list
+  say which and why.
+
 ### Fixed
 
+- Terminal: a mistake in your rules (overlays) is named when it starts,
+  with its file and what is wrong; the warning never showed before.
+- App: problems found while loading (the data, homebrew, your rules) are
+  listed under *Problems* on the Data screen; they were never shown.
 - Terminal: the Attacks pane's "In hand" no longer runs into the keys'
   hint on narrow panes.
 

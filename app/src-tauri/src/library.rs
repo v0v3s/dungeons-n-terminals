@@ -2,6 +2,7 @@
 
 use dnt_core::compendium::{Category, Search};
 use dnt_core::import;
+use dnt_core::workspace::Workspace;
 use dnt_data::tags::Link;
 use dnt_data::{view, EntityId, Kind};
 use serde::Serialize;
@@ -61,9 +62,20 @@ pub fn status_of(inner: &Inner) -> Res<Status> {
             })
             .collect(),
         campaign: ws.active_campaign().map(|c| c.settings.name.clone()),
-        problems: ws.problems.clone(),
+        problems: problems(ws),
         timings: ws.progress.done.iter().map(|(s, d)| (s.clone(), d.as_millis() as u64)).collect(),
     })
+}
+
+/// What went wrong in loading, then in the rules, each once.
+fn problems(ws: &Workspace) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for p in ws.problems.iter().cloned().chain(ws.rule_problems.iter().map(|p| format!("Rules: {p}"))) {
+        if !out.contains(&p) {
+            out.push(p);
+        }
+    }
+    out
 }
 
 #[tauri::command]

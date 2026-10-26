@@ -114,6 +114,12 @@
     {#if error}<p class="err">{error}</p>{/if}
   </Pane>
 
+  {#if status?.problems.length}
+    <Pane title="Problems">
+      {#each status.problems as p (p)}<p class="err">{p}</p>{/each}
+    </Pane>
+  {/if}
+
   {#if status?.timings.length}
     <Pane title="Last load">
       <div class="timings">

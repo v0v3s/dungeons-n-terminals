@@ -272,6 +272,11 @@ does = "Edit the character's file; the sheet reads the change."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "character.newer-file"
+does = "A character file from a newer dnt is left alone: the roster says it could not be read and why, and the file editor will not save one."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "character.export"
 does = "Export the sheet as Markdown and HTML."
 targets = ["tui", "app"]
@@ -455,6 +460,11 @@ targets = ["tui", "app"]
 [[scenario]]
 id = "features.rules"
 does = "Write rules for a feature (an overlay); the sheet follows them."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "features.rules-problems"
+does = "A mistake in your rules is named, with its file and what is wrong: on the terminal's status line when it starts, under Problems on the app's Data screen."
 targets = ["tui", "app"]
 
 [[scenario]]

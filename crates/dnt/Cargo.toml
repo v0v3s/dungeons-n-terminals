@@ -4,6 +4,7 @@ description = "Dungeons & Terminals: a D&D 5e TUI for players"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "dnt"

@@ -30,11 +30,28 @@ pub enum StoreError {
     #[error("{path}: {message}")]
     Character { path: PathBuf, message: String },
     #[error("{path}: {message}")]
+    Format { path: PathBuf, message: String },
+    #[error("{path}: {message}")]
     Json { path: PathBuf, message: String },
     #[error("no campaign named {0:?}")]
     NoSuchCampaign(String),
     #[error("could not determine the user's data/config directories")]
     NoHome,
+}
+
+impl StoreError {
+    /// The error for a person: the file's name instead of its whole path.
+    pub fn brief(&self) -> String {
+        let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        match self {
+            StoreError::Io { path, source } => format!("{}: {source}", name(path)),
+            StoreError::Parse { path, source } => format!("{}: {}", name(path), source.message()),
+            StoreError::Character { path, message } | StoreError::Format { path, message } | StoreError::Json { path, message } => {
+                format!("{}: {message}", name(path))
+            }
+            other => other.to_string(),
+        }
+    }
 }
 
 pub type Result<T> = std::result::Result<T, StoreError>;
@@ -380,8 +397,13 @@ impl Store {
     }
 
     /// User overlay files (`<data>/library/overlays/*.toml`), sorted.
+    /// Where the user's rules are.
+    pub fn overlays_dir(&self) -> PathBuf {
+        self.data_dir.join("library/overlays")
+    }
+
     pub fn overlay_files(&self) -> Vec<PathBuf> {
-        let dir = self.data_dir.join("library/overlays");
+        let dir = self.overlays_dir();
         let mut files: Vec<PathBuf> = self
             .fs
             .list(&dir)
@@ -570,12 +592,13 @@ pub fn slugify(name: &str) -> String {
 
 fn read_toml<T: serde::de::DeserializeOwned>(fs: &dyn Fs, path: &Path) -> Result<T> {
     let text = fs.read_to_string(path).map_err(|source| StoreError::Io { path: path.to_path_buf(), source })?;
+    dnt_rules::format::check(&text).map_err(|message| StoreError::Format { path: path.to_path_buf(), message })?;
     toml::from_str(&text).map_err(|source| StoreError::Parse { path: path.to_path_buf(), source })
 }
 
 fn write_toml<T: Serialize>(fs: &dyn Fs, path: &Path, value: &T, what: &str) -> Result<()> {
     let text = toml::to_string_pretty(value).map_err(|source| StoreError::Serialize { what: what.to_string(), source })?;
-    write_text(fs, path, &text)
+    write_text(fs, path, &dnt_rules::format::stamp(&text))
 }
 
 fn write_text(fs: &dyn Fs, path: &Path, text: &str) -> Result<()> {
