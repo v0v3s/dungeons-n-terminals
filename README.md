@@ -230,7 +230,13 @@ scenarios` checks it). The tests use invented test data
 ([`e2e/data`](e2e/data)); see [`e2e/README.md`](e2e/README.md).
 
 The sandbox script makes a throwaway campaign with sample characters, so
-you can try things without touching your own data. `vendor/edtui` is a
+you can try things without touching your own data. The [wiki](https://github.com/v0v3s/dungeons-n-terminals/wiki)
+is `docs/wiki/`, published with each release; its screenshots are made by
+the end-to-end harnesses from the test party:
+`DNT_SHOTS=docs/wiki/images cargo test -p dnt --test e2e docs` (the
+terminal app) and `npx playwright test -c playwright.shots.config.ts` in
+`app/`, with the end-to-end tests' environment, on a phone (the app).
+`vendor/edtui` is a
 patched copy of the edtui editor (word-aware wrapping; see its
 `PATCHES.md`). The design notes are in [DESIGN.md](DESIGN.md).
 

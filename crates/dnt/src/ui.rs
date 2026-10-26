@@ -330,7 +330,8 @@ pub(crate) fn pane_title(text: &str, focused: bool, theme: &Theme) -> Line<'stat
 /// Pad `left` and `right` spans apart to fill `width`.
 pub(crate) fn spread(mut left: Vec<Span<'static>>, right: Vec<Span<'static>>, width: usize) -> Line<'static> {
     let used: usize = left.iter().chain(&right).map(|s| s.content.width()).sum();
-    left.push(Span::raw(" ".repeat(width.saturating_sub(used))));
+    // Never run together: without room, the right part is cut at the edge.
+    left.push(Span::raw(" ".repeat(width.saturating_sub(used).max(2))));
     left.extend(right);
     Line::from(left)
 }

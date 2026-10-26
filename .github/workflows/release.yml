@@ -124,3 +124,26 @@ jobs:
           body_path: ${{ runner.temp }}/notes.md
           generate_release_notes: true
           files: dist/*
+
+  # The wiki follows the release: docs/wiki as it is in the tagged commit.
+  # (GitHub creates the wiki's repository with its first page, made once on
+  # the web.)
+  wiki:
+    needs: [version, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - name: Publish docs/wiki
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          git clone "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.wiki.git" "$RUNNER_TEMP/wiki"
+          rsync -a --delete --exclude .git docs/wiki/ "$RUNNER_TEMP/wiki/"
+          cd "$RUNNER_TEMP/wiki"
+          git add -A
+          if git diff --cached --quiet; then echo "The wiki is up to date"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "The wiki for v$VERSION"
+          git push
