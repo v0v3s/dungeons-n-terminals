@@ -31,6 +31,9 @@ become the release page.
   chosen.
 - App: the About on the Data screen names the version, the licence and
   the repository, as the terminal's help does.
+- App: on a phone, the sheet follows a sideways swipe with the next tab
+  sliding in beside it; it opens past 60% of the way (or with a flick) and
+  slides back otherwise. The tab bar keeps the open tab in sight.
 - `DNT_HOME` keeps everything (data, campaigns, configuration) in one
   folder of your choice, on any system, for the terminal app and the app on
   Windows: a portable install, or a second setup to try things in.
@@ -43,9 +46,6 @@ become the release page.
   the spell belongs to (rolling it in the app, and the roll after
   casting it in both), not the best class's.
 - App: deleting a note asks first.
-- App: on a phone, the sheet follows a sideways swipe with the next tab
-  sliding in beside it; it opens past 60% of the way (or with a flick) and
-  slides back otherwise. The tab bar keeps the open tab in sight.
 - App: removing a tracker of your own asks first, as the terminal does.
 - An innate spell with no free casts left no longer offers a free cast.
 - App: a dialog opened right after the last one closed is a new one: a
