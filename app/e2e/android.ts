@@ -50,5 +50,5 @@ export async function connect(port = 9333): Promise<string> {
     }
     await sleep(200);
   }
-  throw new Error("The app's WebView cannot be debugged: install a build with the e2e feature (scripts/e2e-android.sh)");
+  throw new Error("The app's WebView cannot be debugged: install a build with the e2e feature (scripts/e2e-app.sh)");
 }
