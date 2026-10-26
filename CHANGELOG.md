@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v0.13.0 - 2026-10-26
+
 ### Added
 
 - Terminal: trackers of your own on the Overview: `a` adds one
