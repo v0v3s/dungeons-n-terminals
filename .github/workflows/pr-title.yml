@@ -1,5 +1,6 @@
 # The pull request title becomes the squash-merge commit, which decides the
-# release (see scripts/next-version.sh): it must be a Conventional Commit.
+# release (see scripts/next-version.sh): it must be a Conventional Commit,
+# and a releasing one carries its version (scripts/release-pr.sh).
 #
 #   feat: …   minor release      fix: … / perf: …   patch release
 #   feat!: …  major release      docs: / chore: / ci: / refactor: / test: …  no release
@@ -10,6 +11,7 @@ on:
     types: [opened, edited, synchronize, reopened]
 
 permissions:
+  contents: read
   pull-requests: read
 
 jobs:
@@ -32,3 +34,16 @@ jobs:
             chore
             style
             revert
+
+  # A release carries its version and changelog section; nothing else
+  # changes the version.
+  versioned:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: The version against the title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: scripts/check-version.sh "$TITLE"
