@@ -20,8 +20,7 @@ async function editFile(page: Page, name: string, edit: (text: string) => string
 
 test("the roster lists the party with their levels", { tag: "@roster.list" }, async ({ page }) => {
   await go(page, "Characters");
-  const names = await page.locator("button.card .name").allTextContents();
-  expect(names).toEqual(["Brawler", "Hexa", "Ranger", "Tester"]);
+  await expect(page.locator("button.card .name")).toHaveText(["Brawler", "Hexa", "Ranger", "Tester"]);
   await expect(card(page, "Brawler")).toContainText("Stoneling · Drifter · Monk 1");
   await expect(card(page, "Hexa")).toContainText("Emberkin; Ash Lineage · Acolyte of Gears · Hexer 1");
   await expect(card(page, "Tester")).toContainText("Kindred · Archivist · Mage 1");

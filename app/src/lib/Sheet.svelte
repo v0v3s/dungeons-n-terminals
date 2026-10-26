@@ -95,7 +95,14 @@
     | { kind: "rules"; entity: number }
     | { kind: "warnings" };
   let dialog: Dialog | null = $state(null);
-  const close = () => (dialog = null);
+  /// Counts closings: a dialog opened after one closes is a new one (one
+  /// opened while the last still fades out would otherwise be that one,
+  /// with what it held: a filter, a draft).
+  let closings = $state(0);
+  const close = () => {
+    dialog = null;
+    closings++;
+  };
 
   async function act(cmd: api.Command): Promise<boolean> {
     try {
@@ -186,7 +193,7 @@
       const done = await api.levelupApply();
       sheet = done.sheet;
       say(done.outcome.message);
-      dialog = null;
+      close();
       nextPending();
     } catch (e) {
       say(String(e));
@@ -460,6 +467,7 @@
   {/if}
 </div>
 
+{#key closings}
 {#if dialog?.kind === "warnings"}
   <Modal title="Warnings" onclose={close}>
     <ul class="warnings">
@@ -511,20 +519,16 @@
 {:else if dialog?.kind === "pick"}
   {@const d = dialog}
   <Modal title={d.options.title} onclose={close} footer="enter choose · esc">
-    <!-- A new picker each time: one opened while the last still fades out
-         would otherwise keep its filter and ticks. -->
-    {#key d.options}
-      <Picker
-        choices={d.options.choices}
-        count={d.options.pick}
-        initial={d.options.default}
-        onpick={(v) => {
-          const { then, options } = d;
-          close();
-          then(v, options);
-        }}
-      />
-    {/key}
+    <Picker
+      choices={d.options.choices}
+      count={d.options.pick}
+      initial={d.options.default}
+      onpick={(v) => {
+        const { then, options } = d;
+        close();
+        then(v, options);
+      }}
+    />
   </Modal>
 {:else if dialog?.kind === "prompt"}
   {@const d = dialog}
@@ -606,6 +610,7 @@
     </div>
   </Modal>
 {/if}
+{/key}
 
 <style>
   textarea.file {
