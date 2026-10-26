@@ -1,5 +1,5 @@
 # Release on every merge to main whose (squash) commit is a releasing
-# Conventional Commit: bump the workspace version, name the changelog's
+# Conventional Commit, once CI passes on it: bump the workspace version, name the changelog's
 # Unreleased section after it, tag vX.Y.Z, build the binaries and apps, and
 # publish a GitHub release with that section as its notes.
 name: Release
@@ -19,10 +19,15 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  version:
-    runs-on: ubuntu-latest
+  # Everything is tested first: nothing is tagged or released otherwise.
+  ci:
     # The version bump this workflow pushes must not release again.
     if: ${{ !startsWith(github.event.head_commit.message, 'chore(release)') }}
+    uses: ./.github/workflows/ci.yml
+
+  version:
+    needs: ci
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.next.outputs.version }}
     steps:
@@ -106,9 +111,8 @@ jobs:
     secrets: inherit
 
   publish:
-    # The terminal app releases even if an app build fails.
+    # Only when every build passed: the terminal apps and the apps.
     needs: [version, build, app]
-    if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

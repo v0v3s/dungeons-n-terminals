@@ -1,11 +1,12 @@
-# Format, lint and test every pull request and every push to main.
+# Format, lint and test every pull request, and main before a release.
 name: CI
 
+# On main it runs as the release's first step (release.yml), which
+# releases only when it passes.
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
