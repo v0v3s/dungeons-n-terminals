@@ -196,8 +196,12 @@ test("choices a level left open are made afterwards", { tag: "@choices.pending" 
   await page.getByRole("button", { name: /2 choices/ }).click();
   await expect(dialog(page, /Fighting Style/)).toBeVisible();
   await pick(page, ["Guardian Style"]);
-  await expect(dialog(page, /Warden's Tricks/)).toBeVisible();
-  await pick(page, ["Quick Step", "Thorn Shot"]);
+  const tricks = dialog(page, /Warden's Tricks/);
+  await expect(tricks).toBeVisible();
+  // Two picks of two: the second one closes it.
+  await tricks.locator("li button", { hasText: "Quick Step" }).click();
+  await tricks.locator("li button", { hasText: "Thorn Shot" }).click();
+  await expect(tricks).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /choices? to make|^\d+ choices?$/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Features", exact: true }).click();
