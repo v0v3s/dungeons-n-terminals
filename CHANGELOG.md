@@ -48,6 +48,9 @@ become the release page.
   slides back otherwise. The tab bar keeps the open tab in sight.
 - App: removing a tracker of your own asks first, as the terminal does.
 - An innate spell with no free casts left no longer offers a free cast.
+- Terminal, on Windows: editing a character's file or a homebrew entry in
+  `$EDITOR` (Notepad by default) opens the file; the editor was given a
+  mangled path.
 - App: "spells to choose" and "choices to make" no longer run their words
   together on wide screens.
 - The count of spells to choose includes a feat's or a species' choice of

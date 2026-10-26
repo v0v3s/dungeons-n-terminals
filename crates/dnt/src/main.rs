@@ -239,13 +239,7 @@ fn main() -> Result<()> {
                 ratatui::restore();
                 let fallback = if cfg!(windows) { "notepad" } else { "vi" };
                 let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| fallback.into());
-                // $EDITOR may carry arguments (`code --wait`), so let the shell split it;
-                // the path is passed separately ("$1") to survive spaces.
-                let status = if cfg!(windows) {
-                    std::process::Command::new("cmd").arg("/C").arg(format!("{editor} \"{}\"", path.display())).status()
-                } else {
-                    std::process::Command::new("sh").arg("-c").arg(format!("{editor} \"$1\"")).arg("dnt").arg(&path).status()
-                };
+                let status = editor_command(&editor, &path).status();
                 *terminal = ratatui::init();
                 match status {
                     Ok(_) => app.after_edit(&lib, &path),
@@ -266,4 +260,24 @@ fn main() -> Result<()> {
         }
         Ok(())
     })
+}
+
+/// The editor on a file, through the shell: $EDITOR may carry arguments
+/// (`code --wait`). The path is passed separately ("$1") to survive spaces.
+#[cfg(not(windows))]
+fn editor_command(editor: &str, path: &std::path::Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new("sh");
+    cmd.arg("-c").arg(format!("{editor} \"$1\"")).arg("dnt").arg(path);
+    cmd
+}
+
+/// The editor on a file, through cmd: $EDITOR may carry arguments. The line
+/// goes to cmd as it is, in the quotes cmd strips (Rust's own quoting would
+/// escape the path's quotes, which cmd does not read).
+#[cfg(windows)]
+fn editor_command(editor: &str, path: &std::path::Path) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    let mut cmd = std::process::Command::new("cmd");
+    cmd.arg("/C").raw_arg(format!("\"{editor} \"{}\"\"", path.display()));
+    cmd
 }

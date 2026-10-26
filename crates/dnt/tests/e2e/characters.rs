@@ -16,7 +16,9 @@ fn the_roster_lists_the_party_with_a_preview() {
 fn editing_the_file_changes_the_sheet() {
     let mut t = Tui::with_editor("character.edit-file", Home::party(), "Tester", "Edited");
     t.send("2").send("G").wait("Kindred · Archivist · Mage 1");
-    t.send("e").wait("Edited");
+    // The roster reads the edited file: Tester is now Edited.
+    t.send("e").wait("◆ Edited");
+    assert!(!t.shows("◆ Tester"), "{}", t.screen());
 }
 
 #[test]
@@ -44,7 +46,8 @@ fn the_sheet_is_exported_as_markdown_and_html() {
     t.send("2").send("G").send(ENTER).wait("Kindred · Archivist · Mage 1");
     t.send("X");
     see(&mut t, "Exported");
-    see(&mut t, "exports/tester.md and");
+    // exports/ or exports\ on Windows.
+    see(&mut t, "tester.md and");
     t.quit();
     let md = std::fs::read_to_string(t.home.campaign_file("exports/tester.md")).expect("the Markdown");
     let html = std::fs::read_to_string(t.home.campaign_file("exports/tester.html")).expect("the HTML");
