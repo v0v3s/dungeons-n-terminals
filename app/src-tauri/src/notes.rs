@@ -114,6 +114,18 @@ pub async fn note_delete(app: State<'_, App>, path: String) -> Res<()> {
     notes(&inner)?.delete(&path).map_err(|e| e.to_string())
 }
 
+/// Move a top-level folder up (`-1`) or down (`+1`); the campaign keeps
+/// the order.
+#[tauri::command]
+pub async fn note_move_folder(app: State<'_, App>, name: String, delta: isize) -> Res<()> {
+    let mut inner = app.lock();
+    let order = notes(&inner)?.move_folder(&name, delta);
+    let ws = &mut inner.ws;
+    let i = ws.active.ok_or("Create or activate a campaign first")?;
+    ws.campaigns[i].settings.notes.order = order;
+    ws.store.save_campaign(&ws.campaigns[i]).map_err(|e| format!("Could not save the folder order: {e}"))
+}
+
 /// Notes matching a query (all when empty): (path, title).
 #[tauri::command]
 pub async fn note_search(app: State<'_, App>, query: String) -> Res<Vec<(String, String)>> {

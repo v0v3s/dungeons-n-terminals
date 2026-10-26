@@ -2,6 +2,7 @@
 //! dnt-core; these modules hold the app's state and turn it into JSON.
 
 mod characters;
+mod e2e;
 mod homebrew;
 mod library;
 mod notes;
@@ -104,7 +105,12 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(App::default())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            // `DNT_HOME` moves everything elsewhere, as for the terminal app
+            // (a portable install, or the end-to-end tests).
+            let dir = match std::env::var_os("DNT_HOME").filter(|h| !h.is_empty()) {
+                Some(home) => std::path::PathBuf::from(home),
+                None => app.path().app_data_dir()?,
+            };
             let handle = app.handle().clone();
             // Off the main thread: the window shows while the library loads.
             std::thread::spawn(move || {
@@ -127,6 +133,9 @@ pub fn run() {
             startup,
             library::status,
             library::import_zip,
+            library::e2e_import_zip,
+            e2e::e2e_stash_zip,
+            e2e::e2e_read,
             library::clear_imported,
             library::reset_app,
             library::sources,
@@ -144,6 +153,8 @@ pub fn run() {
             homebrew::brew_clone,
             homebrew::brew_templates,
             homebrew::brew_create,
+            homebrew::brew_item_templates,
+            homebrew::brew_create_item,
             homebrew::brew_set,
             homebrew::brew_json,
             homebrew::brew_replace,
@@ -186,6 +197,7 @@ pub fn run() {
             notes::note_create_folder,
             notes::note_rename,
             notes::note_delete,
+            notes::note_move_folder,
             notes::note_search,
             notes::note_resolve,
             notes::note_capture,

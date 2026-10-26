@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -22,7 +23,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -32,7 +33,13 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --workspace --exclude dnt-app --all-targets --locked -- -D warnings
+      # The rule (e2e/README.md): every scenario has a test on every target.
+      - name: Scenarios
+        run: cargo test -p dnt --test scenarios --locked
+      # Everything else, the terminal app's end-to-end tests among them
+      # (also when the rule is broken: both results count).
       - name: Test
+        if: ${{ !cancelled() }}
         run: cargo test --workspace --exclude dnt-app --locked
 
   # The Tauri app (app/): its web UI and its Rust side.
@@ -40,16 +47,16 @@ jobs:
     name: app
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Changelog
         run: scripts/release-notes.sh check
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: app/package-lock.json
       - name: System libraries
@@ -65,20 +72,33 @@ jobs:
       - name: Clippy
         run: cargo clippy -p dnt-app --all-targets --locked -- -D warnings
 
-  # Windows resolves imports without regard to case (Busy.svelte and
-  # busy.svelte.ts are one file there): build the web UI there too.
+  # The app on Windows: its end-to-end tests (app/e2e), on the build with
+  # the e2e feature. (Windows also resolves imports without regard to case,
+  # which the build checks.)
   app-windows:
     name: app (windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: app/package-lock.json
       - name: Web UI
         working-directory: app
-        run: |
-          npm ci
-          npm run build
+        run: npm ci
+      - name: End-to-end tests
+        working-directory: app
+        shell: bash
+        run: sh scripts/e2e-app.sh --target windows
+      - name: Report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-windows-e2e
+          path: |
+            app/e2e/report
+            app/e2e/results

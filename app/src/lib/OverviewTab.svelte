@@ -87,7 +87,10 @@
     if (t.id.startsWith("hit_die:")) {
       return ctx.menu(t.name, [["Roll one and heal", () => rollHitDie(t.id)], ["How the dice are made up", () => ctx.explain(t.stat)]]);
     }
-    if (key.startsWith("custom_")) return ctx.menu(t.name, [["Remove the tracker", () => ctx.act({ command: "remove_tracker", key })], explain]);
+    if (key.startsWith("custom_")) {
+      const remove = () => ctx.confirm(`Remove ${t.name}`, "The tracker and its count are gone.", () => ctx.act({ command: "remove_tracker", key }), "Remove");
+      return ctx.menu(t.name, [["Remove the tracker…", remove], explain]);
+    }
     if (t.feature !== null) {
       const feature = t.feature;
       return ctx.menu(t.name, [
@@ -98,6 +101,13 @@
     }
     ctx.explain(t.stat);
   }
+
+  /// Holding a number (or a right click) shows how it is made up; a tap
+  /// rolls it.
+  const hold = (key: string) => (e: Event) => {
+    e.preventDefault();
+    ctx.explain(key);
+  };
 
   function attackMenu(slug: string, name: string, line: number | null) {
     const actions: [string, () => void][] = [["Roll the attack", () => ctx.roll({ type: "attack", slug })]];
@@ -145,7 +155,11 @@
 
   <div class="tiles">
     {#each o.tiles as t (t.key)}
-      <button class="tile" onclick={() => (t.key === "initiative" ? ctx.roll({ type: "initiative" }) : ctx.explain(t.key))}>
+      <button
+        class="tile"
+        onclick={() => (t.key === "initiative" ? ctx.roll({ type: "initiative" }) : ctx.explain(t.key))}
+        oncontextmenu={hold(t.key)}
+      >
         <b>{t.value}</b><span class="dim long">{t.label}</span><span class="dim short">{SHORT[t.label] ?? t.label}</span>
       </button>
     {/each}
@@ -214,14 +228,19 @@
 
  </div>
  <div class="left">
-  <Pane title="Abilities" class="abilities" fold="sheet.abilities">
+  <Pane title="Abilities" class="abilities" fold="sheet.abilities" footer="hold a number: how it adds up">
     <div class="grid abil">
       <span></span><span class="dim c">score</span><span class="dim c">check</span><span class="dim c">save</span>
       {#each o.abilities as a (a.key)}
-        <span>{a.name}</span>
+        <button class="aname" onclick={() => ctx.explain(a.key)} oncontextmenu={hold(a.key)}>{a.name}</button>
         <span class="c">{a.score}</span>
-        <button class="num" onclick={() => ctx.roll({ type: "ability", key: a.key })}>{a.modifier}</button>
-        <button class="num save" class:prof={a.proficient} onclick={() => ctx.roll({ type: "save", key: a.key })}>{a.save}{a.proficient ? " ●" : ""}</button>
+        <button class="num" onclick={() => ctx.roll({ type: "ability", key: a.key })} oncontextmenu={hold(`mod.${a.key}`)}>{a.modifier}</button>
+        <button
+          class="num save"
+          class:prof={a.proficient}
+          onclick={() => ctx.roll({ type: "save", key: a.key })}
+          oncontextmenu={hold(`save.${a.key}`)}>{a.save}{a.proficient ? " ●" : ""}</button
+        >
       {/each}
     </div>
     {#each o.casting as c (c.name)}
@@ -232,9 +251,9 @@
   {@render tracking()}
  </div>
  <div class="right">
-  <Pane title="Skills" class="skills" fold="sheet.skills">
+  <Pane title="Skills" class="skills" fold="sheet.skills" footer="hold one: how it adds up">
     {#each o.skills as s (s.key)}
-      <button class="skill" onclick={() => ctx.roll({ type: "skill", key: s.key })}>
+      <button class="skill" onclick={() => ctx.roll({ type: "skill", key: s.key })} oncontextmenu={hold(`skill.${s.key}`)}>
         <span class="mark" class:on={s.proficiency !== "none"}>{MARK[s.proficiency]}</span>
         <span class="sname">{s.name} <span class="dim">{s.ability.toUpperCase()}</span></span>
         <b>{s.bonus}</b>
@@ -388,6 +407,9 @@
   .grid.abil { display: grid; grid-template-columns: 1fr 6ch 6ch 7ch; row-gap: 0.15em; align-items: baseline; }
   .c { text-align: center; }
   .num { text-align: center; font-weight: 700; color: var(--accent); }
+  .aname { text-align: left; padding: 0; }
+  /* Holding shows a breakdown: no text selection or callout on the way. */
+  .num, .aname, .skill, .tile { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .num.save { color: var(--fg); font-weight: 400; }
   .num.save.prof { color: var(--accent); }
   .num:hover { background: var(--selected); }

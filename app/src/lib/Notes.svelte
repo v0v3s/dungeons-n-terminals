@@ -32,7 +32,8 @@
   type Dialog =
     | { kind: "prompt"; title: string; hint?: string; value?: string; then: (v: string) => void }
     | { kind: "entry"; id: number }
-    | { kind: "menu"; title: string; actions: [string, () => void][] };
+    | { kind: "menu"; title: string; actions: [string, () => void][] }
+    | { kind: "confirm"; title: string; text: string; action: string; then: () => void };
   let dialog: Dialog | null = $state(null);
   const close = () => (dialog = null);
 
@@ -201,15 +202,73 @@
   }
 
   function treeMenu() {
+    const f = selected;
+    const folderActions: [string, () => void][] = f
+      ? [
+          [`Rename ${short(f)}`, () => renameFolder(f)],
+          [`Delete ${short(f)}…`, () => deleteFolder(f)],
+          ...(f.includes("/")
+            ? []
+            : ([
+                [`Move ${f} up`, () => moveFolder(f, -1)],
+                [`Move ${f} down`, () => moveFolder(f, 1)],
+              ] as [string, () => void][])),
+          ["Back to the top level", () => (selected = "")],
+        ]
+      : [];
     dialog = {
       kind: "menu",
-      title: "Notes",
-      actions: [
-        [selected ? `New folder in ${selected}` : "New folder", newFolder],
-        ["Today's session note", session],
-        ...(selected ? ([["Back to the top level", () => (selected = "")]] as [string, () => void][]) : []),
-      ],
+      title: f ? short(f) : "Notes",
+      actions: [[f ? `New folder in ${f}` : "New folder", newFolder], ["Today's session note", session], ...folderActions],
     };
+  }
+
+  function renameFolder(f: string) {
+    dialog = {
+      kind: "prompt",
+      title: `Rename ${short(f)}`,
+      value: short(f),
+      then: async (name) => {
+        if (!name.trim()) return;
+        try {
+          const to = await api.noteRename(f, name.trim());
+          expanded = expanded.map((p) => (p === f || p.startsWith(f + "/") ? to + p.slice(f.length) : p));
+          selected = to;
+          if (note?.path.startsWith(f + "/")) note = null;
+          await loadTree();
+        } catch (e) {
+          error = String(e);
+        }
+      },
+    };
+  }
+
+  function deleteFolder(f: string) {
+    dialog = {
+      kind: "confirm",
+      title: `Delete ${short(f)}`,
+      text: "The folder and every note in it are gone for good.",
+      action: "Delete",
+      then: async () => {
+        try {
+          await api.noteDelete(f);
+          if (note?.path.startsWith(f + "/")) note = null;
+          selected = noteFolder(f);
+          await loadTree();
+        } catch (e) {
+          error = String(e);
+        }
+      },
+    };
+  }
+
+  async function moveFolder(f: string, delta: number) {
+    try {
+      await api.noteMoveFolder(f, delta);
+      await loadTree();
+    } catch (e) {
+      error = String(e);
+    }
   }
 
   function noteMenu() {
@@ -238,16 +297,23 @@
             }),
         ],
         [
-          "Delete",
-          async () => {
-            try {
-              await api.noteDelete(n.path);
-              note = null;
-              loadTree();
-            } catch (e) {
-              error = String(e);
-            }
-          },
+          "Delete…",
+          () =>
+            (dialog = {
+              kind: "confirm",
+              title: `Delete ${n.title}`,
+              text: "The note is gone for good.",
+              action: "Delete",
+              then: async () => {
+                try {
+                  await api.noteDelete(n.path);
+                  note = null;
+                  loadTree();
+                } catch (e) {
+                  error = String(e);
+                }
+              },
+            }),
         ],
       ],
     };
@@ -402,9 +468,40 @@
       {/each}
     </div>
   </Modal>
+{:else if dialog?.kind === "confirm"}
+  {@const d = dialog}
+  <Modal title={d.title} onclose={close}>
+    <p>{d.text}</p>
+    <div class="confirm">
+      <button class="ghost" onclick={close}>Cancel</button>
+      <button
+        class="primary danger"
+        onclick={() => {
+          const then = d.then;
+          close();
+          then();
+        }}>{d.action}</button
+      >
+    </div>
+  </Modal>
 {/if}
 
 <style>
+  .confirm {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1.5ch;
+  }
+  .confirm .danger {
+    background: var(--red);
+    border-color: var(--red);
+  }
+  @media (pointer: coarse) {
+    .confirm button {
+      flex: 1;
+      min-height: 44px;
+    }
+  }
   .query {
     margin-top: 1em;
     padding-top: 0.5em;
@@ -626,9 +723,13 @@
       align-items: center;
       border-top: 1px solid rgb(65 72 104 / 0.3);
     }
-      .tools {
+    .tools {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+      /* "+ Note · <folder>" gives way (its folder ends in "…"); the others keep their label. */
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+    .tools button {
+      white-space: nowrap;
     }
     .menu button {
       min-height: 48px;

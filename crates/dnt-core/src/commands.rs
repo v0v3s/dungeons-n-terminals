@@ -80,15 +80,20 @@ pub enum Command {
     EndConcentration,
 
     // ---- inventory (lines are indexes into the inventory) ----
-    /// Add a library item (`item:Longsword|XPHB`), inside a container if given.
+    /// Add a library item (`item:Longsword|XPHB`), inside a container if
+    /// given: by its id (`inside`), or by its line (`into`).
     AddItem {
         id: String,
         inside: Option<String>,
+        #[serde(default)]
+        into: Option<usize>,
     },
     /// A custom item: just a name.
     AddCustomItem {
         name: String,
         inside: Option<String>,
+        #[serde(default)]
+        into: Option<usize>,
     },
     ChangeQuantity {
         line: usize,
@@ -212,19 +217,29 @@ impl CharacterSession {
     /// Apply a command; on success the session is recomputed.
     pub fn apply(&mut self, lib: &Library, overlays: &OverlaySet, command: Command) -> Result<Outcome, Refused> {
         let cast = match &command {
-            Command::Cast { id, how } => resolve_id(lib, id).map(|e| (e, how.clone())),
+            Command::Cast { id, how } => resolve_id(lib, id).map(|e| (e, how.clone(), self.caster_of(lib, id))),
             _ => None,
         };
         let mut outcome = self.run(lib, command)?;
         if outcome.changed {
             self.rebuild(lib, overlays);
         }
-        if let Some((spell, how)) = cast.filter(|(e, _)| rolls::spell_rolls(lib, *e)) {
-            let (atk, dc) = rolls::spell_numbers(self, None);
+        if let Some((spell, how, caster)) = cast.filter(|(e, _, _)| rolls::spell_rolls(lib, *e)) {
+            let (atk, dc) = rolls::spell_numbers(self, caster.as_deref());
             let level = rolls::cast_level(self, lib, spell, &how);
             outcome.rolled = Some(rolls::spell(self, lib, spell, level, atk, dc));
         }
         Ok(outcome)
+    }
+
+    /// The slug of the casting class that has spell `id` (for its attack
+    /// and DC), or `None` for spells from features and items.
+    fn caster_of(&self, lib: &Library, id: &str) -> Option<String> {
+        let mine = &self.file.character.spells.classes;
+        spellbook::rows(lib, self).casters.into_iter().find_map(|c| {
+            let s = mine.get(&c.id)?;
+            s.cantrips.iter().chain(&s.prepared).chain(&s.spellbook).any(|x| x == id).then_some(c.slug)
+        })
     }
 
     fn run(&mut self, lib: &Library, command: Command) -> Result<Outcome, Refused> {
@@ -355,21 +370,27 @@ impl CharacterSession {
                 None => return Err("Not concentrating".into()),
             },
 
-            Command::AddItem { id, inside } => {
+            Command::AddItem { id, inside, into } => {
                 let before = c.inventory.len();
                 equipment::add_item(c, &id, 1, None);
                 if c.inventory.len() > before {
                     c.inventory[before].inside = inside;
+                    if into.is_some() {
+                        equipment::put_in(lib, c, before, into)?;
+                    }
                 }
                 let name = dnt_rules::overlay::resolve_id(lib, &id).map(|e| lib.entity(e).name.clone()).unwrap_or(id);
                 Outcome::changed(format!("Added {name}"))
             }
-            Command::AddCustomItem { name, inside } => {
+            Command::AddCustomItem { name, inside, into } => {
                 let name = name.trim().to_string();
                 if name.is_empty() {
                     return Err("A custom item needs a name".into());
                 }
                 c.inventory.push(InventoryItem { name: Some(name.clone()), quantity: 1, inside, ..Default::default() });
+                if into.is_some() {
+                    equipment::put_in(lib, c, c.inventory.len() - 1, into)?;
+                }
                 Outcome::changed(format!("Added {name}"))
             }
             Command::ChangeQuantity { line: i, delta } => {
@@ -567,7 +588,7 @@ mod tests {
         let (lib, mut s) = session();
         let o = &OverlaySet::default();
         for id in ["item:Club|T", "item:Cloak|T", "item:Sack|T"] {
-            s.apply(&lib, o, Command::AddItem { id: id.into(), inside: None }).unwrap();
+            s.apply(&lib, o, Command::AddItem { id: id.into(), inside: None, into: None }).unwrap();
         }
         // Equip picks holding or wearing.
         assert!(s.apply(&lib, o, Command::Equip { line: 0 }).unwrap().message.contains("main hand"));
@@ -575,6 +596,12 @@ mod tests {
         assert_eq!(s.build.attacks[0].hand, Some(Hand::Main), "the session was rebuilt");
         s.apply(&lib, o, Command::PutIn { line: 0, into: Some(2) }).unwrap();
         assert!(s.character().inventory[0].inside.is_some());
+        // Added straight into a container, by its line (the app's way).
+        s.apply(&lib, o, Command::AddCustomItem { name: "Pebble".into(), inside: None, into: Some(2) }).unwrap();
+        let inv = &s.character().inventory;
+        assert_eq!(inv[3].inside, inv[2].id, "the pebble is in the sack");
+        let added: Command = serde_json::from_str(r#"{"command":"add_custom_item","name":"Pebble","inside":null,"into":2}"#).unwrap();
+        assert!(matches!(added, Command::AddCustomItem { into: Some(2), .. }));
         assert!(s.apply(&lib, o, Command::ChangeQuantity { line: 0, delta: -1 }).is_err());
         assert!(s.apply(&lib, o, Command::Hold { line: 1, hand: Hand::Main }).is_err(), "a cloak is not held");
         s.apply(&lib, o, Command::SetCondition { condition: "poisoned".into(), on: true }).unwrap();
@@ -623,6 +650,32 @@ mod tests {
         s.apply(&lib, o, Command::Heal { amount: 1 }).unwrap();
         assert_eq!(s.apply(&lib, o, Command::RollHitDie { faces: 8 }).unwrap_err(), "No d8 hit die left");
         assert!(s.apply(&lib, o, Command::RollHitDie { faces: 6 }).is_err(), "no d6 at all");
+    }
+
+    #[test]
+    fn a_class_spell_rolls_with_its_own_class() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "class": [{"name": "Wiz", "source": "T", "hd": {"faces": 6}, "casterProgression": "full", "spellcastingAbility": "int"},
+                      {"name": "Sor", "source": "T", "hd": {"faces": 6}, "casterProgression": "full", "spellcastingAbility": "cha"}],
+            "spell": [{"name": "Bolt", "source": "T", "level": 0, "school": "V", "spellAttack": ["R"], "damageInflict": ["fire"]}]
+        }));
+        let mut c = Character { name: "A".into(), ..Default::default() };
+        (c.abilities.int, c.abilities.cha) = (10, 18);
+        let level = |class: &str| dnt_rules::character::Level { class: class.into(), hp: Default::default(), choices: Default::default() };
+        c.levels = vec![level("class:Wiz|T"), level("class:Sor|T")];
+        c.spells.classes.insert(
+            "class:Wiz|T".into(),
+            dnt_rules::character::ClassSpells { cantrips: vec!["spell:Bolt|T".into()], ..Default::default() },
+        );
+        let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
+        let s = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
+
+        let wiz = s.caster_of(&lib, "spell:Bolt|T");
+        assert_eq!(wiz.as_deref(), Some(s.build.classes[0].slug.as_str()), "the Wizard's cantrip");
+        assert_eq!(s.caster_of(&lib, "spell:Other|T"), None);
+        let (own, best) = (rolls::spell_numbers(&s, wiz.as_deref()), rolls::spell_numbers(&s, None));
+        assert_eq!(own.1 + 4, best.1, "Int 10 rather than Cha 18: {own:?} vs {best:?}");
     }
 
     #[test]

@@ -1,0 +1,211 @@
+{
+ "feat": [
+  {
+   "name": "Quick Wits",
+   "source": "TST",
+   "edition": "one",
+   "category": "O",
+   "page": 70,
+   "entries": [
+    "Add your proficiency bonus to Initiative.",
+    "You can't be surprised while awake."
+   ]
+  },
+  {
+   "name": "Lucky Charm",
+   "source": "TST",
+   "edition": "one",
+   "category": "O",
+   "page": 70,
+   "entries": [
+    "You have 2 luck points; spend one to reroll a d20."
+   ]
+  },
+  {
+   "name": "Spark Initiate",
+   "source": "TST",
+   "edition": "one",
+   "category": "O",
+   "page": 71,
+   "repeatable": true,
+   "entries": [
+    "Learn two cantrips and one 1st-level spell from a class list."
+   ],
+   "_versions": [
+    {
+     "name": "Spark Initiate; Mage",
+     "source": "TST",
+     "additionalSpells": [
+      {
+       "known": {
+        "_": [
+         {
+          "choose": "level=0|class=Mage",
+          "count": 2
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Spark Initiate; Hexer",
+     "source": "TST",
+     "additionalSpells": [
+      {
+       "known": {
+        "_": [
+         {
+          "choose": "level=0|class=Hexer",
+          "count": 2
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Steady Hands",
+   "source": "TST",
+   "edition": "one",
+   "category": "G",
+   "page": 72,
+   "prerequisite": [
+    {
+     "level": 4
+    }
+   ],
+   "ability": [
+    {
+     "dex": 1
+    }
+   ],
+   "entries": [
+    "Your hands never shake."
+   ]
+  },
+  {
+   "name": "Arcane Adept",
+   "source": "TST",
+   "edition": "one",
+   "category": "G",
+   "page": 72,
+   "prerequisite": [
+    {
+     "level": 4,
+     "spellcasting2020": true
+    }
+   ],
+   "entries": [
+    "Your spell save DC is not reduced by noise."
+   ]
+  },
+  {
+   "name": "Tough as Roots",
+   "source": "TST",
+   "edition": "one",
+   "category": "G",
+   "page": 73,
+   "prerequisite": [
+    {
+     "level": 4
+    }
+   ],
+   "entries": [
+    "Your hit point maximum increases by twice your level."
+   ]
+  },
+  {
+   "name": "Trickster's Training",
+   "source": "TST",
+   "edition": "one",
+   "category": "G",
+   "page": 73,
+   "prerequisite": [
+    {
+     "level": 4,
+     "optionalfeature": [
+      "quick step|TST"
+     ]
+    }
+   ],
+   "entries": [
+    "Learn one more trick."
+   ]
+  },
+  {
+   "name": "Twin Fang Style",
+   "source": "TST",
+   "edition": "one",
+   "category": "FS",
+   "page": 74,
+   "prerequisite": [
+    {
+     "other": "Fighting Style Feature"
+    }
+   ],
+   "entries": [
+    "Add your modifier to the off-hand attack."
+   ]
+  },
+  {
+   "name": "Guardian Style",
+   "source": "TST",
+   "edition": "one",
+   "category": "FS",
+   "page": 74,
+   "prerequisite": [
+    {
+     "other": "Fighting Style Feature"
+    }
+   ],
+   "entries": [
+    "Impose disadvantage on an attack against an ally."
+   ]
+  },
+  {
+   "name": "Marksman Style",
+   "source": "TST",
+   "edition": "one",
+   "category": "FS",
+   "page": 74,
+   "prerequisite": [
+    {
+     "other": "Fighting Style Feature"
+    }
+   ],
+   "entries": [
+    "+2 to ranged attack rolls."
+   ]
+  },
+  {
+   "name": "Boon of Persistence",
+   "source": "TST",
+   "edition": "one",
+   "category": "EB",
+   "page": 75,
+   "prerequisite": [
+    {
+     "level": 19
+    }
+   ],
+   "entries": [
+    "Once per day, drop to 1 hit point instead of 0."
+   ]
+  },
+  {
+   "name": "Quick Wits",
+   "source": "TSX",
+   "edition": "classic",
+   "page": 8,
+   "reprintedAs": [
+    "Quick Wits|TST"
+   ],
+   "entries": [
+    "The old quick wits: +5 to Initiative."
+   ]
+  }
+ ]
+}

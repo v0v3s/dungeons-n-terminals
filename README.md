@@ -126,10 +126,10 @@ Each release has the app next to the terminal binaries:
   `adb install -r dnt-app-android.apk`). It is signed with the project's
   own key, so newer releases install over older ones.
 
-The app starts on **Data**: *Import a zip…* takes a zip like the one
-`scripts/pack-data.sh` makes (put it on the phone first). Then create a
-campaign under **Campaigns**; it uses all official sources, newest
-printings only. The `@` button in the compendium (or *Sources* on a
+The app starts with **Getting started**: *Import a zip…* takes a zip like
+the one `scripts/pack-data.sh` makes (put it on the phone first), then it
+asks for a campaign's name; the campaign uses all official sources,
+newest printings only. More data can be imported later under **Data**. The `@` button in the compendium (or *Sources* on a
 campaign) chooses the books, and its **Homebrew** tab turns on imported
 homebrew, which is off until you do. Campaigns, characters and notes live
 in the app's own storage; the app and the terminal do not share them.
@@ -159,7 +159,9 @@ Everything is plain files you can read, edit and back up:
 ```
 
 (On macOS both are under `~/Library/Application Support/dnt`. The
-`XDG_DATA_HOME` and `XDG_CONFIG_HOME` variables move them on Linux.)
+`XDG_DATA_HOME` and `XDG_CONFIG_HOME` variables move them on Linux.
+`DNT_HOME` moves them anywhere, on any system: the data into
+`$DNT_HOME/data`, the config to `$DNT_HOME/config.toml`.)
 
 `e` on a character opens its file in `$EDITOR`; changes are read back when
 you return. Homebrew files are data files like any other (a `_meta` block
@@ -212,11 +214,20 @@ The workspace has these crates:
   [`app/README.md`](app/README.md)
 
 ```sh
-cargo test                                   # all crates
+cargo test                                   # all crates, the terminal's end-to-end tests too
 cargo run --example check_overlays -p dnt-rules -- /path/to/data
 scripts/sandbox.sh /tmp/dnt-sandbox /path/to/data
 XDG_DATA_HOME=/tmp/dnt-sandbox/data XDG_CONFIG_HOME=/tmp/dnt-sandbox/config cargo run -p dnt
+DNT_HOME=/tmp/dnt-try cargo run -p dnt       # or everything in one folder, on any system
 ```
+
+Every feature is tested end to end, the way it is used, on every target:
+the terminal app in a pseudo-terminal, the app on an Android phone and on
+Windows. The features are listed as scenarios in
+[`e2e/scenarios.toml`](e2e/scenarios.toml), and a change that adds or
+changes one adds its tests in the same change (`cargo test -p dnt --test
+scenarios` checks it). The tests use invented test data
+([`e2e/data`](e2e/data)); see [`e2e/README.md`](e2e/README.md).
 
 The sandbox script makes a throwaway campaign with sample characters, so
 you can try things without touching your own data. `vendor/edtui` is a

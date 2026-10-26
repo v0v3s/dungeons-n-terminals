@@ -25,7 +25,29 @@ Data comes in as a zip (Data tab): a whole data folder, or homebrew files.
 reads into one small zip (see the main README). Homebrew stays off until
 a campaign enables it (Sources › Homebrew).
 On a desktop it is stored in the app's data folder
-(`%APPDATA%\cz.v0v3s.dnt` on Windows), on Android in the app's storage.
+(`%APPDATA%\cz.v0v3s.dnt` on Windows; `DNT_HOME` moves it), on Android in
+the app's storage.
+
+## Tests
+
+`e2e/` holds the app's end-to-end tests ([Playwright](https://playwright.dev)):
+they reach the app's WebView over the DevTools protocol and tap and type
+as a user would. The same tests run on an Android phone (USB or wireless
+debugging) and on Windows (in CI, on every pull request). What they cover,
+the rule and the test data: [`../e2e/README.md`](../e2e/README.md).
+
+```sh
+npm run e2e:android                        # builds, installs and runs them on the phone
+npm run e2e:android -- --no-build -g notes # some of them, without building
+npm run e2e:windows                        # on Windows
+npx playwright show-report e2e/report      # what failed, with screenshots
+```
+
+The build has the `e2e` feature (the WebView can be debugged; never a
+build to release). The tests **reset the app** before each test, so use a
+test phone: they refuse to run when the app has campaigns of its own
+(`DNT_E2E_RESET=1` wipes them anyway). `DNT_DEVICE` picks one of several
+devices.
 
 ## Releases
 

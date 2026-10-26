@@ -57,13 +57,12 @@ pub fn identity(lib: &Library, s: &CharacterSession) -> String {
 }
 
 pub fn header(lib: &Library, s: &CharacterSession) -> Header {
-    let gaps = spellbook::spell_gaps(s.character(), &spells::casters(lib, &s.build, &s.ev));
     Header {
         name: s.character().name.clone(),
         identity: identity(lib, s),
         level: s.character().total_level() as i64,
         pending: s.pending.len(),
-        spells_to_choose: gaps.iter().map(|(_, c, sp)| c + sp).sum(),
+        spells_to_choose: spellbook::to_choose(lib, s),
         warnings: s.build.warnings.clone(),
     }
 }
@@ -448,6 +447,19 @@ fn stat_label(s: &CharacterSession, key: &str) -> String {
     if let Some((_, name, _)) = key.strip_prefix("skill.").and_then(|k| SKILLS.iter().find(|(s, _, _)| *s == k)) {
         return name.to_string();
     }
+    let ability = |k: &str| ABILITIES.iter().find(|(a, _)| *a == k).map(|(_, n)| *n);
+    if let Some(name) = key.strip_prefix("save.").and_then(ability) {
+        return format!("{name} save");
+    }
+    if let Some(name) = key.strip_prefix("mod.").and_then(ability) {
+        return format!("{name} modifier");
+    }
+    if let Some(l) = key.strip_prefix("slots.").and_then(|k| k.strip_suffix(".max")) {
+        return format!("Level {l} slots");
+    }
+    if let Some(d) = key.strip_prefix("hit_dice.").and_then(|k| k.strip_suffix(".max")) {
+        return format!("Hit dice {d}");
+    }
     if let Some((r, _)) =
         key.strip_prefix("resource.").and_then(|k| k.strip_suffix(".max")).and_then(|k| s.build.resources.iter().find(|(r, _)| r.key == k))
     {
@@ -587,6 +599,8 @@ pub enum SpellRow {
         class_id: Option<String>,
         /// Shown again among the favorites.
         in_favorites: bool,
+        /// The casting class's slug, for a class spell's attack and DC.
+        caster: Option<String>,
     },
     /// A feature's spell choice with picks still missing.
     Choice { key: String, filter: String, missing: usize, text: String },
@@ -601,6 +615,11 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
             Row::Favorite(inner) => (&**inner, true),
             r => (r, false),
         };
+        // The class a class spell is cast with, for its attack and DC.
+        let caster = match row {
+            Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.clone()),
+            _ => None,
+        };
         let spell = |id: &str, mark: &'static str, how: String, class_id: Option<String>, free: bool| {
             let e = resolve_id(lib, id);
             let mut detail = Vec::new();
@@ -612,11 +631,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 let lvl = spells::spell_level(lib, e);
                 castable = lvl > 0;
                 let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
-                let caster = match row {
-                    Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.as_str()),
-                    _ => None,
-                };
-                let (_, dc) = crate::rolls::spell_numbers(s, caster);
+                let (_, dc) = crate::rolls::spell_numbers(s, caster.as_deref());
                 let modifier = dc - 8 - ev.int("prof").unwrap_or(2);
                 if let Some(d) = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() }) {
                     detail.push(format!("{d} {}", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
@@ -648,6 +663,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 target: row.target(&data.casters),
                 class_id,
                 in_favorites,
+                caster: caster.clone(),
             }
         };
         out.push(match row {
@@ -703,7 +719,8 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                     Grant::Innate(Some(n)) => {
                         let name = resolve_id(lib, id).map(|e| lib.entity(e).name.clone()).unwrap_or_default();
                         let left = play::resource_left(ch, ev, &format!("innate_{}", dnt_rules::class_table::slug(&name)));
-                        (format!("{left}/{n} free"), true)
+                        // No free cast left: cast it with a slot, if at all.
+                        (format!("{left}/{n} free"), left > 0)
                     }
                 };
                 spell(id, "granted", text, None, free)
@@ -742,6 +759,15 @@ pub struct Line {
     pub fill: Option<String>,
     pub over: bool,
     pub weightless: bool,
+    /// An equipment pack, to unpack into its contents.
+    pub pack: bool,
+    /// Its container settings as typed (`30`, `no limit weightless`); empty
+    /// when it is not a container.
+    pub container: String,
+    /// A weapon a monk might use: whether it counts as a monk weapon.
+    /// `None` for other lines, and for characters without Martial Arts
+    /// (unless marked by hand).
+    pub monk_weapon: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -804,6 +830,20 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                 fill,
                 over,
                 weightless: container.is_some_and(|k| k.weightless),
+                pack: entity.is_some_and(|e| lib.entity(e).data.get("packContents").is_some()),
+                container: container
+                    .map(|k| {
+                        let mut t = k.capacity.map_or_else(|| "no limit".to_string(), |w| format!("{w}"));
+                        if k.weightless {
+                            t.push_str(" weightless");
+                        }
+                        t
+                    })
+                    .unwrap_or_default(),
+                monk_weapon: entity
+                    .and_then(|e| dnt_rules::attacks::Weapon::from_item(&lib.entity(e).name.to_lowercase(), &lib.entity(e).data))
+                    .filter(|_| s.build.martial_arts.is_some() || line.monk_weapon.is_some())
+                    .map(|w| line.monk_weapon.unwrap_or_else(|| s.build.martial_arts.is_some_and(|m| m.preset(&w)))),
             }
         })
         .collect();
@@ -874,6 +914,12 @@ mod tests {
         let inv = inventory(&lib, &s);
         assert_eq!(inv.lines[0].name, "Club");
         assert!(breakdown(&s, "ac").is_some_and(|b| !b.parts.is_empty()));
+        let title = |k: &str| breakdown(&s, k).map(|b| b.title);
+        assert_eq!(title("save.cha").as_deref(), Some("Charisma save"));
+        assert_eq!(title("mod.str").as_deref(), Some("Strength modifier"));
+        assert_eq!(title("hit_dice.d10.max").as_deref(), Some("Hit dice d10"));
+        let club = &inv.lines[0];
+        assert_eq!((club.pack, club.container.as_str(), club.monk_weapon), (false, "", None), "no Martial Arts: no monk weapon choice");
         // All of it goes over the wire.
         serde_json::to_string(&(h, o, inv, features(&lib, &OverlaySet::default(), &s), spells(&lib, &s))).unwrap();
     }

@@ -9,6 +9,8 @@ export interface SheetCtx {
   pick: (wanted: Wanted, then: (values: string[], options: Options) => void) => void;
   /// Choose from a list of actions (label, run).
   menu: (title: string, actions: [string, () => void][]) => void;
+  /// Ask before doing something (`danger` names a destructive action).
+  confirm: (title: string, text: string, then: () => void, danger?: string) => void;
   /// Ask for a line of text (or a number).
   prompt: (title: string, then: (value: string) => void, opts?: { number?: boolean; value?: string; hint?: string }) => void;
   /// Show a compendium entry.
@@ -21,6 +23,8 @@ export interface SheetCtx {
   cycle: () => void;
   /// Say something in the status line.
   say: (message: string) => void;
+  /// Read the sheet again (after something changed it from outside).
+  refresh: () => Promise<void>;
 }
 
 /// A pool for the `spend` command from a tracker id.

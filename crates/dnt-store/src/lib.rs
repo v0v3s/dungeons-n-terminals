@@ -158,8 +158,14 @@ pub struct Store {
 
 impl Store {
     /// Use the platform's standard locations (`~/.local/share/dnt`,
-    /// `~/.config/dnt/config.toml` on Linux).
+    /// `~/.config/dnt/config.toml` on Linux), or `$DNT_HOME/data` and
+    /// `$DNT_HOME/config.toml` when `DNT_HOME` is set (a portable install,
+    /// or the end-to-end tests).
     pub fn open_default() -> Result<Store> {
+        if let Some(home) = std::env::var_os("DNT_HOME").filter(|h| !h.is_empty()) {
+            let home = PathBuf::from(home);
+            return Ok(Store::open(home.join("data"), home.join("config.toml")));
+        }
         let data = dirs::data_dir().ok_or(StoreError::NoHome)?.join("dnt");
         let config = dirs::config_dir().ok_or(StoreError::NoHome)?.join("dnt/config.toml");
         Ok(Store::open(data, config))

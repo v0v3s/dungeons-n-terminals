@@ -1,0 +1,50 @@
+{
+ "condition": [
+  {
+   "name": "Dazed",
+   "source": "TST",
+   "entries": [
+    "You have disadvantage on saving throws."
+   ]
+  },
+  {
+   "name": "Soaked",
+   "source": "TST",
+   "entries": [
+    "You resist fire and are vulnerable to lightning."
+   ]
+  },
+  {
+   "name": "Poisoned",
+   "source": "TST",
+   "entries": [
+    "Disadvantage on attack rolls and ability checks."
+   ]
+  },
+  {
+   "name": "Prone",
+   "source": "TST",
+   "entries": [
+    "You can only crawl."
+   ]
+  }
+ ],
+ "disease": [
+  {
+   "name": "Grey Cough",
+   "source": "TST",
+   "entries": [
+    "{@dice 1d4} levels of exhaustion over a week."
+   ]
+  }
+ ],
+ "status": [
+  {
+   "name": "Hidden",
+   "source": "TST",
+   "entries": [
+    "Nobody knows where you are."
+   ]
+  }
+ ]
+}

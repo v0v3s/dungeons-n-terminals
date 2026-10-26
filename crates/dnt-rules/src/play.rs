@@ -150,15 +150,22 @@ pub fn resource_left(c: &Character, ev: &Evaluation, key: &str) -> i64 {
     (resource_max(ev, key) - used).max(0)
 }
 
-/// Spend `n` uses (negative restores). Returns false if not enough are left.
+/// Spending `n` (negative restores) from `used` of `max`: the new count,
+/// or `None` when not enough are left or nothing is spent to restore.
+fn spent(used: i64, max: i64, n: i64) -> Option<i64> {
+    let new = used + n;
+    (new <= max && !(n < 0 && used <= 0)).then(|| new.clamp(0, max))
+}
+
+/// Spend `n` uses (negative restores). Returns false if not enough are
+/// left, or none are spent to restore.
 pub fn spend_resource(c: &mut Character, ev: &Evaluation, key: &str, n: i64) -> bool {
     let max = resource_max(ev, key);
     let used = c.state.resources_used.get(key).copied().unwrap_or(0);
-    let new = used + n;
-    if new > max {
+    let Some(new) = spent(used, max, n) else {
         return false;
-    }
-    set_used(&mut c.state.resources_used, key, new.clamp(0, max));
+    };
+    set_used(&mut c.state.resources_used, key, new);
     true
 }
 
@@ -189,11 +196,10 @@ pub fn spend_slot(c: &mut Character, ev: &Evaluation, level: usize, n: i64) -> b
     if used.len() < level {
         used.resize(level, 0);
     }
-    let new = used[level - 1] + n;
-    if new > max {
+    let Some(new) = spent(used[level - 1], max, n) else {
         return false;
-    }
-    used[level - 1] = new.clamp(0, max);
+    };
+    used[level - 1] = new;
     while used.last() == Some(&0) {
         used.pop();
     }
@@ -202,11 +208,10 @@ pub fn spend_slot(c: &mut Character, ev: &Evaluation, level: usize, n: i64) -> b
 
 pub fn spend_pact_slot(c: &mut Character, ev: &Evaluation, n: i64) -> bool {
     let max = ev.int("pact.slots.max").unwrap_or(0);
-    let new = c.state.pact_slots_used + n;
-    if new > max {
+    let Some(new) = spent(c.state.pact_slots_used, max, n) else {
         return false;
-    }
-    c.state.pact_slots_used = new.clamp(0, max);
+    };
+    c.state.pact_slots_used = new;
     true
 }
 
@@ -216,11 +221,10 @@ pub fn spend_hit_die(c: &mut Character, ev: &Evaluation, faces: i64, n: i64) -> 
     let key = format!("d{faces}");
     let max = ev.int(&format!("hit_dice.{key}.max")).unwrap_or(0);
     let used = c.state.hit_dice_used.get(&key).copied().unwrap_or(0);
-    let new = used + n;
-    if new > max {
+    let Some(new) = spent(used, max, n) else {
         return false;
-    }
-    set_used(&mut c.state.hit_dice_used, &key, new.clamp(0, max));
+    };
+    set_used(&mut c.state.hit_dice_used, &key, new);
     true
 }
 
@@ -318,6 +322,15 @@ mod tests {
     use crate::engine::{Model, StatDef};
     use crate::formula::Formula;
     use crate::overlay::Resource;
+
+    #[test]
+    fn spending_stops_at_empty_and_restoring_at_full() {
+        assert_eq!(spent(0, 2, 1), Some(1));
+        assert_eq!(spent(2, 2, 1), None, "none left");
+        assert_eq!(spent(1, 2, -1), Some(0));
+        assert_eq!(spent(0, 2, -1), None, "already full");
+        assert_eq!(spent(1, 2, -5), Some(0), "a big restore fills it");
+    }
 
     fn resource(key: &str, recharge: Recharge, regain: Option<&str>) -> (Resource, String) {
         (

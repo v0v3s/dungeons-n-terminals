@@ -8,6 +8,62 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Terminal: trackers of your own on the Overview: `a` adds one
+  (`Ring of Warmth, 3, dawn`), `x` removes it (asks first).
+- Terminal: `h` on a dead character marks them not dead.
+- Terminal: `r` renames a campaign.
+- Terminal: `o` orders the compendium's results (best match, name A–Z
+  or Z–A, source, level or rarity), as the app does.
+- Terminal: an About section at the end of the help screen (`?`).
+- App: hold a number (an ability check, save, skill or initiative), or
+  right-click it, to see how it is made up; tap an ability's name for its
+  score.
+- App: inventory containers fold (▾/▸); a container's menu adds items
+  straight into it; any line's menu sets its container settings
+  (capacity, no limit, weightless) and, for weapons, whether it counts as
+  a monk weapon.
+- App: *+ Homebrew* in the inventory creates a campaign item from a
+  template, adds it to the character and opens it for editing.
+- App: note folders can be renamed, deleted (asks first) and the
+  top-level ones moved up or down, from the Notes menu with a folder
+  chosen.
+- App: the About on the Data screen names the version, the licence and
+  the repository, as the terminal's help does.
+- App: on a phone, the sheet follows a sideways swipe with the next tab
+  sliding in beside it; it opens past 60% of the way (or with a flick) and
+  slides back otherwise. The tab bar keeps the open tab in sight.
+- `DNT_HOME` keeps everything (data, campaigns, configuration) in one
+  folder of your choice, on any system, for the terminal app and the app on
+  Windows: a portable install, or a second setup to try things in.
+
+### Fixed
+
+- App: equipment packs (Explorer's Pack, Scholar's Pack, …) can be
+  unpacked: *Unpack* was only offered on containers, which packs are not.
+- A multiclass caster's spell rolls use the attack and DC of the class
+  the spell belongs to (rolling it in the app, and the roll after
+  casting it in both), not the best class's.
+- App: deleting a note asks first.
+- App: removing a tracker of your own asks first, as the terminal does.
+- An innate spell with no free casts left no longer offers a free cast.
+- App: a dialog opened right after the last one closed is a new one: a
+  list no longer keeps the last one's filter ("Nothing matches" when adding
+  spells one after another), nor the rules editor the last one's text.
+- Terminal, on Windows: editing a character's file or a homebrew entry in
+  `$EDITOR` (Notepad by default) opens the file; the editor was given a
+  mangled path.
+- App: "spells to choose" and "choices to make" no longer run their words
+  together on wide screens.
+- The count of spells to choose includes a feat's or a species' choice of
+  spells, which the sheet's flag also leads to.
+- App: on a phone, the inventory's buttons and the notes' Quick note no
+  longer wrap their labels; the inventory leaves room for fold arrows only
+  when something can fold, and the arrows are bigger.
+- Restoring a feature use, a spell slot or a hit die that was not spent
+  says it is full, instead of "Restored" with nothing changed.
+
 ## v0.12.0 - 2026-10-24
 
 ### Added

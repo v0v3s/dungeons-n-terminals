@@ -131,12 +131,25 @@ pub async fn command(app: State<'_, App>, command: Command) -> Res<Done> {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Roll {
-    Ability { key: String },
-    Save { key: String },
-    Skill { key: String },
+    Ability {
+        key: String,
+    },
+    Save {
+        key: String,
+    },
+    Skill {
+        key: String,
+    },
     Initiative,
-    Attack { slug: String },
-    Spell { id: String },
+    Attack {
+        slug: String,
+    },
+    /// A spell, with the casting class's slug for its attack and DC.
+    Spell {
+        id: String,
+        #[serde(default)]
+        caster: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -164,12 +177,12 @@ pub async fn roll(app: State<'_, App>, what: Roll) -> Res<Rolled> {
             let a = s.build.attacks.iter().find(|a| a.slug == slug).cloned().ok_or("No such attack")?;
             rolls::attack(s, &a)
         }
-        Roll::Spell { id } => {
+        Roll::Spell { id, caster } => {
             let spell = dnt_rules::overlay::resolve_id(lib, &id).ok_or("No such spell")?;
             if !rolls::spell_rolls(lib, spell) {
                 return Err(format!("{} has nothing to roll", lib.entity(spell).name));
             }
-            let (atk, dc) = rolls::spell_numbers(s, None);
+            let (atk, dc) = rolls::spell_numbers(s, caster.as_deref());
             let level = dnt_rules::spells::spell_level(lib, spell);
             rolls::spell(s, lib, spell, level, atk, dc)
         }
@@ -430,6 +443,10 @@ pub async fn export_sheet(handle: tauri::AppHandle, app: State<'_, App>, format:
         "markdown" => dnt_core::export::to_markdown(&doc),
         other => return Err(format!("No export as {other}")),
     };
+    if let Some(file) = crate::e2e::save_path(&handle, &path) {
+        std::fs::write(file, text).map_err(|e| format!("Could not write the file: {e}"))?;
+        return Ok(format!("Exported {}", s.file.character.name));
+    }
     let file: tauri_plugin_fs::FilePath = path.parse().map_err(|e| format!("{e}"))?;
     let mut opts = OpenOptions::new();
     opts.write(true).create(true).truncate(true);

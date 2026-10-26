@@ -1,0 +1,43 @@
+{
+ "magicvariant": [
+  {
+   "name": "+1 Weapon",
+   "type": "GV|DMG",
+   "requires": [
+    {
+     "weapon": true
+    }
+   ],
+   "excludes": {
+    "name": "Pellet"
+   },
+   "inherits": {
+    "namePrefix": "+1 ",
+    "source": "TST",
+    "rarity": "uncommon",
+    "bonusWeapon": "+1",
+    "entries": [
+     "{=bonusWeapon} to attack and damage rolls."
+    ]
+   }
+  },
+  {
+   "name": "+1 Armor",
+   "type": "GV|DMG",
+   "requires": [
+    {
+     "armor": true
+    }
+   ],
+   "inherits": {
+    "nameSuffix": " +1",
+    "source": "TST",
+    "rarity": "rare",
+    "bonusAc": "+1",
+    "entries": [
+     "{=bonusAc} to AC."
+    ]
+   }
+  }
+ ]
+}

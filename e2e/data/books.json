@@ -1,0 +1,20 @@
+{
+ "book": [
+  {
+   "name": "The Proving Grounds",
+   "id": "TST",
+   "source": "TST",
+   "group": "core",
+   "published": "2026-01-01",
+   "author": "The Test Guild"
+  },
+  {
+   "name": "Proving Grounds: Outskirts",
+   "id": "TSX",
+   "source": "TSX",
+   "group": "supplement",
+   "published": "2026-06-01",
+   "author": "The Test Guild"
+  }
+ ]
+}

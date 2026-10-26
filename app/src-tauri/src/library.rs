@@ -82,8 +82,26 @@ pub struct Imported {
 #[tauri::command]
 pub async fn import_zip(handle: tauri::AppHandle, app: State<'_, App>, path: String) -> Res<Imported> {
     use tauri_plugin_fs::FsExt;
+    if let Some(bytes) = crate::e2e::stashed(&path) {
+        return imported(&app, bytes);
+    }
     let file: tauri_plugin_fs::FilePath = path.parse().map_err(|e| format!("{e}"))?;
     let bytes = handle.fs().read(file).map_err(|e| format!("Could not read the file: {e}"))?;
+    imported(&app, bytes)
+}
+
+/// The end-to-end tests' import: the zip's bytes come with the call, as
+/// the tests cannot put a file where the app may read it. Only in a build
+/// with the `e2e` feature.
+#[tauri::command]
+pub async fn e2e_import_zip(app: State<'_, App>, bytes: Vec<u8>) -> Res<Imported> {
+    if !cfg!(feature = "e2e") {
+        return Err("Not in this build".into());
+    }
+    imported(&app, bytes)
+}
+
+fn imported(app: &App, bytes: Vec<u8>) -> Res<Imported> {
     let mut inner = app.lock();
     let report = import::import_zip(&inner.ws.store, bytes)?;
     inner.ws.reload();

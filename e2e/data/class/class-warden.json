@@ -1,0 +1,602 @@
+{
+ "class": [
+  {
+   "name": "Warden",
+   "source": "TST",
+   "edition": "one",
+   "page": 20,
+   "hd": {
+    "number": 1,
+    "faces": 10
+   },
+   "proficiency": [
+    "str",
+    "dex"
+   ],
+   "spellcastingAbility": "wis",
+   "casterProgression": "1/2",
+   "preparedSpells": "<$level$> + <$wis_mod$>",
+   "primaryAbility": [
+    {
+     "dex": true,
+     "wis": true
+    }
+   ],
+   "subclassTitle": "Warden Oath",
+   "classTableGroups": [
+    {
+     "colLabels": [
+      "Weapon Mastery",
+      "Mark Die"
+     ],
+     "rows": [
+      [
+       2,
+       "1d6"
+      ],
+      [
+       2,
+       "1d6"
+      ],
+      [
+       2,
+       "1d6"
+      ],
+      [
+       2,
+       "1d6"
+      ],
+      [
+       2,
+       "1d8"
+      ],
+      [
+       2,
+       "1d8"
+      ],
+      [
+       2,
+       "1d8"
+      ],
+      [
+       2,
+       "1d8"
+      ],
+      [
+       3,
+       "1d8"
+      ],
+      [
+       3,
+       "1d8"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ],
+      [
+       3,
+       "1d10"
+      ]
+     ]
+    },
+    {
+     "title": "Spell Slots per Spell Level",
+     "colLabels": [
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "5th"
+     ],
+     "rowsSpellProgression": [
+      [
+       2,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       2,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       3,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       3,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       2,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       2,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       2,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       2,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       1,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       1,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       2,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       2,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2
+      ]
+     ]
+    }
+   ],
+   "startingProficiencies": {
+    "armor": [
+     "light",
+     "medium",
+     "shield"
+    ],
+    "weapons": [
+     "simple",
+     "martial"
+    ],
+    "tools": [
+     "one {@item Reed Pipe|TST} or other instrument"
+    ],
+    "skills": [
+     {
+      "choose": {
+       "from": [
+        "animal handling",
+        "athletics",
+        "insight",
+        "investigation",
+        "nature",
+        "perception",
+        "stealth",
+        "survival"
+       ],
+       "count": 3
+      }
+     }
+    ]
+   },
+   "startingEquipment": {
+    "defaultData": [
+     {
+      "A": [
+       "chain vest|TST",
+       "longfang|TST",
+       "thunderbow|TST",
+       {
+        "item": "pellet|TST",
+        "quantity": 20
+       },
+       "trail pack|TST",
+       {
+        "value": 700
+       }
+      ],
+      "B": [
+       {
+        "value": 15000
+       }
+      ]
+     }
+    ]
+   },
+   "multiclassing": {
+    "requirements": {
+     "dex": 13,
+     "wis": 13
+    },
+    "proficienciesGained": {
+     "armor": [
+      "light",
+      "medium",
+      "shield"
+     ],
+     "weapons": [
+      "martial"
+     ]
+    }
+   },
+   "featProgression": [
+    {
+     "name": "Fighting Style",
+     "category": [
+      "FS"
+     ],
+     "progression": {
+      "2": 1
+     }
+    }
+   ],
+   "optionalfeatureProgression": [
+    {
+     "name": "Warden's Tricks",
+     "featureType": [
+      "WTR"
+     ],
+     "progression": [
+      0,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      4,
+      5,
+      5,
+      5,
+      5,
+      6,
+      6,
+      6,
+      6
+     ]
+    }
+   ],
+   "classFeatures": [
+    "Spellcasting|Warden|TST|1",
+    "Weapon Mastery|Warden|TST|1",
+    "Favored Ground|Warden|TST|1",
+    "Fighting Style|Warden|TST|2",
+    "Warden's Tricks|Warden|TST|2",
+    {
+     "classFeature": "Warden Oath|Warden|TST|3",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Warden|TST|4",
+    "Ability Score Improvement|Warden|TST|8",
+    "Ability Score Improvement|Warden|TST|12",
+    "Ability Score Improvement|Warden|TST|16",
+    "Extra Attack|Warden|TST|5",
+    "Expertise|Warden|TST|6",
+    "Epic Boon|Warden|TST|19"
+   ]
+  }
+ ],
+ "subclass": [
+  {
+   "name": "Thornguard",
+   "shortName": "Thornguard",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "edition": "one",
+   "subclassFeatures": [
+    "Thornguard|Warden|TST|Thornguard|TST|3"
+   ],
+   "additionalSpells": [
+    {
+     "prepared": {
+      "3": [
+       "ward of thorns|TST"
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "classFeature": [
+  {
+   "name": "Spellcasting",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "You cast warden spells using Wisdom."
+   ]
+  },
+  {
+   "name": "Weapon Mastery",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "You master two kinds of weapons."
+   ]
+  },
+  {
+   "name": "Favored Ground",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "Choose a ground you know well.",
+    {
+     "type": "options",
+     "count": 1,
+     "entries": [
+      {
+       "type": "refClassFeature",
+       "classFeature": "Forest Ground|Warden|TST|1"
+      },
+      {
+       "type": "refClassFeature",
+       "classFeature": "Mountain Ground|Warden|TST|1"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Forest Ground",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "You move through undergrowth without slowing."
+   ]
+  },
+  {
+   "name": "Mountain Ground",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 1,
+   "entries": [
+    "You climb at your full speed."
+   ]
+  },
+  {
+   "name": "Fighting Style",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 2,
+   "entries": [
+    "Take a fighting style feat."
+   ]
+  },
+  {
+   "name": "Warden's Tricks",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 2,
+   "entries": [
+    "Learn two {@optfeature Quick Step|TST|tricks}."
+   ]
+  },
+  {
+   "name": "Warden Oath",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 3,
+   "entries": [
+    "Swear a warden oath."
+   ]
+  },
+  {
+   "name": "Extra Attack",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 5,
+   "entries": [
+    "You attack twice with the Attack action."
+   ]
+  },
+  {
+   "name": "Expertise",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 6,
+   "entries": [
+    "Choose two of your skill proficiencies; your proficiency bonus is doubled for them."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 4,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 8,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 12,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 16,
+   "entries": [
+    "Raise your scores, or take a feat."
+   ]
+  },
+  {
+   "name": "Epic Boon",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "level": 19,
+   "entries": [
+    "Take an epic boon feat."
+   ]
+  }
+ ],
+ "subclassFeature": [
+  {
+   "name": "Thornguard",
+   "source": "TST",
+   "className": "Warden",
+   "classSource": "TST",
+   "subclassShortName": "Thornguard",
+   "subclassSource": "TST",
+   "level": 3,
+   "entries": [
+    "Thorns grow along your armor."
+   ]
+  }
+ ]
+}

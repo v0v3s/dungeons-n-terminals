@@ -169,9 +169,9 @@ impl App {
     /// Refresh everything derived from the library after it was rebuilt.
     pub fn library_reloaded(&mut self, lib: &Library) {
         let filter = self.override_filter.clone().or_else(|| self.active_campaign().map(|c| c.source_filter())).unwrap_or_else(no_campaign);
-        let (category, query) = (self.compendium.category, self.compendium.query.clone());
+        let (category, query, order) = (self.compendium.category, self.compendium.query.clone(), self.compendium.order);
         self.compendium = Compendium::new(lib, filter.clone());
-        self.compendium.restore(lib, category, query);
+        self.compendium.restore(lib, category, query, order);
         let (selected, pane) = (self.campaigns.selected, self.campaigns.pane);
         let list = std::mem::take(&mut self.campaigns.list);
         let brew = (self.campaigns.right, self.campaigns.brew_selected, std::mem::take(&mut self.campaigns.brew_filter));
@@ -382,6 +382,21 @@ impl App {
                 }
             }
             Action::Delete(i) => self.delete_campaign(lib, i),
+            Action::Rename(i, name) => {
+                let campaign = &mut self.campaigns.list[i];
+                let old = std::mem::replace(&mut campaign.settings.name, name.clone());
+                if let Err(e) = self.store.save_campaign(campaign) {
+                    campaign.settings.name = old;
+                    self.status = format!("Could not rename the campaign: {e}");
+                    return;
+                }
+                // Keep the list sorted, and the active and selected ones.
+                let (slug, active) = (campaign.slug.clone(), self.active_campaign().map(|c| c.slug.clone()));
+                self.campaigns.list.sort_by_key(|c| c.settings.name.to_lowercase());
+                self.campaigns.selected = self.campaigns.list.iter().position(|c| c.slug == slug).unwrap_or(0);
+                self.active = active.and_then(|s| self.campaigns.list.iter().position(|c| c.slug == s));
+                self.status = format!("Renamed the campaign to {name}");
+            }
             Action::Changed(i) => {
                 let campaign = &self.campaigns.list[i];
                 if let Err(e) = self.store.save_campaign(campaign) {

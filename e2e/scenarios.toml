@@ -1,0 +1,671 @@
+# The scenario catalog: every user-visible feature of dnt, and the targets
+# it is tested on end to end. THE RULE (see CLAUDE.md and e2e/README.md):
+# a new or changed feature adds or updates its scenarios here, and a test
+# for each target, in the same change. `cargo test -p dnt --test scenarios`
+# fails when a scenario misses a test on a target, or a test names a
+# scenario that is not here.
+#
+#   id       area.what, lowercase (the tests name it: Tui::scenario("id", …)
+#            in crates/dnt/tests/e2e, tag "@id" in app/e2e)
+#   does     what the user does and sees
+#   targets  where it is tested: "tui" (the terminal app, Linux and
+#            Windows), "app" (the Tauri app, Android and Windows),
+#            "android" (the app on a phone only: touch)
+#   not      why a frontend without it does not have it: { tui = "…" } or
+#            { app = "…" }; every scenario says "tui" and "app" one way or
+#            the other
+
+# ---------------------------------------------------------------- setup
+[[scenario]]
+id = "setup.import-first-run"
+does = "On the first start, import the data zip from the getting-started screen; it then asks for a campaign."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "setup.first-campaign"
+does = "With the data in, create the first campaign; it becomes the active one."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "setup.import-folder"
+does = "Read a data folder in place (a path at getting started, or --data), not imported."
+targets = ["tui"]
+not = { app = "the app imports zips only: it has no folder of its own to read" }
+
+# ---------------------------------------------------------------- data
+[[scenario]]
+id = "data.import-later"
+does = "Import more data or homebrew later; importing again updates entries instead of doubling them."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "data.list"
+does = "List the imported sources with their entry counts, and the imported homebrew."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "data.forget-source"
+does = "Remove one imported source."
+targets = ["tui"]
+not = { app = "the app removes all data or all homebrew (data.forget-all, data.forget-homebrew)" }
+
+[[scenario]]
+id = "data.forget-homebrew"
+does = "Remove all imported homebrew; the data stays."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "data.forget-all"
+does = "Remove all imported data; campaigns stay."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "data.reset"
+does = "Start over: data, campaigns, characters and notes are deleted, after confirming."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "data.about"
+does = "See the version, the licence, the repository and that dnt ships no game content."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- campaigns
+[[scenario]]
+id = "campaigns.create"
+does = "Create another campaign."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "campaigns.activate"
+does = "Make another campaign the active one: its characters and notes show."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "campaigns.rename"
+does = "Rename a campaign; it stays active."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "campaigns.delete"
+does = "Delete a campaign after confirming; declining keeps it."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.toggle-book"
+does = "Turn a book off for the campaign: its entries leave the compendium and the pickers."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.preset"
+does = "Choose a preset set of books."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.all"
+does = "Enable every book."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.reprinted"
+does = "Show reprinted entries: the older version of a reprinted entry appears."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.filter"
+does = "Filter the list of books by name."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.group"
+does = "Tick or untick a whole group of books at once."
+targets = ["app"]
+not = { tui = "the terminal toggles books one at a time, or all of them (sources.all)" }
+
+[[scenario]]
+id = "sources.homebrew"
+does = "Turn imported homebrew on for the campaign: its entries appear; all off removes them."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.homebrew-filter"
+does = "Filter the homebrew list by name or author."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "sources.homebrew-edition"
+does = "Filter the homebrew list by rules edition."
+targets = ["app"]
+not = { tui = "the terminal's homebrew list has a text filter only" }
+
+# ---------------------------------------------------------------- compendium
+[[scenario]]
+id = "compendium.search"
+does = "Search the compendium; the results update as you type."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.filters"
+does = "Narrow a search with filters (@source, #kind, ^level, \"text\", !not)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.category"
+does = "Switch the category (spells, classes, items, …)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.order"
+does = "Order the results (best match, name, source, level or rarity)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.read"
+does = "Read an entry: its fields, text, tables and lists."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.follow-link"
+does = "Follow a link in an entry, then go back."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.link-keys"
+does = "Move between an entry's links with keys."
+targets = ["tui"]
+not = { app = "links are tapped or clicked" }
+
+[[scenario]]
+id = "compendium.clone"
+does = "Clone an entry into the campaign, replacing it or as a copy with a new name."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.original"
+does = "Switch between a campaign version and the book original."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "compendium.new-homebrew"
+does = "Create a homebrew entry from a template."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- homebrew editor
+[[scenario]]
+id = "homebrew.edit-field"
+does = "Edit a homebrew entry's field; the compendium shows the change."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "homebrew.edit-json"
+does = "Edit a homebrew entry as JSON."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "homebrew.revert-field"
+does = "Revert a field of a cloned entry to the book's value."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "homebrew.add-field"
+does = "Add a field to a homebrew entry."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "homebrew.promote"
+does = "Promote a campaign entry to the homebrew of every campaign."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "homebrew.delete"
+does = "Delete a homebrew entry after confirming."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- characters
+[[scenario]]
+id = "roster.list"
+does = "See the campaign's characters with their level and a preview."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "roster.delete"
+does = "Delete a character after confirming; declining keeps it."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.full"
+does = "Create a character step by step: species, background, scores, increases, feat, class, skills, equipment, review."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.lineage"
+does = "Choose a subspecies or a lineage of the chosen species."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.point-buy"
+does = "Set the ability scores by point buy, within the 27 points."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.subclass"
+does = "Choose a subclass at level 1 when the class gets it then."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.feature-choice"
+does = "Make a class feature's choice at level 1 (an option, weapon masteries)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.equipment-pick"
+does = "Pick an item for an equipment choice (any instrument, an arcane focus)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.back"
+does = "Go back a step and change an answer; cancel from the start."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "character.edit-file"
+does = "Edit the character's file; the sheet reads the change."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "character.export"
+does = "Export the sheet as Markdown and HTML."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "character.note"
+does = "Open the character's own note."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "character.warnings"
+does = "See what the rules could not work out about the character."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- level up
+[[scenario]]
+id = "levelup.average"
+does = "Level up the same class, taking the average hit points."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "levelup.hp"
+does = "Level up rolling the hit points at the table (typed in), or taking the maximum."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "levelup.multiclass"
+does = "Level up into another class, when the scores allow it."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "levelup.subclass"
+does = "Choose the subclass at the level the class gets it."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "levelup.asi"
+does = "At an ability score improvement, raise scores or take a feat."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "levelup.first-level"
+does = "Take the first level of a character that has none."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "levelup.undo"
+does = "Undo the last level after confirming."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "choices.pending"
+does = "Make the choices a level left open (a fighting style, tricks)."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- overview
+[[scenario]]
+id = "hp.damage"
+does = "Take damage: temporary hit points go first; at 0 the character is dying."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "hp.damage-lethal"
+does = "Take damage that kills outright, choosing dead or dying."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "hp.heal"
+does = "Heal, up to the maximum."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "hp.temp"
+does = "Gain temporary hit points."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "hp.death-save"
+does = "Roll death saves while dying; mark a dead character not dead."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rest.short"
+does = "Take a short rest after confirming: short-rest resources come back."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rest.long"
+does = "Take a long rest after confirming: hit points, slots and resources come back."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "roll.checks"
+does = "Roll an ability check, a saving throw, a skill and initiative."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "roll.attack"
+does = "Roll an attack with its damage."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "roll.advantage"
+does = "Set advantage or disadvantage for the next roll."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "roll.hit-die"
+does = "Roll a hit die to heal."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "roll.to-notes"
+does = "Write rolls into the latest session note."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "explain.number"
+does = "See how a number on the sheet adds up, without rolling."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "explain.touch-hold"
+does = "Touch and hold a number on a phone to see how it adds up."
+targets = ["android"]
+not = { tui = "no touch in a terminal" }
+
+[[scenario]]
+id = "sheet.swipe-tabs"
+does = "Swipe sideways on a phone: the next tab slides in under the finger, opens past 60% of the width (or with a flick) and slides back otherwise; the tab bar keeps the open tab in sight."
+targets = ["android"]
+not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the tab, and every tab is always in sight" }
+
+[[scenario]]
+id = "conditions.toggle"
+does = "Turn conditions on and off, and change the exhaustion level."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "resources.spend"
+does = "Spend and restore uses: features, spell slots, pact slots, hit dice."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "toggles.flip"
+does = "Turn a feature's toggle on and off; the numbers follow."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "trackers.add"
+does = "Add a tracker of your own (name, uses, recharge)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "trackers.remove"
+does = "Remove your own tracker after confirming."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "attacks.hold"
+does = "Hold a weapon from the attacks: main hand, off hand or both hands."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "attacks.shield"
+does = "Take up or put away the shield from the overview."
+targets = ["tui"]
+not = { app = "the app equips a shield from the inventory (inventory.equip)" }
+
+[[scenario]]
+id = "concentration.end"
+does = "End concentration on a spell."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- features
+[[scenario]]
+id = "features.read"
+does = "Read the character's features, grouped by where they come from."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "features.rules"
+does = "Write rules for a feature (an overlay); the sheet follows them."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "features.mastery-swap"
+does = "Swap a weapon mastery."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- spells
+[[scenario]]
+id = "spells.choose"
+does = "Choose the spells the character may have (cantrips, a grant's choice)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.add"
+does = "Add spells of a class to the character (a spellbook)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.cast"
+does = "Cast a spell with a slot: the slot is spent, a concentration spell is noted."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.cast-free"
+does = "Cast a spell for free (an innate use), which comes back on a rest."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.prepare"
+does = "Prepare and unprepare a spell from the spellbook."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.favorite"
+does = "Mark a spell as a favorite."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.remove"
+does = "Remove a spell."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.roll"
+does = "Roll a spell's attack or save and damage, with its class's numbers."
+targets = ["tui", "app"]
+
+# ---------------------------------------------------------------- inventory
+[[scenario]]
+id = "inventory.add"
+does = "Add an item from the library."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.add-custom"
+does = "Add a custom item, just a name."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.add-into"
+does = "Add a library item and a custom item straight into a container."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.homebrew-item"
+does = "Create a campaign item from a template and carry it."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.equip"
+does = "Wear armor in a slot, hold a weapon or shield in a hand, put it away; AC and attacks follow."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.attune"
+does = "Attune to an item and end it; its bonuses follow."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.quantity"
+does = "Change how many of an item."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.remove"
+does = "Remove an item."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.put-in"
+does = "Put an item into a container, or carry it loose."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.unpack"
+does = "Unpack an equipment pack into its container."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.container"
+does = "Change a container's settings, or make an item a container."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.monk-weapon"
+does = "Mark a weapon as a monk weapon, or not."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.coins"
+does = "Change the coins (+15gp, -3sp, a number for gold)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.fold"
+does = "Fold a container's contents away, and unfold them."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.read"
+does = "Read an item's entry from the inventory."
+targets = ["app"]
+not = { tui = "the terminal reads entries in the compendium" }
+
+# ---------------------------------------------------------------- notes
+[[scenario]]
+id = "notes.browse"
+does = "Browse the campaign's notes: folders open and close."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.new"
+does = "Create a note (from its folder's template) and a folder."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.rename"
+does = "Rename a note and a folder."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.delete"
+does = "Delete a note and a folder after confirming; declining keeps them."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.folder-order"
+does = "Move a top-level folder up or down."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.session"
+does = "Open today's session note, made from the template."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.capture"
+does = "Jot a quick note into the Inbox, with the time."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.edit"
+does = "Edit a note and save it."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.links"
+does = "Follow a [[link]] to a note or to a compendium entry; create a missing note from its link; go back."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.link-preview"
+does = "Preview a link without following it."
+targets = ["tui"]
+not = { app = "the app follows a link with a tap; there is no preview" }
+
+[[scenario]]
+id = "notes.backlinks"
+does = "See which notes link to this one."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.queries"
+does = "See a note's dnt query blocks answered (the campaign hub's lists)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.search"
+does = "Search the notes (words, #tag, key:value, @Folder)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.commands"
+does = "Use : commands in the note editor (:w, :e, :new, :session, :inbox, :hub, :find)."
+targets = ["tui"]
+not = { app = "the app has buttons and menus, not a command line" }
+
+# ---------------------------------------------------------------- around the app
+[[scenario]]
+id = "nav.sections"
+does = "Move between the sections (compendium, characters, notes, campaigns)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "nav.help"
+does = "See the keys of every screen."
+targets = ["tui"]
+not = { app = "the app has no keys to learn: buttons say what they do" }
+
+[[scenario]]
+id = "layout.fits"
+does = "Every screen fits its window: nothing runs off the side or wraps a button's label."
+targets = ["tui", "app"]
