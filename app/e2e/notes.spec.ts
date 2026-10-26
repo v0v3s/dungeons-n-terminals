@@ -148,8 +148,14 @@ test("today's session note is made from the template", { tag: "@notes.session" }
   await expect(file(page, path)).toBeVisible();
 
   // A note in Sessions is a session note too: the next one of the day.
-  await folderRow(page, "Sessions").click();
-  await page.locator(".tree").getByRole("button", { name: /\+ Note/ }).click();
+  // Sessions chosen (a tap on the chosen folder chooses its parent): the
+  // button says where its note goes.
+  const plus = page.locator(".tree").getByRole("button", { name: /\+ Note/ });
+  await expect(async () => {
+    if (!(await plus.textContent())?.includes("Sessions")) await folderRow(page, "Sessions").click();
+    await expect(plus).toContainText("Sessions", { timeout: 1000 });
+  }).toPass({ timeout: 5000 });
+  await plus.click();
   await expect(note(page)).toContainText(`Sessions/${path} (2).md`);
 });
 

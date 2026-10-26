@@ -33,6 +33,13 @@
   };
   type Tab = (typeof TABS)[number];
   let tab: Tab = $state("Overview");
+  let tabBar: HTMLElement | undefined = $state();
+  // The tab bar scrolls sideways on a phone: keep the open tab in sight,
+  // also when a swipe changed it.
+  $effect(() => {
+    void tab;
+    tabBar?.querySelector("button.active")?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  });
 
   // ---- status line ----
   let message = $state("");
@@ -256,28 +263,79 @@
   });
 
   // ---- swiping between tabs ----
-  /// Where a touch started; swipes from the screen's edges are the system's.
-  let touchFrom: { x: number; y: number; t: number } | null = null;
+  // The tab follows a sideways drag, with the next (or previous) one
+  // coming in beside it; let go past SWITCH of the width, or with a flick,
+  // and that one opens, otherwise it slides back.
   const EDGE = 40;
+  const SWITCH = 0.6;
   const SWIPED = TABS.filter((t) => t !== "Notes");
+  /// The touch being followed; swipes from the screen's edges are the system's.
+  let gesture: { x: number; y: number; lastX: number; lastT: number; speed: number; axis: "x" | "y" | null } | null = null;
+  /// How far the tab is dragged (px), the tab beside it, and whether it is
+  /// sliding to rest.
+  let drag = $state(0);
+  let beside: Tab | null = $state(null);
+  let settling = $state(false);
+  /// Where the body was scrolled when the drag began: the tab beside shows its top there.
+  let top = $state(0);
+  let width = 1;
 
-  function swipeStart(e: TouchEvent) {
-    const p = e.touches[0];
-    touchFrom = e.touches.length === 1 && p.clientX > EDGE && p.clientX < window.innerWidth - EDGE ? { x: p.clientX, y: p.clientY, t: Date.now() } : null;
+  function besideOf(dx: number): Tab | null {
+    const at = SWIPED.indexOf(tab as (typeof SWIPED)[number]);
+    return at < 0 ? null : (SWIPED[at + (dx < 0 ? 1 : -1)] ?? null);
   }
 
-  function swipeEnd(e: TouchEvent) {
-    const from = touchFrom;
-    touchFrom = null;
-    const p = e.changedTouches[0];
-    if (!from || !p || Date.now() - from.t > 600) return;
-    const dx = p.clientX - from.x;
-    const dy = p.clientY - from.y;
-    // A clear sideways swipe, not a scroll.
-    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
-    const at = SWIPED.indexOf(tab as (typeof SWIPED)[number]);
-    const next = SWIPED[at + (dx < 0 ? 1 : -1)];
-    if (next) tab = next;
+  function touchStart(e: TouchEvent) {
+    const p = e.touches[0];
+    const inside = e.touches.length === 1 && p.clientX > EDGE && p.clientX < window.innerWidth - EDGE;
+    gesture = inside && !settling ? { x: p.clientX, y: p.clientY, lastX: p.clientX, lastT: e.timeStamp, speed: 0, axis: null } : null;
+  }
+
+  function touchMove(e: TouchEvent) {
+    const g = gesture;
+    const p = e.touches[0];
+    if (!g || !p) return;
+    const dx = p.clientX - g.x;
+    const dy = p.clientY - g.y;
+    if (!g.axis) {
+      // A clear sideways move drags the tab; anything else scrolls.
+      if (Math.hypot(dx, dy) < 12) return;
+      g.axis = Math.abs(dx) > 1.5 * Math.abs(dy) ? "x" : "y";
+      width = body?.clientWidth || 1;
+      top = body?.scrollTop ?? 0;
+    }
+    if (g.axis !== "x") return;
+    if (e.timeStamp > g.lastT) g.speed = (p.clientX - g.lastX) / (e.timeStamp - g.lastT);
+    g.lastX = p.clientX;
+    g.lastT = e.timeStamp;
+    beside = besideOf(dx);
+    // Nothing beside: it gives a little and comes back.
+    drag = beside ? dx : dx / 4;
+  }
+
+  function touchEnd(e: TouchEvent) {
+    const g = gesture;
+    gesture = null;
+    if (!g || g.axis !== "x") return;
+    const far = Math.abs(drag) >= SWITCH * width;
+    // A finger held still before it lifts does not flick.
+    const moving = e.timeStamp - g.lastT < 100;
+    const flick = moving && Math.abs(g.speed) > 0.6 && Math.sign(g.speed) === Math.sign(drag) && Math.abs(drag) > 0.2 * width;
+    settle(beside && (far || flick) ? Math.sign(drag) * width : 0);
+  }
+
+  function settle(to: number) {
+    if (Math.abs(drag - to) < 1) return settled();
+    settling = true;
+    drag = to;
+  }
+
+  function settled(e?: TransitionEvent) {
+    if (e && e.target !== e.currentTarget) return;
+    settling = false;
+    if (drag !== 0 && beside) tab = beside;
+    drag = 0;
+    beside = null;
   }
 
   /// Spells to choose: go to the Spells tab and choose the first that are
@@ -341,6 +399,18 @@
   });
 </script>
 
+{#snippet view(t: Tab)}
+  {#if t === "Overview"}
+    <OverviewTab o={sheet.overview} {ctx} onconditions={conditions} />
+  {:else if t === "Features"}
+    <FeaturesTab groups={sheet.features} {ctx} />
+  {:else if t === "Spells"}
+    <SpellsTab rows={sheet.spells} slots={sheet.overview.trackers.filter((t) => t.id.startsWith("slot:") || t.id === "pact")} {ctx} />
+  {:else if t === "Inventory"}
+    <InventoryTab inv={sheet.inventory} {ctx} />
+  {/if}
+{/snippet}
+
 <div class="sheet">
   <div class="head">
     <div class="who">
@@ -357,28 +427,25 @@
   {#if sheet.header.pending || sheet.header.spells_to_choose || !sheet.header.level}
     <div class="flags">
       {#if !sheet.header.level}<button class="flag" onclick={levelUp}>Take the first level</button>{/if}
-      {#if sheet.header.pending}<button class="flag" onclick={nextPending}>{sheet.header.pending} {sheet.header.pending === 1 ? "choice" : "choices"}<span class="wide"> to make</span></button>{/if}
-      {#if sheet.header.spells_to_choose}<button class="flag" onclick={chooseSpells}>{sheet.header.spells_to_choose} {sheet.header.spells_to_choose === 1 ? "spell" : "spells"}<span class="wide"> to choose</span></button>{/if}
+      {#if sheet.header.pending}<button class="flag" onclick={nextPending}>{sheet.header.pending} {sheet.header.pending === 1 ? "choice" : "choices"}<span class="wide">&nbsp;to make</span></button>{/if}
+      {#if sheet.header.spells_to_choose}<button class="flag" onclick={chooseSpells}>{sheet.header.spells_to_choose} {sheet.header.spells_to_choose === 1 ? "spell" : "spells"}<span class="wide">&nbsp;to choose</span></button>{/if}
     </div>
   {/if}
 
-  <div class="tabs no-bar">
+  <div class="tabs no-bar" bind:this={tabBar}>
     {#each TABS as t (t)}
       <button class:active={tab === t} onclick={() => (t === "Notes" ? openNote() : (tab = t))}><Icon name={TAB_ICONS[t]} /> {t}</button>
     {/each}
   </div>
 
   <!-- Swiping sideways changes the tab (the tabs above do the same). -->
-  <div class="body" role="presentation" bind:this={body} ontouchstart={swipeStart} ontouchend={swipeEnd}>
-    {#if tab === "Overview"}
-      <OverviewTab o={sheet.overview} {ctx} onconditions={conditions} />
-    {:else if tab === "Features"}
-      <FeaturesTab groups={sheet.features} {ctx} />
-    {:else if tab === "Spells"}
-      <SpellsTab rows={sheet.spells} slots={sheet.overview.trackers.filter((t) => t.id.startsWith("slot:") || t.id === "pact")} {ctx} />
-    {:else if tab === "Inventory"}
-      <InventoryTab inv={sheet.inventory} {ctx} />
-    {/if}
+  <div class="body" role="presentation" bind:this={body} ontouchstart={touchStart} ontouchmove={touchMove} ontouchend={touchEnd} ontouchcancel={touchEnd}>
+    <div class="slide" class:settling style:transform={drag ? `translateX(${drag}px)` : null} ontransitionend={settled}>
+      {@render view(tab)}
+      {#if beside}
+        <div class="beside" inert style:top="{top}px" style:left={drag < 0 ? "100%" : "-100%"}>{@render view(beside)}</div>
+      {/if}
+    </div>
   </div>
 
   {#if message}
@@ -645,8 +712,21 @@
   .body {
     flex: 1;
     min-height: 0;
+    overflow-x: hidden;
     overflow-y: auto;
+    /* Sideways drags are the tabs' (see touchMove); scrolling stays native. */
+    touch-action: pan-y;
     padding: 0.4em 1ch 1.5em 0;
+  }
+  .slide {
+    position: relative;
+  }
+  .slide.settling {
+    transition: transform 0.2s ease-out;
+  }
+  .beside {
+    position: absolute;
+    width: 100%;
   }
   .status {
     position: sticky;

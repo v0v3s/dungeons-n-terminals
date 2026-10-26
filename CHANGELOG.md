@@ -43,8 +43,13 @@ become the release page.
   the spell belongs to (rolling it in the app, and the roll after
   casting it in both), not the best class's.
 - App: deleting a note asks first.
+- App: on a phone, the sheet follows a sideways swipe with the next tab
+  sliding in beside it; it opens past 60% of the way (or with a flick) and
+  slides back otherwise. The tab bar keeps the open tab in sight.
 - App: removing a tracker of your own asks first, as the terminal does.
 - An innate spell with no free casts left no longer offers a free cast.
+- App: "spells to choose" and "choices to make" no longer run their words
+  together on wide screens.
 - The count of spells to choose includes a feat's or a species' choice of
   spells, which the sheet's flag also leads to.
 - App: on a phone, the inventory's buttons and the notes' Quick note no

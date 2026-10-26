@@ -61,6 +61,21 @@ test("a cantrip rolls with the mage's numbers", { tag: "@spells.roll" }, async (
 
 test("the spells to choose: a class's, and a feat's choice", { tag: "@spells.choose" }, async ({ page }) => {
   await openSheet(page, "Overview", "Hexa");
+  // Where the flag says "spells to choose" in full, "spells" and "to" are
+  // a space apart, not run together.
+  const gap = await page.locator(".flag", { hasText: "spells" }).evaluate((flag) => {
+    const wide = flag.querySelector(".wide");
+    const words = wide?.previousSibling;
+    if (!wide?.firstChild || !words || getComputedStyle(wide).display === "none") return null;
+    const before = document.createRange();
+    before.selectNodeContents(words);
+    const to = document.createRange();
+    const at = (wide.firstChild.textContent ?? "").search(/\S/);
+    to.setStart(wide.firstChild, at);
+    to.setEnd(wide.firstChild, at + 1);
+    return to.getBoundingClientRect().left - before.getBoundingClientRect().right;
+  });
+  if (gap !== null) expect(gap, "a space between the words").toBeGreaterThan(2);
   // The flag counts the class's 2 cantrips and 2 spells and the feat's 2
   // cantrips, and goes to the spells to choose.
   await page.getByRole("button", { name: /6 spells/ }).click();

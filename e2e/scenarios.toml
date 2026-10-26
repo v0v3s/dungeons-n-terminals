@@ -400,6 +400,12 @@ targets = ["android"]
 not = { tui = "no touch in a terminal" }
 
 [[scenario]]
+id = "sheet.swipe-tabs"
+does = "Swipe sideways on a phone: the next tab slides in under the finger, opens past 60% of the width (or with a flick) and slides back otherwise; the tab bar keeps the open tab in sight."
+targets = ["android"]
+not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the tab, and every tab is always in sight" }
+
+[[scenario]]
 id = "conditions.toggle"
 does = "Turn conditions on and off, and change the exhaustion level."
 targets = ["tui", "app"]
