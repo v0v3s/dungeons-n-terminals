@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { dialog, expect, openSheet, pick, status, test } from "./fixtures";
+import { dialog, expect, openSheet, pick, sheetTab, status, test } from "./fixtures";
 
 const pane = (page: Page, title: string) =>
   page.locator("section.pane", {
@@ -25,7 +25,7 @@ test("features are grouped by where they come from, and read", { tag: "@features
 test("a feature's own rules change the sheet, and removing them changes it back", { tag: "@features.rules" }, async ({ page }) => {
   await openSheet(page);
   await expect(tile(page, "Speed")).toContainText("30");
-  await page.getByRole("button", { name: "Features", exact: true }).click();
+  await sheetTab(page, "Features");
   await row(page, "Lucky Charm").getByRole("button", { name: "rules" }).click();
   const rules = dialog(page, "Rules · Lucky Charm");
   await expect(rules).toContainText("Nothing automates this feature yet");
@@ -35,15 +35,15 @@ test("a feature's own rules change the sheet, and removing them changes it back"
   await expect(rules.locator(".good").first()).toContainText("40");
   await rules.getByRole("button", { name: "Save" }).click();
   await expect(status(page)).toContainText("Saved your rules");
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   await expect(tile(page, "Speed")).toContainText("40");
 
-  await page.getByRole("button", { name: "Features", exact: true }).click();
+  await sheetTab(page, "Features");
   await row(page, "Lucky Charm").getByRole("button", { name: "rules" }).click();
   await expect(rules).toContainText("Your rules for this feature.");
   await rules.getByRole("button", { name: "Remove mine" }).click();
   await expect(status(page)).toContainText("Removed your rules");
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   await expect(tile(page, "Speed")).toContainText("30");
 });
 

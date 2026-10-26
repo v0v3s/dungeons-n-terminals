@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, fakeFilePicker, go, invoke, openSheet, pick, status, test } from "./fixtures";
+import { choose, dialog, expect, fakeFilePicker, go, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
 
 const card = (page: Page, name: string) => page.locator("button.card", { hasText: name });
 
@@ -102,7 +102,7 @@ test("the character's own note opens", { tag: "@character.note" }, async ({ page
   await expect(page.locator(".note")).toContainText("Tester.md");
 
   await openSheet(page);
-  await page.getByRole("button", { name: "Notes", exact: true }).filter({ visible: true }).last().click();
+  await sheetTab(page, "Notes");
   await expect(page.locator(".note")).toContainText("Tester.md");
 });
 

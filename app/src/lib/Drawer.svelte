@@ -1,5 +1,6 @@
 <!-- The navigation drawer: the sections as a dnt pane sliding in from the
-     left over a dimmed screen. -->
+     left over a dimmed screen. What a section has inside (the compendium's
+     categories, the open character's tabs) unfolds under it with its ▸. -->
 <script lang="ts">
   import { fade, fly } from "svelte/transition";
   import Icon from "./Icon.svelte";
@@ -9,15 +10,22 @@
     open = $bindable(false),
     sections,
     current,
+    currentChild = "",
     onpick,
     footer = "",
   }: {
     open: boolean;
-    sections: [string, string, string][];
+    /// Each section: its id, label, hint and what is inside it (id, label, hint).
+    sections: [string, string, string, [string, string, string][]?][];
     current: string;
-    onpick: (id: string) => void;
+    /// What is open inside the current section.
+    currentChild?: string;
+    onpick: (id: string, child?: string) => void;
     footer?: string;
   } = $props();
+
+  /// The sections unfolded (none at first; kept while the app runs).
+  let unfolded: Record<string, boolean> = $state({});
 </script>
 
 {#if open}
@@ -32,20 +40,42 @@
     </div>
     <div class="box">
       <span class="box-title">sections</span>
-      {#each sections as [id, label, hint], i (id)}
-        <button
-          class="item"
-          class:active={id === current}
-          onclick={() => {
-            onpick(id);
-            open = false;
-          }}
-        >
-          {#if id in ICONS}<span class="sicon"><Icon name={id as IconName} size="1.4em" /></span>{:else}<span class="keycap">{i + 1}</span>{/if}
-          <span class="label">{label}</span>
-          {#if hint}<span class="dim hint">{hint}</span>{/if}
-        </button>
-      {/each}
+      <div class="list">
+        {#each sections as [id, label, hint, children], i (id)}
+          <div class="row" class:active={id === current}>
+            <button
+              class="item"
+              onclick={() => {
+                onpick(id);
+                open = false;
+              }}
+            >
+              {#if id in ICONS}<span class="sicon"><Icon name={id as IconName} size="1.4em" /></span>{:else}<span class="keycap">{i + 1}</span>{/if}
+              <span class="label">{label}</span>
+              {#if hint}<span class="dim hint">{hint}</span>{/if}
+            </button>
+            {#if children?.length}
+              <button class="fold" aria-label="What is in {label}" aria-expanded={!!unfolded[id]} onclick={() => (unfolded[id] = !unfolded[id])}>
+                {unfolded[id] ? "▾" : "▸"}
+              </button>
+            {/if}
+          </div>
+          {#each unfolded[id] ? (children ?? []) : [] as [child, text, n] (child)}
+            <button
+              class="item child"
+              data-in={id}
+              class:active={id === current && child === currentChild}
+              onclick={() => {
+                onpick(id, child);
+                open = false;
+              }}
+            >
+              <span class="label">{text}</span>
+              {#if n}<span class="dim hint">{n}</span>{/if}
+            </button>
+          {/each}
+        {/each}
+      </div>
     </div>
     {#if footer}<div class="foot dim">{footer}</div>{/if}
   </nav>
@@ -56,7 +86,7 @@
     color: var(--dim);
     display: inline-flex;
   }
-  .item.active .sicon {
+  .row.active .sicon {
     color: var(--accent);
   }
   .scrim {
@@ -97,6 +127,9 @@
   }
   .box {
     position: relative;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--accent);
     border-radius: var(--radius);
     padding: 16px 0 8px;
@@ -124,20 +157,54 @@
     cursor: pointer;
     font-size: 1.05em;
   }
+  .row {
+    display: flex;
+    border-left: 3px solid transparent;
+  }
+  .row .item {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    border-left: 0;
+  }
+  .row.active,
   .item.active {
     background: var(--selected);
     border-left-color: var(--accent);
     font-weight: 700;
   }
-  .item.active .keycap {
+  .row.active .keycap {
     background: var(--accent);
     color: var(--black);
   }
+  .row.active .hint,
   .item.active .hint {
     color: var(--gray);
   }
+  .fold {
+    flex-shrink: 0;
+    width: 52px;
+    background: none;
+    border: 0;
+    color: var(--cyan);
+    font-size: 1.2em;
+    cursor: pointer;
+  }
   .label {
     flex: 1;
+  }
+  .list {
+    max-height: 100%;
+    overflow-y: auto;
+  }
+  .item.child {
+    min-height: 40px;
+    padding-left: calc(14px + 1.4em + 1.5ch);
+    font-size: 0.95em;
+    color: var(--gray);
+  }
+  .item.child.active {
+    color: var(--fg);
   }
   .hint {
     font-size: 0.85em;

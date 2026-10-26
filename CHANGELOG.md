@@ -8,6 +8,25 @@ become the release page.
 
 ## Unreleased
 
+## v1.0.1 - 2026-10-26
+
+### Added
+
+- App: swipe the compendium's results sideways on a phone to change the
+  category, as the sheet's tabs do.
+- App: the menu's sections unfold (▸) to what is inside them: the
+  compendium's categories and the open character's tabs (Characters ›
+  Spells from anywhere).
+
+### Changed
+
+- App: while swiping, the gap the sheet (or the results) leaves names the
+  tab or category you are going to, lit once letting go opens it, instead
+  of showing a piece of it.
+- App: the sheet's tabs and the compendium's categories are a select,
+  every one in its list (on a phone, Notes and the last categories no
+  longer hide off the side of a bar).
+
 ## v1.0.0 - 2026-10-26
 
 dnt 1.0: from now on the files you keep (characters, campaigns, notes,

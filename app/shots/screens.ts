@@ -2,7 +2,7 @@
 // screen, or a desktop window (DNT_E2E_TARGET=windows).
 import type { Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-import { choose, expect, go, invoke, openSheet, pick, test } from "../e2e/fixtures";
+import { choose, expect, go, invoke, openSheet, pick, sheetTab, test } from "../e2e/fixtures";
 
 const OUT = fileURLToPath(new URL("../../docs/wiki/images/", import.meta.url));
 
@@ -31,7 +31,7 @@ test("the screens", async ({ page }) => {
   await expect(page.locator(".status.roll")).toBeVisible();
   await shot(page, "app-overview");
 
-  await page.getByRole("button", { name: "Spells", exact: true }).click();
+  await sheetTab(page, "Spells");
   for (const name of ["Frost Needle", "Glimmer", "Ember Bolt", "Ward of Thorns"]) {
     await page.getByRole("button", { name: "+ add" }).first().click();
     await pick(page, [name]);
@@ -39,7 +39,7 @@ test("the screens", async ({ page }) => {
   }
   await shot(page, "app-spells");
 
-  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await sheetTab(page, "Inventory");
   await page.locator("button.line", { hasText: "Scribe's Pack" }).click();
   await choose(page, "Scribe's Pack", "Unpack");
   await shot(page, "app-inventory");

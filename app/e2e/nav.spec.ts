@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { CAMPAIGN, expect, go, openSheet, test } from "./fixtures";
+import { CAMPAIGN, expect, go, openSheet, sheetTab, test } from "./fixtures";
 
 test("the sections are reached from the menu or the header", { tag: "@nav.sections" }, async ({ page }) => {
   await go(page, "Characters");
@@ -75,8 +75,31 @@ test("every screen fits its window", { tag: "@layout.fits" }, async ({ page }) =
   await fits(page, "Compendium entry");
 
   await openSheet(page, "Overview");
-  for (const tab of ["Overview", "Features", "Spells", "Inventory", "Notes"]) {
-    await page.locator(".sheet").getByRole("button", { name: tab, exact: true }).click();
+  for (const tab of ["Overview", "Features", "Spells", "Inventory", "Notes"] as const) {
+    await sheetTab(page, tab);
     await fits(page, `sheet: ${tab}`);
   }
+});
+
+test("the menu reaches inside a section: a category, the open character's tab", { tag: ["@nav.menu-inside", "@android"] }, async ({ page }) => {
+  const menu = () => page.getByRole("button", { name: "Menu", exact: true }).click();
+  const inside = (section: string) => page.locator(`.drawer .child[data-in="${section}"]`);
+  await openSheet(page);
+  await go(page, "Compendium");
+  // Folded at first: a section's ▸ shows what is in it.
+  await menu();
+  await expect(inside("characters")).toHaveCount(0);
+  await page.getByRole("button", { name: "What is in Characters" }).click();
+  await page.getByRole("button", { name: "What is in Compendium" }).click();
+  // From the compendium straight to the character's spells.
+  await inside("characters").filter({ has: page.getByText("Spells", { exact: true }) }).click();
+  await expect(page.locator(".sheet .tabs select")).toHaveValue("Spells");
+  // And to a category of the compendium: its results, not an open entry.
+  await menu();
+  await inside("compendium").nth(2).click();
+  await expect(page.locator(".categories select")).toHaveValue("2");
+  // The character's note, from the menu too.
+  await menu();
+  await inside("characters").filter({ has: page.getByText("Notes", { exact: true }) }).click();
+  await expect(page.locator(".note")).toContainText("Tester.md");
 });

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, expect, go, invoke, test } from "./fixtures";
+import { answer, expect, go, invoke, sheetTab, test } from "./fixtures";
 
 const ask = (page: Page) => page.locator(".creation .ask");
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -43,7 +43,7 @@ async function create(page: Page) {
 }
 
 const identity = (page: Page) => page.locator(".sheet .id");
-const tab = (page: Page, name: string) => page.getByRole("button", { name, exact: true }).click();
+const tab = (page: Page, name: "Features" | "Inventory") => sheetTab(page, name);
 
 test("a character is made step by step", { tag: "@creation.full" }, async ({ page }) => {
   await start(page, "Nova");

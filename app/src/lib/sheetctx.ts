@@ -35,3 +35,7 @@ export function pool(id: string): Record<string, unknown> {
   if (kind === "hit_die") return { pool: "hit_die", faces: Number(arg) };
   return { pool: "pact" };
 }
+
+/// The sheet's tabs; Notes opens the character's note.
+export const SHEET_TABS = ["Overview", "Features", "Spells", "Inventory", "Notes"] as const;
+export type SheetTab = (typeof SHEET_TABS)[number];

@@ -15,30 +15,34 @@
   import Icon from "./Icon.svelte";
   import type { IconName } from "./icons";
   import SpellsTab from "./SpellsTab.svelte";
-  import type { SheetCtx } from "./sheetctx";
+  import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
+  import { Swipe } from "./swipe.svelte";
+  import SwipeHint from "./SwipeHint.svelte";
+  import TabSelect from "./TabSelect.svelte";
 
   let {
     sheet = $bindable(),
+    tab = $bindable("Overview"),
     onclose,
     onnote,
-  }: { sheet: api.Sheet; onclose: () => void; onnote: (path: string) => void } = $props();
+  }: { sheet: api.Sheet; tab?: SheetTab; onclose: () => void; onnote: (path: string) => void } = $props();
 
-  const TABS = ["Overview", "Features", "Spells", "Inventory", "Notes"] as const;
-  const TAB_ICONS: Record<(typeof TABS)[number], IconName> = {
+  const TAB_ICONS: Record<SheetTab, IconName> = {
     Overview: "characters",
     Features: "features",
     Spells: "spells",
     Inventory: "inventory",
     Notes: "notes",
   };
-  type Tab = (typeof TABS)[number];
-  let tab: Tab = $state("Overview");
-  let tabBar: HTMLElement | undefined = $state();
-  // The tab bar scrolls sideways on a phone: keep the open tab in sight,
-  // also when a swipe changed it.
+  type Tab = SheetTab;
+  // Notes is the character's note, in the Notes section: picking it (here
+  // or from the menu) opens the note and leaves the sheet on its tab.
+  let shown: Exclude<Tab, "Notes"> = $state("Overview");
   $effect(() => {
-    void tab;
-    tabBar?.querySelector("button.active")?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    if (tab === "Notes") {
+      tab = shown;
+      openNote();
+    } else shown = tab;
   });
 
   // ---- status line ----
@@ -269,81 +273,13 @@
     body?.scrollTo({ top: 0 });
   });
 
-  // ---- swiping between tabs ----
-  // The tab follows a sideways drag, with the next (or previous) one
-  // coming in beside it; let go past SWITCH of the width, or with a flick,
-  // and that one opens, otherwise it slides back.
-  const EDGE = 40;
-  const SWITCH = 0.6;
-  const SWIPED = TABS.filter((t) => t !== "Notes");
-  /// The touch being followed; swipes from the screen's edges are the system's.
-  let gesture: { x: number; y: number; lastX: number; lastT: number; speed: number; axis: "x" | "y" | null } | null = null;
-  /// How far the tab is dragged (px), the tab beside it, and whether it is
-  /// sliding to rest.
-  let drag = $state(0);
-  let beside: Tab | null = $state(null);
-  let settling = $state(false);
-  /// Where the body was scrolled when the drag began: the tab beside shows its top there.
-  let top = $state(0);
-  let width = 1;
-
-  function besideOf(dx: number): Tab | null {
-    const at = SWIPED.indexOf(tab as (typeof SWIPED)[number]);
-    return at < 0 ? null : (SWIPED[at + (dx < 0 ? 1 : -1)] ?? null);
-  }
-
-  function touchStart(e: TouchEvent) {
-    const p = e.touches[0];
-    const inside = e.touches.length === 1 && p.clientX > EDGE && p.clientX < window.innerWidth - EDGE;
-    gesture = inside && !settling ? { x: p.clientX, y: p.clientY, lastX: p.clientX, lastT: e.timeStamp, speed: 0, axis: null } : null;
-  }
-
-  function touchMove(e: TouchEvent) {
-    const g = gesture;
-    const p = e.touches[0];
-    if (!g || !p) return;
-    const dx = p.clientX - g.x;
-    const dy = p.clientY - g.y;
-    if (!g.axis) {
-      // A clear sideways move drags the tab; anything else scrolls.
-      if (Math.hypot(dx, dy) < 12) return;
-      g.axis = Math.abs(dx) > 1.5 * Math.abs(dy) ? "x" : "y";
-      width = body?.clientWidth || 1;
-      top = body?.scrollTop ?? 0;
-    }
-    if (g.axis !== "x") return;
-    if (e.timeStamp > g.lastT) g.speed = (p.clientX - g.lastX) / (e.timeStamp - g.lastT);
-    g.lastX = p.clientX;
-    g.lastT = e.timeStamp;
-    beside = besideOf(dx);
-    // Nothing beside: it gives a little and comes back.
-    drag = beside ? dx : dx / 4;
-  }
-
-  function touchEnd(e: TouchEvent) {
-    const g = gesture;
-    gesture = null;
-    if (!g || g.axis !== "x") return;
-    const far = Math.abs(drag) >= SWITCH * width;
-    // A finger held still before it lifts does not flick.
-    const moving = e.timeStamp - g.lastT < 100;
-    const flick = moving && Math.abs(g.speed) > 0.6 && Math.sign(g.speed) === Math.sign(drag) && Math.abs(drag) > 0.2 * width;
-    settle(beside && (far || flick) ? Math.sign(drag) * width : 0);
-  }
-
-  function settle(to: number) {
-    if (Math.abs(drag - to) < 1) return settled();
-    settling = true;
-    drag = to;
-  }
-
-  function settled(e?: TransitionEvent) {
-    if (e && e.target !== e.currentTarget) return;
-    settling = false;
-    if (drag !== 0 && beside) tab = beside;
-    drag = 0;
-    beside = null;
-  }
+  // ---- swiping between tabs (Notes is elsewhere: not swiped to) ----
+  const swipe = new Swipe<Tab>({
+    items: () => SHEET_TABS.filter((t) => t !== "Notes"),
+    current: () => tab,
+    open: (t) => (tab = t),
+    body: () => body,
+  });
 
   /// Spells to choose: go to the Spells tab and choose the first that are
   /// missing (a feature's grant, else a class short of its spells).
@@ -439,20 +375,16 @@
     </div>
   {/if}
 
-  <div class="tabs no-bar" bind:this={tabBar}>
-    {#each TABS as t (t)}
-      <button class:active={tab === t} onclick={() => (t === "Notes" ? openNote() : (tab = t))}><Icon name={TAB_ICONS[t]} /> {t}</button>
-    {/each}
+  <div class="tabs">
+    <TabSelect label="Tab" options={SHEET_TABS.map((t) => [t, t])} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as Tab)} />
   </div>
 
-  <!-- Swiping sideways changes the tab (the tabs above do the same). -->
-  <div class="body" role="presentation" bind:this={body} ontouchstart={touchStart} ontouchmove={touchMove} ontouchend={touchEnd} ontouchcancel={touchEnd}>
-    <div class="slide" class:settling style:transform={drag ? `translateX(${drag}px)` : null} ontransitionend={settled}>
+  <!-- Swiping sideways changes the tab (the select above does the same). -->
+  <div class="body" role="presentation" bind:this={body} ontouchstart={swipe.start} ontouchmove={swipe.move} ontouchend={swipe.end} ontouchcancel={swipe.end}>
+    <div class="slide" class:settling={swipe.settling} style:transform={swipe.drag ? `translateX(${swipe.drag}px)` : null} ontransitionend={swipe.settled}>
       {@render view(tab)}
-      {#if beside}
-        <div class="beside" inert style:top="{top}px" style:left={drag < 0 ? "100%" : "-100%"}>{@render view(beside)}</div>
-      {/if}
     </div>
+    {#if swipe.beside}<SwipeHint {swipe} label={swipe.beside} icon={TAB_ICONS[swipe.beside]} />{/if}
   </div>
 
   {#if message}
@@ -703,26 +635,12 @@
     cursor: pointer;
   }
   .tabs {
-    display: flex;
-    gap: 1ch;
     margin: 0.75em 0 0.25em;
-    overflow-x: auto;
+    max-width: 40ch;
     flex-shrink: 0;
   }
-  .tabs button {
-    background: none;
-    border: 0;
-    color: var(--gray);
-    padding: 0 1ch;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .tabs button.active {
-    background: var(--cyan);
-    color: var(--black);
-    font-weight: 700;
-  }
   .body {
+    position: relative;
     flex: 1;
     min-height: 0;
     overflow-x: hidden;
@@ -736,10 +654,6 @@
   }
   .slide.settling {
     transition: transform 0.2s ease-out;
-  }
-  .beside {
-    position: absolute;
-    width: 100%;
   }
   .status {
     position: sticky;
@@ -856,15 +770,6 @@
       min-height: 36px;
       padding: 0 1.5ch;
       border-radius: 18px;
-    }
-    .tabs button {
-      height: 36px;
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 0 14px;
-    }
-    .tabs button.active {
-      border-color: var(--cyan);
     }
     .menu button {
       min-height: 48px;

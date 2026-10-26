@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
 
 const spell = (page: Page, name: string) => page.locator("button.spell", { hasText: name });
 const slot = (page: Page, name: string) => page.locator(".slot", { hasText: name });
@@ -111,7 +111,7 @@ test("casting with a slot spends it; a concentration spell is noted", { tag: "@s
   await act(page, "Ward of Thorns", "Cast…");
   await pick(page, ["Level 1"]);
   await expect(slot(page, "Level 1")).toContainText("0/2");
-  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await sheetTab(page, "Overview");
   await expect(page.locator(".chip.conc")).toContainText("Ward of Thorns");
 });
 
