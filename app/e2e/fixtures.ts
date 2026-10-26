@@ -169,6 +169,11 @@ export async function answer(page: Page, title: string | RegExp, text: string) {
 
 /// Pick these choices in the open picker, then confirm a multiple pick.
 export async function pick(page: Page, labels: string[]) {
+  // A dialog closing as this one opens is still there while it fades: wait
+  // for the transitions (Web Animations) to end, or "last" may be that one.
+  await page
+    .waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 2000 })
+    .catch(() => {});
   const picker = page.getByRole("dialog").last();
   // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
   // fewer need "done".

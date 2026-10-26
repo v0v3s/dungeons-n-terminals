@@ -214,7 +214,7 @@ test("going back changes an answer; going back from the start cancels", { tag: "
   await page.getByRole("button", { name: "+ New character" }).click();
   await answer(page, "New character", "Quitter");
   await step(page, "Choose a species", "Kindred");
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.locator(".creation").getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.locator(".creation")).toHaveCount(0);
   await expect(page.locator("button.card", { hasText: "Quitter" })).toHaveCount(0);
   expect(await invoke(page, "creation_current")).toBeNull();
