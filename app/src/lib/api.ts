@@ -426,6 +426,7 @@ export interface PendingChoice {
 }
 
 export const roster = () => invoke<RosterRow[]>("roster");
+export const unreadableCharacters = () => invoke<string[]>("unreadable_characters");
 export const openCharacter = (slug: string) => invoke<Sheet>("open_character", { slug });
 export const closeCharacter = () => invoke<void>("close_character");
 export const deleteCharacter = () => invoke<string>("delete_character");

@@ -22,6 +22,28 @@ pub enum Origin {
 
 /// The overlay id for an entity: `<type>:<reference>` in the data format's pipe
 /// syntax.
+/// The built-in rules with the user's own over them, and what is wrong in
+/// them, each as `file: what` (checked against `lib` when there is one).
+pub fn load(store: &dnt_store::Store, lib: Option<&Library>) -> (OverlaySet, Vec<String>) {
+    let (mut set, diags) = builtin::overlays();
+    let mut problems: Vec<String> = diags.iter().map(|d| format!("built-in rules: {d}")).collect();
+    for path in store.overlay_files() {
+        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
+            Ok((overlay, diags)) => {
+                problems.extend(diags.iter().map(|d| format!("{name}: {d}")));
+                let unknown = lib.map(|l| overlay.unresolved(l)).unwrap_or_default();
+                problems.extend(unknown.into_iter().map(|id| format!("{name}: not in the library: {id}")));
+                // A user's overlay replaces the built-in one for its feature.
+                set.replace(overlay);
+            }
+            // A parse error's first line says where; the rest quotes the file.
+            Err(e) => problems.push(format!("{name}: {}", e.lines().next().unwrap_or_default())),
+        }
+    }
+    (set, problems)
+}
+
 pub fn overlay_id(lib: &Library, entity: EntityId) -> String {
     let e = lib.entity(entity);
     let s = |k: &str| e.data.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();

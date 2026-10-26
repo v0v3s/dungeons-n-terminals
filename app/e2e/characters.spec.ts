@@ -60,6 +60,25 @@ test("a broken file is not saved and says why", { tag: "@character.edit-file" },
   await expect(page.locator(".sheet h1")).toContainText("Tester");
 });
 
+test("a character file from a newer dnt is not read", { tag: "@character.newer-file" }, async ({ page }) => {
+  await invoke(page, "e2e_put_file", { path: "characters/later.toml", text: 'format = 2\nname = "Later"\n' });
+  await go(page, "Characters");
+  await expect(page.locator(".roster .err")).toContainText("Could not read later.toml: written by a newer dnt");
+  await expect(page.locator(".card", { hasText: "Later" })).toHaveCount(0);
+  await expect(page.locator(".card", { hasText: "Tester" })).toBeVisible();
+});
+
+test("the file editor will not save a newer dnt's file", { tag: "@character.newer-file" }, async ({ page }) => {
+  await openSheet(page);
+  await more(page, "Tester", "Edit the character file…");
+  const file = dialog(page, "Tester · the file");
+  await file.getByRole("textbox").fill('format = 2\nname = "Tester"\n');
+  await file.getByRole("button", { name: "Save" }).click();
+  await expect(file.locator(".file-err")).toContainText("written by a newer dnt");
+  await file.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.locator(".sheet h1")).toContainText("Tester");
+});
+
 test("the sheet exports as a printable page and as Markdown", { tag: "@character.export" }, async ({ page }) => {
   await openSheet(page);
   await fakeFilePicker(page);

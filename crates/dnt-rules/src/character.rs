@@ -549,11 +549,12 @@ impl Character {
     }
 
     pub fn from_toml(text: &str) -> Result<Character, String> {
+        crate::format::check(text)?;
         toml::from_str(text).map_err(|e| e.to_string())
     }
 
     pub fn to_toml(&self) -> String {
-        toml::to_string_pretty(self).expect("character serialises")
+        crate::format::stamp(&toml::to_string_pretty(self).expect("character serialises"))
     }
 }
 

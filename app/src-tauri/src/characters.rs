@@ -37,6 +37,13 @@ pub async fn roster(app: State<'_, App>) -> Res<Vec<RosterRow>> {
         .collect())
 }
 
+/// The active campaign's character files that could not be read (`file:
+/// why`); they are left as they are.
+#[tauri::command]
+pub async fn unreadable_characters(app: State<'_, App>) -> Res<Vec<String>> {
+    Ok(app.lock().ws.unreadable_characters())
+}
+
 /// Everything the sheet shows.
 #[derive(Serialize)]
 pub struct Sheet {

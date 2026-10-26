@@ -98,3 +98,11 @@ test("starting over deletes everything, after confirming", { tag: "@data.reset" 
   await page.getByRole("button", { name: "Create a character" }).click();
   await expect(page.locator("button.card")).toHaveCount(0);
 });
+
+test("a mistake in the rules is named on the Data screen", { tag: "@features.rules-problems" }, async ({ page }) => {
+  await invoke(page, "e2e_put_file", { path: "overlays/mine.toml", text: '[[feature]]\nid = "feat:Nonesuch|TST"\n' });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+  await go(page, "Data");
+  await expect(pane(page, "Problems")).toContainText("Rules: mine.toml: not in the library: feat:Nonesuch|TST");
+});

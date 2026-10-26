@@ -168,6 +168,27 @@ you return. Homebrew files are data files like any other (a `_meta` block
 naming their sources, then entity lists), so you can share them or load
 them with `--homebrew`.
 
+## Compatibility
+
+From 1.0, what you keep follows [semantic versioning](https://semver.org):
+a change that breaks any of these comes in a new major version (2.0).
+
+- **Character files, `campaign.toml` and the config.** A newer dnt reads
+  the files an older one wrote. They start with `format = 1` (files
+  without it are from before 1.0 and read as format 1). A file from a
+  newer format than this dnt knows is left alone: dnt says it could not
+  read it, and does not read part of it and save over the rest.
+- **Notes, note templates, homebrew files and overlays** (the overlay
+  file, the formula language and the stat names, see `schemas/` and
+  [DESIGN.md](DESIGN.md)).
+- **The command line** (`dnt --help`).
+
+The game data is read in the data format; when that format changes, a
+dnt update follows it.
+
+Not there yet: magic weapons such as "+1 Weapon" that do not name a base
+weapon, and Great Weapon Fighting's rerolls.
+
 ## Rules (overlays)
 
 A sheet knows a feature's numbers when there are rules for it. dnt ships

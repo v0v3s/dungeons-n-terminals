@@ -9,6 +9,7 @@ pub mod class_table;
 pub mod conditions;
 pub mod engine;
 pub mod equipment;
+pub mod format;
 pub mod formula;
 pub mod levelup;
 pub mod multiclass;
