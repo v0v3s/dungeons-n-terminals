@@ -31,10 +31,14 @@ the terminal) to see how it adds up.
 
 ![The overview on a phone](images/app-sheet.png)
 
-The tab select above the sheet changes the tab. On a phone, swipe sideways
-too: the gap names the tab you are going to, and lights up once letting go
-opens it (a little under half the way). Unfold *Characters* in the menu (▸) for
-the open character's tabs: from the compendium straight to their spells.
+The tab select above the sheet changes the tab; on a phone, the row of
+icons under the app bar. Swipe sideways too: the gap names the tab you are
+going to, and lights up once letting go opens it (a little under half the
+way). Unfold *Characters* in the menu (▸) for the open character's tabs:
+from the compendium straight to their spells.
+
+On a phone, a `?` tip names each of these gestures once; *Show the tips
+again* in the sheet's `⋯` brings them back.
 
 ## Levels
 

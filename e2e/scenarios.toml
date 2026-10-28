@@ -427,6 +427,18 @@ targets = ["android"]
 not = { tui = "no touch in a terminal" }
 
 [[scenario]]
+id = "compendium.one-row"
+does = "On a phone, the search and the category share one row, and the sort sits in the results' heading, so the results start higher."
+targets = ["android"]
+not = { tui = "the terminal's compendium has its search line, categories and sort in its own layout (compendium.search, compendium.order)" }
+
+[[scenario]]
+id = "tips.gestures"
+does = "On a phone, a one-time tip names each gesture the screen does not show (swiping the tabs or the categories, holding a number); it goes once dismissed or once the gesture is used, and the sheet's ⋯ menu shows them again."
+targets = ["android"]
+not = { tui = "the terminal lists its keys at the bottom of every pane, all the time" }
+
+[[scenario]]
 id = "compendium.swipe-categories"
 does = "Swipe the results sideways on a phone: the gap names the next category, and it opens as the sheet's tabs do."
 targets = ["android"]

@@ -20,7 +20,9 @@
   import SwipeHint from "./SwipeHint.svelte";
   import TabSelect from "./TabSelect.svelte";
   import SkillsTab from "./SkillsTab.svelte";
-  import { narrow } from "./screen";
+  import { narrow, touch } from "./screen";
+  import Tip from "./Tip.svelte";
+  import { tips } from "./tips.svelte";
 
   let {
     sheet = $bindable(),
@@ -176,6 +178,7 @@
     show: (id) => (dialog = { kind: "entry", id }),
     rules: (entity) => (dialog = { kind: "rules", entity }),
     async explain(key) {
+      tips.done("sheet.hold");
       const b = await api.breakdown(key);
       if (b) dialog = { kind: "breakdown", b };
     },
@@ -271,6 +274,7 @@
       ["Export as a printable page…", () => exportAs("html")],
       ["Export as Markdown…", () => exportAs("markdown")],
       ["Delete the character…", remove],
+      ...(touch.current ? ([["Show the tips again", () => tips.reset()]] as [string, () => void][]) : []),
     ]);
   }
 
@@ -302,7 +306,10 @@
   const swipe = new Swipe<Tab>({
     items: () => SHEET_TABS.filter((t) => t !== "Notes"),
     current: () => tab,
-    open: (t) => (tab = t),
+    open: (t) => {
+      tab = t;
+      tips.done("sheet.swipe");
+    },
     body: () => body,
   });
 
@@ -413,6 +420,12 @@
     <div class="tabs">
       <TabSelect label="Tab" options={SHEET_TABS.map((t) => [t, t])} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as Tab)} />
     </div>
+  {/if}
+
+  {#if tips.due("sheet.swipe")}
+    <Tip id="sheet.swipe" text="swipe sideways for the next tab" />
+  {:else if tab === "Overview" || tab === "Skills"}
+    <Tip id="sheet.hold" text="hold a number to see how it adds up" />
   {/if}
 
   <!-- Swiping sideways changes the tab (the select above does the same). -->

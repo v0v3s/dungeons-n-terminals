@@ -38,6 +38,12 @@ become the release page.
   fold above the question, and the review is the whole list).
 - App, on a phone: a ? on a species, background, class or equipment row
   shows its full text, with a button to choose it.
+- App, on a phone: a one-time tip names each gesture the screen does not
+  show (swiping the tabs or the categories, holding a number). It goes
+  once dismissed or once the gesture is used; the sheet's ⋯ menu shows the
+  tips again.
+- App, on a phone: the compendium's search and category share one row,
+  and the sort sits in the results' heading.
 
 ## v1.0.1 - 2026-10-26
 

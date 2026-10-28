@@ -14,6 +14,8 @@
   import { Swipe } from "./swipe.svelte";
   import SwipeHint from "./SwipeHint.svelte";
   import TabSelect from "./TabSelect.svelte";
+  import Tip from "./Tip.svelte";
+  import { tips } from "./tips.svelte";
   import { working } from "./working.svelte";
 
   let {
@@ -263,7 +265,10 @@
   const swipe = new Swipe<number>({
     items: () => (found?.categories ?? []).map((_, i) => i),
     current: () => category,
-    open: (i) => setCategory(i),
+    open: (i) => {
+      setCategory(i);
+      tips.done("compendium.swipe");
+    },
     body: () => swipeBody,
   });
 
@@ -387,7 +392,7 @@
       oninput={run}
       onfocus={() => (searching = true)}
       onblur={() => (searching = false)}
-      placeholder={touch ? "search the compendium" : "search  /"}
+      placeholder={touch ? "search" : "search  /"}
       spellcheck="false"
       autocomplete="off"
       autocapitalize="off"
@@ -397,15 +402,17 @@
   </label>
 {/snippet}
 
+{#snippet orderSelect()}
+  <label class="order">
+    <span class="dim">sort</span>
+    <select value={order} onchange={(e) => setOrder(Number(e.currentTarget.value))}>
+      {#each found?.orders ?? [] as label, i (i)}<option value={i}>{label}</option>{/each}
+    </select>
+  </label>
+{/snippet}
+
 {#snippet rows()}
-  {#if found?.orders.length}
-    <label class="order">
-      <span class="dim">sort</span>
-      <select value={order} onchange={(e) => setOrder(Number(e.currentTarget.value))}>
-        {#each found.orders as label, i (i)}<option value={i}>{label}</option>{/each}
-      </select>
-    </label>
-  {/if}
+  {#if touch}<Tip id="compendium.swipe" text="swipe sideways for the next category" />{/if}
   {#if touch}
     <!-- Swiping sideways changes the category (the select above does the same). -->
     <div class="swipe" role="presentation" bind:this={swipeBody} ontouchstart={swipe.start} ontouchmove={swipe.move} ontouchend={swipe.end} ontouchcancel={swipe.end}>
@@ -464,9 +471,10 @@
   {#if touch}
     <!-- Touch: search on top, extra keys while typing, then chips. -->
     <div class="search-area">
-      <Pane title="search" focused={searching} class="searchpane">
-        {@render searchbox()}
-      </Pane>
+      <div class="searchrow">
+        <div class="searchbox" class:on={searching}>{@render searchbox()}</div>
+        {@render categoryBar()}
+      </div>
       {#if searching && keyboard}
         <div class="extra no-bar">
           {#each KEYS as k (k)}
@@ -475,17 +483,13 @@
           <button class="key wide" onmousedown={(e) => e.preventDefault()} onclick={() => complete()} disabled={!found?.suggestions.length}>tab</button>
         </div>
       {/if}
-      <div class="bar">
       {#if found?.suggestions.length}
         <div class="chips no-bar">
           {#each found.suggestions as [value, n] (value)}
             <button class="chip" onmousedown={(e) => e.preventDefault()} onclick={() => complete(value)}>{value} <span class="dim">{n}</span></button>
           {/each}
         </div>
-      {:else}
-        {@render categoryBar()}
       {/if}
-      </div>
     </div>
   {:else}
     <div class="bar">
@@ -499,6 +503,7 @@
       title={touch ? `${found?.total ?? 0} results` : "Browse"}
       focused={!touch && (searching || !open)}
       footer={!touch && found ? `${found.total} results` : ""}
+      aside={found?.orders.length ? orderSelect : undefined}
       class="browse"
     >
       {#if !touch}
@@ -623,13 +628,11 @@
   .order {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 1ch;
-    margin: 0.2em 0 0.4em;
-    flex-shrink: 0;
   }
   .order select {
     font-size: 0.9em;
+    min-width: 0;
   }
   .entry-actions {
     display: flex;
@@ -816,8 +819,28 @@
     gap: 10px;
     padding-top: 10px;
   }
-  .search-area :global(.searchpane) {
-    padding: 0 6px 0 14px;
+  .searchrow {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .searchbox {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 4px 0 12px;
+  }
+  .searchbox.on {
+    border-color: var(--accent);
+  }
+  .searchrow .categories {
+    flex: 0 1 45%;
+    min-width: 0;
+    max-width: 45%;
+  }
+  .searchrow .categories :global(.tabsel) {
+    height: 100%;
   }
   .touch .prompt {
     min-height: 48px;
