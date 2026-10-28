@@ -19,16 +19,27 @@
   import { Swipe } from "./swipe.svelte";
   import SwipeHint from "./SwipeHint.svelte";
   import TabSelect from "./TabSelect.svelte";
+  import SkillsTab from "./SkillsTab.svelte";
+  import { narrow } from "./screen";
 
   let {
     sheet = $bindable(),
     tab = $bindable("Overview"),
+    actions = $bindable([]),
     onclose,
     onnote,
-  }: { sheet: api.Sheet; tab?: SheetTab; onclose: () => void; onnote: (path: string) => void } = $props();
+  }: {
+    sheet: api.Sheet;
+    tab?: SheetTab;
+    /// The sheet's own actions (warnings, the ⋯ menu), for the app bar on a phone.
+    actions?: { label: string; name: string; onclick: () => void }[];
+    onclose: () => void;
+    onnote: (path: string) => void;
+  } = $props();
 
   const TAB_ICONS: Record<SheetTab, IconName> = {
     Overview: "characters",
+    Skills: "d20",
     Features: "features",
     Spells: "spells",
     Inventory: "inventory",
@@ -49,6 +60,13 @@
   let message = $state("");
   let rolled: api.Rolled | null = $state(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /// A roll's line as its number, what it is and its dice: `7 piercing
+  /// damage (1d6 + 2)`, `17 to hit`, `off hand 5 (1d6)`.
+  function numbered(line: string) {
+    const m = line.match(/^(.*?)([+-]?\d+)(.*?)(?:\s*\((.*)\))?$/);
+    return m ? { num: m[2], label: `${m[1]} ${m[3]}`.trim(), dice: m[4] ?? "" } : null;
+  }
+
   function say(m: string, r: api.Rolled | null = null) {
     message = m;
     rolled = r;
@@ -99,6 +117,13 @@
     | { kind: "rules"; entity: number }
     | { kind: "warnings" };
   let dialog: Dialog | null = $state(null);
+
+  $effect(() => {
+    actions = [
+      ...(sheet.header.warnings.length ? [{ label: "⚠", name: "Warnings", onclick: () => (dialog = { kind: "warnings" }) }] : []),
+      { label: "⋯", name: "More", onclick: more },
+    ];
+  });
   /// Counts closings. A dialog opened while the last still fades out is
   /// that one again, so what holds a state in it (a filter, a draft) is
   /// keyed on this, and starts afresh.
@@ -345,6 +370,8 @@
 {#snippet view(t: Tab)}
   {#if t === "Overview"}
     <OverviewTab o={sheet.overview} {ctx} onconditions={conditions} />
+  {:else if t === "Skills"}
+    <SkillsTab o={sheet.overview} {ctx} />
   {:else if t === "Features"}
     <FeaturesTab groups={sheet.features} {ctx} />
   {:else if t === "Spells"}
@@ -375,9 +402,18 @@
     </div>
   {/if}
 
-  <div class="tabs">
-    <TabSelect label="Tab" options={SHEET_TABS.map((t) => [t, t])} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as Tab)} />
-  </div>
+  {#if narrow.current}
+    <!-- A phone: every tab as an icon, in one row. -->
+    <div class="icontabs" role="tablist">
+      {#each SHEET_TABS as t (t)}
+        <button role="tab" aria-label={t} aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}><Icon name={TAB_ICONS[t]} size="1.5em" /></button>
+      {/each}
+    </div>
+  {:else}
+    <div class="tabs">
+      <TabSelect label="Tab" options={SHEET_TABS.map((t) => [t, t])} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as Tab)} />
+    </div>
+  {/if}
 
   <!-- Swiping sideways changes the tab (the select above does the same). -->
   <div class="body" role="presentation" bind:this={body} ontouchstart={swipe.start} ontouchmove={swipe.move} ontouchend={swipe.end} ontouchcancel={swipe.end}>
@@ -388,14 +424,26 @@
   </div>
 
   {#if message}
-    <div class="status" class:roll={rolled}>
-      {#if rolled}
+    {#if rolled}
+      <!-- A roll: big, its number first; a tap puts it away. -->
+      <button class="status roll" onclick={() => ((message = ""), (rolled = null))}>
         <span class="rtitle"><Icon name="d20" /> {rolled.title}</span>
-        <b class:crit={rolled.crit === true} class:fumble={rolled.crit === false}>{rolled.result}</b>
-        <span class="dim">{rolled.detail}</span>
-        {#each rolled.extra as e, i (i)}<div>{e}</div>{/each}
-      {:else}{message}{/if}
-    </div>
+        <!-- The result and each damage side by side, their numbers big. -->
+        <span class="nums" class:many={rolled.extra.length > 0}>
+          {#each [rolled.result, ...rolled.extra] as line, i (i)}
+            {@const p = numbered(line)}
+            <span class="n" class:dmg={i > 0}>
+              <b class:word={!p} class:crit={i === 0 && rolled.crit === true} class:fumble={i === 0 && rolled.crit === false}>{p ? p.num : line}</b>
+              {#if p?.label}<span class="label">{p.label}</span>{/if}
+              <!-- The result's own dice under it, each damage's under that. -->
+              {#if i === 0}<span class="dim detail">{rolled.detail}</span>{:else if p?.dice}<span class="dim">{p.dice}</span>{/if}
+            </span>
+          {/each}
+        </span>
+      </button>
+    {:else}
+      <div class="status">{message}</div>
+    {/if}
   {/if}
 </div>
 
@@ -665,12 +713,76 @@
     background: var(--bar);
   }
   .status.roll {
-    border-color: var(--accent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2em;
+    width: 100%;
+    padding: 0.8em 2ch 1em;
+    border: 2px solid var(--accent);
+    font: inherit;
+    color: var(--fg);
+    cursor: pointer;
+    box-shadow: 0 -0.5em 1.5em rgb(0 0 0 / 0.5);
+  }
+  .status.roll .rtitle {
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+    font-weight: 700;
+  }
+  .nums {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4em 4ch;
+  }
+  .n {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .status b {
     color: var(--accent);
-    font-size: 1.2em;
-    margin: 0 1ch;
+    font-size: 3.2em;
+    line-height: 1.1;
+  }
+  .nums.many b {
+    font-size: 2.6em;
+  }
+  .n.dmg b {
+    color: var(--red);
+  }
+  /* A result in words ("critical hit", "fails"): big, but leaving room. */
+  .status b.word,
+  .nums.many b.word {
+    font-size: 1.8em;
+    line-height: 1.6;
+  }
+  .n .label {
+    font-weight: 700;
+  }
+  .status .detail {
+    text-align: center;
+  }
+  .icontabs {
+    display: flex;
+    margin: 0.4em 0 0.2em;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .icontabs button {
+    flex: 1;
+    min-height: 48px;
+    background: none;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    color: var(--dim);
+    cursor: pointer;
+  }
+  .icontabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
   }
   .status b.crit {
     color: var(--green);
@@ -759,12 +871,12 @@
     .flag .wide {
       display: none;
     }
-    /* The top bar has the name. */
-    .who h1 {
+    /* A phone's app bar has the name, the level and the sheet's actions. */
+    :global(.touch) .head {
       display: none;
     }
-    .who {
-      align-self: center;
+    .flags {
+      margin: 0.4em 0 0;
     }
     .flag {
       min-height: 36px;

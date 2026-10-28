@@ -1,9 +1,9 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
 
 /// Choose an action from the sheet's ⋯ menu.
 async function more(page: Page, name: string, action: string) {
-  await page.locator(".sheet .head").getByRole("button", { name: "More" }).click();
+  await sheetMore(page);
   await choose(page, name, action);
 }
 
@@ -38,7 +38,7 @@ const apply = (page: Page) =>
     .getByRole("button", { name: "Apply the level" })
     .click();
 /// An ability's score on the overview.
-const score = (page: Page, ability: string) => page.locator(`.abil .aname:text-is("${ability}") + .c`);
+const score = (page: Page, ability: string) => page.locator(`.abil .score[data-of="${ability}"]`);
 
 test("levelling up the same class takes the average hit points", { tag: "@levelup.average" }, async ({ page }) => {
   await openSheet(page);
@@ -78,7 +78,7 @@ test("the maximum hit points can be taken", { tag: "@levelup.hp" }, async ({ pag
 
 test("a level in another class, when the scores allow it", { tag: "@levelup.multiclass" }, async ({ page }) => {
   await seedLevels(page, "tester", 2);
-  await openSheet(page);
+  await openSheet(page, "Skills");
   // Wisdom 11 → 13: with Dexterity 14, the Warden is open.
   await more(page, "Tester", "Level up…");
   await pick(page, ["Mage 3 → 4"]);
@@ -125,7 +125,7 @@ test("the subclass is chosen at the level the class gets it", { tag: "@levelup.s
 
 test("an ability score improvement raises a score", { tag: "@levelup.asi" }, async ({ page }) => {
   await seedLevels(page, "tester", 2);
-  await openSheet(page);
+  await openSheet(page, "Skills");
   await expect(score(page, "Intelligence")).toHaveText("14");
   await more(page, "Tester", "Level up…");
   await pick(page, ["Mage 3 → 4"]);

@@ -385,7 +385,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "roll.hit-die"
-does = "Roll a hit die to heal."
+does = "Roll a hit die to heal: in the app, tap its bar under the hit points."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -411,8 +411,20 @@ targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the category" }
 
 [[scenario]]
+id = "sheet.app-bar"
+does = "On a phone the app bar carries the open character: their name and level, the warnings and the sheet's ⋯ menu, with the tabs as icons right under it."
+targets = ["android"]
+not = { tui = "the terminal's sheet has its name and level in its own title line" }
+
+[[scenario]]
+id = "sheet.skills-tab"
+does = "Abilities (score, check, save) and skills have their own tab, after the overview; every number there rolls when tapped."
+targets = ["app"]
+not = { tui = "the terminal's sheet shows every pane at once: abilities and skills sit beside the overview" }
+
+[[scenario]]
 id = "sheet.swipe-tabs"
-does = "Swipe sideways on a phone: the sheet follows the finger and the gap it leaves names the next tab (its icon and name), lit once letting go opens it: past 45% of the width, or with a flick; otherwise it slides back. The tab select shows the open tab."
+does = "Swipe sideways on a phone: the sheet follows the finger and the gap it leaves names the next tab (its icon and name), lit once letting go opens it: past 45% of the width, or with a flick; otherwise it slides back. The tab icons show the open tab."
 targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the tab, and every tab is always in sight" }
 
@@ -423,7 +435,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "resources.spend"
-does = "Spend and restore uses: features, spell slots, pact slots, hit dice."
+does = "Spend and restore uses: features (Tracking), spell slots and pact slots (the Spells tab in the app), hit dice (under the hit points in the app)."
 targets = ["tui", "app"]
 
 [[scenario]]

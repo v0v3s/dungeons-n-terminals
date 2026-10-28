@@ -70,7 +70,8 @@ test("a character is made step by step", { tag: "@creation.full" }, async ({ pag
   await expect(page.locator(".sheet h1")).toContainText("Nova");
   await expect(identity(page)).toContainText("Kindred · Archivist · Mage 1");
   // Intelligence 13 + 2.
-  await expect(page.locator('.abil .aname:text-is("Intelligence") + .c')).toHaveText("15");
+  await sheetTab(page, "Skills");
+  await expect(page.locator('.abil .score[data-of="Intelligence"]')).toHaveText("15");
   await expect(page.locator("button.skill", { hasText: "Stealth" }).locator(".mark")).toHaveClass(/on/);
   await expect(page.locator("button.skill", { hasText: "Survival" }).locator(".mark")).not.toHaveClass(/on/);
   await tab(page, "Features");

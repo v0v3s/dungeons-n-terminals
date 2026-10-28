@@ -1,11 +1,11 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, fakeFilePicker, go, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
+import { choose, dialog, expect, fakeFilePicker, go, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
 
 const card = (page: Page, name: string) => page.locator("button.card", { hasText: name });
 
 /// Choose an action from the sheet's ⋯ menu.
 async function more(page: Page, name: string, action: string) {
-  await page.locator(".sheet .head").getByRole("button", { name: "More" }).click();
+  await sheetMore(page);
   await choose(page, name, action);
 }
 
@@ -44,7 +44,8 @@ test("deleting a character asks first; declining keeps them", { tag: "@roster.de
 test("editing the character's file changes the sheet", { tag: "@character.edit-file" }, async ({ page }) => {
   await openSheet(page);
   await editFile(page, "Tester", (t) => t.replace("str = 15", "str = 20"));
-  await expect(page.locator('.abil .aname:text-is("Strength") + .c')).toHaveText("20");
+  await sheetTab(page, "Skills");
+  await expect(page.locator('.abil .score[data-of="Strength"]')).toHaveText("20");
   await expect(page.locator("button.num:not(.save)").first()).toContainText("+5");
 });
 
@@ -119,4 +120,13 @@ test("what the rules could not work out shows as warnings", { tag: "@character.w
   await expect(page.locator(".sheet .id")).toContainText("Hexer 1");
   await page.getByRole("button", { name: "Warnings" }).click();
   await expect(dialog(page, "Warnings")).toContainText("multiclassing Hexer requires");
+});
+
+test("on a phone the app bar has the name, the level and the sheet's menu", { tag: ["@sheet.app-bar", "@android"] }, async ({ page }) => {
+  await openSheet(page);
+  await expect(page.locator(".bar .name")).toHaveText("Tester · Lv 1");
+  await expect(page.locator(".sheet .head")).toBeHidden();
+  await expect(page.locator(".sheet .icontabs").getByRole("tab")).toHaveCount(6);
+  await sheetMore(page);
+  await expect(dialog(page, "Tester")).toBeVisible();
 });

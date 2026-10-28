@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
+import { answer, choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
 
 const roll = (page: Page) => page.locator(".status.roll");
 const attack = (page: Page, name: string) => page.locator(".attack").filter({ has: page.locator(".aname", { hasText: name }) });
@@ -10,7 +10,7 @@ const tile = (page: Page, label: string) => page.locator("button.tile", { hasTex
 
 /// The sheet's own menu (⋯ by the name).
 async function more(page: Page, name: string, action: string | RegExp) {
-  await page.locator(".sheet .head").getByRole("button", { name: "More" }).click();
+  await sheetMore(page);
   await choose(page, name, action);
 }
 
@@ -59,19 +59,19 @@ test("advantage or disadvantage is chosen for the next roll only", { tag: "@roll
   await expect(mode).toHaveText(/next roll: normal/);
   await mode.click();
   await expect(mode).toHaveText(/next roll: advantage/);
-  await page.locator("button.skill", { hasText: "Arcana" }).click();
+  await tile(page, "Init").click();
   await expect(roll(page)).toContainText("advantage (chosen)");
   await expect(mode).toHaveText(/next roll: normal/);
 
   await mode.click();
   await mode.click();
   await expect(mode).toHaveText(/next roll: disadvantage/);
-  await page.locator("button.skill", { hasText: "History" }).click();
+  await tile(page, "Init").click();
   await expect(roll(page)).toContainText("disadvantage (chosen)");
   await expect(mode).toHaveText(/next roll: normal/);
 
-  await page.locator("button.skill", { hasText: "Arcana" }).click();
-  await expect(roll(page)).toContainText("Arcana");
+  await tile(page, "Init").click();
+  await expect(roll(page)).toContainText("Initiative");
   await expect(roll(page)).not.toContainText("chosen");
 });
 
@@ -80,7 +80,7 @@ test("rolls are written into the latest session note", { tag: "@roll.to-notes" }
   await page.evaluate(() => localStorage.removeItem("dnt.logRolls"));
   const note = await invoke<string>(page, "note_new_session");
   try {
-    await openSheet(page);
+    await openSheet(page, "Skills");
     await more(page, "Tester", "Write rolls into the session note");
     await page.locator("button.skill", { hasText: "Arcana" }).click();
     await expect(roll(page)).toContainText("Arcana");

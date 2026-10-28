@@ -161,3 +161,20 @@ option {
   background: var(--bg);
   color: var(--fg);
 }
+
+/* A number that rolls when tapped: the same box everywhere on the sheet. */
+.rollbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5ch;
+  padding: 0.15em 0.6ch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-weight: 700;
+}
+button.rollbox:hover,
+button:hover > .rollbox {
+  border-color: var(--accent);
+}

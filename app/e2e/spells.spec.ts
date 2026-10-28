@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
 
 const spell = (page: Page, name: string) => page.locator("button.spell", { hasText: name });
 const slot = (page: Page, name: string) => page.locator(".slot", { hasText: name });
@@ -133,7 +133,7 @@ test("a free cast is spent and comes back on a long rest", { tag: "@spells.cast-
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  await page.locator(".sheet .head").getByRole("button", { name: "More" }).click();
+  await sheetMore(page);
   await choose(page, "Hexa", "Long rest");
   await choose(page, "Long rest", "Yes");
   await spell(page, "Ember Bolt").click();

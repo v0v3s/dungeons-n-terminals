@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { CAMPAIGN, expect, go, openSheet, sheetTab, test } from "./fixtures";
+import { CAMPAIGN, expect, expectTab, go, openSheet, sheetTab, test } from "./fixtures";
 
 test("the sections are reached from the menu or the header", { tag: "@nav.sections" }, async ({ page }) => {
   await go(page, "Characters");
@@ -75,7 +75,7 @@ test("every screen fits its window", { tag: "@layout.fits" }, async ({ page }) =
   await fits(page, "Compendium entry");
 
   await openSheet(page, "Overview");
-  for (const tab of ["Overview", "Features", "Spells", "Inventory", "Notes"] as const) {
+  for (const tab of ["Overview", "Skills", "Spells", "Inventory", "Features", "Notes"] as const) {
     await sheetTab(page, tab);
     await fits(page, `sheet: ${tab}`);
   }
@@ -93,7 +93,7 @@ test("the menu reaches inside a section: a category, the open character's tab", 
   await page.getByRole("button", { name: "What is in Compendium" }).click();
   // From the compendium straight to the character's spells.
   await inside("characters").filter({ has: page.getByText("Spells", { exact: true }) }).click();
-  await expect(page.locator(".sheet .tabs select")).toHaveValue("Spells");
+  await expectTab(page, "Spells");
   // And to a category of the compendium: its results, not an open entry.
   await menu();
   await inside("compendium").nth(2).click();

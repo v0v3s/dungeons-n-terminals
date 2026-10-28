@@ -27,6 +27,7 @@ test("the screens", async ({ page }) => {
 
   await openSheet(page);
   await shot(page, "app-sheet");
+  await sheetTab(page, "Skills");
   await page.locator("button.skill", { hasText: "Arcana" }).click();
   await expect(page.locator(".status.roll")).toBeVisible();
   await shot(page, "app-overview");

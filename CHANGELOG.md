@@ -8,6 +8,20 @@ become the release page.
 
 ## Unreleased
 
+### Changed
+
+- App, on a phone: the app bar carries the open character (their name and
+  level, the warnings and the sheet's ⋯ menu); the sheet's own header is
+  gone, and the tabs are a row of icons.
+- App: the sheet's tabs are Overview, Skills, Spells, Inventory, Features
+  and Notes: abilities (score, check, save) and skills have their own tab.
+- App: every number that rolls is a box, the same everywhere on the
+  sheet.
+- App: a roll shows big, its numbers first; an attack's to-hit and
+  damage side by side. A tap puts it away.
+- App: the hit dice are a bar under the hit points (tap it to roll one
+  and heal); spell slots are only on the Spells tab, not under Tracking.
+
 ## v1.0.1 - 2026-10-26
 
 ### Added

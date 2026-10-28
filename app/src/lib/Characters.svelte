@@ -12,8 +12,16 @@
     status,
     open = $bindable(null),
     tab = $bindable("Overview"),
+    actions = $bindable([]),
     onnote,
-  }: { status: api.Status; open?: string | null; tab?: SheetTab; onnote: (path: string) => void } = $props();
+  }: {
+    status: api.Status;
+    open?: string | null;
+    tab?: SheetTab;
+    /// The open sheet's actions, for the app bar.
+    actions?: { label: string; name: string; onclick: () => void }[];
+    onnote: (path: string) => void;
+  } = $props();
 
   let roster: api.RosterRow[] = $state([]);
   let unreadable: string[] = $state([]);
@@ -70,7 +78,8 @@
   }
 
   $effect(() => {
-    open = sheet ? sheet.header.name : creating ? `new: ${creating.name}` : null;
+    // The name with the character's level (all classes together).
+    open = sheet ? (sheet.header.level ? `${sheet.header.name} · Lv ${sheet.header.level}` : sheet.header.name) : creating ? `new: ${creating.name}` : null;
   });
 
   onMount(load);
@@ -90,7 +99,7 @@
     }}
   />
 {:else if sheet}
-  <Sheet bind:sheet bind:tab onclose={back} {onnote} />
+  <Sheet bind:sheet bind:tab bind:actions onclose={back} {onnote} />
 {:else}
   <div class="roster">
     {#if !status.campaign}
