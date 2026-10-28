@@ -265,7 +265,17 @@ export interface Target {
 }
 
 export type SpellRow =
-  | { type: "header"; title: string; detail: string; counts: [string, number, number][]; class_id: string | null }
+  | {
+      type: "header";
+      title: string;
+      detail: string;
+      counts: [string, number, number][];
+      class_id: string | null;
+      /// A casting class's save DC, spell attack and highest spell level.
+      dc: string | null;
+      attack: string | null;
+      max_level: number | null;
+    }
   | {
       type: "spell";
       id: string;
@@ -273,6 +283,10 @@ export type SpellRow =
       name: string;
       mark: "cantrip" | "prepared" | "book" | "granted";
       detail: string;
+      /// 0 for a cantrip; null when the spell is not in the data.
+      level: number | null;
+      /// It has dice to roll (damage or healing).
+      rollable: boolean;
       favorite: boolean;
       castable: boolean;
       free: boolean;
@@ -306,6 +320,8 @@ export interface Line {
   /// A weapon: whether it counts as a monk weapon (null when that does
   /// not apply).
   monk_weapon: boolean | null;
+  /// Something to wear or hold, or worn or held already.
+  equippable: boolean;
 }
 
 export interface Inventory {

@@ -132,7 +132,7 @@ test("armor is worn in a slot, a weapon and a shield held; AC and attacks follow
   await choose(page, "Quilted Coat", "Wear it in…");
   await expect(dialog(page, "Wear it where?")).toBeVisible();
   await pick(page, ["Body"]);
-  await expect(line(page, "Quilted Coat")).toContainText("◉");
+  await expect(page.getByRole("checkbox", { name: "Equipped: Quilted Coat" })).toHaveAttribute("aria-checked", "true");
   await expect(slot(page, "Body")).toContainText("Quilted Coat");
   const coat = await armorClass(page);
   expect(coat).toBe(bare + 1);
@@ -174,13 +174,13 @@ test("attuning to an item adds its bonuses; ending it takes them away", { tag: "
   await line(page, "Ring of Warding").click();
   await choose(page, "Ring of Warding", "Attune");
   await expect(line(page, "Ring of Warding")).toContainText("★");
-  await expect(page.locator(".totals")).toContainText(/Attuned\s*1\s*\/ 3/);
+  await expect(page.locator(".totals")).toContainText(/1\s*\/ 3\s*attuned/);
   expect(await armorClass(page)).toBe(bare + 1);
 
   await line(page, "Ring of Warding").click();
   await choose(page, "Ring of Warding", "End attunement");
   await expect(line(page, "Ring of Warding")).not.toContainText("★");
-  await expect(page.locator(".totals")).toContainText(/Attuned\s*0\s*\/ 3/);
+  await expect(page.locator(".totals")).toContainText(/0\s*\/ 3\s*attuned/);
   expect(await armorClass(page)).toBe(bare);
 });
 
@@ -261,4 +261,17 @@ test("an item's entry is read from the inventory", { tag: "@inventory.read" }, a
   // The menu, titled the same, closes as the entry opens.
   await expect(dialog(page, "Grimoire").last()).toContainText("A mage's spellbook.");
   await expect(dialog(page, "Grimoire").last()).toContainText("The Proving Grounds");
+});
+
+test("the box by a line equips it or puts it away; other things have none", { tag: "@inventory.equip-box" }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  const staff = page.getByRole("checkbox", { name: "Equipped: Ashstaff", exact: true });
+  await staff.click();
+  await expect(staff).toHaveAttribute("aria-checked", "true");
+  await expect(slot(page, "Main hand")).toContainText("Ashstaff");
+  await staff.click();
+  await expect(staff).toHaveAttribute("aria-checked", "false");
+  await expect(slot(page, "Main hand")).not.toContainText("Ashstaff");
+  // Nothing to wear or hold: no box.
+  await expect(page.getByRole("checkbox", { name: "Equipped: Ink Quill" })).toHaveCount(0);
 });

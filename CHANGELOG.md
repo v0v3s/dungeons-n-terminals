@@ -21,6 +21,13 @@ become the release page.
   damage side by side. A tap puts it away.
 - App: the hit dice are a bar under the hit points (tap it to roll one
   and heal); spell slots are only on the Spells tab, not under Tracking.
+- App: a class's spells are sorted by level, each level under its own
+  heading with its slots beside it; the class's save DC, attack bonus
+  and highest level sit in boxes at the top. Preparing a spell is a box
+  to tick.
+- App: a spell with dice has a roll button on its row.
+- App: an item you can wear or hold has a box to equip it on its row;
+  the carried weight and the attuned items are boxes under the list.
 
 ## v1.0.1 - 2026-10-26
 

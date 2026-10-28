@@ -7,7 +7,7 @@ async function at(page: Page, name: string) {
   const slots = name.endsWith("slots");
   await sheetTab(page, slots ? "Spells" : "Overview");
   return slots
-    ? page.locator(".slot").filter({ has: page.locator(".sname", { hasText: name }) })
+    ? page.locator(`.slot[data-pool^="${name}"]`)
     : page.locator(".tracker").filter({ has: page.locator(".tname", { hasText: name }) });
 }
 const left = async (page: Page, name: string) => (await at(page, name)).locator(".count");

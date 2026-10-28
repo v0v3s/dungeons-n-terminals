@@ -512,6 +512,12 @@ does = "Cast a spell for free (an innate use), which comes back on a rest."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "spells.by-level"
+does = "Spells are grouped by level under each casting class, whose save DC, attack and highest level are boxes; each level's heading has its slots (and pact slots), to spend and restore."
+targets = ["app"]
+not = { tui = "the terminal lists each class's spells with their level, and its slots in their own section" }
+
+[[scenario]]
 id = "spells.prepare"
 does = "Prepare and unprepare a spell from the spellbook."
 targets = ["tui", "app"]
@@ -528,7 +534,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.roll"
-does = "Roll a spell's attack or save and damage, with its class's numbers."
+does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- inventory
@@ -551,6 +557,12 @@ targets = ["tui", "app"]
 id = "inventory.homebrew-item"
 does = "Create a campaign item from a template and carry it."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.equip-box"
+does = "Tap the box beside a line to equip it (a weapon in hand, armor worn) or put it away; lines with nothing to wear or hold have no box. Carried weight and attunement are boxes under the list."
+targets = ["app"]
+not = { tui = "the terminal equips with Space on the line, shown by its mark" }
 
 [[scenario]]
 id = "inventory.equip"
