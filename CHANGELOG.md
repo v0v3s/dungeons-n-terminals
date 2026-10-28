@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.1.0 - 2026-10-28
+
 ### Changed
 
 - App, on a phone: the app bar carries the open character (their name and
