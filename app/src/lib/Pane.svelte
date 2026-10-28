@@ -1,6 +1,7 @@
 <!-- A rounded box with its title set into the top border, as the TUI's panes.
      With `fold`, tapping the title folds it to that line (and back); the
-     state is kept per `fold` key on this device. -->
+     state is kept per `fold` key on this device. `aside` sits in the top
+     border on the right (a select for the list below). -->
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { untrack } from "svelte";
@@ -11,6 +12,7 @@
     footer = "",
     fold = "",
     summary = "",
+    aside,
     children,
     class: cls = "",
   }: {
@@ -21,6 +23,7 @@
     fold?: string;
     /// What a folded pane shows after its title.
     summary?: string;
+    aside?: Snippet;
     children: Snippet;
     class?: string;
   } = $props();
@@ -57,6 +60,7 @@
   {:else if title}
     <h2 class="title">{title}</h2>
   {/if}
+  {#if aside && !folded}<div class="aside">{@render aside()}</div>{/if}
   {#if !folded}<div class="body">{@render children()}</div>{/if}
   {#if footer && !folded}<div class="footer">{footer}</div>{/if}
 </section>
@@ -128,6 +132,15 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+  .aside {
+    position: absolute;
+    top: -0.85em;
+    right: 1ch;
+    padding: 0 1ch;
+    background: var(--bg);
+    line-height: 1.5;
+    max-width: 55%;
   }
   .footer {
     position: absolute;

@@ -579,6 +579,11 @@ pub enum SpellRow {
         counts: Vec<(String, usize, i64)>,
         /// Add spells here (a casting class's id).
         class_id: Option<String>,
+        /// A casting class's spell save DC, spell attack and the highest
+        /// level of spell it casts.
+        dc: Option<String>,
+        attack: Option<String>,
+        max_level: Option<i64>,
     },
     Spell {
         id: String,
@@ -586,8 +591,12 @@ pub enum SpellRow {
         name: String,
         /// `cantrip`, `prepared`, `book`, `granted`.
         mark: &'static str,
-        /// `8d6 fire · level 3 · C`.
+        /// `8d6 fire · C` (the level is in `level`).
         detail: String,
+        /// The spell's level, 0 for a cantrip (none when not in the data).
+        level: Option<i64>,
+        /// It has dice to roll (damage or healing).
+        rollable: bool,
         favorite: bool,
         /// Cast from slots (or free casts): leveled spells.
         castable: bool,
@@ -627,16 +636,19 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 detail.push(how);
             }
             let mut castable = false;
+            let mut level = None;
+            let mut rollable = false;
             if let Some(e) = e {
                 let lvl = spells::spell_level(lib, e);
+                level = Some(lvl);
                 castable = lvl > 0;
                 let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
+                rollable = r.dice.is_some();
                 let (_, dc) = crate::rolls::spell_numbers(s, caster.as_deref());
                 let modifier = dc - 8 - ev.int("prof").unwrap_or(2);
                 if let Some(d) = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() }) {
                     detail.push(format!("{d} {}", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
                 }
-                detail.push(if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
                 if spells::concentration(lib, e) {
                     detail.push("C".into());
                 }
@@ -657,6 +669,8 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 name: e.map_or_else(|| id.to_string(), |e| lib.entity(e).name.clone()),
                 mark,
                 detail: detail.join(" · "),
+                level,
+                rollable,
                 favorite: ch.spells.favorites.iter().any(|f| f == id),
                 castable,
                 free,
@@ -667,9 +681,15 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
             }
         };
         out.push(match row {
-            Row::FavoritesHeader => {
-                SpellRow::Header { title: "★ Favorites".into(), detail: String::new(), counts: Vec::new(), class_id: None }
-            }
+            Row::FavoritesHeader => SpellRow::Header {
+                title: "★ Favorites".into(),
+                detail: String::new(),
+                counts: Vec::new(),
+                class_id: None,
+                dc: None,
+                attack: None,
+                max_level: None,
+            },
             Row::ClassHeader(c) => {
                 let caster = &data.casters[*c];
                 let mine = ch.spells.classes.get(&caster.id).cloned().unwrap_or_default();
@@ -697,6 +717,9 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                     ),
                     counts,
                     class_id: Some(caster.id.clone()),
+                    dc: Some(stat(ev, &format!("spell.{}.dc", caster.slug))),
+                    attack: Some(signed(ev, &format!("spell.{}.attack", caster.slug))),
+                    max_level: Some(l.max_level),
                 }
             }
             Row::ClassSpell { id, slot, caster } => {
@@ -708,9 +731,15 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 };
                 spell(id, mark, how, class_id, false)
             }
-            Row::GrantHeader(g) => {
-                SpellRow::Header { title: s.build.granted[*g].origin.clone(), detail: String::new(), counts: Vec::new(), class_id: None }
-            }
+            Row::GrantHeader(g) => SpellRow::Header {
+                title: s.build.granted[*g].origin.clone(),
+                detail: String::new(),
+                counts: Vec::new(),
+                class_id: None,
+                dc: None,
+                attack: None,
+                max_level: None,
+            },
             Row::GrantSpell { id, how, .. } => {
                 let (text, free) = match how {
                     Grant::Prepared => ("always prepared".to_string(), false),
@@ -768,6 +797,9 @@ pub struct Line {
     /// `None` for other lines, and for characters without Martial Arts
     /// (unless marked by hand).
     pub monk_weapon: Option<bool>,
+    /// Something to wear or hold (a weapon, armor, a shield, a ring, …), or
+    /// worn or held already: the inventory offers to equip it.
+    pub equippable: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -840,6 +872,14 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                         t
                     })
                     .unwrap_or_default(),
+                equippable: line.equipped
+                    || line.hand.is_some()
+                    || entity.is_some_and(|e| {
+                        let d = &lib.entity(e).data;
+                        equipment::is_held(d)
+                            || equipment::armor_kind(d).is_some()
+                            || equipment::guess_slot(ch, &line_name(lib, line), d) != Slot::Other
+                    }),
                 monk_weapon: entity
                     .and_then(|e| dnt_rules::attacks::Weapon::from_item(&lib.entity(e).name.to_lowercase(), &lib.entity(e).data))
                     .filter(|_| s.build.martial_arts.is_some() || line.monk_weapon.is_some())

@@ -108,7 +108,7 @@
     ctx.menu(l.name, actions);
   }
 
-  const mark = (l: Line) => (l.attuned ? "★" : l.worn ? "◉" : l.held ? "◈" : l.needs_attunement ? "☆" : "");
+  const mark = (l: Line) => (l.attuned ? "★" : l.needs_attunement ? "☆" : "");
 </script>
 
 <div class="inventory">
@@ -127,9 +127,20 @@
         {:else if folds}
           <span class="foldbtn"></span>
         {/if}
+        <!-- Equip it (wear or hold) or not, right here. -->
+        {#if l.equippable}
+          <button
+            class="equip"
+            role="checkbox"
+            aria-checked={l.worn || l.held}
+            aria-label="Equipped: {l.name}"
+            onclick={() => ctx.act({ command: "equip", line: l.index })}>{l.worn ? "◉" : l.held ? "◈" : ""}</button
+          >
+        {:else}
+          <span class="equip none"></span>
+        {/if}
         <button class="line" onclick={() => menu(l)}>
-          <span class="mark" class:dim={!l.worn && !l.held && !l.attuned}>{mark(l)}</span>
-          <span class="name" class:box={l.fill !== null}>{l.name}</span>
+          <span class="name" class:box={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}</span>
           <span class="kind dim">{l.kind}{#if l.fill} <span class:over={l.over} class="fill">{l.fill}</span>{/if}{l.weightless ? " weightless" : ""}</span>
           <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
           <span class="lb dim">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
@@ -137,8 +148,10 @@
       </div>
     {/each}
     <div class="totals">
-      <div><span class="dim">Carried</span> <b class:over={inv.carried > inv.capacity}>{inv.carried.toFixed(1)}</b> <span class="muted">/ {inv.capacity} lb</span></div>
-      <div><span class="dim">Attuned</span> <b class:over={inv.attuned > 3}>{inv.attuned}</b> <span class="muted">/ 3</span></div>
+      <span class="box"><span><b class:over={inv.carried > inv.capacity}>{inv.carried.toFixed(1)}</b> <span class="muted">/ {inv.capacity} lb</span></span><span class="dim">carried</span></span>
+      <span class="box"><span><b class:over={inv.attuned > 3}>{inv.attuned}</b> <span class="muted">/ 3</span></span><span class="dim">attuned</span></span>
+    </div>
+    <div class="money">
       <button class="coins" onclick={coins}>
         <span class="dim">Coins</span>
         {#each inv.coins as [c, n] (c)}<span><b class="c-{c}">{n}</b> <span class="dim">{c}</span></span>{/each}
@@ -208,7 +221,7 @@
     min-width: 0;
     width: 100%;
     display: grid;
-    grid-template-columns: 2ch minmax(0, 1fr) auto 4ch 8ch;
+    grid-template-columns: minmax(0, 1fr) auto 4ch 8ch;
     gap: 1ch;
     padding: 0.1em 0.5ch;
   }
@@ -239,13 +252,49 @@
   .lb {
     text-align: right;
   }
+  .equip {
+    flex: 0 0 auto;
+    width: 2.4ch;
+    height: 2.4ch;
+    align-self: center;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1ch;
+    padding: 0 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+  .equip[aria-checked="true"] {
+    border-color: var(--accent) !important;
+  }
+  .equip.none {
+    border: 0 !important;
+  }
   .totals {
-    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1ch;
     margin-top: 0.75em;
-    padding-top: 0.5em;
+  }
+  .box {
     display: flex;
     flex-direction: column;
-    gap: 0.2em;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.4em 0.5ch;
+  }
+  .box b {
+    color: var(--accent);
+    font-size: 1.2em;
+  }
+  .box > .dim {
+    font-size: 0.8em;
+  }
+  .money {
+    margin-top: 0.6em;
   }
   .coins {
     display: flex;
@@ -283,13 +332,13 @@
   }
   @media (max-width: 760px) {
     .line {
-      grid-template-columns: 2ch minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       min-height: 48px;
       align-items: center;
       border-top: 1px solid rgb(65 72 104 / 0.3);
     }
     .kind {
-      grid-column: 2;
+      grid-column: 1;
       grid-row: 2;
       font-size: 0.85em;
     }
@@ -304,6 +353,10 @@
     .foldbtn {
       flex-basis: 5ch;
       font-size: 1.3em;
+    }
+    .equip {
+      width: 32px;
+      height: 32px;
     }
     .coins {
       min-height: 44px;

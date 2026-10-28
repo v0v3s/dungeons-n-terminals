@@ -8,6 +8,45 @@ become the release page.
 
 ## Unreleased
 
+## v1.1.0 - 2026-10-28
+
+### Changed
+
+- App, on a phone: the app bar carries the open character (their name and
+  level, the warnings and the sheet's ⋯ menu); the sheet's own header is
+  gone, and the tabs are a row of icons.
+- App: the sheet's tabs are Overview, Skills, Spells, Inventory, Features
+  and Notes: abilities (score, check, save) and skills have their own tab.
+- App: every number that rolls is a box, the same everywhere on the
+  sheet.
+- App: a roll shows big, its numbers first; an attack's to-hit and
+  damage side by side. A tap puts it away.
+- App: the hit dice are a bar under the hit points (tap it to roll one
+  and heal); spell slots are only on the Spells tab, not under Tracking.
+- App: a class's spells are sorted by level, each level under its own
+  heading with its slots beside it; the class's save DC, attack bonus
+  and highest level sit in boxes at the top. Preparing a spell is a box
+  to tick.
+- App: a spell with dice has a roll button on its row.
+- App: an item you can wear or hold has a box to equip it on its row;
+  the carried weight and the attuned items are boxes under the list.
+- Creating a character: each choice in a list says what it gives (a
+  species its increases and speed, a background its skills and feat, a
+  class its hit die, main abilities and saves, a feat what it needs).
+- Creating a character: the ability scores are one screen, the method
+  picked on it (`m` in the terminal) instead of a step before.
+- Creating a character: the steps list what was chosen in each. In the
+  app, tap a finished step to choose it again (on a phone, the steps
+  fold above the question, and the review is the whole list).
+- App, on a phone: a ? on a species, background, class or equipment row
+  shows its full text, with a button to choose it.
+- App, on a phone: a one-time tip names each gesture the screen does not
+  show (swiping the tabs or the categories, holding a number). It goes
+  once dismissed or once the gesture is used; the sheet's ⋯ menu shows the
+  tips again.
+- App, on a phone: the compendium's search and category share one row,
+  and the sort sits in the results' heading.
+
 ## v1.0.1 - 2026-10-26
 
 ### Added

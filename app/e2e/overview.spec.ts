@@ -1,6 +1,6 @@
 import { adb } from "./android";
 import { drag, swipe } from "./touch";
-import { dialog, expect, openSheet, status, test } from "./fixtures";
+import { dialog, expect, expectTab, openSheet, sheetTab, status, test } from "./fixtures";
 
 test.beforeEach(async ({ page }) => openSheet(page));
 
@@ -8,6 +8,7 @@ test.beforeEach(async ({ page }) => openSheet(page));
 const intSave = (page: import("@playwright/test").Page) => page.locator("button.num.save").nth(3);
 
 test("holding a number explains it without rolling; tapping a name explains the score", { tag: "@explain.number" }, async ({ page }) => {
+  await sheetTab(page, "Skills");
   await intSave(page).click({ button: "right" });
   await expect(dialog(page, "Intelligence save")).toContainText("Intelligence + proficiency");
   await expect(status(page)).toHaveCount(0);
@@ -17,23 +18,38 @@ test("holding a number explains it without rolling; tapping a name explains the 
   await expect(dialog(page, "Intelligence")).toContainText("base score");
   await page.keyboard.press("Escape");
 
-  await page.locator("button", { hasText: /AC$/ }).first().click({ button: "right" });
-  await expect(dialog(page, "Armor Class")).toBeVisible();
+  await page.locator("button.skill", { hasText: "Arcana" }).click({ button: "right" });
+  await expect(dialog(page, "Arcana")).toContainText("Intelligence");
   await page.keyboard.press("Escape");
 
+  await sheetTab(page, "Overview");
+  await page.locator("button", { hasText: /AC$/ }).first().click({ button: "right" });
+  await expect(dialog(page, "Armor Class")).toBeVisible();
+});
+
+test("abilities and skills have their own tab", { tag: "@sheet.skills-tab" }, async ({ page }) => {
+  await expect(page.locator("button.skill")).toHaveCount(0);
+  await sheetTab(page, "Skills");
+  await expect(page.locator(".abil .score")).toHaveCount(6);
+  await expect(page.locator("button.skill", { hasText: "Arcana" })).toBeVisible();
   await page.locator("button.skill", { hasText: "Arcana" }).click({ button: "right" });
   await expect(dialog(page, "Arcana")).toContainText("Intelligence");
 });
 
 test("tapping a check, a save, a skill and initiative rolls them", { tag: "@roll.checks" }, async ({ page }) => {
+  await sheetTab(page, "Skills");
   await intSave(page).click();
   await expect(page.locator(".status.roll")).toContainText("Intelligence");
   await page.locator("button.num:not(.save)").nth(1).click();
   await expect(page.locator(".status.roll")).toContainText("Dexterity");
   await page.locator("button.skill", { hasText: "Arcana" }).click();
   await expect(page.locator(".status.roll")).toContainText("Arcana");
+  await sheetTab(page, "Overview");
   await page.locator("button", { hasText: /Init\.$/ }).first().click();
   await expect(page.locator(".status.roll")).toContainText("Initiative");
+  // A tap puts the roll away.
+  await page.locator(".status.roll").click();
+  await expect(page.locator(".status.roll")).toHaveCount(0);
 });
 
 /// Touch and hold the middle of an element with a finger on the device's
@@ -52,6 +68,7 @@ async function touchAndHold(page: import("@playwright/test").Page, target: impor
 }
 
 test("on a phone, touching and holding a number explains it without rolling", { tag: ["@explain.touch-hold", "@android"] }, async ({ page }) => {
+  await sheetTab(page, "Skills");
   await touchAndHold(page, intSave(page));
   await expect(dialog(page, "Intelligence save")).toContainText("Intelligence + proficiency");
   await expect(status(page)).toHaveCount(0);
@@ -64,34 +81,32 @@ test("on a phone, touching and holding a number explains it without rolling", { 
   await expect(page.locator(".rolled")).toHaveCount(0);
 });
 
-test("swiping changes the tab, and the select shows it", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
-  const select = page.locator(".sheet .tabs select");
-  for (const next of ["Features", "Spells", "Inventory"]) {
+test("swiping changes the tab, and the tab icons show it", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
+  for (const next of ["Skills", "Spells", "Inventory", "Features"] as const) {
     await swipe(page, page.locator(".sheet > .body"), 0.8, 0.2);
-    await expect(select).toHaveValue(next);
+    await expectTab(page, next);
   }
-  // Notes is the character's note, elsewhere: Inventory is the last swiped to.
+  // Notes is the character's note, elsewhere: Features is the last swiped to.
   await swipe(page, page.locator(".sheet > .body"), 0.8, 0.2);
-  await expect(select).toHaveValue("Inventory");
+  await expectTab(page, "Features");
   await swipe(page, page.locator(".sheet > .body"), 0.2, 0.8);
-  await expect(select).toHaveValue("Spells");
+  await expectTab(page, "Inventory");
 });
 
 test("dragging shows the next tab; short of 45% it slides back, past it the tab opens", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
   const body = page.locator(".sheet > .body");
-  const active = page.locator(".sheet .tabs select");
   const hint = page.locator(".sheet .swipe-hint");
-  // A third of the way: the gap names Features, not yet lit; it slides back.
+  // A third of the way: the gap names Skills, not yet lit; it slides back.
   await drag(page, body, 0.8, [0.65, 0.5], async () => {
-    await expect(hint).toContainText("Features");
+    await expect(hint).toContainText("Skills");
     await expect(hint).not.toHaveClass(/ready/);
   });
   await expect(hint).toHaveCount(0);
-  await expect(active).toHaveValue("Overview");
+  await expectTab(page, "Overview");
   // Half the way: it opens.
   await drag(page, body, 0.8, [0.65, 0.5, 0.3], async () => {
     await expect(hint).toHaveClass(/ready/);
   });
-  await expect(active).toHaveValue("Features");
+  await expectTab(page, "Skills");
   await expect(hint).toHaveCount(0);
 });

@@ -45,6 +45,8 @@
   /// The open character's tab, and the compendium's category with every
   /// one there is: the menu lists them under their sections.
   let sheetTab = $state<SheetTab>("Overview");
+  /// The open sheet's actions (warnings, ⋯): in the app bar on a phone.
+  let sheetActions = $state<{ label: string; name: string; onclick: () => void }[]>([]);
   let category = $state(0);
   let categories = $state<[string, number][]>([]);
   // A sheet, not a character being made (`new: <name>`).
@@ -127,6 +129,7 @@
   /// The compendium's actions in the app bar: a new homebrew entry, and
   /// its sources.
   const appActions = $derived.by(() => {
+    if (!welcome && section === "characters" && sheetOpen) return sheetActions;
     if (welcome || section !== "compendium" || opened || !status?.loaded) return [];
     const c = status.campaigns.find((c) => c.active);
     const books = !c?.sources.length ? "all" : String(c.sources.length);
@@ -244,7 +247,7 @@
           oncampaigns={() => (section = "campaigns")}
         />{/key}
     {:else if section === "characters"}
-      {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} bind:tab={sheetTab} {status} onnote={openNote} />{/key}
+      {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} bind:tab={sheetTab} bind:actions={sheetActions} {status} onnote={openNote} />{/key}
     {:else if section === "notes"}
       {#key status.campaign}<Notes bind:this={notes} bind:openPath={notePath} bind:reading={noteOpen} {status} narrow={narrow.current} />{/key}
     {:else if section === "campaigns"}

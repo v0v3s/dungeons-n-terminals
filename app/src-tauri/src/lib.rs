@@ -191,6 +191,7 @@ pub fn run() {
             characters::creation_answer,
             characters::creation_back,
             characters::creation_preview,
+            characters::creation_reopen,
             characters::creation_finish,
             notes::note_tree,
             notes::note_read,

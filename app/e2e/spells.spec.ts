@@ -1,8 +1,9 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, sheetTab, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
 
 const spell = (page: Page, name: string) => page.locator("button.spell", { hasText: name });
-const slot = (page: Page, name: string) => page.locator(".slot", { hasText: name });
+/// A level's slots (or the pact slots), in its heading on the Spells tab.
+const slot = (page: Page, name: string) => page.locator(`.slot[data-pool^="${name}"]`);
 
 /// Add spells to the first class on the Spells tab, one at a time.
 async function addSpells(page: Page, names: string[]) {
@@ -56,6 +57,10 @@ test("a cantrip rolls with the mage's numbers", { tag: "@spells.roll" }, async (
   await addSpells(page, ["Frost Needle"]);
   await spell(page, "Frost Needle").click();
   await dialog(page, "Frost Needle").getByRole("button", { name: "Roll it" }).click();
+  await expect(page.locator(".status.roll")).toContainText("Frost Needle");
+  await page.locator(".status.roll").click();
+  // Or straight from its roll button.
+  await page.getByRole("button", { name: "Roll Frost Needle" }).click();
   await expect(page.locator(".status.roll")).toContainText("Frost Needle");
 });
 
@@ -133,7 +138,7 @@ test("a free cast is spent and comes back on a long rest", { tag: "@spells.cast-
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  await page.locator(".sheet .head").getByRole("button", { name: "More" }).click();
+  await sheetMore(page);
   await choose(page, "Hexa", "Long rest");
   await choose(page, "Long rest", "Yes");
   await spell(page, "Ember Bolt").click();
@@ -147,12 +152,26 @@ test("a free cast is spent and comes back on a long rest", { tag: "@spells.cast-
 test("a spell in the spellbook is prepared and unprepared", { tag: "@spells.prepare" }, async ({ page }) => {
   await openSheet(page, "Spells");
   await addSpells(page, ["Ember Bolt"]);
-  const mark = spell(page, "Ember Bolt").locator(".mark");
-  const before = await mark.textContent();
-  await act(page, "Ember Bolt", before === "●" ? "Unprepare" : "Prepare");
-  await expect(mark).not.toHaveText(before ?? "");
-  await act(page, "Ember Bolt", before === "●" ? "Prepare" : "Unprepare");
-  await expect(mark).toHaveText(before ?? "");
+  // Its box on the left, and its menu, both prepare it.
+  const prepared = page.getByRole("checkbox", { name: "Prepared: Ember Bolt" });
+  const before = (await prepared.getAttribute("aria-checked")) === "true";
+  await prepared.click();
+  await expect(prepared).toHaveAttribute("aria-checked", String(!before));
+  await act(page, "Ember Bolt", before ? "Prepare" : "Unprepare");
+  await expect(prepared).toHaveAttribute("aria-checked", String(before));
+});
+
+test("spells are grouped by level, each level's slots in its heading", { tag: "@spells.by-level" }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  await addSpells(page, ["Frost Needle", "Ember Bolt"]);
+  const level = (title: string) => page.locator(".level", { has: page.locator(".ltitle", { hasText: title }) });
+  await expect(level("Cantrips")).toBeVisible();
+  await expect(level("Level 1").locator(".slot")).toContainText("2/2");
+  // A spell sits under its level's heading.
+  const after = (title: string, name: string) =>
+    page.locator(`.level:has(.ltitle:text-is("${title}")) ~ .srow`, { hasText: name }).first();
+  await expect(after("Level 1", "Ember Bolt")).toBeVisible();
+  await expect(page.locator(".boxes").first()).toContainText("save DC");
 });
 
 test("a spell is made a favorite, and no longer", { tag: "@spells.favorite" }, async ({ page }) => {

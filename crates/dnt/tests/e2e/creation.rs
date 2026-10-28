@@ -73,7 +73,6 @@ fn a_character_is_made_step_by_step() {
     let mut t = start(Tui::scenario("creation.full", Home::party()), "Newbie");
     answer(&mut t, "Choose a species", "Kindred");
     answer(&mut t, "Choose a background", "Drifter");
-    answer(&mut t, "How do you want to set ability scores?", "Standard");
     // Swap Strength's 15 with Dexterity's 14.
     see(&mut t, "Ability scores · Standard array");
     t.send("h");
@@ -152,8 +151,11 @@ fn scores_are_bought_with_27_points() {
     let mut t = start(Tui::scenario("creation.point-buy", Home::party()), "Buyer");
     answer(&mut t, "Choose a species", "Kindred");
     answer(&mut t, "Choose a background", "Archivist");
-    answer(&mut t, "How do you want to set ability scores?", "Point buy");
+    // The scores start as the standard array; `m` changes the method.
+    see(&mut t, "Ability scores · Standard array");
+    t.send("m");
     see(&mut t, "Ability scores · Point buy");
+    see(&mut t, "▸Point buy");
     see(&mut t, "Points left 27/27");
     t.send("l");
     see(&mut t, "Points left 26/27");
@@ -291,4 +293,34 @@ fn going_back_changes_an_answer_and_esc_at_the_start_cancels() {
     t.quit();
     let files = std::fs::read_dir(t.home.campaign_file("characters")).unwrap().count();
     assert_eq!(files, 4);
+}
+
+#[test]
+fn each_choice_says_what_it_gives() {
+    let mut t = start(Tui::scenario("creation.row-hints", Home::party()), "Reader");
+    // A species: its speed and skills; a background: skills, increases, feat.
+    t.wait("speed 30 ft · any 1 skill");
+    answer(&mut t, "Choose a species", "Kindred");
+    see(&mut t, "Choose a background");
+    t.wait("Archivist  History, Investigation · +2/+1 INT/WIS/CHA");
+    answer(&mut t, "Choose a background", "Archivist");
+    until(&mut t, "Choose your starting class");
+    // A class: its hit die, main abilities and saves.
+    t.wait("d10 · DEX & WIS · saves STR, DEX");
+}
+
+#[test]
+fn the_steps_list_what_was_chosen_in_each() {
+    let mut t = start(Tui::scenario("creation.checklist", Home::party()), "Lister");
+    answer(&mut t, "Choose a species", "Kindred");
+    answer(&mut t, "Choose a background", "Archivist");
+    see(&mut t, "Ability scores · Standard array");
+    // Under each finished step, what was chosen in it.
+    let s = t.screen();
+    let lines: Vec<String> = s.lines().map(squash).collect();
+    let at = lines.iter().position(|l| l.contains("✓ Background")).unwrap_or_else(|| panic!("{s}"));
+    assert!(lines[at + 1].contains("│ Background") && lines[at + 2].contains("│ Archivist"), "{s}");
+    let species = lines.iter().position(|l| l.contains("✓ Species")).unwrap();
+    assert!(lines[species + 2].contains("│ Kindred"), "{s}");
+    assert!(lines.iter().any(|l| l.contains("▸ Ability scores")), "{s}");
 }

@@ -243,7 +243,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "creation.point-buy"
-does = "Set the ability scores by point buy, within the 27 points."
+does = "Set the ability scores on one screen: switch the method (standard array, point buy, manual) there, and by point buy stay within the 27 points."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -260,6 +260,28 @@ targets = ["tui", "app"]
 id = "creation.equipment-pick"
 does = "Pick an item for an equipment choice (any instrument, an arcane focus)."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.row-hints"
+does = "Each choice in a list says in a line what it gives: a species its increases, speed and senses, a background its skills, increases and feat, a class its hit die, main abilities and saves, a feat what it needs."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.checklist"
+does = "The steps are a checklist, each with what was chosen in it; on a phone it folds above the question, and the review is the whole checklist."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.reopen"
+does = "Tap a finished step of the checklist (or of the review) to choose it again; what came after it is undone."
+targets = ["app"]
+not = { tui = "the terminal goes back an answer at a time with Esc (creation.back); its checklist has no pointer to pick a step with" }
+
+[[scenario]]
+id = "creation.details"
+does = "On a phone, read a choice's full text (a species' traits, an equipment package's contents) from the ? on its row, and choose it from there."
+targets = ["android"]
+not = { tui = "the terminal shows the highlighted choice's full text beside the list all the time" }
 
 [[scenario]]
 id = "creation.back"
@@ -385,7 +407,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "roll.hit-die"
-does = "Roll a hit die to heal."
+does = "Roll a hit die to heal: in the app, tap its bar under the hit points."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -405,14 +427,38 @@ targets = ["android"]
 not = { tui = "no touch in a terminal" }
 
 [[scenario]]
+id = "compendium.one-row"
+does = "On a phone, the search and the category share one row, and the sort sits in the results' heading, so the results start higher."
+targets = ["android"]
+not = { tui = "the terminal's compendium has its search line, categories and sort in its own layout (compendium.search, compendium.order)" }
+
+[[scenario]]
+id = "tips.gestures"
+does = "On a phone, a one-time tip names each gesture the screen does not show (swiping the tabs or the categories, holding a number); it goes once dismissed or once the gesture is used, and the sheet's ⋯ menu shows them again."
+targets = ["android"]
+not = { tui = "the terminal lists its keys at the bottom of every pane, all the time" }
+
+[[scenario]]
 id = "compendium.swipe-categories"
 does = "Swipe the results sideways on a phone: the gap names the next category, and it opens as the sheet's tabs do."
 targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the category" }
 
 [[scenario]]
+id = "sheet.app-bar"
+does = "On a phone the app bar carries the open character: their name and level, the warnings and the sheet's ⋯ menu, with the tabs as icons right under it."
+targets = ["android"]
+not = { tui = "the terminal's sheet has its name and level in its own title line" }
+
+[[scenario]]
+id = "sheet.skills-tab"
+does = "Abilities (score, check, save) and skills have their own tab, after the overview; every number there rolls when tapped."
+targets = ["app"]
+not = { tui = "the terminal's sheet shows every pane at once: abilities and skills sit beside the overview" }
+
+[[scenario]]
 id = "sheet.swipe-tabs"
-does = "Swipe sideways on a phone: the sheet follows the finger and the gap it leaves names the next tab (its icon and name), lit once letting go opens it: past 45% of the width, or with a flick; otherwise it slides back. The tab select shows the open tab."
+does = "Swipe sideways on a phone: the sheet follows the finger and the gap it leaves names the next tab (its icon and name), lit once letting go opens it: past 45% of the width, or with a flick; otherwise it slides back. The tab icons show the open tab."
 targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the tab, and every tab is always in sight" }
 
@@ -423,7 +469,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "resources.spend"
-does = "Spend and restore uses: features, spell slots, pact slots, hit dice."
+does = "Spend and restore uses: features (Tracking), spell slots and pact slots (the Spells tab in the app), hit dice (under the hit points in the app)."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -500,6 +546,12 @@ does = "Cast a spell for free (an innate use), which comes back on a rest."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "spells.by-level"
+does = "Spells are grouped by level under each casting class, whose save DC, attack and highest level are boxes; each level's heading has its slots (and pact slots), to spend and restore."
+targets = ["app"]
+not = { tui = "the terminal lists each class's spells with their level, and its slots in their own section" }
+
+[[scenario]]
 id = "spells.prepare"
 does = "Prepare and unprepare a spell from the spellbook."
 targets = ["tui", "app"]
@@ -516,7 +568,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.roll"
-does = "Roll a spell's attack or save and damage, with its class's numbers."
+does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- inventory
@@ -539,6 +591,12 @@ targets = ["tui", "app"]
 id = "inventory.homebrew-item"
 does = "Create a campaign item from a template and carry it."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.equip-box"
+does = "Tap the box beside a line to equip it (a weapon in hand, armor worn) or put it away; lines with nothing to wear or hold have no box. Carried weight and attunement are boxes under the list."
+targets = ["app"]
+not = { tui = "the terminal equips with Space on the line, shown by its mark" }
 
 [[scenario]]
 id = "inventory.equip"

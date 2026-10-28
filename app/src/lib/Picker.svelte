@@ -1,4 +1,5 @@
-<!-- Choose from a list: type to filter, pick one (or `count`). -->
+<!-- Choose from a list: type to filter, pick one (or `count`). With
+     `oninfo`, each row has a ? to read about its choice first. -->
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import type { Choice } from "./api";
@@ -10,12 +11,14 @@
     initial = 0,
     onpick,
     onhighlight,
+    oninfo,
   }: {
     choices: Choice[];
     count?: number;
     initial?: number;
     onpick: (values: string[]) => void;
     onhighlight?: (value: string) => void;
+    oninfo?: (c: Choice) => void;
   } = $props();
 
   let filter = $state("");
@@ -93,6 +96,7 @@
         {#if c.warning}<span class="warn">⚠ {c.warning}</span>{/if}
         <span class="hint dim">{c.hint}</span>
       </button>
+      {#if oninfo}<button class="info" aria-label="About {c.label}" onclick={() => oninfo(c)}>?</button>{/if}
     </li>
   {/each}
   {#if !shown.length}<li class="dim none">Nothing matches.</li>{/if}
@@ -140,8 +144,13 @@
     min-height: 0;
     flex: 1;
   }
-  li button {
-    width: 100%;
+  li {
+    display: flex;
+    align-items: stretch;
+  }
+  li button:not(.info) {
+    flex: 1;
+    min-width: 0;
     display: flex;
     gap: 1ch;
     align-items: center;
@@ -162,6 +171,18 @@
   }
   .box {
     color: var(--accent);
+  }
+  .info {
+    flex: none;
+    align-self: center;
+    width: 4ch;
+    margin-left: 0.5ch;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--cyan);
+    font-weight: 700;
+    cursor: pointer;
   }
   .label {
     flex: 1;
@@ -185,16 +206,20 @@
     padding: 0.5em;
   }
   @media (pointer: coarse) {
-    li button {
+    li button:not(.info) {
       min-height: 48px;
       padding: 0 12px;
       border-left-width: 3px;
     }
-    li + li button {
+    li + li {
       border-top: 1px solid rgb(65 72 104 / 0.35);
     }
+    .info {
+      width: 44px;
+      height: 44px;
+    }
     /* The hint gets its own line. */
-    li button {
+    li button:not(.info) {
       flex-wrap: wrap;
       row-gap: 0;
       padding-top: 6px;

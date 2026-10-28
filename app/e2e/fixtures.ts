@@ -141,7 +141,7 @@ export async function go(page: Page, section: "Compendium" | "Characters" | "Not
 }
 
 /// Open a character's sheet (Tester by default) on a tab.
-export async function openSheet(page: Page, tab: "Overview" | "Features" | "Spells" | "Inventory" = "Overview", name = "Tester") {
+export async function openSheet(page: Page, tab: Exclude<SheetTab, "Notes"> = "Overview", name = "Tester") {
   // A character open (shown or not): close it, as the app shows an open
   // character's sheet in Characters, and start from a fresh frontend.
   if (await invoke(page, "sheet").then(() => true, () => false)) {
@@ -154,9 +154,24 @@ export async function openSheet(page: Page, tab: "Overview" | "Features" | "Spel
   await sheetTab(page, tab);
 }
 
-/// Change the open sheet's tab (Notes opens the character's note).
-export async function sheetTab(page: Page, tab: "Overview" | "Features" | "Spells" | "Inventory" | "Notes") {
-  await page.locator(".sheet .tabs select").selectOption(tab);
+export type SheetTab = "Overview" | "Skills" | "Spells" | "Inventory" | "Features" | "Notes";
+
+/// Change the open sheet's tab (Notes opens the character's note): its
+/// icon on a phone, its select elsewhere.
+export async function sheetTab(page: Page, tab: SheetTab) {
+  if (await phone(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
+  else await page.locator(".sheet .tabs select").selectOption(tab);
+}
+
+/// The open sheet's tab, as its icons or its select show it.
+export async function expectTab(page: Page, tab: SheetTab) {
+  if (await phone(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
+  else await expect(page.locator(".sheet .tabs select")).toHaveValue(tab);
+}
+
+/// The sheet's own ⋯ menu: in the app bar on a phone, by the name elsewhere.
+export async function sheetMore(page: Page) {
+  await page.locator(".bar, .sheet .head").getByRole("button", { name: "More", exact: true }).filter({ visible: true }).first().click();
 }
 
 /// The open dialog with this title.
