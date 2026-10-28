@@ -1,9 +1,9 @@
 //! The character creation wizard: shows the questions of
-//! `dnt_core::creation` as pickers and the ability score editor. Esc goes
-//! back a step.
+//! `dnt_core::creation` as pickers and the ability score editor (`m`
+//! changes how the scores are set). Esc goes back a step.
 
-use dnt_core::creation::NewCharacter;
-use dnt_core::flow::{AbilityScores, Answer, Question};
+use dnt_core::creation::{NewCharacter, StepRow};
+use dnt_core::flow::{AbilityScores, Answer, Method, Question};
 use dnt_data::{EntityId, Library, SourceFilter};
 use dnt_rules::character::Character;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
@@ -58,12 +58,12 @@ impl Wizard {
         &self.view
     }
 
-    pub fn summary(&self) -> &[(String, String)] {
+    pub fn summary(&self) -> Vec<(String, String)> {
         self.flow.summary()
     }
 
-    pub fn progress(&self) -> Vec<(&'static str, bool, bool)> {
-        self.flow.progress()
+    pub fn steps(&self) -> Vec<StepRow> {
+        self.flow.steps()
     }
 
     fn highlighted(&self) -> Option<&str> {
@@ -126,6 +126,11 @@ impl Wizard {
                     ed.scores.adjust(ed.cursor, false);
                     return Outcome::Continue;
                 }
+                KeyCode::Char('m') => Answer::Method(match ed.scores.method {
+                    Method::StandardArray => Method::PointBuy,
+                    Method::PointBuy => Method::Manual,
+                    Method::Manual => Method::StandardArray,
+                }),
                 KeyCode::Enter => Answer::Scores(ed.scores.scores),
                 _ => return Outcome::Continue,
             },

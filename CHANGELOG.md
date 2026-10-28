@@ -28,6 +28,16 @@ become the release page.
 - App: a spell with dice has a roll button on its row.
 - App: an item you can wear or hold has a box to equip it on its row;
   the carried weight and the attuned items are boxes under the list.
+- Creating a character: each choice in a list says what it gives (a
+  species its increases and speed, a background its skills and feat, a
+  class its hit die, main abilities and saves, a feat what it needs).
+- Creating a character: the ability scores are one screen, the method
+  picked on it (`m` in the terminal) instead of a step before.
+- Creating a character: the steps list what was chosen in each. In the
+  app, tap a finished step to choose it again (on a phone, the steps
+  fold above the question, and the review is the whole list).
+- App, on a phone: a ? on a species, background, class or equipment row
+  shows its full text, with a button to choose it.
 
 ## v1.0.1 - 2026-10-26
 

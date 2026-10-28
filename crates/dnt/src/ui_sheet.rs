@@ -1855,7 +1855,8 @@ pub(crate) fn draw_wizard(
     let inner = block.inner(steps);
     frame.render_widget(block, steps);
     let mut lines: Vec<Line> = Vec::new();
-    for (label, done, current) in w.progress() {
+    for step in w.steps() {
+        let (done, current, label) = (step.done, step.current, step.label);
         let (mark, style) = match (done, current) {
             (_, true) => ("▸ ", Style::new().fg(theme.accent).add_modifier(Modifier::BOLD)),
             (true, _) => ("✓ ", Style::new().fg(theme.accent)),
@@ -1874,12 +1875,12 @@ pub(crate) fn draw_wizard(
                 },
             ),
         ]));
-    }
-    lines.push(Line::default());
-    for (k, v) in w.summary() {
-        lines.push(Line::styled(k.clone(), theme.label));
-        for part in wrap_words(v, inner.width.saturating_sub(2) as usize) {
-            lines.push(Line::styled(format!("  {part}"), theme.muted));
+        // What was chosen in it, under it.
+        for (k, v) in &step.chosen {
+            lines.push(Line::styled(format!("  {k}"), theme.label));
+            for part in wrap_words(v, inner.width.saturating_sub(4) as usize) {
+                lines.push(Line::styled(format!("    {part}"), theme.muted));
+            }
         }
     }
     frame.render_widget(Paragraph::new(lines), inner);
@@ -1890,7 +1891,9 @@ pub(crate) fn draw_wizard(
             p.title.clone(),
             if p.multi.is_some() { "space toggle · enter next · esc back" } else { "type to filter · enter choose · esc back" },
         ),
-        View::Abilities(ed) => (format!("Ability scores · {}", ed.scores.method.label()), "j k move · h l adjust · enter next · esc back"),
+        View::Abilities(ed) => {
+            (format!("Ability scores · {}", ed.scores.method.label()), "j k move · h l adjust · m method · enter next · esc back")
+        }
         View::Review => ("Review".to_string(), "enter create · esc back"),
     };
     let block = pane(pane_title(&title, true, theme), true, theme)
@@ -1902,6 +1905,16 @@ pub(crate) fn draw_wizard(
         View::Pick(p) => draw_picker(frame, inner, p, theme),
         View::Abilities(ed) => {
             let mut lines = Vec::new();
+            let mut methods = vec![Span::styled("Method  ", theme.label)];
+            for m in [Method::StandardArray, Method::PointBuy, Method::Manual] {
+                let on = m == ed.scores.method;
+                methods.push(Span::styled(
+                    format!("{}{}  ", if on { "▸" } else { " " }, m.label()),
+                    if on { Style::new().fg(theme.accent).add_modifier(Modifier::BOLD) } else { theme.dim },
+                ));
+            }
+            methods.push(Span::styled("(m)", theme.dim));
+            lines.push(Line::from(methods));
             match ed.scores.method {
                 Method::PointBuy => {
                     let left = ed.scores.points_left();
@@ -1936,7 +1949,7 @@ pub(crate) fn draw_wizard(
         View::Review => {
             let mut lines = vec![Line::styled("Everything below is saved to the character file.", theme.dim), Line::default()];
             for (k, v) in w.summary() {
-                for (i, part) in wrap_words(v, inner.width.saturating_sub(22) as usize).into_iter().enumerate() {
+                for (i, part) in wrap_words(&v, inner.width.saturating_sub(22) as usize).into_iter().enumerate() {
                     let key = if i == 0 { k.as_str() } else { "" };
                     lines.push(Line::from(vec![Span::styled(format!("{key:<22}"), theme.label), Span::raw(part)]));
                 }

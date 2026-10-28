@@ -1,7 +1,8 @@
 <!-- A flow's question (dnt_core::flow): pick from a list, type a number,
-     set ability scores, or confirm. -->
+     set ability scores (the method, then each score up or down), or
+     confirm. -->
 <script lang="ts">
-  import type { Answer, Question } from "./api";
+  import type { Answer, Choice, Method, Question } from "./api";
   import Picker from "./Picker.svelte";
 
   let {
@@ -11,6 +12,7 @@
     confirm = "Apply",
     onhighlight,
     onscores,
+    oninfo,
   }: {
     question: Question;
     onanswer: (a: Answer) => void;
@@ -18,9 +20,25 @@
     confirm?: string;
     onhighlight?: (value: string) => void;
     onscores?: (scores: number[]) => void;
+    /// Read about a choice (a ? on each row).
+    oninfo?: (c: Choice) => void;
   } = $props();
 
   const NAMES = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
+  /// What each ability is for, under its name.
+  const USES = [
+    "melee, Athletics",
+    "AC, initiative",
+    "hit points",
+    "Arcana, History",
+    "Perception, Insight",
+    "Persuasion, Deception",
+  ];
+  const METHODS: [Method, string][] = [
+    ["standard_array", "Standard array"],
+    ["point_buy", "Point buy"],
+    ["manual", "Manual"],
+  ];
   const ARRAY = [15, 14, 13, 12, 10, 8];
   const cost = (s: number) => ({ 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 })[s] ?? 0;
 
@@ -71,7 +89,7 @@
 {#if question.type === "pick"}
   <div class="title muted">{question.title}</div>
   {#key question.title + question.choices.length}
-    <Picker choices={question.choices} count={question.count} onpick={(v) => onanswer({ type: "pick", value: v })} {onhighlight} />
+    <Picker choices={question.choices} count={question.count} onpick={(v) => onanswer({ type: "pick", value: v })} {onhighlight} {oninfo} />
   {/key}
 {:else if question.type === "number"}
   <div class="title muted">{question.title}</div>
@@ -88,21 +106,29 @@
     <button class="primary" type="submit">OK</button>
   </form>
 {:else if question.type === "abilities"}
+  <div class="methods" role="group" aria-label="Method">
+    {#each METHODS as [m, label] (m)}
+      <button class="method" aria-pressed={m === method} onclick={() => m !== method && onanswer({ type: "method", value: m })}>{label}</button>
+    {/each}
+  </div>
   <div class="title muted">
-    {#if method === "point_buy"}Points left <b class:bad={left < 0}>{left}/27</b>{:else if method === "standard_array"}Swap values between abilities{:else}Set each score{/if}
+    {#if method === "point_buy"}
+      <span class="budget" class:bad={left < 0}><b>{left}</b> / 27 points left</span>
+    {:else if method === "standard_array"}Raising a score swaps it with the next value{:else}Set each score: rolled at the table, or anything else{/if}
   </div>
   <div class="scores">
     {#each NAMES as name, i (name)}
       <div class="score">
-        <span class="name">{name}</span>
-        <button class="step" aria-label="Lower" onclick={() => adjust(i, false)}>‹</button>
+        <span class="name">{name}<span class="uses dim">{USES[i]}</span></span>
+        <button class="step" aria-label="Lower" onclick={() => adjust(i, false)}>−</button>
         <b class="value">{scores[i]}</b>
-        <button class="step" aria-label="Raise" onclick={() => adjust(i, true)}>›</button>
+        <button class="step" aria-label="Raise" onclick={() => adjust(i, true)}>+</button>
         <span class="mod">{mod(scores[i] ?? 10)}</span>
         {#if method === "point_buy"}<span class="dim cost">cost {cost(scores[i])}</span>{/if}
       </div>
     {/each}
   </div>
+  <div class="dim later">Species and background increases come next.</div>
   <div class="actions"><button class="primary" onclick={() => onanswer({ type: "scores", value: scores })}>Next</button></div>
 {:else if question.type === "confirm"}
   <div class="actions"><button class="primary" onclick={() => onconfirm?.()}>{confirm}</button></div>
@@ -135,9 +161,58 @@
   }
   .score {
     display: grid;
-    grid-template-columns: 14ch 3ch 3ch 3ch 4ch 1fr;
+    grid-template-columns: minmax(14ch, 1fr) 3ch 3ch 3ch 4ch 7ch;
     align-items: center;
     gap: 0.5ch;
+  }
+  .name {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .uses {
+    font-size: 0.8em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .methods {
+    display: flex;
+    gap: 1ch;
+    margin-bottom: 0.75em;
+  }
+  .method {
+    flex: 1;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--gray);
+    padding: 0.3em 1ch;
+    cursor: pointer;
+  }
+  .method[aria-pressed="true"] {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .budget {
+    display: inline-block;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 0.2em 1.5ch;
+    color: var(--fg);
+  }
+  .budget b {
+    color: var(--accent);
+    font-size: 1.3em;
+  }
+  .budget.bad,
+  .budget.bad b {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .later {
+    margin-top: 0.75em;
   }
   .value {
     text-align: center;
@@ -165,8 +240,11 @@
   }
   @media (pointer: coarse) {
     .score {
-      grid-template-columns: 1fr 44px 4ch 44px 4ch;
+      grid-template-columns: minmax(0, 1fr) 44px 4ch 44px 4ch;
       min-height: 52px;
+    }
+    .method {
+      min-height: 44px;
     }
     .cost {
       display: none;

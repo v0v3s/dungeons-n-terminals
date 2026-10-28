@@ -26,6 +26,8 @@ pub enum Answer {
     Number(i64),
     /// Strength to Charisma.
     Scores([i64; 6]),
+    /// Set the ability scores another way (starting over from its scores).
+    Method(Method),
 }
 
 pub(crate) fn pick(title: impl Into<String>, choices: Vec<Choice>) -> Question {

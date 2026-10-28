@@ -1,7 +1,8 @@
 //! Creating a character as questions and answers: species → subspecies
 //! → background → ability scores → ability increases → feats → class →
 //! subclass → skills → feature choices → equipment → review. Steps with
-//! nothing to choose are skipped; going back undoes the last answer.
+//! nothing to choose are skipped; going back undoes the last answer, and
+//! a finished step can be reopened (undoing what came after it).
 
 use std::collections::BTreeMap;
 
@@ -13,6 +14,7 @@ use dnt_rules::levelup;
 use dnt_rules::origin::{self, AbilityGrant};
 use dnt_rules::overlay::resolve_id;
 use dnt_rules::standard::{ABILITIES, SKILLS};
+use serde::Serialize;
 use serde_json::Value as Json;
 
 use crate::flow::{choice_question, pick, AbilityScores, Answer, Method, Question};
@@ -32,7 +34,6 @@ enum Step {
     Species,
     Subspecies,
     Background,
-    Method,
     Abilities,
     BonusAlternative,
     Bonus,
@@ -47,11 +48,10 @@ enum Step {
     Review,
 }
 
-const ORDER: [Step; 16] = [
+const ORDER: [Step; 15] = [
     Step::Species,
     Step::Subspecies,
     Step::Background,
-    Step::Method,
     Step::Abilities,
     Step::BonusAlternative,
     Step::Bonus,
@@ -72,7 +72,8 @@ struct State {
     step: Step,
     question: Question,
     ch: Character,
-    summary: Vec<(String, String)>,
+    /// What was chosen, each with the step it was chosen at.
+    summary: Vec<(Step, String, String)>,
     species: Option<EntityId>,
     subspecies: Option<EntityId>,
     background: Option<EntityId>,
@@ -98,6 +99,42 @@ pub struct NewCharacter {
     history: Vec<State>,
 }
 
+/// The steps as a checklist shows them: each from its first step to the
+/// next one's.
+const GROUPS: [(&str, Step); 9] = [
+    ("Species", Step::Species),
+    ("Background", Step::Background),
+    ("Ability scores", Step::Abilities),
+    ("Ability increases", Step::BonusAlternative),
+    ("Feats", Step::Feat),
+    ("Class", Step::Class),
+    ("Skills & features", Step::ClassSkills),
+    ("Equipment", Step::Equipment),
+    ("Review", Step::Review),
+];
+
+fn position(step: Step) -> usize {
+    ORDER.iter().position(|s| *s == step).unwrap()
+}
+
+/// The checklist group a step is in.
+fn group_of(step: Step) -> usize {
+    GROUPS.iter().rposition(|(_, s)| position(*s) <= position(step)).unwrap_or(0)
+}
+
+/// A step of the checklist.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct StepRow {
+    pub label: &'static str,
+    pub done: bool,
+    pub current: bool,
+    /// What was chosen in it.
+    pub chosen: Vec<(String, String)>,
+    /// Whether it can be reopened (it asked something, before the current
+    /// question).
+    pub reopens: bool,
+}
+
 fn name_of(lib: &Library, id: Option<EntityId>) -> String {
     id.map(|e| lib.entity(e).name.clone()).unwrap_or_default()
 }
@@ -106,7 +143,112 @@ fn entity_items(lib: &Library, kind: Kind, filter: &SourceFilter, id: impl Fn(En
     let mut ids: Vec<EntityId> =
         (0..lib.entities().len()).filter(|&i| lib.entity(i).kind == kind && filter.allows(lib.entity(i))).collect();
     ids.sort_by(|&a, &b| lib.entity(a).name.cmp(&lib.entity(b).name));
-    ids.into_iter().map(|i| Choice::new(lib.entity(i).name.clone(), lib.entity(i).source.clone(), id(i))).collect()
+    ids.into_iter().map(|i| Choice::new(lib.entity(i).name.clone(), hint(lib, i), id(i))).collect()
+}
+
+fn short(a: &str) -> String {
+    a.to_uppercase()
+}
+
+/// An ability grant in a few words: `INT +2`, `+2/+1 INT/WIS/CHA`.
+fn grant_short(parts: &[AbilityGrant]) -> String {
+    let list = |from: &[String]| from.iter().map(|a| short(a)).collect::<Vec<_>>().join("/");
+    parts
+        .iter()
+        .map(|p| match p {
+            AbilityGrant::Fixed(m) => m.iter().map(|(a, n)| format!("{} {n:+}", short(a))).collect::<Vec<_>>().join(", "),
+            AbilityGrant::Choose { from, count, amount } => format!("{amount:+} to {count} of {}", list(from)),
+            AbilityGrant::Weighted { from, weights } => {
+                format!("{} {}", weights.iter().map(|w| format!("{w:+}")).collect::<Vec<_>>().join("/"), list(from))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Skills granted in a few words: `History, Insight`, `2 of Athletics,
+/// Stealth`, `any 1 skill`.
+fn skills_short(g: &origin::SkillGrant) -> String {
+    let mut parts: Vec<String> = g.fixed.iter().map(|s| skill_name(s).to_string()).collect();
+    if g.count > 0 {
+        parts.push(if g.from.is_empty() {
+            format!("any {} skill{}", g.count, if g.count > 1 { "s" } else { "" })
+        } else {
+            format!("{} of {}", g.count, g.from.iter().map(|s| skill_name(s)).collect::<Vec<_>>().join(", "))
+        });
+    }
+    parts.join(", ")
+}
+
+/// What a species, background, class or feat gives, in one line for its
+/// row in a list (then its source): increases, skills, speed, hit die.
+fn hint(lib: &Library, id: EntityId) -> String {
+    let e = lib.entity(id);
+    let d = &e.data;
+    let mut parts: Vec<String> = Vec::new();
+    match e.kind {
+        Kind::Race | Kind::Subrace => {
+            parts.extend(origin::species_ability_grants(d).first().map(|g| grant_short(g)));
+            let speed = match d.get("speed") {
+                Some(Json::Object(o)) => o.get("walk").and_then(Json::as_i64),
+                Some(s) => s.as_i64(),
+                None => None,
+            };
+            parts.extend(speed.map(|s| format!("speed {s} ft")));
+            parts.extend(d.get("darkvision").and_then(Json::as_i64).map(|v| format!("darkvision {v} ft")));
+            parts.push(skills_short(&origin::skill_grant(d.get("skillProficiencies"))));
+        }
+        Kind::Background => {
+            parts.push(skills_short(&origin::skill_grant(d.get("skillProficiencies"))));
+            parts.extend(origin::ability_grants(d.get("ability")).first().map(|g| grant_short(g)));
+            let feats = origin::feat_grant(d.get("feats")).fixed;
+            parts.extend(feats.iter().filter_map(|f| resolve_id(lib, f)).map(|f| lib.entity(f).name.clone()));
+        }
+        Kind::Class => {
+            parts.extend(d.get("hd").and_then(|h| h.get("faces")).and_then(Json::as_i64).map(|f| format!("d{f}")));
+            let primary: Vec<String> = d
+                .get("primaryAbility")
+                .and_then(Json::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Json::as_object)
+                .map(|alt| alt.keys().map(|a| short(a)).collect::<Vec<_>>().join(" & "))
+                .collect();
+            if !primary.is_empty() {
+                parts.push(primary.join(" or "));
+            }
+            let saves: Vec<String> =
+                d.get("proficiency").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_str).map(short).collect();
+            if !saves.is_empty() {
+                parts.push(format!("saves {}", saves.join(", ")));
+            }
+        }
+        Kind::Feat => {
+            let alt = d.get("prerequisite").and_then(Json::as_array).and_then(|a| a.first());
+            let mut needs = Vec::new();
+            for (k, v) in alt.and_then(Json::as_object).into_iter().flatten() {
+                match (k.as_str(), v) {
+                    ("level", Json::Number(n)) => needs.push(format!("level {n}")),
+                    ("level", Json::Object(l)) => needs.extend(l.get("level").and_then(Json::as_i64).map(|n| format!("level {n}"))),
+                    ("other", Json::String(o)) => needs.push(o.clone()),
+                    ("spellcasting" | "spellcasting2020", _) => needs.push("spellcasting".into()),
+                    ("ability", Json::Array(a)) => needs.extend(
+                        a.iter()
+                            .filter_map(Json::as_object)
+                            .flat_map(|m| m.iter().filter_map(|(a, n)| Some(format!("{} {}", short(a), n.as_i64()?)))),
+                    ),
+                    _ => {}
+                }
+            }
+            if !needs.is_empty() {
+                parts.push(format!("needs {}", needs.join(", ")));
+            }
+        }
+        _ => {}
+    }
+    parts.retain(|p| !p.is_empty());
+    parts.push(e.source.clone());
+    parts.join(" · ")
 }
 
 fn ability_name(a: &str) -> &'static str {
@@ -176,47 +318,40 @@ impl NewCharacter {
         &self.state.question
     }
 
-    pub fn summary(&self) -> &[(String, String)] {
-        &self.state.summary
+    /// What was chosen so far, in order.
+    pub fn summary(&self) -> Vec<(String, String)> {
+        self.state.summary.iter().map(|(_, k, v)| (k.clone(), v.clone())).collect()
     }
 
     /// Step titles for the sidebar, with whether each is done/current.
     pub fn progress(&self) -> Vec<(&'static str, bool, bool)> {
-        let cur = ORDER.iter().position(|s| *s == self.state.step).unwrap_or(0);
-        [
-            ("Species", Step::Species),
-            ("Background", Step::Background),
-            ("Ability scores", Step::Method),
-            ("Ability increases", Step::BonusAlternative),
-            ("Feats", Step::Feat),
-            ("Class", Step::Class),
-            ("Skills & features", Step::ClassSkills),
-            ("Equipment", Step::Equipment),
-            ("Review", Step::Review),
-        ]
-        .into_iter()
-        .map(|(label, step)| {
-            let at = ORDER.iter().position(|s| *s == step).unwrap();
-            let next = ORDER
-                .iter()
-                .skip(at + 1)
-                .position(|s| {
-                    matches!(
-                        s,
-                        Step::Background
-                            | Step::Method
-                            | Step::BonusAlternative
-                            | Step::Feat
-                            | Step::Class
-                            | Step::ClassSkills
-                            | Step::Equipment
-                            | Step::Review
-                    )
-                })
-                .map_or(ORDER.len(), |p| at + 1 + p);
-            (label, cur >= next, (at..next).contains(&cur))
-        })
-        .collect()
+        self.steps().into_iter().map(|r| (r.label, r.done, r.current)).collect()
+    }
+
+    /// The steps as a checklist: each with what was chosen in it, and
+    /// whether it can be reopened.
+    pub fn steps(&self) -> Vec<StepRow> {
+        let cur = group_of(self.state.step);
+        GROUPS
+            .iter()
+            .enumerate()
+            .map(|(g, (label, _))| StepRow {
+                label,
+                done: g < cur,
+                current: g == cur,
+                chosen: self.state.summary.iter().filter(|(s, _, _)| group_of(*s) == g).map(|(_, k, v)| (k.clone(), v.clone())).collect(),
+                reopens: self.history.iter().any(|h| group_of(h.step) == g),
+            })
+            .collect()
+    }
+
+    /// Go back to the first question of checklist step `group`, undoing
+    /// everything answered since; false when it asked nothing yet.
+    pub fn reopen(&mut self, group: usize) -> bool {
+        let Some(i) = self.history.iter().position(|h| group_of(h.step) == group) else { return false };
+        self.history.truncate(i + 1);
+        self.state = self.history.pop().expect("a step to reopen");
+        true
     }
 
     /// Contents of a starting-equipment package (by its choice value), if
@@ -230,6 +365,13 @@ impl NewCharacter {
         let alt = group.get(i)?;
         let lines = equipment::describe(lib, alt).split(", ").map(str::to_string).collect();
         Some((format!("{origin} · option {}", alt.key), lines))
+    }
+
+    /// Whether the choices asked for have a text to read (a species, a
+    /// class, an equipment package), judged by the first.
+    pub fn details(&self, lib: &Library) -> bool {
+        let Question::Pick { choices, .. } = &self.state.question else { return false };
+        choices.first().is_some_and(|c| self.preview(lib, &c.value).is_some() || self.equipment_preview(lib, &c.value).is_some())
     }
 
     /// The entity a choice value stands for, to preview it.
@@ -251,6 +393,10 @@ impl NewCharacter {
     /// Answer the current question and move on.
     pub fn answer(&mut self, lib: &Library, filter: &SourceFilter, answer: Answer) -> Result<(), String> {
         match (&self.state.question, answer) {
+            (Question::Abilities { .. }, Answer::Method(method)) => {
+                self.state.question = Question::Abilities { scores: AbilityScores::new(method) };
+                Ok(())
+            }
             (Question::Abilities { scores: ed }, Answer::Scores(scores)) => {
                 ed.check(&scores)?;
                 let method = ed.method;
@@ -261,7 +407,7 @@ impl NewCharacter {
                 }
                 let text: Vec<String> =
                     ABILITIES.iter().enumerate().map(|(i, (a, _))| format!("{} {}", a.to_uppercase(), scores[i])).collect();
-                st.summary.push(("Abilities".into(), format!("{} ({})", text.join(" "), method.label())));
+                st.summary.push((Step::Abilities, "Abilities".into(), format!("{} ({})", text.join(" "), method.label())));
                 self.advance(Step::Abilities, lib, filter);
                 Ok(())
             }
@@ -334,7 +480,7 @@ impl NewCharacter {
                     .map(|i| {
                         Choice::new(
                             lib.entity(i).name.clone(),
-                            lib.entity(i).source.clone(),
+                            hint(lib, i),
                             format!("race:{}|{}", lib.entity(i).name, lib.entity(i).source),
                         )
                     })
@@ -342,7 +488,7 @@ impl NewCharacter {
                 // Versions: 2024 lineages, legacies and ancestries.
                 items.extend(lib.versions_of(sp).iter().map(|&v| {
                     let e = lib.entity(v);
-                    Choice::new(e.name.clone(), e.source.clone(), format!("version:race:{}|{}", e.name, e.source))
+                    Choice::new(e.name.clone(), hint(lib, v), format!("version:race:{}|{}", e.name, e.source))
                 }));
                 if items.is_empty() {
                     return false;
@@ -355,15 +501,8 @@ impl NewCharacter {
                 "Choose a background",
                 entity_items(lib, Kind::Background, filter, |i| format!("background:{}|{}", lib.entity(i).name, lib.entity(i).source)),
             ),
-            Step::Method => pick(
-                "How do you want to set ability scores?",
-                vec![
-                    Choice::new("Standard array", "15 14 13 12 10 8", "array"),
-                    Choice::new("Point buy", "27 points, 8–15", "buy"),
-                    Choice::new("Manual entry", "rolled at the table, or anything else", "manual"),
-                ],
-            ),
-            Step::Abilities => return true, // set up by the method choice
+            // The standard array to start with; the method can change.
+            Step::Abilities => Question::Abilities { scores: AbilityScores::new(Method::StandardArray) },
             Step::BonusAlternative => {
                 // Gather ability grants from species/subspecies/background.
                 if st.alternatives.is_empty() && st.bonus_tasks.is_empty() {
@@ -434,7 +573,7 @@ impl NewCharacter {
                         // `feat:magic initiate; cleric|xphb` names a version of the feat.
                         let id = levelup::feat_id(lib, e);
                         if !st.ch.feats.contains(&id) {
-                            st.summary.push(("Feat".into(), name_of(lib, Some(e))));
+                            st.summary.push((Step::Feat, "Feat".into(), name_of(lib, Some(e))));
                             st.ch.feats.push(id);
                         }
                     }
@@ -452,7 +591,7 @@ impl NewCharacter {
                             && e.data.get("category").and_then(Json::as_str).is_some_and(|c| categories.iter().any(|k| k == c))
                             && !st.ch.feats.contains(&levelup::feat_id(lib, i))
                     })
-                    .map(|i| Choice::new(lib.entity(i).name.clone(), lib.entity(i).source.clone(), levelup::feat_id(lib, i)))
+                    .map(|i| Choice::new(lib.entity(i).name.clone(), hint(lib, i), levelup::feat_id(lib, i)))
                     .collect();
                 pick("Choose a feat", items)
             }
@@ -569,34 +708,24 @@ impl NewCharacter {
             Step::Species => {
                 st.species = resolve_id(lib, &one);
                 st.ch.species = Some(one);
-                st.summary.push(("Species".into(), label));
+                st.summary.push((step, "Species".into(), label));
             }
             Step::Subspecies => {
                 if let Some(id) = one.strip_prefix("version:") {
                     // A version is a complete species: it replaces the base.
                     st.species = resolve_id(lib, id);
                     st.ch.species = Some(id.to_string());
-                    st.summary.push(("Lineage".into(), label));
+                    st.summary.push((step, "Lineage".into(), label));
                 } else {
                     st.subspecies = resolve_id(lib, &one);
                     st.ch.subspecies = Some(one);
-                    st.summary.push(("Subrace".into(), label));
+                    st.summary.push((step, "Subrace".into(), label));
                 }
             }
             Step::Background => {
                 st.background = resolve_id(lib, &one);
                 st.ch.background = Some(one);
-                st.summary.push(("Background".into(), label));
-            }
-            Step::Method => {
-                let method = match one.as_str() {
-                    "array" => Method::StandardArray,
-                    "buy" => Method::PointBuy,
-                    _ => Method::Manual,
-                };
-                st.step = Step::Abilities;
-                st.question = Question::Abilities { scores: AbilityScores::new(method) };
-                return;
+                st.summary.push((step, "Background".into(), label));
             }
             Step::BonusAlternative => {
                 let (origin, alts) = st.alternatives.remove(0);
@@ -614,7 +743,7 @@ impl NewCharacter {
                 if st.bonus_tasks[0].amounts.is_empty() {
                     st.bonus_tasks.remove(0);
                 }
-                push_merged(&mut st.summary, &origin, format!("{} {amount:+}", ability_name(&one)));
+                push_merged(&mut st.summary, step, &origin, format!("{} {amount:+}", ability_name(&one)));
                 // Stay on this step while choices remain.
                 if self.enter(Step::Bonus, lib, filter) {
                     return;
@@ -622,26 +751,26 @@ impl NewCharacter {
                 self.flush_bonuses();
             }
             Step::Feat => {
-                st.summary.push(("Feat".into(), label));
+                st.summary.push((step, "Feat".into(), label));
                 st.ch.feats.push(one);
             }
             Step::Class => {
                 st.class = resolve_id(lib, &one);
                 st.ch.levels = vec![Level { class: one, hp: Default::default(), choices: Default::default() }];
-                st.summary.push(("Class".into(), format!("{label} 1")));
+                st.summary.push((step, "Class".into(), format!("{label} 1")));
             }
             Step::Subclass => {
                 if let Some(class) = st.ch.levels.first().map(|l| l.class.clone()) {
                     st.ch.subclasses.insert(class, one);
                 }
-                st.summary.push(("Subclass".into(), label));
+                st.summary.push((step, "Subclass".into(), label));
             }
             Step::ClassSkills | Step::OriginSkills => {
                 let skills = values;
                 let names = skills.iter().map(|s| skill_name(s)).collect::<Vec<_>>().join(", ");
                 st.ch.proficiencies.skills.extend(skills);
                 let from = if step == Step::OriginSkills { st.origin_skill_choices.remove(0).0 } else { "Class".into() };
-                st.summary.push((format!("Skills ({from})"), names));
+                st.summary.push((step, format!("Skills ({from})"), names));
                 if step == Step::OriginSkills && self.enter(Step::OriginSkills, lib, filter) {
                     return;
                 }
@@ -650,7 +779,7 @@ impl NewCharacter {
                 let choice = st.feature_choices.as_mut().map(|q| q.remove(0)).expect("choice in progress");
                 let names: Vec<String> =
                     values.iter().filter_map(|v| choice.options.iter().find(|o| &o.value == v).map(|o| o.label.clone())).collect();
-                st.summary.push((choice.key.clone(), names.join(", ")));
+                st.summary.push((step, choice.key.clone(), names.join(", ")));
                 if let Some(level) = st.ch.levels.first_mut() {
                     level.choices.picks.entry(choice.key).or_default().extend(values);
                 }
@@ -672,7 +801,7 @@ impl NewCharacter {
                     equipment::add_item(&mut st.ch, v, 1, None);
                 }
                 let names: Vec<String> = values.iter().filter_map(|v| resolve_id(lib, v)).map(|e| lib.entity(e).name.clone()).collect();
-                push_merged(&mut st.summary, "Equipment", format!("{} ({})", names.join(", "), equipment::any_label(&kind)));
+                push_merged(&mut st.summary, step, "Equipment", format!("{} ({})", names.join(", "), equipment::any_label(&kind)));
                 if self.enter(Step::AnyItem, lib, filter) || self.enter(Step::Equipment, lib, filter) {
                     return;
                 }
@@ -719,7 +848,7 @@ fn queue_alternative(st: &mut State, origin: &str, parts: &[AbilityGrant]) {
                     *entry.entry(a.clone()).or_default() += n;
                 }
                 let text = m.iter().map(|(a, n)| format!("{} {n:+}", ability_name(a))).collect::<Vec<_>>().join(", ");
-                push_merged(&mut st.summary, origin, text);
+                push_merged(&mut st.summary, Step::BonusAlternative, origin, text);
             }
             AbilityGrant::Choose { from, count, amount } => {
                 st.bonus_tasks.push(BonusTask { origin: origin.to_string(), amounts: vec![*amount; *count], from: from.clone() })
@@ -744,18 +873,19 @@ fn grant_alternative(st: &mut State, lib: &Library, origin: &str, alt: &equipmen
     }
     let text = equipment::describe(lib, alt);
     if !text.is_empty() {
-        st.summary.push((origin.to_string(), text));
+        st.summary.push((Step::Equipment, origin.to_string(), text));
     }
 }
 
-/// Append to the summary, joining with an existing line of the same key.
-fn push_merged(summary: &mut Vec<(String, String)>, key: &str, text: String) {
-    match summary.iter_mut().find(|(k, _)| k == key) {
-        Some((_, v)) => {
+/// Append to the summary, joining with an existing line of the same key
+/// and step.
+fn push_merged(summary: &mut Vec<(Step, String, String)>, step: Step, key: &str, text: String) {
+    match summary.iter_mut().find(|(s, k, _)| group_of(*s) == group_of(step) && k == key) {
+        Some((_, _, v)) => {
             v.push_str(", ");
             v.push_str(&text);
         }
-        None => summary.push((key.to_string(), text)),
+        None => summary.push((step, key.to_string(), text)),
     }
 }
 
@@ -822,14 +952,21 @@ mod tests {
         assert!(w.finish().is_err(), "not done yet");
         assert!(w.answer(&lib, &filter, Answer::Scores(STANDARD_ARRAY)).is_err(), "scores do not answer a species question");
 
+        // A row says what it gives.
+        let Question::Pick { choices, .. } = w.question() else { panic!("a species to pick") };
+        assert_eq!(choices[0].hint, "STR +1 · T");
+
         // Wrong scores are refused at the ability step; back undoes an answer.
         w.answer(&lib, &filter, Answer::Pick(vec!["race:Human|T".into()])).unwrap();
         w.answer(&lib, &filter, Answer::Pick(vec!["background:Acolyte|T".into()])).unwrap();
-        w.answer(&lib, &filter, Answer::Pick(vec!["array".into()])).unwrap();
-        assert!(matches!(w.question(), Question::Abilities { .. }));
+        assert!(matches!(w.question(), Question::Abilities { scores } if scores.scores == STANDARD_ARRAY));
         assert!(w.answer(&lib, &filter, Answer::Scores([18; 6])).is_err());
+        // The method changes on the same question.
+        w.answer(&lib, &filter, Answer::Method(Method::PointBuy)).unwrap();
+        assert!(matches!(w.question(), Question::Abilities { scores } if scores.scores == [8; 6]));
+        assert!(w.answer(&lib, &filter, Answer::Scores([15, 15, 15, 15, 8, 8])).is_err(), "over 27 points");
         assert!(w.back());
-        assert!(matches!(w.question(), Question::Pick { .. }), "back at the method");
+        assert!(matches!(w.question(), Question::Pick { title, .. } if title == "Choose a background"));
 
         let titles = walk(&mut w, &lib, &filter);
         assert!(titles.iter().any(|t| t.contains("skill")), "{titles:?}");
@@ -838,5 +975,49 @@ mod tests {
         assert_eq!(ch.ability_bonus[0].scores.get("str"), Some(&1), "Human +1 Strength");
         assert_eq!(ch.levels.len(), 1);
         assert_eq!(ch.proficiencies.skills, ["athletics", "insight"]);
+    }
+
+    #[test]
+    fn a_finished_step_is_reopened_with_its_choices() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "race": [{"name": "Human", "source": "T"}, {"name": "Dwarf", "source": "T", "speed": 25, "darkvision": 60}],
+            "background": [{"name": "Acolyte", "source": "T", "skillProficiencies": [{"insight": true, "religion": true}],
+                            "ability": [{"choose": {"weighted": {"from": ["int", "wis"], "weights": [2, 1]}}}]}],
+            "class": [{"name": "Fighter", "source": "T", "hd": {"number": 1, "faces": 10},
+                       "primaryAbility": [{"str": true}, {"dex": true}], "proficiency": ["str", "con"]}]
+        }));
+        let filter = SourceFilter::default();
+        let mut w = NewCharacter::new("Ada".into(), &lib, &filter);
+        let hints = |w: &NewCharacter| match w.question() {
+            Question::Pick { choices, .. } => choices.iter().map(|c| c.hint.clone()).collect::<Vec<_>>(),
+            _ => panic!("a pick"),
+        };
+        assert_eq!(hints(&w), ["speed 25 ft · darkvision 60 ft · T", "T"]);
+        w.answer(&lib, &filter, Answer::Pick(vec!["race:Human|T".into()])).unwrap();
+        assert_eq!(hints(&w), ["Insight, Religion · +2/+1 INT/WIS · T"]);
+        w.answer(&lib, &filter, Answer::Pick(vec!["background:Acolyte|T".into()])).unwrap();
+        w.answer(&lib, &filter, Answer::Scores(STANDARD_ARRAY)).unwrap();
+        while !matches!(w.question(), Question::Pick { title, .. } if title.contains("class")) {
+            let Question::Pick { choices, .. } = w.question() else { panic!("{:?}", w.question()) };
+            let v = choices[0].value.clone();
+            w.answer(&lib, &filter, Answer::Pick(vec![v])).unwrap();
+        }
+        assert_eq!(hints(&w), ["d10 · STR or DEX · saves STR, CON · T"]);
+
+        let steps = w.steps();
+        let species = &steps[0];
+        assert!(species.done && species.reopens);
+        assert_eq!(species.chosen, [("Species".to_string(), "Human".to_string())]);
+        assert!(steps[2].chosen[0].1.starts_with("STR 15"), "{:?}", steps[2]);
+        assert_eq!(steps[3].chosen, [("Background (Acolyte)".to_string(), "Intelligence +2, Wisdom +1".to_string())]);
+        assert!(steps[5].current && !steps[5].reopens, "the class is being chosen");
+        assert!(!steps[4].reopens, "no feats were asked");
+
+        // Reopening the background undoes everything after it.
+        assert!(w.reopen(1));
+        assert!(matches!(w.question(), Question::Pick { title, .. } if title == "Choose a background"));
+        assert_eq!(w.summary(), [("Species".to_string(), "Human".to_string())]);
+        assert!(!w.reopen(4), "nothing was asked there");
     }
 }

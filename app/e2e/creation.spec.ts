@@ -49,8 +49,8 @@ test("a character is made step by step", { tag: "@creation.full" }, async ({ pag
   await start(page, "Nova");
   await step(page, "Choose a species", "Kindred");
   await step(page, "Choose a background", "Archivist");
-  await step(page, "How do you want to set ability scores?", "Standard array");
-  // The standard array: raising a score swaps it with the next value.
+  // The scores start as the standard array: raising one swaps it with the next value.
+  await expect(ask(page).getByRole("button", { name: "Standard array" })).toHaveAttribute("aria-pressed", "true");
   await expect(value(page, "Intelligence")).toHaveText("12");
   await raise(page, "Intelligence");
   await expect(value(page, "Intelligence")).toHaveText("13");
@@ -96,7 +96,6 @@ test(
     await step(page, "Choose a species", "Emberkin");
     await step(page, "Emberkin: choose a lineage", "Emberkin; Cinder Lineage");
     await step(page, "Choose a background", "Archivist");
-    await step(page, "How do you want to set ability scores?", "Standard array");
     await ask(page).getByRole("button", { name: "Next" }).click();
     await step(page, "ability increases", "Skip");
     await step(page, "Choose your starting class", "Hexer");
@@ -134,7 +133,6 @@ test(
     await step(page, "Choose a species", "Emberkin");
     await step(page, "Emberkin: choose a lineage", "Emberkin; Ash Lineage");
     await step(page, "Choose a background", "Drifter");
-    await step(page, "How do you want to set ability scores?", "Standard array");
     await ask(page).getByRole("button", { name: "Next" }).click();
     await step(page, "ability increases", "Skip");
     await step(page, "Choose your starting class", "Warden");
@@ -170,24 +168,27 @@ test("ability scores are bought with 27 points", { tag: "@creation.point-buy" },
   await step(page, "Choose a species", "Emberkin");
   await step(page, "Emberkin: choose a lineage", "Emberkin; Ash Lineage");
   await step(page, "Choose a background", "Archivist");
-  await step(page, "How do you want to set ability scores?", "Point buy");
-  const left = ask(page).locator(".title");
-  await expect(left).toContainText("27/27");
+  // The method changes on the same screen.
+  await expect(value(page, "Strength")).toHaveText("15");
+  await ask(page).getByRole("button", { name: "Point buy" }).click();
+  await expect(ask(page).getByRole("button", { name: "Point buy" })).toHaveAttribute("aria-pressed", "true");
+  const left = ask(page).locator(".budget");
+  await expect(left).toContainText("27 / 27");
   await expect(value(page, "Strength")).toHaveText("8");
   await raise(page, "Strength", 7);
   await expect(value(page, "Strength")).toHaveText("15");
-  await expect(left).toContainText("18/27");
+  await expect(left).toContainText("18 / 27");
   // 15 is the most a point buy goes to.
   await raise(page, "Strength");
   await expect(value(page, "Strength")).toHaveText("15");
   await raise(page, "Dexterity", 7);
   await raise(page, "Constitution", 7);
-  await expect(left).toContainText("0/27");
+  await expect(left).toContainText("0 / 27");
   // No points left: nothing more is bought.
   await raise(page, "Intelligence");
   await expect(value(page, "Intelligence")).toHaveText("8");
   await row(page, "Constitution").getByRole("button", { name: "Lower" }).click();
-  await expect(left).toContainText("2/27");
+  await expect(left).toContainText("2 / 27");
   await ask(page).getByRole("button", { name: "Next" }).click();
   await expect(ask(page).locator(".title")).toContainText("ability increases");
   const now = await invoke<{ summary: [string, string][] }>(page, "creation_current");
@@ -219,4 +220,93 @@ test("going back changes an answer; going back from the start cancels", { tag: "
   await expect(page.locator(".creation")).toHaveCount(0);
   await expect(page.locator("button.card", { hasText: "Quitter" })).toHaveCount(0);
   expect(await invoke(page, "creation_current")).toBeNull();
+});
+
+const hint = (page: Page, label: string) => ask(page).locator("li button", { has: page.locator(".label", { hasText: new RegExp(`^${escape(label)}$`) }) }).locator(".hint");
+
+test("each choice says what it gives", { tag: "@creation.row-hints" }, async ({ page }) => {
+  await start(page, "Reader");
+  await expect(hint(page, "Kindred")).toHaveText("speed 30 ft · any 1 skill · TST");
+  await step(page, "Choose a species", "Kindred");
+  await expect(hint(page, "Archivist")).toHaveText("History, Investigation · +2/+1 INT/WIS/CHA · Quick Wits · TST");
+  await step(page, "Choose a background", "Archivist");
+  await ask(page).getByRole("button", { name: "Next" }).click();
+  await step(page, "ability increases", "Skip");
+  await step(page, "Choose a feat", "Lucky Charm");
+  await expect(ask(page).locator(".title")).toContainText("Choose your starting class");
+  await expect(hint(page, "Warden")).toHaveText("d10 · DEX & WIS · saves STR, DEX · TST");
+});
+
+/// The checklist: beside the question, or folded above it on a phone.
+async function checklist(page: Page) {
+  if (await page.locator(".creation .steps").isVisible()) return page.locator(".creation .steps .checklist");
+  const where = page.locator(".creation .where");
+  if ((await where.count()) && (await where.getAttribute("aria-expanded")) !== "true") await where.click();
+  return ask(page).locator(".checklist");
+}
+const item = (list: Awaited<ReturnType<typeof checklist>>, label: string) => list.locator("li", { has: list.page().locator(".slabel", { hasText: new RegExp(`^${escape(label)}$`) }) });
+
+test("the steps are a checklist of what was chosen", { tag: "@creation.checklist" }, async ({ page }) => {
+  await start(page, "Lister");
+  await step(page, "Choose a species", "Kindred");
+  await step(page, "Choose a background", "Archivist");
+  const list = await checklist(page);
+  await expect(item(list, "Species")).toContainText("Kindred");
+  await expect(item(list, "Background")).toContainText("Archivist");
+  await expect(item(list, "Ability scores")).toHaveClass(/current/);
+  await expect(item(list, "Class")).not.toHaveClass(/done|current/);
+
+  // The review is the whole checklist.
+  await ask(page).getByRole("button", { name: "Next" }).click();
+  await step(page, "ability increases", "Skip");
+  await step(page, "Choose a feat", "Lucky Charm");
+  await step(page, "Choose your starting class", "Mage");
+  await step(page, "Mage: choose 2 skill(s)", "Arcana", "Nature");
+  await step(page, "Kindred: choose 1 skill(s)", "Stealth");
+  await step(page, "Class (Mage): starting equipment", "A:");
+  await step(page, "Background (Archivist): starting equipment", "B:");
+  await expect(ask(page)).toContainText("Everything is chosen");
+  const review = await checklist(page);
+  await expect(item(review, "Class")).toContainText("Mage 1");
+  await expect(item(review, "Skills & features")).toContainText("Arcana, Nature");
+  await expect(item(review, "Equipment")).toContainText("Class (Mage)");
+});
+
+test("a finished step is chosen again from the checklist", { tag: "@creation.reopen" }, async ({ page }) => {
+  await start(page, "Changer");
+  await step(page, "Choose a species", "Kindred");
+  await step(page, "Choose a background", "Archivist");
+  await ask(page).getByRole("button", { name: "Next" }).click();
+  await step(page, "ability increases", "Skip");
+  await expect(ask(page).locator(".title")).toContainText("Choose a feat");
+
+  // The species again: what came after is undone.
+  let list = await checklist(page);
+  await item(list, "Species").getByRole("button").click();
+  await expect(ask(page).locator(".title")).toContainText("Choose a species");
+  await step(page, "Choose a species", "Stoneling");
+  await step(page, "Stoneling: choose a subrace", "Stoneling (Hill)");
+  await expect(ask(page).locator(".title")).toContainText("Choose a background");
+  const now = await invoke<{ summary: [string, string][] }>(page, "creation_current");
+  expect(now.summary).toEqual([
+    ["Species", "Stoneling"],
+    ["Subrace", "Stoneling (Hill)"],
+  ]);
+  // Steps not reached yet cannot be opened.
+  list = await checklist(page);
+  await expect(item(list, "Class").getByRole("button")).toHaveCount(0);
+});
+
+test("on a phone a choice's text is read from its ?, and chosen there", { tag: ["@creation.details", "@android"] }, async ({ page }) => {
+  await start(page, "Curious");
+  await ask(page).getByRole("button", { name: "About Emberkin" }).click();
+  const about = page.getByRole("dialog", { name: "Emberkin" });
+  await expect(about).toContainText("You resist fire");
+  await about.getByRole("button", { name: "Choose Emberkin" }).click();
+  await expect(about).toHaveCount(0);
+  await expect(ask(page).locator(".title")).toContainText("Emberkin: choose a lineage");
+  // Choices without a text to read have no ?.
+  await step(page, "Emberkin: choose a lineage", "Emberkin; Ash Lineage");
+  await step(page, "Choose a background", "Archivist");
+  await expect(ask(page).getByRole("button", { name: /^About / })).toHaveCount(0);
 });

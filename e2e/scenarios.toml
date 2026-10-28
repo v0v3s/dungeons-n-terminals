@@ -243,7 +243,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "creation.point-buy"
-does = "Set the ability scores by point buy, within the 27 points."
+does = "Set the ability scores on one screen: switch the method (standard array, point buy, manual) there, and by point buy stay within the 27 points."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -260,6 +260,28 @@ targets = ["tui", "app"]
 id = "creation.equipment-pick"
 does = "Pick an item for an equipment choice (any instrument, an arcane focus)."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.row-hints"
+does = "Each choice in a list says in a line what it gives: a species its increases, speed and senses, a background its skills, increases and feat, a class its hit die, main abilities and saves, a feat what it needs."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.checklist"
+does = "The steps are a checklist, each with what was chosen in it; on a phone it folds above the question, and the review is the whole checklist."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "creation.reopen"
+does = "Tap a finished step of the checklist (or of the review) to choose it again; what came after it is undone."
+targets = ["app"]
+not = { tui = "the terminal goes back an answer at a time with Esc (creation.back); its checklist has no pointer to pick a step with" }
+
+[[scenario]]
+id = "creation.details"
+does = "On a phone, read a choice's full text (a species' traits, an equipment package's contents) from the ? on its row, and choose it from there."
+targets = ["android"]
+not = { tui = "the terminal shows the highlighted choice's full text beside the list all the time" }
 
 [[scenario]]
 id = "creation.back"

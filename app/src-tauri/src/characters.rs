@@ -1,12 +1,12 @@
 //! Characters: the roster, the open sheet, commands and rolls, and the
 //! level-up and new-character flows.
 
-use dnt_core::creation::NewCharacter;
+use dnt_core::creation::{NewCharacter, StepRow};
 use dnt_core::flow::{choice_question, Answer, Question};
 use dnt_core::levelup::LevelUp;
 use dnt_core::sheet::{self, Breakdown, Condition, FeatureGroup, Header, Inventory, Overview, SpellRow};
 use dnt_core::{options, rolls, spellbook, CharacterSession, Choice, Command, Outcome};
-use dnt_data::EntityId;
+use dnt_data::{EntityId, Library};
 use dnt_rules::standard::SKILLS;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -503,16 +503,19 @@ pub async fn levelup_apply(app: State<'_, App>) -> Res<Done> {
 pub struct CreationStep {
     question: Question,
     summary: Vec<(String, String)>,
-    /// Steps for a progress list: (label, done, current).
-    progress: Vec<(&'static str, bool, bool)>,
+    /// The steps as a checklist, with what was chosen in each.
+    steps: Vec<StepRow>,
+    /// Whether the choices have a text to read (creation_preview).
+    details: bool,
     name: String,
 }
 
-fn creation_step(flow: &NewCharacter) -> CreationStep {
+fn creation_step(flow: &NewCharacter, lib: &Library) -> CreationStep {
     CreationStep {
         question: flow.question().clone(),
-        summary: flow.summary().to_vec(),
-        progress: flow.progress(),
+        summary: flow.summary(),
+        steps: flow.steps(),
+        details: flow.details(lib),
         name: flow.name().into(),
     }
 }
@@ -530,7 +533,7 @@ pub async fn creation_start(app: State<'_, App>, name: String) -> Res<CreationSt
     }
     let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
     let flow = NewCharacter::new(name.to_string(), lib, &inner.ws.filter());
-    let step = creation_step(&flow);
+    let step = creation_step(&flow, lib);
     inner.creation = Some(flow);
     Ok(step)
 }
@@ -539,7 +542,9 @@ pub async fn creation_start(app: State<'_, App>, name: String) -> Res<CreationSt
 /// or cancelled, whatever else is opened meanwhile).
 #[tauri::command]
 pub async fn creation_current(app: State<'_, App>) -> Res<Option<CreationStep>> {
-    Ok(app.lock().creation.as_ref().map(creation_step))
+    let inner = app.lock();
+    let Some(lib) = inner.ws.lib.as_ref() else { return Ok(None) };
+    Ok(inner.creation.as_ref().map(|f| creation_step(f, lib)))
 }
 
 /// Give up the new character in progress.
@@ -557,15 +562,31 @@ pub async fn creation_answer(app: State<'_, App>, answer: Answer) -> Res<Creatio
     let filter = inner.ws.filter();
     let flow = inner.creation.as_mut().ok_or("No new character in progress")?;
     flow.answer(lib, &filter, answer)?;
-    Ok(creation_step(flow))
+    Ok(creation_step(flow, lib))
+}
+
+/// Go back to a finished step of the checklist (by its place), undoing
+/// what was chosen after it.
+#[tauri::command]
+pub async fn creation_reopen(app: State<'_, App>, step: usize) -> Res<CreationStep> {
+    let mut guard = app.lock();
+    let inner = &mut *guard;
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let flow = inner.creation.as_mut().ok_or("No new character in progress")?;
+    if !flow.reopen(step) {
+        return Err("Nothing was chosen there yet".into());
+    }
+    Ok(creation_step(flow, lib))
 }
 
 #[tauri::command]
 pub async fn creation_back(app: State<'_, App>) -> Res<Option<CreationStep>> {
-    let mut inner = app.lock();
+    let mut guard = app.lock();
+    let inner = &mut *guard;
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
     let flow = inner.creation.as_mut().ok_or("No new character in progress")?;
     if flow.back() {
-        Ok(Some(creation_step(flow)))
+        Ok(Some(creation_step(flow, lib)))
     } else {
         inner.creation = None;
         Ok(None)

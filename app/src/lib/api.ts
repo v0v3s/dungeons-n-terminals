@@ -407,20 +407,39 @@ export type Wanted =
 export type Question =
   | { type: "pick"; title: string; choices: Choice[]; count: number }
   | { type: "number"; title: string }
-  | { type: "abilities"; scores: { method: "standard_array" | "point_buy" | "manual"; scores: number[] } }
+  | { type: "abilities"; scores: { method: Method; scores: number[] } }
   | { type: "confirm" };
 
-export type Answer = { type: "pick"; value: string[] } | { type: "number"; value: number } | { type: "scores"; value: number[] };
+/// How ability scores are set.
+export type Method = "standard_array" | "point_buy" | "manual";
+
+export type Answer =
+  | { type: "pick"; value: string[] }
+  | { type: "number"; value: number }
+  | { type: "scores"; value: number[] }
+  | { type: "method"; value: Method };
 
 export interface Step {
   question: Question;
   summary: string[];
 }
 
+/// A step of the new character's checklist, with what was chosen in it.
+export interface CreationStepRow {
+  label: string;
+  done: boolean;
+  current: boolean;
+  chosen: [string, string][];
+  /// Whether it can be opened again (it asked something already).
+  reopens: boolean;
+}
+
 export interface CreationStep {
   question: Question;
   summary: [string, string][];
-  progress: [string, boolean, boolean][];
+  steps: CreationStepRow[];
+  /// Whether the choices have a text to read (creationPreview).
+  details: boolean;
   name: string;
 }
 
@@ -460,6 +479,7 @@ export const levelupApply = () => invoke<Done>("levelup_apply");
 export const creationStart = (name: string) => invoke<CreationStep>("creation_start", { name });
 export const creationAnswer = (answer: Answer) => invoke<CreationStep>("creation_answer", { answer });
 export const creationBack = () => invoke<CreationStep | null>("creation_back");
+export const creationReopen = (step: number) => invoke<CreationStep>("creation_reopen", { step });
 export const creationPreview = (value: string | null, scores: number[] | null) =>
   invoke<Preview>("creation_preview", { value, scores });
 export const creationFinish = () => invoke<Sheet>("creation_finish");
