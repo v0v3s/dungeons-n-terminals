@@ -55,7 +55,7 @@ def one(chunk, pdf_path, out, options):
     table_title = next(l for l in chunk if l.sans and l.size == 16 and l.text.strip() == f"{name} Features")
     rows, labels, bottom = features_table(pdf_path, table_title)
     # The tables are not text: leave them out of the features.
-    traits = [l for l in chunk if l.page == traits_title.page and l.column == traits_title.column and l.sans and l.top > traits_title.top and l.size == 14 and l.top < traits_title.top + 400]
+    traits = [l for l in chunk if l.page == traits_title.page and l.column == traits_title.column and l.sans and l.top > traits_title.top and l.size == 14 and l.top < traits_title.top + 700]
     traits = _contiguous(traits, traits_title)
     on_table = lambda l: l.page == table_title.page and table_title.top <= l.top <= bottom
     body = [l for l in chunk[1:] if l not in traits and l is not traits_title and not on_table(l)]

@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import backgrounds  # noqa: E402
 import classes  # noqa: E402
 import feats  # noqa: E402
+import items  # noqa: E402
 import options  # noqa: E402
 import pdf  # noqa: E402
 import species  # noqa: E402
@@ -24,7 +25,7 @@ import tags  # noqa: E402
 from tags import SOURCE  # noqa: E402
 
 # Where each part of the SRD is (its pages).
-PAGES = {"classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "spells": (107, 175)}
+PAGES = {"classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "equipment": (89, 101), "spells": (107, 175)}
 
 BOOK = {
     "name": "System Reference Document 5.2.1",
@@ -41,6 +42,18 @@ def write(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=1, ensure_ascii=False)
         f.write("\n")
+
+
+def unknown_items(classes, backgrounds, known):
+    """The items starting equipment names that the data does not have."""
+    names = {i["name"].lower() for i in known}
+    refs = []
+    for c in classes:
+        refs += [e for g in c["startingEquipment"]["defaultData"] for alt in g.values() for e in alt]
+    for b in backgrounds:
+        refs += [e for g in b["startingEquipment"] for alt in g.values() for e in alt]
+    wanted = {(e if isinstance(e, str) else e.get("item", "")).split("|")[0] for e in refs}
+    return {w for w in wanted if w and w not in names}
 
 
 def main(pdf_path, out):
@@ -76,6 +89,16 @@ def main(pdf_path, out):
     races = [dict(r, entries=tagged(r["entries"])) for r in species.species(origins, pdf_path)]
     write(f"{out}/races.json", {"race": races})
     print(f"{len(found_feats)} feats, {len(races)} species")
+    gear_lines = pdf.lines(pdf_path, *PAGES["equipment"])
+    base = items.weapons(gear_lines, pdf_path) + items.armor(gear_lines, pdf_path)
+    write(f"{out}/items-base.json", {"baseitem": base, "itemMastery": items.masteries(gear_lines, pdf_path)})
+    gear, tools = items.gear(gear_lines, pdf_path)
+    things = [dict(i, entries=tagged(i["entries"])) if "entries" in i else i for i in gear + tools + items.mounts(gear_lines, pdf_path)]
+    write(f"{out}/items.json", {"item": things})
+    print(f"{len(base)} weapons and armor, {len(things)} items")
+    missing = unknown_items(found["class"], [json.load(open(f"{out}/backgrounds.json"))["background"]][0], base + things)
+    if missing:
+        print("items named but not in the data:", ", ".join(sorted(missing)))
     print(f"{len(names)} spells, {len(found['class'])} classes, {len(picks)} options")
 
 

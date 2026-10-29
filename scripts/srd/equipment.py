@@ -41,7 +41,9 @@ def entry(text):
         return {"value": int(m.group(1).replace(",", "")) * 100}
     if text in KINDS:
         return {"equipmentType": KINDS[text]}
-    if "chosen for" in text:
+    # Not among the SRD's gear: the Wizard's Spellbook (described with the
+    # class).
+    if "chosen for" in text or text == "Spellbook":
         return {"special": text}
     if m := FOCUS.match(text):
         return {"item": ref(m.group(1)), "displayName": text}
