@@ -8,7 +8,7 @@ fn books(t: &mut Tui) {
 
 /// The compendium searched for `query`.
 fn search(t: &mut Tui, query: &str) {
-    t.send("1").send("/").send(&ctrl('u')).typed(query);
+    t.send("1").wait("Browse").send("/").send(&ctrl('u')).typed(query);
 }
 
 /// The row of a book in the books pane.
@@ -38,9 +38,9 @@ fn a_book_turned_off_leaves_the_compendium_and_the_pickers() {
     t.send("2").send("n").typed("Zed").send(ENTER).wait("Choose a species").wait("Stoneling");
     assert!(!t.shows("Mirefolk"), "{}", t.screen());
     t.send(ESC).send(ESC);
-    // On again, it is back.
+    // On again (the cursor is still on it), it is back.
     books(&mut t);
-    t.send("j").send(" ");
+    t.send(" ");
     t.wait_until("TSX is on", |s| s.lines().any(|l| l.contains(" TSX ") && l.contains("●")));
     search(&mut t, "mirefolk");
     t.wait("1 results");
@@ -64,23 +64,24 @@ fn all_turns_every_book_on() {
     books(&mut t);
     t.send("p").wait("preset: 2014 Core");
     t.send("a");
-    t.wait_until("every book is on", |s| s.lines().filter(|l| l.contains("●")).count() == 2);
+    t.wait_until("every book is on", |s| s.lines().filter(|l| l.contains("●")).count() == 3);
     assert!(t.line(" dnt ").contains("all sources"), "{}", t.screen());
-    t.send("1").wait("All 203");
+    t.send("1").wait("All 2041");
 }
 
 #[test]
 fn reprinted_entries_show_their_older_version() {
     let mut t = Tui::scenario("sources.reprinted", Home::party());
-    search(&mut t, "spark");
-    t.wait("Spark Affinity");
-    assert!(!t.screen().lines().any(|l| l.contains("Spark ") && l.contains("TSX")), "{}", t.screen());
+    // TSX's Fire Bolt is reprinted in the SRD: only the SRD's is listed.
+    search(&mut t, "fire bolt");
+    t.wait_until("the SRD Fire Bolt is listed", |s| s.lines().any(|l| l.contains("✦ Fire Bolt ") && l.contains("SRD52")));
+    assert!(!t.screen().lines().any(|l| l.contains("Fire Bolt ") && l.contains("TSX")), "{}", t.screen());
     t.send(ESC).send(ESC);
     books(&mut t);
     t.wait("reprinted originals: hidden");
     t.send("r").wait("reprinted originals: shown");
-    search(&mut t, "spark");
-    t.wait_until("the TSX Spark is listed", |s| s.lines().any(|l| l.contains("✦ Spark ") && l.contains("TSX")));
+    search(&mut t, "fire bolt");
+    t.wait_until("the TSX Fire Bolt is listed", |s| s.lines().any(|l| l.contains("✦ Fire Bolt ") && l.contains("TSX")));
 }
 
 #[test]

@@ -67,12 +67,12 @@ async function category(page: Page, label: string) {
 
 test("the results follow what is typed", { tag: "@compendium.search" }, async ({ page }) => {
   await compendium(page);
-  await searchBox(page).pressSequentially("emb");
+  await searchBox(page).pressSequentially("fire");
   await expect(names(page).first()).toBeVisible();
-  await expect(names(page).filter({ hasText: "Ember Bolt" })).toHaveCount(1);
-  await expect(names(page).filter({ hasText: "Emberkin" }).first()).toBeVisible();
-  await searchBox(page).pressSequentially("er bolt");
-  await expect(names(page).first()).toHaveText("Ember Bolt");
+  await expect(names(page).filter({ hasText: "Fire Bolt" })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: "Fireball" }).first()).toBeVisible();
+  await searchBox(page).pressSequentially(" bolt");
+  await expect(names(page).first()).toHaveText("Fire Bolt");
   await search(page, "zzqxj");
   await expect(page.locator(".rows")).toContainText("Nothing matches.");
 });
@@ -87,32 +87,34 @@ test("filters narrow a search", { tag: "@compendium.filters" }, async ({ page })
   // #kind and ^level.
   await category(page, "Spells");
   await search(page, "#cantrip ");
-  await expect(names(page).filter({ hasText: "Frost Needle" })).toHaveCount(1);
-  await expect(names(page).filter({ hasText: "Ember Bolt" })).toHaveCount(0);
-  await search(page, "^3");
-  await expect(names(page)).toHaveText(["Storm Lance"]);
+  await expect(names(page).filter({ hasText: "Ray of Frost" })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: "Guiding Bolt" })).toHaveCount(0);
+  await search(page, "^3 fire");
+  await expect(names(page)).toHaveText(["Fireball"]);
 
   // "text" in the entry, and ! not.
-  await search(page, '"dim light"');
-  await expect(names(page)).toHaveText(["Glimmer"]);
+  await search(page, '"hurl a bolt"');
+  await expect(names(page)).toHaveText(["Guiding Bolt"]);
   await search(page, "!#cantrip ");
-  await expect(names(page).filter({ hasText: "Ember Bolt" })).toHaveCount(1);
-  await expect(names(page).filter({ hasText: "Frost Needle" })).toHaveCount(0);
+  await expect(names(page).filter({ hasText: "Guiding Bolt" })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: "Ray of Frost" })).toHaveCount(0);
 });
 
+// The list shows the first 400 results (by name here): Acid Arrow and the
+// Battleaxe are among them in every category that has them.
 test("a category narrows the results to its kind", { tag: "@compendium.category" }, async ({ page }) => {
   await compendium(page);
   await category(page, "Spells");
-  await expect(names(page).filter({ hasText: "Ember Bolt" })).toHaveCount(1);
-  await expect(names(page).filter({ hasText: "Thornknife" })).toHaveCount(0);
+  await expect(names(page).filter({ hasText: "Acid Arrow" })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: exact("Battleaxe") })).toHaveCount(0);
   await category(page, "Items");
-  await expect(names(page).filter({ hasText: exact("Thornknife") })).toHaveCount(1);
-  await expect(names(page).filter({ hasText: "Ember Bolt" })).toHaveCount(0);
+  await expect(names(page).filter({ hasText: exact("Battleaxe") })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: "Acid Arrow" })).toHaveCount(0);
   await category(page, "Rules");
   await expect(names(page).filter({ hasText: "Proving Rule" })).toHaveCount(1);
   await category(page, "All");
-  await expect(names(page).filter({ hasText: exact("Thornknife") })).toHaveCount(1);
-  await expect(names(page).filter({ hasText: "Ember Bolt" })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: exact("Battleaxe") })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: "Acid Arrow" })).toHaveCount(1);
 });
 
 test("results are ordered by name, source or level", { tag: "@compendium.order" }, async ({ page }) => {
@@ -121,13 +123,14 @@ test("results are ordered by name, source or level", { tag: "@compendium.order" 
   const order = page.locator(".order select");
   try {
     await order.selectOption({ label: "name A–Z" });
-    await expect(names(page).first()).toHaveText("Ember Bolt");
+    await expect(names(page).first()).toHaveText("Acid Arrow");
     await order.selectOption({ label: "name Z–A" });
-    await expect(names(page).first()).toHaveText("Ward of Thorns");
+    await expect(names(page).first()).toHaveText("Zone of Truth");
+    // A cantrip first, a level 9 spell last.
     await order.selectOption({ label: "level · rarity" });
-    await expect(names(page).last()).toHaveText("Unmaking Word");
-    await expect(names(page).first()).toHaveText("Frost Needle");
-    // The supplement's own spell sorts after the core book's.
+    await expect(names(page).last()).toHaveText("Wish");
+    await expect(names(page).first()).toHaveText("Acid Splash");
+    // The supplement's own spell sorts after the SRD's.
     await order.selectOption({ label: "source" });
     await expect(names(page).last()).toHaveText("Outskirt Gust");
   } finally {
@@ -149,76 +152,79 @@ test("an entry shows its fields, text, tables and lists", { tag: "@compendium.re
   await expect(doc(page).locator("li")).toHaveText(["First, look.", "Then, leap."]);
 
   // A spell's fields.
-  await search(page, "glimmer");
-  await read(page, "Glimmer");
-  await expect(doc(page).locator("dl")).toContainText("Touch");
-  await expect(doc(page).locator("dl")).toContainText("1 hour");
-  await expect(doc(page)).toContainText("An object sheds dim light.");
+  await search(page, "guiding bolt");
+  await read(page, "Guiding Bolt");
+  await expect(doc(page).locator("dl")).toContainText("120 feet");
+  await expect(doc(page).locator("dl")).toContainText("1 round");
+  await expect(doc(page)).toContainText("You hurl a bolt of light toward a creature within range.");
+  await expect(doc(page)).toContainText("Using a Higher-Level Spell Slot");
 });
 
 test("a link opens its entry, and back returns", { tag: "@compendium.follow-link" }, async ({ page }) => {
   await compendium(page);
+  // The Barbarian's Persistent Rage links to the Unconscious and
+  // Incapacitated conditions.
   await category(page, "Features");
-  await search(page, "spellcasting #mage ");
-  await read(page, "Spellcasting");
-  await doc(page).getByRole("link", { name: "Proving Rule" }).click();
-  await expect(heading(page)).toContainText("Proving Rule");
-  await expect(doc(page).locator("table")).toBeVisible();
+  await search(page, "persistent rage");
+  await read(page, "Persistent Rage");
+  await doc(page).getByRole("link", { name: "Unconscious" }).click();
+  await expect(heading(page)).toContainText("Unconscious");
+  await expect(doc(page)).toContainText("While you have the Unconscious condition");
   await back(page);
-  await expect(heading(page)).toContainText("Spellcasting");
-  await doc(page).getByRole("link", { name: "Grimoire" }).click();
-  await expect(heading(page)).toContainText("Grimoire");
+  await expect(heading(page)).toContainText("Persistent Rage");
+  await doc(page).getByRole("link", { name: "Incapacitated" }).click();
+  await expect(heading(page)).toContainText("Incapacitated");
   await back(page);
-  await expect(heading(page)).toContainText("Spellcasting");
+  await expect(heading(page)).toContainText("Persistent Rage");
 });
 
 test("an entry is cloned as a campaign version or as a named copy", { tag: "@compendium.clone" }, async ({ page }) => {
   await compendium(page);
-  await search(page, "glimmer");
-  await read(page, "Glimmer");
-  await entryAction(page, "Glimmer", "Clone into the campaign");
-  await choose(page, "Clone Glimmer", /A campaign version/);
-  const editor = dialog(page, "Edit · Glimmer");
+  await search(page, "guiding bolt");
+  await read(page, "Guiding Bolt");
+  await entryAction(page, "Guiding Bolt", "Clone into the campaign");
+  await choose(page, "Clone Guiding Bolt", /A campaign version/);
+  const editor = dialog(page, "Edit · Guiding Bolt");
   await expect(editor).toContainText("campaign version");
   await editor.getByRole("button", { name: "Done" }).click();
-  // It replaces the book entry: still one Glimmer, with its book original.
+  // It replaces the book entry: still one Guiding Bolt, with its book original.
   await toList(page);
-  await expect(names(page).filter({ hasText: exact("Glimmer") })).toHaveCount(1);
-  await read(page, "Glimmer");
+  await expect(names(page).filter({ hasText: exact("Guiding Bolt") })).toHaveCount(1);
+  await read(page, "Guiding Bolt");
   await expect(page.getByRole("button", { name: "Book original" })).toBeVisible();
 
   await toList(page);
-  await search(page, "frost needle");
-  await read(page, "Frost Needle");
-  await entryAction(page, "Frost Needle", "Clone into the campaign");
-  await choose(page, "Clone Frost Needle", /A separate copy/);
-  await expect(dialog(page, "The copy's name").getByRole("textbox")).toHaveValue("Frost Needle (copy)");
+  await search(page, "ray of frost");
+  await read(page, "Ray of Frost");
+  await entryAction(page, "Ray of Frost", "Clone into the campaign");
+  await choose(page, "Clone Ray of Frost", /A separate copy/);
+  await expect(dialog(page, "The copy's name").getByRole("textbox")).toHaveValue("Ray of Frost (copy)");
   await answer(page, "The copy's name", "Frost Lance");
   const copy = dialog(page, "Edit · Frost Lance");
   await expect(copy).toContainText("campaign homebrew");
   await copy.getByRole("button", { name: "Done" }).click();
   await search(page, "frost");
-  await expect(names(page).filter({ hasText: "Frost Needle" })).toHaveCount(1);
+  await expect(names(page).filter({ hasText: "Ray of Frost" })).toHaveCount(1);
   await expect(names(page).filter({ hasText: "Frost Lance" })).toHaveCount(1);
 });
 
 test("a campaign version and its book original", { tag: "@compendium.original" }, async ({ page }) => {
   await compendium(page);
-  await search(page, "glimmer");
-  await read(page, "Glimmer");
-  await entryAction(page, "Glimmer", "Clone into the campaign");
-  await choose(page, "Clone Glimmer", /A campaign version/);
-  const editor = dialog(page, "Edit · Glimmer");
+  await search(page, "guiding bolt");
+  await read(page, "Guiding Bolt");
+  await entryAction(page, "Guiding Bolt", "Clone into the campaign");
+  await choose(page, "Clone Guiding Bolt", /A campaign version/);
+  const editor = dialog(page, "Edit · Guiding Bolt");
   await editor.locator("button.field", { hasText: "Description" }).click();
   await dialog(page, "Description").getByRole("textbox").fill("A spark of moonlight hangs in the air.");
   await dialog(page, "Description").getByRole("button", { name: "Save" }).click();
   await editor.getByRole("button", { name: "Done" }).click();
 
   await toList(page);
-  await read(page, "Glimmer");
+  await read(page, "Guiding Bolt");
   await expect(doc(page)).toContainText("A spark of moonlight");
   await page.getByRole("button", { name: "Book original" }).click();
-  await expect(doc(page)).toContainText("An object sheds dim light.");
+  await expect(doc(page)).toContainText("You hurl a bolt of light");
   await expect(doc(page)).not.toContainText("A spark of moonlight");
   await page.getByRole("button", { name: "The campaign version" }).click();
   await expect(doc(page)).toContainText("A spark of moonlight");

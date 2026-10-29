@@ -53,15 +53,15 @@ test.describe("official books", () => {
 
     await search(page, "Mirefolk");
     await expect(page.locator(".compendium ul.rows")).toContainText("Nothing matches.");
-    await search(page, "Kindred");
-    await expect(result(page, "Kindred", "TST")).toBeVisible();
+    await search(page, "Stoneling");
+    await expect(result(page, "Stoneling", "TST")).toBeVisible();
 
     // Character creation does not offer it either.
     await go(page, "Characters");
     await page.getByRole("button", { name: "+ New character" }).click();
     await answer(page, "New character", "Newcomer");
     await expect(page.getByText("Choose a species").first()).toBeVisible();
-    const picker = page.locator("li button", { hasText: "Kindred" }).first();
+    const picker = page.locator("li button", { hasText: "Stoneling" }).first();
     await expect(picker).toBeVisible();
     await expect(page.locator("li button", { hasText: "Mirefolk" })).toHaveCount(0);
   });
@@ -84,13 +84,13 @@ test.describe("official books", () => {
     await book(d, "TSA").click();
     await save(d);
     // The card names the books (and the source of the campaign's own entries).
-    await expect(page.locator("section.card", { hasText: CAMPAIGN }).locator(".books")).toHaveText(/^TST( ·|$)/);
+    await expect(page.locator("section.card", { hasText: CAMPAIGN }).locator(".books")).toHaveText(/^SRD52 TST( ·|$)/);
 
     d = await sources(page);
     const presets = d.getByRole("combobox", { name: "Tick a preset" });
     await expect(presets).toHaveValue("custom");
     await presets.selectOption("all");
-    for (const id of ["TST", "TSX", "TSA"]) await expect(book(d, id)).toHaveClass(/\bon\b/);
+    for (const id of ["SRD52", "TST", "TSX", "TSA"]) await expect(book(d, id)).toHaveClass(/\bon\b/);
     await save(d);
     await expect(page.locator("section.card", { hasText: CAMPAIGN }).locator(".books")).toHaveText(/^all official( ·|$)/);
     await search(page, "Mirefolk");
@@ -98,9 +98,10 @@ test.describe("official books", () => {
   });
 
   test("showing reprinted entries brings back the older version", { tag: "@sources.reprinted" }, async ({ page }) => {
-    await search(page, "Spark");
-    await expect(result(page, "Spark", "TST")).toBeVisible();
-    await expect(result(page, "Spark", "TSX")).toHaveCount(0);
+    // TSX's Fire Bolt is reprinted in the SRD.
+    await search(page, "Fire Bolt");
+    await expect(result(page, "Fire Bolt", "SRD52")).toBeVisible();
+    await expect(result(page, "Fire Bolt", "TSX")).toHaveCount(0);
 
     const d = await sources(page);
     const newest = d.getByRole("checkbox", { name: "Only the newest printing" });
@@ -109,9 +110,9 @@ test.describe("official books", () => {
     await expect(newest).not.toBeChecked();
     await save(d);
 
-    await search(page, "Spark");
-    await expect(result(page, "Spark", "TSX")).toBeVisible();
-    await expect(result(page, "Spark", "TST")).toBeVisible();
+    await search(page, "Fire Bolt");
+    await expect(result(page, "Fire Bolt", "TSX")).toBeVisible();
+    await expect(result(page, "Fire Bolt", "SRD52")).toBeVisible();
   });
 
   test("the list of books filters by name", { tag: "@sources.filter" }, async ({ page }) => {
@@ -130,17 +131,21 @@ test.describe("official books", () => {
     await expect(group(d, "Supplements")).toContainText("untick all");
     await group(d, "Supplements").click();
     await expect(book(d, "TSX")).not.toHaveClass(/\bon\b/);
-    // The adventure is a section of its own.
+    await expect(book(d, "TST")).not.toHaveClass(/\bon\b/);
+    // The adventure is a section of its own, the SRD in the core rulebooks.
     await expect(book(d, "TSA")).toHaveClass(/\bon\b/);
-    await expect(book(d, "TST")).toHaveClass(/\bon\b/);
+    await expect(book(d, "SRD52")).toHaveClass(/\bon\b/);
     await expect(group(d, "Supplements")).toContainText("tick all");
     await group(d, "Supplements").click();
-    for (const id of ["TST", "TSX", "TSA"]) await expect(book(d, id)).toHaveClass(/\bon\b/);
+    for (const id of ["SRD52", "TST", "TSX", "TSA"]) await expect(book(d, id)).toHaveClass(/\bon\b/);
     await group(d, "Core rulebooks").click();
-    await expect(book(d, "TST")).not.toHaveClass(/\bon\b/);
+    await expect(book(d, "SRD52")).not.toHaveClass(/\bon\b/);
+    await expect(book(d, "TST")).toHaveClass(/\bon\b/);
     await save(d);
-    await search(page, "Kindred");
+    await search(page, "Fireball");
     await expect(page.locator(".compendium ul.rows")).toContainText("Nothing matches.");
+    await search(page, "Stoneling");
+    await expect(result(page, "Stoneling", "TST")).toBeVisible();
   });
 });
 

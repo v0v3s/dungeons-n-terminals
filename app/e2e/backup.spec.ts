@@ -23,7 +23,7 @@ async function brewer(page: Page) {
   await invoke(page, "set_campaign_sources", { slug: "e2e", sources: [], homebrew: ["TSTB"], showReprinted: false });
   await invoke(page, "e2e_put_file", {
     path: "characters/brewer.toml",
-    text: 'name = "Brewer"\nspecies = "race:Kindred|TST"\nfeats = ["feat:Brewed Luck|TSTB"]\n\n[abilities]\nstr = 10\ndex = 10\ncon = 10\nint = 10\nwis = 10\ncha = 10\n\n[[levels]]\nclass = "class:Mage|TST"\n',
+    text: 'name = "Brewer"\nspecies = "race:Stoneling|TST"\nfeats = ["feat:Brewed Luck|TSTB"]\n\n[abilities]\nstr = 10\ndex = 10\ncon = 10\nint = 10\nwis = 10\ncha = 10\n\n[[levels]]\nclass = "class:Wizard|SRD52"\n',
   });
 }
 

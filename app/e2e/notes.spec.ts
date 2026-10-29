@@ -187,7 +187,7 @@ test("a note is edited and saved", { tag: "@notes.edit" }, async ({ page }) => {
 
 test("links go to notes and to the compendium; a missing note is made from its link; back returns", { tag: "@notes.links" }, async ({ page }) => {
   await seedNotes(page, {
-    "Bridge.md": "# Bridge\n\nAsk [[Old Miller|the miller]] about [[spell:Ember Bolt]] and [[Lost Mill]].\n",
+    "Bridge.md": "# Bridge\n\nAsk [[Old Miller|the miller]] about [[spell:Ray of Frost]] and [[Lost Mill]].\n",
     "NPCs/Old Miller.md": "# Old Miller\n\nKeeps the key.\n",
   });
   await file(page, "Bridge").click();
@@ -198,11 +198,11 @@ test("links go to notes and to the compendium; a missing note is made from its l
   await back(page).click();
   await expect(note(page)).toContainText("Bridge.md");
 
-  await read.getByRole("link", { name: "Ember Bolt" }).click();
-  await expect(dialog(page, "Ember Bolt")).toBeVisible();
-  await expect(dialog(page, "Ember Bolt")).toContainText("3d6");
+  await read.getByRole("link", { name: "Ray of Frost" }).click();
+  await expect(dialog(page, "Ray of Frost")).toBeVisible();
+  await expect(dialog(page, "Ray of Frost")).toContainText("1d8 Cold damage");
   await page.keyboard.press("Escape");
-  await expect(dialog(page, "Ember Bolt")).toHaveCount(0);
+  await expect(dialog(page, "Ray of Frost")).toHaveCount(0);
 
   await read.getByRole("link", { name: "Lost Mill" }).click();
   await choose(page, "“Lost Mill” does not exist yet", "Create it at the top level");
