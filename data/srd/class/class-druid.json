@@ -592,6 +592,28 @@
    ]
   },
   {
+   "name": "Magician",
+   "source": "SRD52",
+   "page": 41,
+   "className": "Druid",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "You know one extra cantrip from the Druid spell list. In addition, your mystical connection to nature gives you a bonus to your Intelligence (Arcana or Nature) checks. The bonus equals your Wisdom modifier (minimum bonus of +1)."
+   ]
+  },
+  {
+   "name": "Warden",
+   "source": "SRD52",
+   "page": 41,
+   "className": "Druid",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "Trained for battle, you gain proficiency with Martial weapons and training with Medium armor."
+   ]
+  },
+  {
    "name": "Primal Order",
    "source": "SRD52",
    "page": 41,
@@ -601,17 +623,17 @@
    "entries": [
     "You have dedicated yourself to one of the following sacred roles of your choice.",
     {
-     "type": "entries",
-     "name": "Magician",
+     "type": "options",
+     "count": 1,
      "entries": [
-      "You know one extra cantrip from the Druid spell list. In addition, your mystical connection to nature gives you a bonus to your Intelligence (Arcana or Nature) checks. The bonus equals your Wisdom modifier (minimum bonus of +1)."
-     ]
-    },
-    {
-     "type": "entries",
-     "name": "Warden",
-     "entries": [
-      "Trained for battle, you gain proficiency with Martial weapons and training with Medium armor."
+      {
+       "type": "refClassFeature",
+       "classFeature": "Magician|Druid|SRD52|1|SRD52"
+      },
+      {
+       "type": "refClassFeature",
+       "classFeature": "Warden|Druid|SRD52|1|SRD52"
+      }
      ]
     }
    ]

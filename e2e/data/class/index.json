@@ -1,6 +1,3 @@
 {
- "mage": "class-mage.json",
- "warden": "class-warden.json",
- "hexer": "class-hexer.json",
- "monk": "class-monk.json"
+ "hexer": "class-hexer.json"
 }

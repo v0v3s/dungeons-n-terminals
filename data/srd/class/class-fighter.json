@@ -227,6 +227,17 @@
     },
     "Epic Boon|Fighter|SRD52|19",
     "Three Extra Attacks|Fighter|SRD52|20"
+   ],
+   "featProgression": [
+    {
+     "name": "Fighting Style",
+     "category": [
+      "FS"
+     ],
+     "progression": {
+      "1": 1
+     }
+    }
    ]
   }
  ],

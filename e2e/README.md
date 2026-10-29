@@ -26,13 +26,13 @@ catalog. It runs in CI with the other tests.
 Each test starts from a known state, made through the same core the
 programs use (never by hand-written files):
 
-- **`empty`**: nothing, the first start;
-- **`data`**: the test data imported ([`data/`](data) and
+- **`empty`**: the first start: only the built-in SRD 5.2.1;
+- **`data`**: and the test supplement imported ([`data/`](data) and
   [`homebrew/`](homebrew));
 - **`campaign`**: and the campaign *E2E*, active;
 - **`party`**: and the test party, made through character creation as
-  [`characters.json`](characters.json) describes (a Mage, a Monk, a Hexer and
-  a Warden at level 1).
+  [`characters.json`](characters.json) describes (a Wizard, a Monk, a
+  Warlock and a Ranger at level 1, from the SRD).
 
 In the terminal: `Home::empty()`, `Home::data()`, `Home::campaign()`,
 `Home::party()`. In the app: `test.use({ seed: "data" })` (the party by
@@ -40,18 +40,19 @@ default); the app is reset before every test.
 
 ## The test data
 
-[`data/`](data) is a small data repository of **invented** content in the
-data format: two books (*The Proving Grounds*, `TST`, and an older
-supplement, `TSX`, with reprinted entries), four classes (a full caster with
-a spellbook, a half caster with weapon masteries and options, a pact caster
-with a subclass at level 1, a Monk with Martial Arts), subclasses, species
-with lineages and subraces, backgrounds, feats of every category, spells
-of every shape (attack, save, healing, scaling, rituals, concentration),
-weapons, armor, packs, containers, focuses, magic items and variants, and
-rules text. [`homebrew/`](homebrew) is a homebrew collection (`TSTB`).
+The tests use the **SRD 5.2.1**, built into dnt ([`data/srd`](../data/srd),
+made from the SRD's PDF by [`scripts/srd`](../scripts/srd)): its classes,
+species, backgrounds, feats, spells, items and rules.
 
-A feature that reads something new from the data adds it here, invented,
-and keeps it valid:
+[`data/`](data) is a small supplement of **invented** content for what the
+SRD lacks: a second book (*The Proving Grounds*, `TST`) with a class whose
+subclass comes at level 1 (the Hexer) and a species with subraces (the
+Stoneling), an older book (`TSX`) whose Fire Bolt the SRD reprints, a
+disease, a status and an adventure. [`homebrew/`](homebrew) is a homebrew
+collection (`TSTB`).
+
+A feature that reads something the SRD does not have adds it to the
+supplement, invented, and keeps it valid:
 
 ```sh
 cargo run --release -p dnt-data --example validate -- e2e/data

@@ -159,6 +159,9 @@ fn the_help_ends_with_about() {
     t.send("G").wait("About");
     t.wait(&format!("dnt {} · MIT license", env!("CARGO_PKG_VERSION")));
     t.wait("github.com/v0v3s/dungeons-n-terminals");
-    t.wait("It ships no game content and reads the data you provide.");
+    t.wait("It has the SRD 5.2.1 built in, and reads the books you import.");
+    // The attribution the SRD's licence asks for.
+    t.wait("This work includes material from the System Reference");
+    t.wait("licensed under the Creative Commons Attribution 4.0");
     t.send(ESC).wait_gone("MIT license");
 }

@@ -20,6 +20,14 @@ HEADING = "#88191f"
 FEATURE = re.compile(r"Level (\d+): (.+)$")
 ABILITY = {a: a[:3].lower() for a in tags.ABILITIES}
 
+# Features whose named parts are options to pick one of.
+OPTIONS = {("Cleric", "Divine Order"), ("Druid", "Primal Order")}
+# Spells a Wizard writes in the spellbook: six at level 1, two a level
+# after (its Spellcasting feature says so).
+SPELLBOOK = {"Wizard": [6] + [2] * 19}
+# The level of a class's Fighting Style feat (said in its features).
+FIGHTING_STYLE = {"Fighter": 1, "Paladin": 2, "Ranger": 2}
+
 # What the tables do not say.
 CASTERS = {
     "Bard": ("full", "cha"), "Cleric": ("full", "wis"), "Druid": ("full", "wis"),
@@ -66,6 +74,8 @@ def one(chunk, pdf_path, out, options):
     if caster:
         cls["casterProgression"], cls["spellcastingAbility"] = caster
     cls.update(progressions(name, rows, labels))
+    if name in SPELLBOOK:
+        cls["spellsKnownProgressionFixed"] = SPELLBOOK[name]
     cls["subclassTitle"] = f"{name} Subclass"
 
     sections = _split(body, lambda l: l.color == HEADING and l.size == 21 and not _goes_on(body, l))
@@ -349,14 +359,34 @@ def _class_features(cls, rows, features, out):
                     text = [f"You gain a feature from your {name} subclass."]
                 else:
                     raise ValueError(f"{name}: no text for {feature} at level {level}")
+            if (name, feature) in OPTIONS:
+                text = _options(cls, level, text, out)
             out["classFeature"].append({
                 "name": feature, "source": SOURCE, "page": cls["page"], "className": name,
                 "classSource": SOURCE, "level": level, "entries": text,
             })
     cls["classFeatures"] = refs
+    if name in FIGHTING_STYLE:
+        cls["featProgression"] = [{"name": "Fighting Style", "category": ["FS"], "progression": {str(FIGHTING_STYLE[name]): 1}}]
     left = [k for k in features if k not in used]
     if left:
         raise ValueError(f"{name}: features not in the table: {left}")
+
+
+def _options(cls, level, text, out):
+    """A feature's named parts as features of their own, offered as one
+    pick (Divine Order: Protector or Thaumaturge)."""
+    refs, rest = [], []
+    for e in text:
+        if isinstance(e, dict) and e.get("type") == "entries" and e.get("name"):
+            out["classFeature"].append({
+                "name": e["name"], "source": SOURCE, "page": cls["page"], "className": cls["name"],
+                "classSource": SOURCE, "level": level, "entries": e["entries"],
+            })
+            refs.append({"type": "refClassFeature", "classFeature": f"{e['name']}|{cls['name']}|{SOURCE}|{level}|{SOURCE}"})
+        else:
+            rest.append(e)
+    return rest + [{"type": "options", "count": 1, "entries": refs}]
 
 
 def _subclass(cls, name, features, out):

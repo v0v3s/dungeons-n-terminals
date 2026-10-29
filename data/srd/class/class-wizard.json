@@ -443,6 +443,28 @@
      ]
     }
    ],
+   "spellsKnownProgressionFixed": [
+    6,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
    "subclassTitle": "Wizard Subclass",
    "classFeatures": [
     "Spellcasting|Wizard|SRD52|1",

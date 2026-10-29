@@ -13,149 +13,12 @@
     "wis",
     "cha"
    ],
-   "spellcastingAbility": "cha",
-   "casterProgression": "pact",
-   "cantripProgression": [
-    2,
-    2,
-    2,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    4,
-    4,
-    4,
-    4,
-    4,
-    4,
-    4,
-    4,
-    4,
-    4,
-    4
-   ],
-   "spellsKnownProgression": [
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    10,
-    11,
-    11,
-    12,
-    12,
-    13,
-    13,
-    14,
-    14,
-    15,
-    15
-   ],
    "primaryAbility": [
     {
      "cha": true
     }
    ],
    "subclassTitle": "Hexer Patron",
-   "classTableGroups": [
-    {
-     "title": "Pact Magic",
-     "colLabels": [
-      "Spell Slots",
-      "Slot Level"
-     ],
-     "rows": [
-      [
-       1,
-       "1st"
-      ],
-      [
-       2,
-       "1st"
-      ],
-      [
-       2,
-       "2nd"
-      ],
-      [
-       2,
-       "2nd"
-      ],
-      [
-       2,
-       "3rd"
-      ],
-      [
-       2,
-       "3rd"
-      ],
-      [
-       2,
-       "4th"
-      ],
-      [
-       2,
-       "4th"
-      ],
-      [
-       2,
-       "5th"
-      ],
-      [
-       2,
-       "5th"
-      ],
-      [
-       3,
-       "5th"
-      ],
-      [
-       3,
-       "5th"
-      ],
-      [
-       3,
-       "5th"
-      ],
-      [
-       3,
-       "5th"
-      ],
-      [
-       3,
-       "5th"
-      ],
-      [
-       3,
-       "5th"
-      ],
-      [
-       4,
-       "5th"
-      ],
-      [
-       4,
-       "5th"
-      ],
-      [
-       4,
-       "5th"
-      ],
-      [
-       4,
-       "5th"
-      ]
-     ]
-    }
-   ],
    "startingProficiencies": {
     "armor": [
      "light"
@@ -170,10 +33,7 @@
         "arcana",
         "deception",
         "history",
-        "intimidation",
-        "investigation",
-        "nature",
-        "religion"
+        "intimidation"
        ],
        "count": 2
       }
@@ -184,24 +44,19 @@
     "defaultData": [
      {
       "A": [
+       "leather armor|srd52",
        {
-        "equipmentType": "focusSpellcastingArcane"
+        "item": "dagger|srd52",
+        "quantity": 2
+       },
+       "explorer’s pack|srd52",
+       {
+        "value": 1500
        }
       ],
       "B": [
-       "hex pouch|TST"
-      ]
-     },
-     {
-      "_": [
-       "quilted coat|TST",
        {
-        "item": "thornknife|TST",
-        "quantity": 2
-       },
-       "trail pack|TST",
-       {
-        "value": 1500
+        "value": 5000
        }
       ]
      }
@@ -217,7 +72,6 @@
      "classFeature": "Hexer Patron|Hexer|TST|1",
      "gainSubclassFeature": true
     },
-    "Pact Magic|Hexer|TST|1",
     "Hexing Gaze|Hexer|TST|2",
     "Ability Score Improvement|Hexer|TST|4",
     "Ability Score Improvement|Hexer|TST|8",
@@ -237,18 +91,6 @@
    "edition": "one",
    "subclassFeatures": [
     "The Lantern|Hexer|TST|Lantern|TST|1"
-   ],
-   "additionalSpells": [
-    {
-     "expanded": {
-      "s1": [
-       "soothing light|TST"
-      ],
-      "s2": [
-       "mist step|TST"
-      ]
-     }
-    }
    ]
   },
   {
@@ -275,23 +117,13 @@
    ]
   },
   {
-   "name": "Pact Magic",
-   "source": "TST",
-   "className": "Hexer",
-   "classSource": "TST",
-   "level": 1,
-   "entries": [
-    "Your slots come back on a short rest."
-   ]
-  },
-  {
    "name": "Hexing Gaze",
    "source": "TST",
    "className": "Hexer",
    "classSource": "TST",
    "level": 2,
    "entries": [
-    "A target you can see has {@condition Dazed|TST|disadvantage} on its next save."
+    "A target you can see has the {@condition Poisoned|SRD52} condition until on its next save."
    ]
   },
   {

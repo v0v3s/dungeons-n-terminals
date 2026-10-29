@@ -590,6 +590,28 @@
    ]
   },
   {
+   "name": "Protector",
+   "source": "SRD52",
+   "page": 36,
+   "className": "Cleric",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor."
+   ]
+  },
+  {
+   "name": "Thaumaturge",
+   "source": "SRD52",
+   "page": 36,
+   "className": "Cleric",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1)."
+   ]
+  },
+  {
    "name": "Divine Order",
    "source": "SRD52",
    "page": 36,
@@ -599,17 +621,17 @@
    "entries": [
     "You have dedicated yourself to one of the following sacred roles of your choice.",
     {
-     "type": "entries",
-     "name": "Protector",
+     "type": "options",
+     "count": 1,
      "entries": [
-      "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor."
-     ]
-    },
-    {
-     "type": "entries",
-     "name": "Thaumaturge",
-     "entries": [
-      "You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1)."
+      {
+       "type": "refClassFeature",
+       "classFeature": "Protector|Cleric|SRD52|1|SRD52"
+      },
+      {
+       "type": "refClassFeature",
+       "classFeature": "Thaumaturge|Cleric|SRD52|1|SRD52"
+      }
      ]
     }
    ]

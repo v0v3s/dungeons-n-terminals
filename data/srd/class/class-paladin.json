@@ -379,6 +379,17 @@
      "classFeature": "Subclass Feature|Paladin|SRD52|20",
      "gainSubclassFeature": true
     }
+   ],
+   "featProgression": [
+    {
+     "name": "Fighting Style",
+     "category": [
+      "FS"
+     ],
+     "progression": {
+      "2": 1
+     }
+    }
    ]
   }
  ],

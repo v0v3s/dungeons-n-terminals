@@ -17,9 +17,15 @@
 
 # ---------------------------------------------------------------- setup
 [[scenario]]
-id = "setup.import-first-run"
-does = "On the first start, import the data zip from the getting-started screen; it then asks for a campaign."
+id = "setup.srd-built-in"
+does = "On the first start the SRD 5.2.1 is there, nothing to import: it asks for a campaign, and the compendium has the SRD's entries."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "setup.import-first-run"
+does = "On the first start, a zip of more data can be imported from getting started (the app); it joins the SRD."
+targets = ["app"]
+not = { tui = "the terminal app imports with dnt import (data.import-later)" }
 
 [[scenario]]
 id = "setup.first-campaign"
@@ -28,7 +34,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "setup.import-folder"
-does = "Read a data folder in place (a path at getting started, or --data), not imported."
+does = "Read a data folder in place with --data, over the built-in SRD, not imported."
 targets = ["tui"]
 not = { app = "the app imports zips only: it has no folder of its own to read" }
 
@@ -66,7 +72,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "data.about"
-does = "See the version, the licence, the repository and that dnt ships no game content."
+does = "See the version, the licence, the repository, that the SRD 5.2.1 is built in, and its attribution."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- backups and exports

@@ -383,6 +383,17 @@
     "Feral Senses|Ranger|SRD52|18",
     "Epic Boon|Ranger|SRD52|19",
     "Foe Slayer|Ranger|SRD52|20"
+   ],
+   "featProgression": [
+    {
+     "name": "Fighting Style",
+     "category": [
+      "FS"
+     ],
+     "progression": {
+      "2": 1
+     }
+    }
    ]
   }
  ],

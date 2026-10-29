@@ -4,7 +4,7 @@
    "name": "The Proving Grounds",
    "id": "TST",
    "source": "TST",
-   "group": "core",
+   "group": "supplement",
    "published": "2026-01-01",
    "author": "The Test Guild"
   },
@@ -13,7 +13,7 @@
    "id": "TSX",
    "source": "TSX",
    "group": "supplement",
-   "published": "2026-06-01",
+   "published": "2020-06-01",
    "author": "The Test Guild"
   }
  ]
