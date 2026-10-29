@@ -23,16 +23,30 @@ pub enum Origin {
 /// The overlay id for an entity: `<type>:<reference>` in the data format's pipe
 /// syntax.
 /// The built-in rules with the user's own over them, and what is wrong in
-/// them, each as `file: what` (checked against `lib` when there is one).
+/// them, each as `file: what` (checked against `lib` when there is one,
+/// and the imported homebrew: rules are for every campaign, whichever
+/// homebrew each turns on).
 pub fn load(store: &dnt_store::Store, lib: Option<&Library>) -> (OverlaySet, Vec<String>) {
     let (mut set, diags) = builtin::overlays();
+    let brew = lib.map(|_| {
+        let ids: Vec<String> = crate::import::homebrew(store).into_iter().map(|b| b.id).collect();
+        let mut brew = Library::new();
+        brew.load_docs(&crate::import::load_homebrew(store, &ids).0);
+        brew
+    });
     let mut problems: Vec<String> = diags.iter().map(|d| format!("built-in rules: {d}")).collect();
     for path in store.overlay_files() {
         let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
             Ok((overlay, diags)) => {
                 problems.extend(diags.iter().map(|d| format!("{name}: {d}")));
-                let unknown = lib.map(|l| overlay.unresolved(l)).unwrap_or_default();
+                let unknown = match (lib, &brew) {
+                    (Some(l), Some(b)) => {
+                        let in_brew = overlay.unresolved(b);
+                        overlay.unresolved(l).into_iter().filter(|id| in_brew.contains(id)).collect()
+                    }
+                    _ => Vec::new(),
+                };
                 problems.extend(unknown.into_iter().map(|id| format!("{name}: not in the library: {id}")));
                 // A user's overlay replaces the built-in one for its feature.
                 set.replace(overlay);

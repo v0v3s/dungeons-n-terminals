@@ -101,8 +101,11 @@ test("starting over deletes everything, after confirming", { tag: "@data.reset" 
 
 test("a mistake in the rules is named on the Data screen", { tag: "@features.rules-problems" }, async ({ page }) => {
   await invoke(page, "e2e_put_file", { path: "overlays/mine.toml", text: '[[feature]]\nid = "feat:Nonesuch|TST"\n' });
+  // Rules for imported homebrew the campaign does not turn on are fine.
+  await invoke(page, "e2e_put_file", { path: "overlays/brew.toml", text: '[[feature]]\nid = "feat:Brewed Luck|TSTB"\n' });
   await page.reload();
   await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
   await go(page, "Data");
   await expect(pane(page, "Problems")).toContainText("Rules: mine.toml: not in the library: feat:Nonesuch|TST");
+  await expect(pane(page, "Problems")).not.toContainText("brew.toml");
 });

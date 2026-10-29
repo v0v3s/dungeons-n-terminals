@@ -8,6 +8,12 @@ become the release page.
 
 ## Unreleased
 
+### Fixed
+
+- Your rules for a feature of imported homebrew are no longer named as
+  "not in the library" when the open campaign does not turn that
+  homebrew on.
+
 ## v1.2.0 - 2026-10-29
 
 ### Added

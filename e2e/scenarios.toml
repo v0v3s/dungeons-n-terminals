@@ -557,7 +557,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "features.rules-problems"
-does = "A mistake in your rules is named, with its file and what is wrong: on the terminal's status line when it starts, under Problems on the app's Data screen."
+does = "A mistake in your rules is named, with its file and what is wrong: on the terminal's status line when it starts, under Problems on the app's Data screen. Rules for imported homebrew are not a mistake, even where no campaign turns that homebrew on."
 targets = ["tui", "app"]
 
 [[scenario]]

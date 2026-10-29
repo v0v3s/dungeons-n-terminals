@@ -67,8 +67,11 @@ fn a_mistake_in_the_rules_is_named_at_start() {
     let dir = home.store().overlays_dir();
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("mine.toml"), "[[feature]]\nid = \"feat:Nonesuch|TST\"\n").unwrap();
+    // Rules for imported homebrew the campaign does not turn on are fine.
+    std::fs::write(dir.join("brew.toml"), "[[feature]]\nid = \"feat:Brewed Luck|TSTB\"\n").unwrap();
     let mut t = Tui::scenario("features.rules-problems", home);
     t.wait("Rules problem: mine.toml: not in the library: feat:Nonesuch|TST");
+    assert!(!t.shows("and 1 more"), "{}", t.screen());
 }
 
 #[test]
