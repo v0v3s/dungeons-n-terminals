@@ -28,24 +28,21 @@ pub enum Origin {
 /// homebrew each turns on).
 pub fn load(store: &dnt_store::Store, lib: Option<&Library>) -> (OverlaySet, Vec<String>) {
     let (mut set, diags) = builtin::overlays();
-    let brew = lib.map(|_| {
-        let ids: Vec<String> = crate::import::homebrew(store).into_iter().map(|b| b.id).collect();
-        let mut brew = Library::new();
-        brew.load_docs(&crate::import::load_homebrew(store, &ids).0);
-        brew
-    });
+    let mut brews = Brews::new(store);
     let mut problems: Vec<String> = diags.iter().map(|d| format!("built-in rules: {d}")).collect();
     for path in store.overlay_files() {
         let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         match store.read_text(&path).map_err(|e| e.to_string()).and_then(|t| Overlay::parse(&t)) {
             Ok((overlay, diags)) => {
                 problems.extend(diags.iter().map(|d| format!("{name}: {d}")));
-                let unknown = match (lib, &brew) {
-                    (Some(l), Some(b)) => {
-                        let in_brew = overlay.unresolved(b);
-                        overlay.unresolved(l).into_iter().filter(|id| in_brew.contains(id)).collect()
-                    }
-                    _ => Vec::new(),
+                let unknown: Vec<&str> = match lib {
+                    Some(l) => overlay
+                        .features
+                        .iter()
+                        .filter(|f| !f.keys.iter().any(|k| l.get(k).is_some()) && !brews.has(&f.id, &f.keys))
+                        .map(|f| f.id.as_str())
+                        .collect(),
+                    None => Vec::new(),
                 };
                 problems.extend(unknown.into_iter().map(|id| format!("{name}: not in the library: {id}")));
                 // A user's overlay replaces the built-in one for its feature.
@@ -56,6 +53,44 @@ pub fn load(store: &dnt_store::Store, lib: Option<&Library>) -> (OverlaySet, Vec
         }
     }
     (set, problems)
+}
+
+/// The imported homebrew's entities, by source, read only for rules that
+/// name one (`…|KibDragonPatron`): rules are for every campaign, whichever
+/// homebrew each turns on.
+struct Brews<'a> {
+    store: &'a dnt_store::Store,
+    ids: Vec<String>,
+    keys: std::collections::HashMap<String, std::collections::HashSet<dnt_data::Key>>,
+}
+
+impl<'a> Brews<'a> {
+    fn new(store: &'a dnt_store::Store) -> Brews<'a> {
+        let ids = crate::import::homebrew(store).into_iter().map(|b| b.id.to_lowercase()).collect();
+        Brews { store, ids, keys: Default::default() }
+    }
+
+    /// Whether an imported homebrew has one of the keys (`id`'s source
+    /// names the homebrew).
+    fn has(&mut self, id: &str, keys: &[dnt_data::Key]) -> bool {
+        let source = id.rsplit('|').next().unwrap_or_default().to_lowercase();
+        if !self.ids.contains(&source) {
+            return false;
+        }
+        let store = self.store;
+        let known = self.keys.entry(source.clone()).or_insert_with(|| {
+            let (docs, _) = crate::import::load_homebrew(store, &[source]);
+            let mut out = std::collections::HashSet::new();
+            for doc in &docs {
+                for (k, list) in doc.as_object().into_iter().flatten() {
+                    let (Some(kind), Some(list)) = (Kind::from_json_key(k), list.as_array()) else { continue };
+                    out.extend(list.iter().filter_map(|e| dnt_data::Key::of_entity(kind, e)));
+                }
+            }
+            out
+        });
+        keys.iter().any(|k| known.contains(k))
+    }
 }
 
 pub fn overlay_id(lib: &Library, entity: EntityId) -> String {
