@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { answer, choose, dialog, expect, go, invoke, phone, test } from "./fixtures";
+import { answer, choose, dialog, entryAction, expect, go, invoke, phone, test } from "./fixtures";
 
 test.use({ seed: "campaign" });
 
@@ -49,7 +49,7 @@ async function campaignVersion(page: Page, name: string): Promise<Locator> {
   await go(page, "Compendium");
   await search(page, name.toLowerCase());
   await read(page, name);
-  await page.getByRole("button", { name: "Clone into the campaign" }).click();
+  await entryAction(page, name, "Clone into the campaign");
   await choose(page, `Clone ${name}`, /A campaign version/);
   const editor = dialog(page, `Edit · ${name}`);
   await expect(editor).toContainText("campaign version");

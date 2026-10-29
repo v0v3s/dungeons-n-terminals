@@ -4,11 +4,13 @@
 <script lang="ts">
   import { onMount, tick, untrack } from "svelte";
   import * as api from "./api";
+  import { saveAs } from "./files";
   import { GLYPH } from "./api";
   import Blocks from "./Blocks.svelte";
   import Pane from "./Pane.svelte";
   import SourcesEditor from "./SourcesEditor.svelte";
   import BrewEditor from "./BrewEditor.svelte";
+  import Menu from "./Menu.svelte";
   import Modal from "./Modal.svelte";
   import Prompt from "./Prompt.svelte";
   import { Swipe } from "./swipe.svelte";
@@ -80,6 +82,8 @@
   /// Entries left by following links.
   let back: api.Entry[] = $state([]);
   let error = $state("");
+  /// What an action did (an export).
+  let notice = $state("");
   /// Showing the entry instead of the list (narrow screens).
   let open = $state(false);
   let searching = $state(false);
@@ -186,6 +190,20 @@
     if (!entry) return;
     try {
       editing = await api.brewOpen(entry.id);
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  /// The entry (with its features, for a class) as a data file, to import
+  /// elsewhere (Data › Import).
+  async function exportEntry() {
+    if (!entry) return;
+    const path = await saveAs(`${entry.name}.json`, "Data file", "json");
+    if (!path) return;
+    try {
+      error = "";
+      notice = await api.exportEntry(entry.id, path);
     } catch (e) {
       error = String(e);
     }
@@ -519,15 +537,25 @@
         <div class="head">
           {#if !touch && (open || back.length)}<button class="back" onclick={goBack}>‹ back</button>{/if}
           {#if touch && back.length && !narrow}<button class="back" onclick={goBack}>‹ {back.at(-1)?.name}</button>{/if}
-          <h1><span class="g-{entry.group}">{GLYPH[entry.group]}</span> {entry.name}</h1>
+          <div class="title">
+            <h1><span class="g-{entry.group}">{GLYPH[entry.group]}</span> {entry.name}</h1>
+            {#if actions}
+              <Menu
+                title={entry.name}
+                actions={[
+                  ...(actions.edit && !original ? [["Edit", edit] as [string, () => void]] : []),
+                  ...(actions.clone ? [["Clone into the campaign", () => (cloning = true)] as [string, () => void]] : []),
+                  ["Export", exportEntry],
+                ]}
+              />
+            {/if}
+          </div>
           <div class="sub">
             <span class="g-{entry.group}">{entry.kind}</span><span class="dim">{`  ·  ${entry.source}${entry.page ? ` · p. ${entry.page}` : ""}`}</span>
           </div>
-          {#if actions && (actions.edit || actions.clone || actions.original)}
+          {#if actions?.original}
             <div class="entry-actions">
-              {#if actions.edit && !original}<button class="ghost" onclick={edit}>Edit</button>{/if}
-              {#if actions.clone}<button class="ghost" onclick={() => (cloning = true)}>Clone into the campaign</button>{/if}
-              {#if actions.original}<button class="ghost" class:on={original} onclick={toggleOriginal}>{original ? "The campaign version" : "Book original"}</button>{/if}
+              <button class="ghost" class:on={original} onclick={toggleOriginal}>{original ? "The campaign version" : "Book original"}</button>
             </div>
           {/if}
         </div>
@@ -540,6 +568,7 @@
     </Pane>
   </div>
   {#if error}<div class="error">{error}</div>{/if}
+  {#if notice}<div class="notice">✓ {notice}</div>{/if}
 </div>
 
 {#if editing}
@@ -633,6 +662,9 @@
   .order select {
     font-size: 0.9em;
     min-width: 0;
+  }
+  .notice {
+    color: var(--green);
   }
   .entry-actions {
     display: flex;
@@ -777,6 +809,12 @@
   }
   .more {
     padding: 0.5em 1ch;
+  }
+  .title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1ch;
   }
   .head h1 {
     font-size: 1em;

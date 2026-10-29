@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "dnt"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -936,11 +936,12 @@ dependencies = [
  "toml 1.1.8+spec-1.1.0",
  "unicode-width",
  "vt100",
+ "zip",
 ]
 
 [[package]]
 name = "dnt-app"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "dnt-core",
  "dnt-data",
@@ -956,7 +957,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-core"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "dnt-data",
@@ -964,12 +965,13 @@ dependencies = [
  "dnt-store",
  "serde",
  "serde_json",
+ "toml 1.1.8+spec-1.1.0",
  "zip",
 ]
 
 [[package]]
 name = "dnt-data"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "jsonschema",
  "nucleo-matcher",
@@ -981,7 +983,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-rules"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "dnt-data",
  "jsonschema",
@@ -993,7 +995,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-store"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "dirs",
  "dnt-data",

@@ -2,8 +2,9 @@
 // (nothing can drive the system's own dialogs): see app/e2e/fixtures.ts and
 // src-tauri/src/e2e.rs.
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { pickBackupFolder } from "./api";
 
-type Answers = { open?: string | null; save?: string | null };
+type Answers = { open?: string | null; save?: string | null; folder?: string | null };
 
 /// A test's answers, when one set them.
 const answers = (): Answers | undefined => (window as { dntE2eFiles?: Answers }).dntE2eFiles;
@@ -14,6 +15,22 @@ export async function openZip(): Promise<string | null> {
   if (a && "open" in a) return a.open ?? null;
   const path = await open({ multiple: false, directory: false, filters: [{ name: "Zip", extensions: ["zip"] }] });
   return typeof path === "string" ? path : null;
+}
+
+/// Pick a file to import (a zip, or an entry's .json): its path, or null.
+export async function openFile(): Promise<string | null> {
+  const a = answers();
+  if (a && "open" in a) return a.open ?? null;
+  const path = await open({ multiple: false, directory: false, filters: [{ name: "dnt, data or homebrew", extensions: ["zip", "json"] }] });
+  return typeof path === "string" ? path : null;
+}
+
+/// Pick a folder for backups: a path (a folder the system granted, on
+/// Android), or null.
+export async function pickFolder(): Promise<string | null> {
+  const a = answers();
+  if (a && "folder" in a) return a.folder ?? null;
+  return pickBackupFolder();
 }
 
 /// Where to save a file named `name` (of the kind `label`), or null.

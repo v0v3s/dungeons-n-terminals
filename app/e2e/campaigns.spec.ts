@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { CAMPAIGN, answer, choose, dialog, expect, go, invoke, test } from "./fixtures";
+import { answer, CAMPAIGN, campaignAction, choose, dialog, expect, go, invoke, test } from "./fixtures";
 
 /// A campaign's card, by its exact name.
 const card = (page: Page, name: string) =>
@@ -46,7 +46,7 @@ test("making another campaign active shows its characters and notes", { tag: "@c
 
 test("a renamed campaign stays active", { tag: "@campaigns.rename" }, async ({ page }) => {
   await go(page, "Campaigns");
-  await card(page, CAMPAIGN).getByRole("button", { name: "Rename" }).click();
+  await campaignAction(page, CAMPAIGN, "Rename");
   await answer(page, `Rename ${CAMPAIGN}`, "E2E Renamed");
   await expect(card(page, "E2E Renamed").locator(".badge")).toHaveText("active");
   await expect(card(page, CAMPAIGN)).toHaveCount(0);
@@ -58,12 +58,12 @@ test("a renamed campaign stays active", { tag: "@campaigns.rename" }, async ({ p
 
 test("deleting a campaign asks first; declining keeps it", { tag: "@campaigns.delete" }, async ({ page }) => {
   await create(page, "E2E Doomed");
-  await card(page, "E2E Doomed").getByRole("button", { name: "Delete" }).click();
+  await campaignAction(page, "E2E Doomed", "Delete");
   await expect(dialog(page, "Delete E2E Doomed")).toContainText("cannot be undone");
   await choose(page, "Delete E2E Doomed", "Cancel");
   await expect(card(page, "E2E Doomed")).toBeVisible();
 
-  await card(page, "E2E Doomed").getByRole("button", { name: "Delete" }).click();
+  await campaignAction(page, "E2E Doomed", "Delete");
   await choose(page, "Delete E2E Doomed", "Delete");
   await expect(card(page, "E2E Doomed")).toHaveCount(0);
   await expect(card(page, CAMPAIGN)).toBeVisible();

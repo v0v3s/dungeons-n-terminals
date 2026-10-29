@@ -30,7 +30,7 @@ test.describe("with the data", () => {
     const before = await listed(page);
     const brew = await pane(page, "Imported homebrew").innerText();
     await fakeFilePicker(page);
-    await page.getByRole("button", { name: "Import a zip…" }).click();
+    await page.getByRole("button", { name: "Import…" }).click();
     await expect(page.locator(".ok")).toContainText("✓");
     expect(await listed(page)).toEqual(before);
     await expect(pane(page, "Imported homebrew")).toHaveText(brew);

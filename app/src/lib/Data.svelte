@@ -1,8 +1,9 @@
-<!-- The data: import zips (a whole data folder, or homebrew files), what
-     has been imported, and starting over. -->
+<!-- The data: import zips (a whole data folder, or homebrew files) and
+     anything exported from dnt, backups, what has been imported, and
+     starting over. -->
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
-  import { openZip } from "./files";
+  import { openFile, pickFolder } from "./files";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import { ICONS } from "./icons";
@@ -64,12 +65,31 @@
 
   let busy = $state(false);
   let result: api.Imported | null = $state(null);
+  /// What an import of a character, campaign or entries did.
+  let done = $state("");
   let error = $state("");
+  /// A picked file that asks first: a clash, missing books, or a backup.
+  let asking: { path: string; plan: api.ImportPlan } | null = $state(null);
 
+  /// Import any file: data or homebrew, a character, a campaign, entries,
+  /// or a backup to restore.
   async function pick() {
     error = "";
-    const path = await openZip();
+    done = "";
+    result = null;
+    const path = await openFile();
     if (!path) return;
+    try {
+      const plan = await api.importPlan(path);
+      if (plan.what === "data") return importData(path);
+      if (plan.what === "backup" || plan.clash || plan.missing.length) asking = { path, plan };
+      else await importAs(path, "refuse");
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function importData(path: string) {
     busy = true;
     try {
       result = await working("Importing…", () => api.importZip(path));
@@ -80,6 +100,76 @@
       busy = false;
     }
   }
+
+  async function importAs(path: string, onClash: api.OnClash) {
+    asking = null;
+    busy = true;
+    try {
+      const r = await working("Importing…", () => api.importFile(path, onClash));
+      done = r.summary;
+      onchange(r.status);
+    } catch (e) {
+      error = String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  // ---- backups ----
+  let backups: api.Backups | null = $state(null);
+  api.backups().then((b) => (backups = b), () => {});
+  /// A backup to restore, while asking: a picked file or one of the list.
+  let restoring: { path: string; name: string } | null = $state(null);
+  const EVERY: [api.Every, string][] = [
+    ["off", "off"],
+    ["day", "every day"],
+    ["week", "every week"],
+    ["month", "every month"],
+  ];
+
+  async function backUp() {
+    error = "";
+    try {
+      backups = await working("Backing up…", () => api.backupNow());
+      done = `Backed up to ${backups.list[0]?.name}`;
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function schedule(every: api.Every, keep: number) {
+    try {
+      backups = await api.backupSchedule(every, Math.max(1, keep));
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  /// Back up into another folder (null: the default one).
+  async function moveBackups(folder: string | null) {
+    error = "";
+    try {
+      backups = await api.backupFolder(folder);
+      done = `Backups go to ${backups.folder}`;
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  async function restore(path: string) {
+    restoring = null;
+    asking = null;
+    error = "";
+    try {
+      onchange(await working("Restoring…", () => api.restoreBackup(path)));
+      backups = await api.backups();
+      done = "Restored the backup; what was here is backed up first";
+    } catch (e) {
+      error = String(e);
+    }
+  }
+
+  const size = (bytes: number) => (bytes < 1e6 ? `${Math.ceil(bytes / 1e3)} kB` : `${(bytes / 1e6).toFixed(1)} MB`);
 </script>
 
 <div class="data">
@@ -88,7 +178,7 @@
     <p>
       dnt reads the rules and content from data you provide, in the format described in the project's
       <span class="muted">schemas/</span>. Import a <span class="b">zip</span> of a whole data folder, or of homebrew
-      files in any layout.
+      files in any layout; or a character, a campaign or an entry exported from dnt.
     </p>
     <p class="dim">
       Importing again updates entries instead of doubling them; entries a zip does not have are kept.
@@ -98,8 +188,9 @@
       Sources › Homebrew. For a large homebrew collection, zip just its .json files, not its images.
     </p>
     <div>
-      <button class="action" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import a zip…"}</button>
+      <button class="action" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import…"}</button>
     </div>
+    {#if done}<p class="ok">✓ {done}</p>{/if}
     {#if result}
       <p class="ok">✓ {result.summary}</p>
       {#if result.skipped.length}
@@ -112,6 +203,53 @@
       {/if}
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
+  </Pane>
+
+  <Pane title="Backups">
+    <p class="dim">
+      Everything (campaigns with their characters and notes, the imported data, your homebrew and rules) in one zip, to
+      restore here or on another device.
+    </p>
+    <div class="resets">
+      <button class="action" onclick={backUp}>Back up now</button>
+      <button class="ghost" onclick={async () => {
+        const path = await openFile();
+        if (path) restoring = { path, name: path.split(/[/\\]/).pop() ?? path };
+      }}>Restore from a file…</button>
+    </div>
+    {#if backups}
+      <div class="schedule">
+        <label>
+          <span class="dim">Automatically</span>
+          <select aria-label="Automatic backups" value={backups.every} onchange={(e) => schedule(e.currentTarget.value as api.Every, backups!.keep)}>
+            {#each EVERY as [v, label] (v)}<option value={v}>{label}</option>{/each}
+          </select>
+        </label>
+        {#if backups.every !== "off"}
+          <span class="keep">
+            <span class="dim">keep</span>
+            <button class="step" aria-label="Keep fewer" onclick={() => schedule(backups!.every, backups!.keep - 1)}>−</button>
+            <b>{backups.keep}</b>
+            <button class="step" aria-label="Keep more" onclick={() => schedule(backups!.every, backups!.keep + 1)}>+</button>
+          </span>
+        {/if}
+      </div>
+      <div class="where">
+        <p class="dim folder">In {backups.folder}</p>
+        <button class="ghost" onclick={async () => {
+          const folder = await pickFolder();
+          if (folder) moveBackups(folder);
+        }}>Change…</button>
+        {#if backups.chosen}<button class="ghost" onclick={() => moveBackups(null)}>Default</button>{/if}
+      </div>
+      {#each backups.list as b (b.name)}
+        <div class="saved">
+          <span class="bname">{b.name}</span>
+          <span class="dim">{size(b.bytes)}</span>
+          <button class="ghost" onclick={() => (restoring = { path: b.path, name: b.name })}>Restore</button>
+        </div>
+      {/each}
+    {/if}
   </Pane>
 
   {#if status?.problems.length}
@@ -174,6 +312,51 @@
   </div>
 </div>
 
+{#if asking}
+  {@const a = asking}
+  {#if a.plan.what === "backup"}
+    <Modal title="Restore this backup?" onclose={() => (asking = null)}>
+      <p>Everything here is replaced by the backup: campaigns, characters, notes and the data.</p>
+      <p class="dim">What is here now is backed up first, so you can go back to it.</p>
+      <div class="buttons">
+        <button class="ghost" onclick={() => (asking = null)}>Cancel</button>
+        <button class="primary danger" onclick={() => restore(a.path)}>Restore</button>
+      </div>
+    </Modal>
+  {:else}
+    <Modal title="Import {a.plan.name}" onclose={() => (asking = null)}>
+      {#if a.plan.missing.length}
+        <p>It needs {a.plan.missing.join(", ")}, which {a.plan.missing.length === 1 ? "is" : "are"} not here: import {a.plan.missing.length === 1 ? "it" : "them"} too for everything to show.</p>
+      {/if}
+      {#if a.plan.clash}
+        <p><b>{a.plan.clash}</b> is here already.</p>
+        <div class="buttons">
+          <button class="ghost" onclick={() => (asking = null)}>Cancel</button>
+          <button class="ghost" onclick={() => importAs(a.path, "keep_both")}>Keep both</button>
+          <button class="primary" onclick={() => importAs(a.path, "replace")}>Replace</button>
+        </div>
+      {:else}
+        <div class="buttons">
+          <button class="ghost" onclick={() => (asking = null)}>Cancel</button>
+          <button class="primary" onclick={() => importAs(a.path, "refuse")}>Import</button>
+        </div>
+      {/if}
+    </Modal>
+  {/if}
+{/if}
+
+{#if restoring}
+  {@const r = restoring}
+  <Modal title="Restore this backup?" onclose={() => (restoring = null)}>
+    <p><b>{r.name}</b> replaces everything here: campaigns, characters, notes and the data.</p>
+    <p class="dim">What is here now is backed up first, so you can go back to it.</p>
+    <div class="buttons">
+      <button class="ghost" onclick={() => (restoring = null)}>Cancel</button>
+      <button class="primary danger" onclick={() => restore(r.path)}>Restore</button>
+    </div>
+  </Modal>
+{/if}
+
 {#if resetting}
   {@const r = RESETS[resetting]}
   {@const what = resetting}
@@ -223,6 +406,47 @@
     .buttons button {
       flex: 1;
     }
+  }
+  .schedule {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1ch 2ch;
+    margin-top: 0.75em;
+  }
+  .schedule label,
+  .keep {
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+  }
+  .step {
+    min-width: 2.4em;
+    min-height: 2.2em;
+  }
+  .where {
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+    margin: 0.5em 0 0.25em;
+  }
+  .folder {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .saved {
+    display: flex;
+    align-items: center;
+    gap: 2ch;
+    padding: 0.25em 0;
+    border-top: 1px solid rgb(65 72 104 / 0.35);
+  }
+  .saved .bname {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .timings div {
     display: flex;

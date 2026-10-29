@@ -182,6 +182,18 @@ export async function choose(page: Page, title: string | RegExp, action: string 
   await dialog(page, title).getByRole("button", { name: action, exact: typeof action === "string" }).click();
 }
 
+/// An action from the ⋯ menu of the compendium entry being read.
+export async function entryAction(page: Page, name: string, action: string) {
+  await page.locator(".detail .title").getByRole("button", { name: "More" }).click();
+  await choose(page, name, action);
+}
+
+/// An action from the ⋯ menu of a campaign's card.
+export async function campaignAction(page: Page, name: string, action: string) {
+  await page.locator("section.card").filter({ has: page.locator(".name", { hasText: new RegExp(`^${name}$`) }) }).getByRole("button", { name: "More" }).click();
+  await choose(page, name, action);
+}
+
 /// Answer the prompt titled `title` with `text`.
 export async function answer(page: Page, title: string | RegExp, text: string) {
   const box = dialog(page, title).getByRole("textbox");

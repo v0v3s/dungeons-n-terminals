@@ -8,6 +8,7 @@ mod harness;
 #[allow(dead_code)]
 mod seed;
 
+mod backup;
 mod campaigns;
 mod characters;
 mod compendium;

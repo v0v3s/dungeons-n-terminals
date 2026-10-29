@@ -6,6 +6,7 @@
 //! homebrew the active campaign enables and its own homebrew; the
 //! campaign's sources decide what shows.
 
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use dnt_data::{Library, SourceFilter};
@@ -78,6 +79,10 @@ pub struct Workspace {
     pub rule_problems: Vec<String>,
     /// How the last load went, stage by stage.
     pub progress: Progress,
+    /// Where backups go: the folder the settings name, else `backups/` in
+    /// the data folder (a frontend may say otherwise: Downloads on
+    /// Android).
+    pub backups: crate::backup::Shelf,
 }
 
 impl Workspace {
@@ -97,7 +102,9 @@ impl Workspace {
         let (campaigns, errors) = store.campaigns();
         problems.extend(errors.iter().map(|e| format!("Campaign: {e}")));
         let active = config.last_campaign.as_ref().and_then(|s| campaigns.iter().position(|c| &c.slug == s));
+        let backups = crate::backup::Shelf::configured(&store, &config);
         let mut ws = Workspace {
+            backups,
             store,
             config,
             base: None,
@@ -372,6 +379,55 @@ impl Workspace {
     }
 
     /// The active campaign's characters, sorted by name.
+    /// Back everything up now, into the backups folder: its path.
+    pub fn backup_now(&self) -> Result<PathBuf, String> {
+        crate::backup::save(&self.store, &self.backups, "")
+    }
+
+    /// Back up into another folder from now on (`None`: the default one),
+    /// reached through `shelf`.
+    pub fn set_backup_folder(&mut self, folder: Option<String>, shelf: crate::backup::Shelf) -> Result<(), String> {
+        self.reread_config();
+        self.config.backup.folder = folder;
+        self.store.save_config(&self.config).map_err(|e| e.to_string())?;
+        self.backups = shelf;
+        Ok(())
+    }
+
+    /// The automatic backup, when it is due (see [`crate::backup::auto`]).
+    pub fn auto_backup(&mut self) -> Option<Result<String, String>> {
+        let done = crate::backup::auto(&self.store, &self.backups, &crate::backup::now());
+        self.reread_config();
+        done
+    }
+
+    /// Set the automatic backups' schedule.
+    pub fn set_backup_schedule(&mut self, every: dnt_store::Every, keep: u32) -> Result<(), String> {
+        self.reread_config();
+        self.config.backup.every = every;
+        self.config.backup.keep = keep.max(1);
+        self.store.save_config(&self.config).map_err(|e| e.to_string())
+    }
+
+    /// Replace everything with a backup (what was here is backed up
+    /// first): that backup's path.
+    pub fn restore(&mut self, bytes: Vec<u8>) -> Result<PathBuf, String> {
+        let safety = crate::backup::restore(&self.store, bytes, &self.backups)?;
+        self.reread_config();
+        let (campaigns, _) = self.store.campaigns();
+        self.campaigns = campaigns;
+        self.active = self.config.last_campaign.as_ref().and_then(|s| self.campaigns.iter().position(|c| &c.slug == s));
+        self.reload();
+        Ok(safety)
+    }
+
+    /// The configuration as it is on disk (something else wrote it).
+    fn reread_config(&mut self) {
+        if let Ok(c) = self.store.load_config() {
+            self.config = c;
+        }
+    }
+
     pub fn characters(&self) -> Vec<CharacterFile> {
         self.active_campaign().map(|c| self.store.characters(c).0).unwrap_or_default()
     }

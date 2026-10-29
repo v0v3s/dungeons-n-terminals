@@ -27,6 +27,7 @@ Press `?` on any screen for its keys (`F1` while typing).
 | `enter` | how a number adds up |
 | `e` / `X` | edit the file / export |
 
-The **command line**: `dnt import data.zip`, `dnt imported`,
-`dnt forget SOURCE`, `dnt reset`, `--data PATH`, `--homebrew FILE`,
-`--sources XPHB,XDMG`. See [[Files and data]].
+The **command line**: `dnt import FILE`, `dnt imported`,
+`dnt forget SOURCE`, `dnt backup`, `dnt backups`, `dnt restore FILE`,
+`dnt export character|campaign|entry …`, `dnt reset`, `--data PATH`,
+`--homebrew FILE`, `--sources XPHB,XDMG`. See [[Files and data]].

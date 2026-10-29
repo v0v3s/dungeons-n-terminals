@@ -1,7 +1,7 @@
 ## Homebrew
 
 - **Imported homebrew** (files that name their sources) is off until a
-  campaign turns it on (its *Books & homebrew* › *Homebrew*).
+  campaign turns it on (its *⋯ › Books & homebrew › Homebrew*).
 - **Campaign homebrew**: clone any entry (a campaign version replaces the
   book's; a copy is a new entry), or make a new spell, item, feat, … from a
   template. Edit it field by field, or as JSON. *Make global* shares it with

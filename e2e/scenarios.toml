@@ -69,6 +69,47 @@ id = "data.about"
 does = "See the version, the licence, the repository and that dnt ships no game content."
 targets = ["tui", "app"]
 
+# ---------------------------------------------------------------- backups and exports
+[[scenario]]
+id = "backup.now"
+does = "Back everything up into one zip (campaigns, characters, notes, the imported data, homebrew and rules): Data › Back up now, `dnt backup`; the backups are listed, newest first."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "backup.restore"
+does = "Restore a backup: it replaces everything, after what was here is backed up; a broken one, or one from a newer dnt, changes nothing."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "backup.auto"
+does = "Back up by itself at start when the schedule says so (off, every day, week or month), keeping the last N: Data › Backups, `dnt backup --every --keep`."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "backup.folder"
+does = "Choose the backups folder (any folder; on Android, any the system's folder picker offers): backups, the automatic ones and the list go there; back to the default folder. Data › Backups › Change…, `dnt backup --folder`."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "export.character"
+does = "Export a character with only what they use of the homebrew, and the rules for it (books are listed, not carried), and import them into another campaign or device: the homebrew turns on there."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "export.campaign"
+does = "Export a campaign with all it has (characters, notes, its homebrew, the homebrew it turns on) and import it elsewhere."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "export.entry"
+does = "Export one entry (a spell, a monster, a class with its features…) as a data file, and import it: it shows in the open campaign; a book's entry is there already."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "import.clash"
+does = "Importing a character or campaign that is here already asks: replace it, or keep both (the import named \"Name (2)\")."
+targets = ["tui", "app"]
+
 # ---------------------------------------------------------------- campaigns
 [[scenario]]
 id = "campaigns.create"

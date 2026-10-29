@@ -273,6 +273,7 @@
       [logRolls ? "Stop writing rolls into the session note" : "Write rolls into the session note", () => setLogRolls(!logRolls)],
       ["Export as a printable page…", () => exportAs("html")],
       ["Export as Markdown…", () => exportAs("markdown")],
+      ["Export for dnt (to import elsewhere)…", exportForDnt],
       ["Delete the character…", remove],
       ...(touch.current ? ([["Show the tips again", () => tips.reset()]] as [string, () => void][]) : []),
     ]);
@@ -356,6 +357,18 @@
     if (!path) return;
     try {
       say(await api.exportSheet(format, path));
+    } catch (e) {
+      say(String(e));
+    }
+  }
+
+  /// The character with the homebrew and rules they use, to import on
+  /// another device or into another campaign (Data › Import).
+  async function exportForDnt() {
+    const path = await saveAs(`${sheet.header.name}.dnt.zip`, "dnt export", "zip");
+    if (!path) return;
+    try {
+      say(await api.exportCharacter(path));
     } catch (e) {
       say(String(e));
     }
