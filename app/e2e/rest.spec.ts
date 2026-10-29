@@ -63,7 +63,7 @@ test("a long rest, once confirmed, brings back hit points, slots and hit dice", 
   await use(page, "Level 1 slots");
   await use(page, "Hit dice");
   await sheetTab(page, "Overview");
-  await expect(hp(page)).toHaveText(/^\s*3\/7$/);
+  await expect(hp(page)).toHaveText(/^\s*4\/8$/);
 
   await more(page, "Tester", "Long rest");
   await expect(dialog(page, "Long rest")).toContainText("Take a long rest?");
@@ -73,7 +73,7 @@ test("a long rest, once confirmed, brings back hit points, slots and hit dice", 
   await more(page, "Tester", "Long rest");
   await choose(page, "Long rest", "Yes");
   await sheetTab(page, "Overview");
-  await expect(hp(page)).toHaveText(/^\s*7\/7$/);
+  await expect(hp(page)).toHaveText(/^\s*8\/8$/);
   await expect(await left(page, "Level 1 slots")).toHaveText("2/2");
   await expect(await left(page, "Hit dice")).toHaveText("1/1");
 });
@@ -109,8 +109,8 @@ test("a feature's uses are spent, restored, and come back on a short rest", { ta
   await openSheet(page);
   await writeRules(
     page,
-    "Mage 1",
-    "Arcane Recall",
+    "Wizard 1",
+    "Arcane Recovery",
     '[[feature.resource]]\nkey = "recall"\nname = "Recall"\nmax = "2"\nrecharge = "short_rest"\n',
   );
   await expect(await left(page, "Recall")).toHaveText("2/2");

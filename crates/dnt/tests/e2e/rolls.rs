@@ -2,8 +2,8 @@ use crate::harness::*;
 use crate::seed::Home;
 use crate::sheet_play::*;
 
-/// Tester's first skill, Acrobatics (+4), after the three attacks.
-const ACROBATICS: usize = FIRST_ATTACK + 3;
+/// Tester's first skill, Acrobatics (+4), after the four attacks.
+const ACROBATICS: usize = FIRST_ATTACK + 4;
 
 #[test]
 fn checks_saves_skills_and_initiative_roll() {
@@ -34,13 +34,13 @@ fn checks_saves_skills_and_initiative_roll() {
 fn an_attack_rolls_to_hit_and_its_damage() {
     let mut t = Tui::scenario("roll.attack", Home::party());
     open(&mut t, "Tester");
-    // Thornknife: +4 to hit, 1d4 + 2 piercing.
+    // Dagger: +4 to hit, 1d4 + 2 piercing.
     to(&mut t, FIRST_ATTACK);
     t.send("r");
-    wait_status(&mut t, "Thornknife");
+    wait_status(&mut t, "Dagger");
     let line = status(&t);
     assert!(line.contains("piercing damage"), "{line}");
-    assert!((5..=24).contains(&rolled(&t, "Thornknife")), "{line}");
+    assert!((5..=24).contains(&rolled(&t, "Dagger")), "{line}");
     t.wait("Rolled");
 }
 
@@ -75,17 +75,17 @@ fn a_hit_die_heals() {
     // The hit die is the last item.
     t.send("G").send("r");
     wait_status(&mut t, "Hit points are full");
-    t.send("d").send("6").send(ENTER);
-    wait_status(&mut t, "Damage 6");
-    assert_eq!(hit_points(&t), "1/7");
+    t.send("d").send("7").send(ENTER);
+    wait_status(&mut t, "Damage 7");
+    assert_eq!(hit_points(&t), "1/8");
     t.send("r");
     wait_status(&mut t, "Spent a d6 hit die");
-    // d6 + 1 (Constitution): 2 to 7 hit points.
+    // d6 + 2 (Constitution): 3 to 8 hit points.
     wait_status(&mut t, "Hit die d6: +");
     let hp: i64 = hit_points(&t).split('/').next().unwrap().parse().unwrap();
-    assert!((3..=7).contains(&hp), "{}", t.screen());
+    assert!((4..=8).contains(&hp), "{}", t.screen());
     assert!(t.line("│ d6 ").contains("0/1"), "{}", t.screen());
-    if hp < 7 {
+    if hp < 8 {
         t.send("r");
         wait_status(&mut t, "No d6 hit die left");
     }
