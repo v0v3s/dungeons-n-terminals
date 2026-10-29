@@ -74,8 +74,9 @@ test("a field of a homebrew entry is edited, and the compendium shows it", { tag
   await expect(dialog(page, "Edit · Moth Message")).toBeVisible();
   await dialog(page, "Edit · Moth Message").getByRole("button", { name: "Done" }).click();
 
-  await search(page, "moth");
-  await expect(names(page)).toHaveText(["Moth Message"]);
+  // The SRD has its own moths and mouths: the renamed spell comes first.
+  await search(page, "moth message");
+  await expect(names(page).first()).toHaveText("Moth Message");
   await read(page, "Moth Message");
   await expect(doc(page)).toContainText("Moths carry your words to a friend.");
 });

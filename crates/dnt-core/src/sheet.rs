@@ -356,10 +356,18 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
                 notes,
                 problems: a.notes.clone(),
                 properties: a.properties.clone(),
-                // The line holding it, else any line of that weapon.
+                // Its own line (by name: an Arcane Focus (Quarterstaff) is
+                // a Quarterstaff too), held first; else any line of that
+                // weapon, held first.
                 line: a.item.and_then(|item| {
                     let lines = || ch.inventory.iter().enumerate().filter(|(_, l)| item_entity(lib, l) == Some(item));
-                    lines().find(|(_, l)| l.hand.is_some()).or_else(|| lines().next()).map(|(i, _)| i)
+                    let own = || lines().filter(|(_, l)| crate::session::line_name(lib, l) == a.name);
+                    own()
+                        .find(|(_, l)| l.hand.is_some())
+                        .or_else(|| own().next())
+                        .or_else(|| lines().find(|(_, l)| l.hand.is_some()))
+                        .or_else(|| lines().next())
+                        .map(|(i, _)| i)
                 }),
             }
         })

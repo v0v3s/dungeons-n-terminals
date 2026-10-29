@@ -176,7 +176,8 @@ test("a weapon is held from the attacks: main hand, off hand or both hands", { t
 
   await attack(page, STAFF).getByRole("button", { name: "More" }).click();
   await choose(page, "Quarterstaff", "Hold with both hands");
-  await expect(held(page)).toContainText("Quarterstaff (two hands)");
+  // That Quarterstaff, not the Arcane Focus (Quarterstaff) (the same weapon).
+  await expect(held(page)).toContainText(/In hand\s+Quarterstaff \(two hands\)/);
   await expect(attack(page, STAFF).locator(".hand")).not.toBeEmpty();
 
   await attack(page, "Dagger").getByRole("button", { name: "More" }).click();

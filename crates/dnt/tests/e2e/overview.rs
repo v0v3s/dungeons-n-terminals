@@ -211,6 +211,8 @@ fn weapons_are_held_from_the_attacks() {
     assert!(t.line(" Quarterstaff  ").contains("both  Quarterstaff"), "{}", t.screen());
     assert!(t.line("In hand").contains("Quarterstaff (two hands)"), "{}", t.screen());
     assert!(!t.line("Dagger  ").contains("main"), "{}", t.screen());
+    // Only that line: the Arcane Focus (Quarterstaff) stays put away.
+    assert!(!t.line("Arcane Focus (Quarterstaff)").contains("both"), "{}", t.screen());
 }
 
 #[test]
