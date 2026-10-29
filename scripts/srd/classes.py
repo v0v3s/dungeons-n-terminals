@@ -10,6 +10,7 @@ spells chapter has those), and "… Subclass: Name" with its features.
 
 import re
 
+import equipment
 import tags
 from pdf import join
 from tags import SOURCE
@@ -137,7 +138,7 @@ def core_traits(lines):
         start["tools"] = [fields["Tool Proficiencies"]]
     start["skills"] = _skills(fields["Skill Proficiencies"])
     out["startingProficiencies"] = start
-    out["startingEquipment"] = {"entries": [fields["Starting Equipment"]]}
+    out["startingEquipment"] = {"default": [fields["Starting Equipment"]], "defaultData": equipment.parse(fields["Starting Equipment"])}
     return out
 
 

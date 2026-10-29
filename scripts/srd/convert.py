@@ -13,15 +13,18 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import backgrounds  # noqa: E402
 import classes  # noqa: E402
+import feats  # noqa: E402
 import options  # noqa: E402
 import pdf  # noqa: E402
+import species  # noqa: E402
 import spells  # noqa: E402
 import tags  # noqa: E402
 from tags import SOURCE  # noqa: E402
 
 # Where each part of the SRD is (its pages).
-PAGES = {"classes": (28, 82), "spells": (107, 175)}
+PAGES = {"classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "spells": (107, 175)}
 
 BOOK = {
     "name": "System Reference Document 5.2.1",
@@ -64,6 +67,15 @@ def main(pdf_path, out):
         write(f"{out}/class/class-{slug}.json", doc)
         index[slug] = f"class-{slug}.json"
     write(f"{out}/class/index.json", index)
+    origins = pdf.lines(pdf_path, *PAGES["origins"])
+    known = {"spell": names}
+    tagged = lambda es: tags.map_text(es, lambda t: tags.tag(t, known))
+    found_feats = [dict(f, entries=tagged(f["entries"])) for f in feats.feats(pdf.lines(pdf_path, *PAGES["feats"]), pdf_path)]
+    write(f"{out}/feats.json", {"feat": found_feats})
+    write(f"{out}/backgrounds.json", {"background": backgrounds.backgrounds(origins)})
+    races = [dict(r, entries=tagged(r["entries"])) for r in species.species(origins, pdf_path)]
+    write(f"{out}/races.json", {"race": races})
+    print(f"{len(found_feats)} feats, {len(races)} species")
     print(f"{len(names)} spells, {len(found['class'])} classes, {len(picks)} options")
 
 

@@ -67,7 +67,21 @@ def entries(lines, pdf_path=None, prose=False) -> list:
         prev = l
         i += 1
     _flush(out, para)
-    return _lists(out)
+    return _nest(_lists(out))
+
+
+def _nest(out):
+    """Paragraphs, lists and tables after a named entry are its own, up
+    to the next named entry (or a sidebar)."""
+    result = []
+    for e in out:
+        named = isinstance(e, dict) and e.get("type") == "entries"
+        inset = isinstance(e, dict) and e.get("type") == "inset"
+        if not named and not inset and result and isinstance(result[-1], dict) and result[-1].get("type") == "entries":
+            result[-1]["entries"].append(e)
+        else:
+            result.append(e)
+    return result
 
 
 def _ends_sentence(text: str) -> bool:
@@ -210,6 +224,8 @@ def _line_words(line, pdf_path):
     """A line's words, left to right: (left, right, word), from its
     column of the page."""
     left, right = (0, line.middle) if line.column == 0 else (line.middle, 10_000)
+    if line.right > line.middle + 20:
+        right = 10_000  # a row across the page
     # One of tables set side by side: its part of the column.
     if getattr(line, "bounds", None):
         left, right = max(left, line.bounds[0]), min(right, line.bounds[1])
