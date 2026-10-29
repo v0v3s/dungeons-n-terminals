@@ -5,6 +5,7 @@ named entries (`Part Water. You part water…`), bullet lists and tables.
 import re
 import subprocess
 from functools import lru_cache
+from html import unescape
 
 from pdf import join
 
@@ -17,15 +18,29 @@ def is_table_line(line) -> bool:
     return line.sans
 
 
-def entries(lines, pdf_path=None) -> list:
-    """Body lines (in order) as entries."""
+def entries(lines, pdf_path=None, prose=False) -> list:
+    """Body lines (in order) as entries. `prose`: sans lines are text (a
+    sidebar's), not tables."""
     out = []
     para = None  # the paragraph being built: [name or None, text]
     prev = None
     i = 0
     while i < len(lines):
         l = lines[i]
-        if is_table_line(l):
+        if l.sans and l.size == 17 and pdf_path:
+            # A sidebar: its title in small capitals, then its text.
+            j = i + 1
+            while j < len(lines) and lines[j].sans and lines[j].size == 12:
+                j += 1
+            k = j
+            while k < len(lines) and lines[k].sans and lines[k].size == 14:
+                k += 1
+            _flush(out, para)
+            para, prev = None, None
+            out.append({"type": "inset", "name": title_words(l, pdf_path), "entries": entries(lines[j:k], pdf_path, prose=True)})
+            i = k
+            continue
+        if is_table_line(l) and not prose:
             j = i
             while j < len(lines) and is_table_line(lines[j]):
                 j += 1
@@ -133,80 +148,106 @@ def tables(lines, pdf_path=None) -> list:
             for l in g["lines"]:
                 cells = [c for c in l.cells if bounds[k] - 15 <= c[0] < bounds[k + 1] - 15]
                 if cells:
-                    part.append(_with_cells(l, cells))
+                    part.append(_with_cells(l, cells, (bounds[k] - 15, bounds[k + 1] - 15)))
             out.append(_table(title.strip(), part, pdf_path))
     return out
 
 
-def _with_cells(line, cells):
+def _with_cells(line, cells, bounds):
     from copy import copy
 
     l = copy(line)
     l.cells = cells
+    l.bounds = bounds
     return l
 
 
 def _table(title, lines, pdf_path):
     if not lines:
         return {"type": "table", "caption": title, "colLabels": [], "rows": []} if title else {}
-    header, rows = None, []
+    # The header: the bold lines before the first row (one label can go
+    # on over two lines).
+    header, rows = [], []
     for l in lines:
-        if header is None and l.bold:
-            header = l
+        if not rows and l.bold:
+            header.append(l)
         else:
             rows.append(l)
-    width = max((len(r.cells) for r in rows), default=1)
-    # Where each column starts: from the fullest row.
-    starts = next((sorted(c[0] for c in r.cells) for r in rows if len(r.cells) == width), [])
-    labels = _header(header, width, starts, pdf_path) if header else []
+    words = {id(l): _line_words(l, pdf_path) for l in lines}
+    # The columns: where the phrases of the header's fullest line start,
+    # or of the fullest row when there is no header.
+    if header:
+        starts = [p[0] for p in max((_phrases(words[id(h)]) for h in header), key=len)]
+    else:
+        starts = [p[0] for p in max((_phrases(words[id(r)]) for r in rows), key=len)]
+    col = lambda x: max([k for k, s in enumerate(starts) if x >= s - 12] or [0])
+    labels = [""] * len(starts)
+    for h in header:
+        for x0, _, w in _phrases(words[id(h)]):
+            k = min(range(len(starts)), key=lambda k: abs(starts[k] - x0))
+            labels[k] = (labels[k] + " " + w).strip()
     body = []
     for r in rows:
-        cells = sorted(r.cells)
-        if len(cells) < width and body and cells and cells[0][0] > starts[0] + 10:
+        ws = words[id(r)]
+        row = [""] * len(starts)
+        for x0, _, w in ws:
+            row[col(x0)] = (row[col(x0)] + " " + w).strip()
+        if body and ws and col(ws[0][0]) > 0 and not row[0]:
             # A row's text going on from the row before.
-            for left, text in cells:
-                col = max(k for k, s in enumerate(starts) if left >= s - 10)
-                body[-1][col] = join(body[-1][col], text)
-            continue
-        row = [""] * width
-        for left, text in cells:
-            col = max([k for k, s in enumerate(starts) if left >= s - 12] or [0])
-            row[col] = join(row[col], text)
-        body.append(row)
+            body[-1] = [join(a, b) if b else a for a, b in zip(body[-1], row)]
+        else:
+            body.append(row)
     table = {"type": "table"}
     if title:
         table["caption"] = title
-    if labels:
+    if header:
         table["colLabels"] = labels
-    table["rows"] = [[c.strip() for c in row] for row in body]
+    table["rows"] = [[re.sub(r"\s+([,;.])", r"\1", c).strip() for c in row] for row in body]
     return table
 
 
-def _header(line, width, starts, pdf_path):
-    cells = sorted(line.cells)
-    if len(cells) == width or not pdf_path:
-        return [c[1].strip() for c in cells]
-    # Merged into fewer pieces: split by where each word is.
-    words = _words(pdf_path, line.page)
-    labels = [""] * width
-    for x, y, w in words:
-        if abs(y - line.top) <= 6 and line.cells[0][0] - 5 <= x:
-            last = max(c[0] + len(c[1]) * 9 for c in line.cells)
-            if x > last:
-                continue
-            col = max([k for k, s in enumerate(starts) if x >= s - 30] or [0])
-            labels[col] = (labels[col] + " " + w).strip()
-    return labels
+def _line_words(line, pdf_path):
+    """A line's words, left to right: (left, right, word), from its
+    column of the page."""
+    left, right = (0, line.middle) if line.column == 0 else (line.middle, 10_000)
+    # One of tables set side by side: its part of the column.
+    if getattr(line, "bounds", None):
+        left, right = max(left, line.bounds[0]), min(right, line.bounds[1])
+    out = [(x0, x1, w) for x0, x1, y, w in boxes(pdf_path, line.page) if abs(y - line.top) <= 6 and left <= x0 < right]
+    return sorted(out)
+
+
+def _phrases(words, gap=10):
+    """Words close together as one phrase: (left, right, text)."""
+    out = []
+    for x0, x1, w in words:
+        if out and x0 - out[-1][1] < gap:
+            out[-1] = (out[-1][0], x1, out[-1][2] + " " + w)
+        else:
+            out.append((x0, x1, w))
+    return out
+
+
+def title_words(line, pdf_path):
+    """A title set in small capitals (`B` + `reaking`): its words."""
+    ws = [(x0, x1, w) for x0, x1, y, w in boxes(pdf_path, line.page) if -4 <= y - line.top <= 12 and ((x0 < line.middle) == (line.column == 0))]
+    out = ""
+    last = None
+    for x0, x1, w in sorted(ws):
+        out += w if last is not None and x0 - last < 3 else " " + w
+        last = x1
+    small = {"a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to", "with"}
+    words = out.strip().lower().split()
+    return " ".join(w if k and w in small else w[:1].upper() + w[1:] for k, w in enumerate(words))
 
 
 @lru_cache(maxsize=None)
-def _words(pdf_path, page):
-    """Every word on a page with where it is (pdftotext -bbox)."""
+def boxes(pdf_path, page):
+    """Every word on a page: (left, right, top, word), in pdftohtml's
+    pixels."""
     html = subprocess.run(
         ["pdftotext", "-bbox", "-f", str(page), "-l", str(page), pdf_path, "-"], check=True, capture_output=True
     ).stdout.decode("utf-8")
-    out = []
+    box = r'<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="[\d.]+">([^<]*)</word>'
     # pdftotext's points against pdftohtml's pixels: 1.5 apart.
-    for m in re.finditer(r'<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>([^<]*)</word>', html):
-        out.append((float(m.group(1)) * 1.5, float(m.group(2)) * 1.5, m.group(3)))
-    return tuple(out)
+    return tuple((float(a) * 1.5, float(c) * 1.5, float(b) * 1.5, unescape(w)) for a, b, c, w in re.findall(box, html))

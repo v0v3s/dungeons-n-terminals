@@ -31,6 +31,8 @@ class Line:
     runs: list = field(default_factory=list)
     # The row's pieces, as laid out: (left, text), for tables.
     cells: list = field(default_factory=list)
+    # Where the page's two columns meet.
+    middle: float = 0
 
     @property
     def text(self) -> str:
@@ -99,18 +101,25 @@ def lines(pdf: str, first: int, last: int) -> list:
                 continue
             column = 0 if left < middle - 20 else 1
             text = "".join(r.text for r in runs)
-            rows.append(Line(number, column, top, left, size, family, color, runs, [(left, text)]))
+            rows.append(Line(number, column, top, left, size, family, color, runs, [(left, text)], middle - 20))
         # Pieces of one row (a label and its value) become one line.
         rows.sort(key=lambda l: (l.column, l.top, l.left))
-        merged = []
+        groups = []
         for l in rows:
-            prev = merged[-1] if merged else None
+            prev = groups[-1][0] if groups else None
             if prev and prev.column == l.column and abs(prev.top - l.top) <= 3:
-                prev.runs.extend(l.runs)
-                prev.cells.extend(l.cells)
-                continue
-            merged.append(l)
-        out.extend(merged)
+                groups[-1].append(l)
+            else:
+                groups.append([l])
+        for g in groups:
+            # Left to right: a piece can sit a pixel or two higher.
+            g.sort(key=lambda l: l.left)
+            first = min(g, key=lambda l: l.top)
+            line = Line(number, first.column, first.top, g[0].left, g[0].size, g[0].family, g[0].color, [], [], middle - 20)
+            for l in g:
+                line.runs.extend(l.runs)
+                line.cells.extend(l.cells)
+            out.append(line)
     return out
 
 
@@ -145,12 +154,14 @@ def join(prev: str, line: str) -> str:
         if m.group(1) and line.startswith("_"):
             return prev[:-2] + line[1:]
         return prev[: m.start() + 1] + line
+    if prev.endswith("—"):
+        return prev + line
     return prev + " " + line
 
 
 # Words whose hyphen at a line's end is part of the word: `20-foot-radius`,
 # `self-evident`.
-_PREFIXES = {"self", "non", "half", "well", "one", "two", "three", "four", "five", "ten", "high", "low", "long", "short", "full", "semi", "spell", "cross"}
+_PREFIXES = {"self", "half", "well", "one", "two", "three", "four", "five", "ten", "high", "low", "long", "short", "full", "semi", "spell", "cross"}
 
 
 def _real_hyphen(word: str) -> bool:
