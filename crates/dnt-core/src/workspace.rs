@@ -519,13 +519,13 @@ mod tests {
         );
         import::import_files(&ws.store, &brew).unwrap();
         ws.reload();
-        let has_warden = |ws: &Workspace| ws.lib.as_ref().unwrap().entities().iter().any(|e| e.name == "Warden");
+        let has_warden = |ws: &Workspace| ws.lib.as_ref().unwrap().entities().iter().any(|e| e.source == "WRD");
         assert_eq!(ws.homebrew.len(), 1);
         assert!(!has_warden(&ws), "homebrew is off by default");
         ws.set_sources(&slug, vec!["B".into()], vec!["WRD".into()], false).unwrap();
         assert!(has_warden(&ws));
         let lib = ws.lib.as_ref().unwrap();
-        assert!(lib.entities().iter().filter(|e| ws.filter().allows(e)).any(|e| e.name == "Warden"), "and shows");
+        assert!(lib.entities().iter().filter(|e| ws.filter().allows(e)).any(|e| e.source == "WRD"), "and shows");
 
         // Forgetting the homebrew keeps the data; forgetting all of it does not.
         ws.clear_imported(true).unwrap();

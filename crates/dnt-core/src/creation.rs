@@ -611,9 +611,11 @@ impl NewCharacter {
                 pick("Choose a subclass", items)
             }
             Step::ClassSkills => {
-                // Fixed skills from species and background first.
+                // Fixed skills from species, background and origin feats
+                // (Skilled) first.
                 if st.origin_skill_choices.is_empty() {
-                    for id in [st.species, st.subspecies, st.background].into_iter().flatten() {
+                    let feats: Vec<EntityId> = st.ch.feats.iter().filter_map(|f| dnt_rules::overlay::resolve_id(lib, f)).collect();
+                    for id in [st.species, st.subspecies, st.background].into_iter().flatten().chain(feats) {
                         let g = origin::skill_grant(lib.entity(id).data.get("skillProficiencies"));
                         for s in &g.fixed {
                             if !st.ch.proficiencies.skills.contains(s) {

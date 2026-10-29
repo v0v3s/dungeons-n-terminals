@@ -504,6 +504,28 @@
    "rarity": "none",
    "value": 1600,
    "weight": 42,
+   "packContents": [
+    "backpack|srd52",
+    "ball bearings|srd52",
+    "bell|srd52",
+    {
+     "item": "candle|srd52",
+     "quantity": 10
+    },
+    "crowbar|srd52",
+    "hooded lantern|srd52",
+    {
+     "item": "oil|srd52",
+     "quantity": 7
+    },
+    {
+     "item": "rations|srd52",
+     "quantity": 5
+    },
+    "rope|srd52",
+    "tinderbox|srd52",
+    "waterskin|srd52"
+   ],
    "entries": [
     "A Burglar’s Pack contains the following items: Backpack, Ball Bearings, Bell, 10 Candles, Crowbar, Hooded Lantern, 7 flasks of Oil, 5 days of Rations, Rope, Tinderbox, and Waterskin."
    ]
@@ -659,6 +681,34 @@
    "rarity": "none",
    "value": 3900,
    "weight": 39,
+   "packContents": [
+    "chest|srd52",
+    "fine clothes|srd52",
+    "ink|srd52",
+    {
+     "item": "ink pen|srd52",
+     "quantity": 5
+    },
+    "lamp|srd52",
+    {
+     "item": "map or scroll case|srd52",
+     "quantity": 2
+    },
+    {
+     "item": "oil|srd52",
+     "quantity": 4
+    },
+    {
+     "item": "paper|srd52",
+     "quantity": 5
+    },
+    {
+     "item": "parchment|srd52",
+     "quantity": 5
+    },
+    "perfume|srd52",
+    "tinderbox|srd52"
+   ],
    "entries": [
     "A Diplomat’s Pack contains the following items: Chest, Fine Clothes, Ink, 5 Ink Pens, Lamp, 2 Map or Scroll Cases, 4 flasks of Oil, 5 sheets of Paper, 5 sheets of Parchment, Perfume, and Tinderbox."
    ]
@@ -707,6 +757,26 @@
    "rarity": "none",
    "value": 1200,
    "weight": 55,
+   "packContents": [
+    "backpack|srd52",
+    "caltrops|srd52",
+    "crowbar|srd52",
+    {
+     "item": "oil|srd52",
+     "quantity": 2
+    },
+    {
+     "item": "rations|srd52",
+     "quantity": 10
+    },
+    "rope|srd52",
+    "tinderbox|srd52",
+    {
+     "item": "torch|srd52",
+     "quantity": 10
+    },
+    "waterskin|srd52"
+   ],
    "entries": [
     "A Dungeoneer’s Pack contains the following items: Backpack, Caltrops, Crowbar, 2 flasks of Oil, 10 days of Rations, Rope, Tinderbox, 10 Torches, and Waterskin."
    ]
@@ -719,6 +789,27 @@
    "rarity": "none",
    "value": 4000,
    "weight": 58.5,
+   "packContents": [
+    "backpack|srd52",
+    "bedroll|srd52",
+    "bell|srd52",
+    "bullseye lantern|srd52",
+    {
+     "item": "costume|srd52",
+     "quantity": 3
+    },
+    "mirror|srd52",
+    {
+     "item": "oil|srd52",
+     "quantity": 8
+    },
+    {
+     "item": "rations|srd52",
+     "quantity": 9
+    },
+    "tinderbox|srd52",
+    "waterskin|srd52"
+   ],
    "entries": [
     "An Entertainer’s Pack contains the following items: Backpack, Bedroll, Bell, Bullseye Lantern, 3 Costumes, Mirror, 8 flasks of Oil, 9 days of Rations, Tinderbox, and Waterskin."
    ]
@@ -731,6 +822,25 @@
    "rarity": "none",
    "value": 1000,
    "weight": 55,
+   "packContents": [
+    "backpack|srd52",
+    "bedroll|srd52",
+    {
+     "item": "oil|srd52",
+     "quantity": 2
+    },
+    {
+     "item": "rations|srd52",
+     "quantity": 10
+    },
+    "rope|srd52",
+    "tinderbox|srd52",
+    {
+     "item": "torch|srd52",
+     "quantity": 10
+    },
+    "waterskin|srd52"
+   ],
    "entries": [
     "An Explorer’s Pack contains the following items: Backpack, Bedroll, 2 flasks of Oil, 10 days of Rations, Rope, Tinderbox, 10 Torches, and Waterskin."
    ]
@@ -887,7 +997,7 @@
    "value": 50,
    "weight": 1,
    "entries": [
-    "A Lamp burns Oil as fuel to cast Bright Light in a 15- foot radius and Dim Light for an additional 30 feet."
+    "A Lamp burns Oil as fuel to cast Bright Light in a 15-foot radius and Dim Light for an additional 30 feet."
    ]
   },
   {
@@ -1112,6 +1222,18 @@
    "rarity": "none",
    "value": 3300,
    "weight": 29,
+   "packContents": [
+    "backpack|srd52",
+    "blanket|srd52",
+    "holy water|srd52",
+    "lamp|srd52",
+    {
+     "item": "rations|srd52",
+     "quantity": 7
+    },
+    "robe|srd52",
+    "tinderbox|srd52"
+   ],
    "entries": [
     "A Priest’s Pack contains the following items: Backpack, Blanket, Holy Water, Lamp, 7 days of Rations, Robe, and Tinderbox."
    ]
@@ -1202,6 +1324,22 @@
    "rarity": "none",
    "value": 4000,
    "weight": 22,
+   "packContents": [
+    "backpack|srd52",
+    "book|srd52",
+    "ink|srd52",
+    "ink pen|srd52",
+    "lamp|srd52",
+    {
+     "item": "oil|srd52",
+     "quantity": 10
+    },
+    {
+     "item": "parchment|srd52",
+     "quantity": 10
+    },
+    "tinderbox|srd52"
+   ],
    "entries": [
     "A Scholar’s Pack contains the following items: Backpack, Book, Ink, Ink Pen, Lamp, 10 flasks of Oil, 10 sheets of Parchment, and Tinderbox."
    ]
@@ -3754,7 +3892,9 @@
    "wondrous": true,
    "entries": [
     "You gain a +1 bonus to Armor Class and saving throws while you wear this cloak."
-   ]
+   ],
+   "bonusAc": "+1",
+   "bonusSavingThrow": "+1"
   },
   {
    "name": "Cloak of the Bat",
@@ -4801,7 +4941,7 @@
      "type": "entries",
      "name": "Third Command Word",
      "entries": [
-      "You expend 5 charges and cause the gem to flare with intense light in a 30- foot Cone. Each creature in the Cone makes a saving throw as if struck by the beam created with the second command word. When all of the gem’s charges are expended, the gem becomes a nonmagical jewel worth 50 GP."
+      "You expend 5 charges and cause the gem to flare with intense light in a 30-foot Cone. Each creature in the Cone makes a saving throw as if struck by the beam created with the second command word. When all of the gem’s charges are expended, the gem becomes a nonmagical jewel worth 50 GP."
      ]
     }
    ]
@@ -5029,7 +5169,7 @@
      "type": "entries",
      "name": "Taking Fire Damage",
      "entries": [
-      "Roll {@dice 1d20} if you are wearing the helm and take Fire damage as a result of failing a saving throw against a spell. On a roll of 1, the helm emits beams of light from its remaining gems and is then destroyed. Each creature within a 60- foot Emanation originating from you must succeed on a DC 17 Dexterity saving throw or be struck by a beam, taking Radiant damage equal to the number of gems in the helm."
+      "Roll {@dice 1d20} if you are wearing the helm and take Fire damage as a result of failing a saving throw against a spell. On a roll of 1, the helm emits beams of light from its remaining gems and is then destroyed. Each creature within a 60-foot Emanation originating from you must succeed on a DC 17 Dexterity saving throw or be struck by a beam, taking Radiant damage equal to the number of gems in the helm."
      ]
     }
    ]
@@ -6729,7 +6869,9 @@
    "type": "RG|SRD52",
    "entries": [
     "You gain a +1 bonus to Armor Class and saving throws while wearing this ring."
-   ]
+   ],
+   "bonusAc": "+1",
+   "bonusSavingThrow": "+1"
   },
   {
    "name": "Ring of Regeneration",
@@ -7916,7 +8058,7 @@
      "type": "entries",
      "name": "Insect Cloud",
      "entries": [
-      "While holding the staff, you can take a Magic action and expend 1 charge to cause a swarm of harmless flying insects to fill a 30- foot Emanation originating from you. The insects remain for 10 minutes, making the area Heavily Obscured for creatures other than you. A strong wind (like that created by {@spell Gust of Wind|SRD52}) disperses the swarm and ends the effect."
+      "While holding the staff, you can take a Magic action and expend 1 charge to cause a swarm of harmless flying insects to fill a 30-foot Emanation originating from you. The insects remain for 10 minutes, making the area Heavily Obscured for creatures other than you. A strong wind (like that created by {@spell Gust of Wind|SRD52}) disperses the swarm and ends the effect."
      ]
     },
     {

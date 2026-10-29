@@ -44,6 +44,11 @@ def one(chunk, pdf_path):
         ability = _increase(" ".join(tags.walk_text([increase])))
         if ability:
             feat["ability"] = [ability]
+    # `proficiency in any combination of three skills or tools`: three
+    # skills to pick (dnt asks for skills).
+    words = {"one": 1, "two": 2, "three": 3}
+    if m := re.search(r"proficiency in any combination of (\w+) skills", " ".join(tags.walk_text(text))):
+        feat["skillProficiencies"] = [{"any": words[m.group(1)]}]
     if any(isinstance(e, dict) and e.get("name") == "Repeatable" for e in text):
         feat["repeatable"] = True
     feat["entries"] = text

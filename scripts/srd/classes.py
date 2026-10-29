@@ -22,6 +22,12 @@ ABILITY = {a: a[:3].lower() for a in tags.ABILITIES}
 
 # Features whose named parts are options to pick one of.
 OPTIONS = {("Cleric", "Divine Order"), ("Druid", "Primal Order")}
+# Spells class features always have prepared (and can cast free).
+CLASS_SPELLS = {
+    "Druid": {"prepared": {"1": ["speak with animals|srd52"]}},
+    "Paladin": {"prepared": {"2": ["divine smite|srd52"]}},
+    "Ranger": {"prepared": {"1": ["hunter’s mark|srd52"]}, "innate": {"1": {"daily": {"2": ["hunter’s mark|srd52"]}}}},
+}
 # Spells a Wizard writes in the spellbook: six at level 1, two a level
 # after (its Spellcasting feature says so).
 SPELLBOOK = {"Wizard": [6] + [2] * 19}
@@ -74,6 +80,8 @@ def one(chunk, pdf_path, out, options):
     if caster:
         cls["casterProgression"], cls["spellcastingAbility"] = caster
     cls.update(progressions(name, rows, labels))
+    if name in CLASS_SPELLS:
+        cls["additionalSpells"] = [CLASS_SPELLS[name]]
     if name in SPELLBOOK:
         cls["spellsKnownProgressionFixed"] = SPELLBOOK[name]
     cls["subclassTitle"] = f"{name} Subclass"

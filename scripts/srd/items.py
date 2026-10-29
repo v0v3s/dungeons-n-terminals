@@ -5,6 +5,8 @@ mounts and vehicles (items)."""
 import re
 from fractions import Fraction
 
+import equipment
+
 from pdf import join
 from tags import SOURCE
 from text import _phrases, boxes, entries
@@ -288,6 +290,8 @@ def gear(lines, pdf_path):
         holds = re.search(r"holds up to (\d+) pounds", " ".join(t for t in text if isinstance(t, str)))
         if holds:
             item["containerCapacity"] = {"weight": [int(holds.group(1))]}
+        if contents := pack_contents(" ".join(t for t in text if isinstance(t, str))):
+            item["packContents"] = contents
         item["entries"] = text
         out.append(item)
     for caption, scf in FOCUSES.items():
@@ -315,6 +319,24 @@ def gear(lines, pdf_path):
         item["weight"] = round(weight(lb) / amount, 3)
         ammunition.append(item)
     return out, tools, ammunition
+
+
+def pack_contents(text):
+    """`… contains the following items: Backpack, 10 Candles, 7 flasks of
+    Oil, …, and Waterskin.`: the items, with how many."""
+    m = re.search(r"contains the following items: (.*?)\.?$", text)
+    if not m:
+        return None
+    out = []
+    for part in re.split(r",\s*(?:and\s+)?", m.group(1)):
+        ref = lambda name: f"{name.lower()}|{SOURCE.lower()}"
+        if n := re.fullmatch(r"(\d+) (?:flasks|days|sheets) of (.+)", part):
+            out.append({"item": ref(n.group(2)), "quantity": int(n.group(1))})
+        elif n := re.fullmatch(r"(\d+) (.+)", part):
+            out.append({"item": ref(equipment.singular(n.group(2))), "quantity": int(n.group(1))})
+        else:
+            out.append(ref(part))
+    return out
 
 
 def _inverted(name):

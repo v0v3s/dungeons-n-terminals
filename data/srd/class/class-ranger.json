@@ -346,6 +346,24 @@
      ]
     }
    ],
+   "additionalSpells": [
+    {
+     "prepared": {
+      "1": [
+       "hunter’s mark|srd52"
+      ]
+     },
+     "innate": {
+      "1": {
+       "daily": {
+        "2": [
+         "hunter’s mark|srd52"
+        ]
+       }
+      }
+     }
+    }
+   ],
    "subclassTitle": "Ranger Subclass",
    "classFeatures": [
     "Spellcasting|Ranger|SRD52|1",

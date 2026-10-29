@@ -53,6 +53,8 @@ def unknown_items(classes, backgrounds, known):
         refs += [e for g in c["startingEquipment"]["defaultData"] for alt in g.values() for e in alt]
     for b in backgrounds:
         refs += [e for g in b["startingEquipment"] for alt in g.values() for e in alt]
+    for i in known:
+        refs += i.get("packContents", [])
     wanted = {(e if isinstance(e, str) else e.get("item", "")).split("|")[0] for e in refs}
     return {w for w in wanted if w and w not in names}
 

@@ -138,6 +138,11 @@
    "page": 87,
    "edition": "one",
    "category": "O",
+   "skillProficiencies": [
+    {
+     "any": 3
+    }
+   ],
    "repeatable": true,
    "entries": [
     "You gain proficiency in any combination of three skills or tools of your choice.",

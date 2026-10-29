@@ -3826,7 +3826,7 @@
     }
    ],
    "entries": [
-    "You create up to four torch-size lights within range, making them appear as torches, lanterns, or glowing orbs that hover for the duration. Alternatively, you combine the four lights into one glowing Medium form that is vaguely humanlike. Whichever form you choose, each light sheds Dim Light in a 10- foot radius.",
+    "You create up to four torch-size lights within range, making them appear as torches, lanterns, or glowing orbs that hover for the duration. Alternatively, you combine the four lights into one glowing Medium form that is vaguely humanlike. Whichever form you choose, each light sheds Dim Light in a 10-foot radius.",
     "As a Bonus Action, you can move the lights up to 60 feet to a space within range. A light must be within 20 feet of another light created by this spell, and a light vanishes if it exceeds the spell’s range."
    ]
   },
@@ -7423,7 +7423,7 @@
     }
    ],
    "entries": [
-    "An immobile, shimmering barrier appears in a 10- foot Emanation around you and remains for the duration.",
+    "An immobile, shimmering barrier appears in a 10-foot Emanation around you and remains for the duration.",
     "Any spell of level 5 or lower cast from outside the barrier can’t affect anything within it. Such a spell can target creatures and objects within the barrier, but the spell has no effect on them. Similarly, the area within the barrier is excluded from areas of effect created by such spells."
    ],
    "entriesHigherLevel": [
@@ -7590,7 +7590,7 @@
     }
    ],
    "entries": [
-    "Nonflammable grease covers the ground in a 10- foot square centered on a point within range and turns it into Difficult Terrain for the duration.",
+    "Nonflammable grease covers the ground in a 10-foot square centered on a point within range and turns it into Difficult Terrain for the duration.",
     "When the grease appears, each creature standing in its area must succeed on a Dexterity saving throw or have the {@condition Prone|SRD52} condition. A creature that enters the area or ends its turn there must also succeed on that save or fall Prone."
    ],
    "savingThrow": [
@@ -12882,7 +12882,7 @@
     }
    ],
    "entries": [
-    "This spell reverses gravity in a 50-foot-radius, 100- foot high Cylinder centered on a point within range. All creatures and objects in that area that aren’t anchored to the ground fall upward and reach the top of the Cylinder. A creature can make a Dexterity saving throw to grab a fixed object it can reach, thus avoiding the fall upward.",
+    "This spell reverses gravity in a 50-foot-radius, 100-foot high Cylinder centered on a point within range. All creatures and objects in that area that aren’t anchored to the ground fall upward and reach the top of the Cylinder. A creature can make a Dexterity saving throw to grab a fixed object it can reach, thus avoiding the fall upward.",
     "If a ceiling or an anchored object is encountered in this upward fall, creatures and objects strike it just as they would during a downward fall. If an affected creature or object reaches the Cylinder’s top without striking anything, it hovers there for the duration. When the spell ends, affected objects and creatures fall downward."
    ],
    "savingThrow": [

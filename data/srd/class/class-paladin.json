@@ -342,6 +342,15 @@
      ]
     }
    ],
+   "additionalSpells": [
+    {
+     "prepared": {
+      "2": [
+       "divine smite|srd52"
+      ]
+     }
+    }
+   ],
    "subclassTitle": "Paladin Subclass",
    "classFeatures": [
     "Lay On Hands|Paladin|SRD52|1",

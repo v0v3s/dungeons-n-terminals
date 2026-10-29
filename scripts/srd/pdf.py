@@ -175,7 +175,8 @@ def join(prev: str, line: str) -> str:
         if m.group(1) and line.startswith("_"):
             return prev[:-2] + line[1:]
         return prev[: m.start() + 1] + line
-    if prev.endswith("—"):
+    if prev.endswith("—") or re.search(r"\d-$", prev):
+        # `15-` + `foot`; a dash.
         return prev + line
     return prev + " " + line
 

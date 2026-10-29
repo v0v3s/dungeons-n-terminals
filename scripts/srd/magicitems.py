@@ -103,4 +103,7 @@ def one(name, meta, page, text, bases):
         if kind == "Wondrous Item":
             item["wondrous"] = True
     item["entries"] = text
+    # `You gain a +1 bonus to Armor Class and saving throws while …`.
+    if m := re.search(r"You gain a \+(\d) bonus to Armor Class and saving throws", " ".join(t for t in text if isinstance(t, str))):
+        item["bonusAc"] = item["bonusSavingThrow"] = f"+{m.group(1)}"
     return [item]

@@ -468,6 +468,15 @@
      ]
     }
    ],
+   "additionalSpells": [
+    {
+     "prepared": {
+      "1": [
+       "speak with animals|srd52"
+      ]
+     }
+    }
+   ],
    "subclassTitle": "Druid Subclass",
    "classFeatures": [
     "Spellcasting|Druid|SRD52|1",
