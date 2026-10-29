@@ -116,7 +116,8 @@ fn backups_go_to_the_folder_chosen() {
     assert_eq!(mine(&home.path().join("data/backups")), 0, "nothing in the default folder");
     // Back to the default folder.
     let said = stdout(&run("backup.folder", &home, &["backup", "--folder", "default"]));
-    assert!(said.contains("Backups folder: ") && said.contains("data/backups"), "{said}");
+    let default = std::path::Path::new("data").join("backups");
+    assert!(said.contains("Backups folder: ") && said.trim_end().ends_with(&*default.to_string_lossy()), "{said}");
 }
 
 #[test]

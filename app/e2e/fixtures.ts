@@ -185,13 +185,19 @@ export async function choose(page: Page, title: string | RegExp, action: string 
 /// An action from the ⋯ menu of the compendium entry being read.
 export async function entryAction(page: Page, name: string, action: string) {
   await page.locator(".detail .title").getByRole("button", { name: "More" }).click();
-  await choose(page, name, action);
+  await menu(page, name, action);
 }
 
 /// An action from the ⋯ menu of a campaign's card.
 export async function campaignAction(page: Page, name: string, action: string) {
   await page.locator("section.card").filter({ has: page.locator(".name", { hasText: new RegExp(`^${name}$`) }) }).getByRole("button", { name: "More" }).click();
-  await choose(page, name, action);
+  await menu(page, name, action);
+}
+
+/// An action from the ⋯ menu titled exactly `title` (a dialog still
+/// closing may have a longer title with it in it).
+async function menu(page: Page, title: string, action: string) {
+  await page.getByRole("dialog", { name: title, exact: true }).getByRole("button", { name: action, exact: true }).click();
 }
 
 /// Answer the prompt titled `title` with `text`.
