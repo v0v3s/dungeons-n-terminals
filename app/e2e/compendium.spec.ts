@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, go, phone, test } from "./fixtures";
+import { answer, choose, dialog, entryAction, expect, go, phone, test } from "./fixtures";
 import { drag, swipe } from "./touch";
 
 test.use({ seed: "campaign" });
@@ -176,7 +176,7 @@ test("an entry is cloned as a campaign version or as a named copy", { tag: "@com
   await compendium(page);
   await search(page, "glimmer");
   await read(page, "Glimmer");
-  await page.getByRole("button", { name: "Clone into the campaign" }).click();
+  await entryAction(page, "Glimmer", "Clone into the campaign");
   await choose(page, "Clone Glimmer", /A campaign version/);
   const editor = dialog(page, "Edit · Glimmer");
   await expect(editor).toContainText("campaign version");
@@ -190,7 +190,7 @@ test("an entry is cloned as a campaign version or as a named copy", { tag: "@com
   await toList(page);
   await search(page, "frost needle");
   await read(page, "Frost Needle");
-  await page.getByRole("button", { name: "Clone into the campaign" }).click();
+  await entryAction(page, "Frost Needle", "Clone into the campaign");
   await choose(page, "Clone Frost Needle", /A separate copy/);
   await expect(dialog(page, "The copy's name").getByRole("textbox")).toHaveValue("Frost Needle (copy)");
   await answer(page, "The copy's name", "Frost Lance");
@@ -206,7 +206,7 @@ test("a campaign version and its book original", { tag: "@compendium.original" }
   await compendium(page);
   await search(page, "glimmer");
   await read(page, "Glimmer");
-  await page.getByRole("button", { name: "Clone into the campaign" }).click();
+  await entryAction(page, "Glimmer", "Clone into the campaign");
   await choose(page, "Clone Glimmer", /A campaign version/);
   const editor = dialog(page, "Edit · Glimmer");
   await editor.locator("button.field", { hasText: "Description" }).click();
@@ -260,4 +260,28 @@ test("swiping the results changes the category, the gap naming the next one", { 
   await expect(select).toHaveValue(second);
   await swipe(page, results, 0.2, 0.8);
   await expect(select).toHaveValue(first);
+});
+
+test("an entry is exported and imported", { tag: "@export.entry" }, async ({ page }) => {
+  await page.evaluate(() => ((window as any).dntE2eFiles = { open: null, save: "e2e:" }));
+  // A homebrew entry, from a campaign with that homebrew on.
+  await page.evaluate(() =>
+    (window as any).__TAURI_INTERNALS__.invoke("set_campaign_sources", { slug: "e2e", sources: [], homebrew: ["TSTB"], showReprinted: false }),
+  );
+  await go(page, "Compendium");
+  await search(page, "sun glint");
+  await read(page, "Sun Glint");
+  await entryAction(page, "Sun Glint", "Export");
+  await expect(page.locator(".notice")).toContainText("Exported Sun Glint");
+  // Off again; the import turns it on.
+  await page.evaluate(() =>
+    (window as any).__TAURI_INTERNALS__.invoke("set_campaign_sources", { slug: "e2e", sources: [], homebrew: [], showReprinted: false }),
+  );
+  await go(page, "Data");
+  await page.evaluate(() => ((window as any).dntE2eFiles = { open: "e2e:Sun Glint.json", save: "e2e:" }));
+  await page.getByRole("button", { name: "Import…" }).click();
+  await expect(page.locator(".data p.ok")).toContainText("Imported Sun Glint");
+  await go(page, "Compendium");
+  await search(page, "sun glint");
+  await read(page, "Sun Glint");
 });

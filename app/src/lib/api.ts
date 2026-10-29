@@ -76,6 +76,50 @@ export interface Sources {
 
 export const status = () => invoke<Status>("status");
 export const importZip = (path: string) => invoke<Imported>("import_zip", { path });
+
+// ---- backups, exports and importing any file ----
+export type Every = "off" | "day" | "week" | "month";
+export interface SavedBackup {
+  name: string;
+  path: string;
+  bytes: number;
+}
+export interface Backups {
+  every: Every;
+  keep: number;
+  /// Where they go.
+  folder: string;
+  /// Whether that is a folder the user chose.
+  chosen: boolean;
+  /// Newest first.
+  list: SavedBackup[];
+}
+/// What a picked file is, before importing it.
+export interface ImportPlan {
+  what: "backup" | "character" | "campaign" | "entries" | "data";
+  name: string;
+  /// Books it needs that are not here.
+  missing: string[];
+  /// What of that name is here already.
+  clash: string | null;
+  /// Entries all in the data already (from a book).
+  already: boolean;
+}
+export type OnClash = "refuse" | "replace" | "keep_both";
+export const backups = () => invoke<Backups>("backups");
+export const backupNow = () => invoke<Backups>("backup_now");
+export const backupSchedule = (every: Every, keep: number) => invoke<Backups>("backup_schedule", { every, keep });
+/// Ask for another backups folder (the system's folder picker): it, or null.
+export const pickBackupFolder = () => invoke<string | null>("pick_backup_folder");
+/// Back up into `folder` from now on (null: the default folder).
+export const backupFolder = (folder: string | null) => invoke<Backups>("backup_folder", { folder });
+export const restoreBackup = (path: string) => invoke<Status>("restore_backup", { path });
+export const importPlan = (path: string) => invoke<ImportPlan>("import_plan", { path });
+export const importFile = (path: string, onClash: OnClash) =>
+  invoke<{ summary: string; status: Status }>("import_file", { path, onClash });
+export const exportCharacter = (path: string) => invoke<string>("export_character", { path });
+export const exportCampaign = (slug: string, path: string) => invoke<string>("export_campaign", { slug, path });
+export const exportEntry = (id: number, path: string) => invoke<string>("export_entry", { id, path });
 export const sources = () => invoke<Sources>("sources");
 export const createCampaign = (name: string, sources: string[]) => invoke<Status>("create_campaign", { name, sources });
 export const activateCampaign = (slug: string) => invoke<Status>("activate_campaign", { slug });

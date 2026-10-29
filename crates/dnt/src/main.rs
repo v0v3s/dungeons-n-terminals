@@ -57,9 +57,51 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Import data from a zip: a whole data folder, or homebrew files in any
-    /// layout. Importing again updates entries instead of doubling them.
-    Import { zip: PathBuf },
+    /// Import a file: data or homebrew (a zip of a data folder, or files in
+    /// any layout; importing again updates entries instead of doubling
+    /// them), an exported character or campaign, or an entry (.json).
+    Import {
+        file: PathBuf,
+        /// A character or campaign of that name is here: replace it.
+        #[arg(long, conflicts_with = "keep_both")]
+        replace: bool,
+        /// A character or campaign of that name is here: keep both.
+        #[arg(long)]
+        keep_both: bool,
+    },
+    /// Back everything up (campaigns, the imported data, your homebrew and
+    /// rules) into one zip; with --every, --keep or --folder, set the
+    /// automatic backups.
+    Backup {
+        /// Where to write it (else the backups folder).
+        file: Option<PathBuf>,
+        /// Back up by itself at start: off, day, week or month.
+        #[arg(long, value_parser = ["off", "day", "week", "month"])]
+        every: Option<String>,
+        /// How many automatic backups to keep.
+        #[arg(long)]
+        keep: Option<u32>,
+        /// The backups folder, from now on (`--folder default`: back to
+        /// `backups` in the data folder).
+        #[arg(long)]
+        folder: Option<PathBuf>,
+    },
+    /// List the backups in the backups folder, newest first.
+    Backups,
+    /// Replace everything with a backup (what is here is backed up first).
+    Restore {
+        file: PathBuf,
+        /// Do not ask first.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Export to import elsewhere: a character (with the homebrew and rules
+    /// they use), a campaign (with all of it), or an entry by id
+    /// (`spell:Fireball|XPHB`).
+    Export {
+        #[command(subcommand)]
+        what: ExportWhat,
+    },
     /// List the imported sources, then the imported homebrew.
     Imported,
     /// Remove an imported source (or homebrew source) and everything in it;
@@ -83,12 +125,115 @@ enum Cmd {
     },
 }
 
+#[derive(Subcommand)]
+enum ExportWhat {
+    /// A character of the active campaign (or --campaign), by name.
+    Character {
+        name: String,
+        #[arg(long)]
+        campaign: Option<String>,
+        /// Where to write it (else `<name>.dnt.zip` here).
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// A campaign, by name.
+    Campaign {
+        name: String,
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// One entry, by id (`spell:Fireball|XPHB`), as a data file.
+    Entry {
+        id: String,
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+}
+
+/// The workspace on the active campaign (or the one named).
+fn workspace(store: Store, campaign: Option<&str>) -> Result<dnt_core::workspace::Workspace> {
+    let mut ws = dnt_core::workspace::Workspace::open(store);
+    if let Some(name) = campaign {
+        // For this run only: the app still opens the campaign it did.
+        ws.active = Some(
+            ws.campaigns
+                .iter()
+                .position(|c| c.settings.name.eq_ignore_ascii_case(name) || c.slug == name)
+                .with_context(|| format!("no campaign {name}"))?,
+        );
+        ws.prepare();
+    }
+    Ok(ws)
+}
+
+fn write_out(out: Option<PathBuf>, default: String, bytes: &[u8]) -> Result<()> {
+    let path = out.unwrap_or_else(|| PathBuf::from(default));
+    std::fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
+    println!("Exported to {}", path.display());
+    Ok(())
+}
+
+fn export(store: Store, what: ExportWhat) -> Result<()> {
+    use dnt_core::bundle;
+    match what {
+        ExportWhat::Character { name, campaign, out } => {
+            let ws = workspace(store, campaign.as_deref())?;
+            let file = ws
+                .characters()
+                .into_iter()
+                .find(|f| f.character.name.eq_ignore_ascii_case(&name) || f.slug == name)
+                .with_context(|| format!("no character {name} in this campaign"))?;
+            let lib = ws.lib.as_ref().context("no data yet")?;
+            let s = dnt_core::session::CharacterSession::new(file, lib, &ws.overlays, &ws.filter());
+            let bytes = bundle::character(&ws, &s).map_err(anyhow::Error::msg)?;
+            write_out(out, bundle::file_name(&s.character().name, "dnt.zip"), &bytes)
+        }
+        ExportWhat::Campaign { name, out } => {
+            let ws = workspace(store, None)?;
+            let c = ws
+                .campaigns
+                .iter()
+                .find(|c| c.settings.name.eq_ignore_ascii_case(&name) || c.slug == name)
+                .with_context(|| format!("no campaign {name}"))?;
+            let bytes = bundle::campaign(&ws, &c.slug).map_err(anyhow::Error::msg)?;
+            write_out(out, bundle::file_name(&c.settings.name, "dnt.zip"), &bytes)
+        }
+        ExportWhat::Entry { id, out } => {
+            let ws = workspace(store, None)?;
+            let lib = ws.lib.as_ref().context("no data yet")?;
+            let e = dnt_rules::overlay::resolve_id(lib, &id).with_context(|| format!("no entry {id}"))?;
+            let text = bundle::entry(&ws, e).map_err(anyhow::Error::msg)?;
+            write_out(out, bundle::file_name(&lib.entity(e).name, "json"), text.as_bytes())
+        }
+    }
+}
+
 /// Run a subcommand (no TUI).
-fn run_command(cmd: Cmd, store: &Store, config: &dnt_store::Config) -> Result<()> {
-    use dnt_core::import;
+fn run_command(cmd: Cmd, store: Store, config: &dnt_store::Config) -> Result<()> {
+    use dnt_core::{backup, bundle, import};
+    let store = &store;
     match cmd {
-        Cmd::Import { zip } => {
-            let bytes = std::fs::read(&zip).with_context(|| format!("reading {}", zip.display()))?;
+        Cmd::Import { file, replace, keep_both } => {
+            let bytes = std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
+            let name = file.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            let mut ws = dnt_core::workspace::Workspace::open(Store::open(store.data_dir(), store.config_path()));
+            let plan = bundle::plan(&ws, &bytes, &name).map_err(anyhow::Error::msg)?;
+            match plan.what.as_str() {
+                "backup" => anyhow::bail!("{name} is a backup: `dnt restore {}` replaces everything with it", file.display()),
+                "data" => {}
+                _ => {
+                    let on_clash = match (replace, keep_both) {
+                        (true, _) => bundle::OnClash::Replace,
+                        (_, true) => bundle::OnClash::KeepBoth,
+                        _ => bundle::OnClash::Refuse,
+                    };
+                    if let (Some(here), bundle::OnClash::Refuse) = (&plan.clash, on_clash) {
+                        anyhow::bail!("{here} is here already: import again with --replace or --keep-both");
+                    }
+                    println!("{}", bundle::apply(&mut ws, bytes, &name, on_clash).map_err(anyhow::Error::msg)?);
+                    return Ok(());
+                }
+            }
             let report = import::import_zip(store, bytes).map_err(anyhow::Error::msg)?;
             println!("{}", report.summary());
             for (file, why) in &report.skipped {
@@ -110,6 +255,67 @@ fn run_command(cmd: Cmd, store: &Store, config: &dnt_store::Config) -> Result<()
                 );
             }
         }
+        Cmd::Backup { file, every, keep, folder } => {
+            if every.is_some() || keep.is_some() || folder.is_some() {
+                let mut config = store.load_config()?;
+                if let Some(folder) = folder {
+                    config.backup.folder = if folder.as_os_str() == "default" {
+                        None
+                    } else {
+                        std::fs::create_dir_all(&folder).with_context(|| format!("creating {}", folder.display()))?;
+                        Some(std::fs::canonicalize(&folder)?.display().to_string())
+                    };
+                }
+                if let Some(every) = every {
+                    config.backup.every = match every.as_str() {
+                        "off" => dnt_store::Every::Off,
+                        "day" => dnt_store::Every::Day,
+                        "month" => dnt_store::Every::Month,
+                        _ => dnt_store::Every::Week,
+                    };
+                }
+                if let Some(keep) = keep {
+                    config.backup.keep = keep.max(1);
+                }
+                store.save_config(&config)?;
+                println!("Automatic backups: {}", backup::describe(config.backup.every, config.backup.keep));
+                println!("Backups folder: {}", backup::Shelf::configured(store, &config).place);
+                return Ok(());
+            }
+            let path = match file {
+                Some(path) => {
+                    std::fs::write(&path, backup::make(store).map_err(anyhow::Error::msg)?)?;
+                    path
+                }
+                None => backup::save(store, &backup::Shelf::configured(store, config), "").map_err(anyhow::Error::msg)?,
+            };
+            println!("Backed up to {}", path.display());
+        }
+        Cmd::Backups => {
+            let config = store.load_config()?;
+            println!("Automatic backups: {}", backup::describe(config.backup.every, config.backup.keep));
+            let shelf = backup::Shelf::configured(store, &config);
+            println!("Backups folder: {}", shelf.place);
+            for b in backup::list(&shelf) {
+                println!("{}  {:.1} MB", b.name, b.bytes as f64 / 1_000_000.0);
+            }
+        }
+        Cmd::Restore { file, yes } => {
+            let bytes = std::fs::read(&file).with_context(|| format!("reading {}", file.display()))?;
+            let m = backup::check(bytes.clone()).map_err(anyhow::Error::msg)?;
+            if !yes {
+                println!("This replaces everything here with the backup of {} (made by dnt {}). What is here now is backed up first. Type restore to go on:", m.made, m.dnt);
+                let mut answer = String::new();
+                std::io::stdin().read_line(&mut answer)?;
+                if answer.trim() != "restore" {
+                    println!("Nothing was changed.");
+                    return Ok(());
+                }
+            }
+            let safety = backup::restore(store, bytes, &backup::Shelf::configured(store, config)).map_err(anyhow::Error::msg)?;
+            println!("Restored the backup of {}; what was here is in {}", m.made, safety.display());
+        }
+        Cmd::Export { what } => return export(Store::open(store.data_dir(), store.config_path()), what),
         Cmd::Imported => {
             for (source, count) in import::sources(store).map_err(anyhow::Error::msg)? {
                 println!("{source:<16} {count} entries");
@@ -177,10 +383,14 @@ fn load_base(data: Option<&Path>, extra: &[PathBuf], store: &Store) -> Result<Li
 fn main() -> Result<()> {
     let args = Args::parse();
     let store = Store::open_default()?;
-    let mut config = store.load_config()?;
     if let Some(cmd) = args.command {
-        return run_command(cmd, &store, &config);
+        let config = store.load_config()?;
+        return run_command(cmd, store, &config);
     }
+    // The automatic backup, before anything reads the settings it notes.
+    let shelf = dnt_core::backup::Shelf::configured(&store, &store.load_config()?);
+    let backed_up = dnt_core::backup::auto(&store, &shelf, &dnt_core::backup::now());
+    let mut config = store.load_config()?;
 
     // A data folder if one is given or configured, else the imported data.
     let data = match (&args.data, &config.library.path) {
@@ -215,7 +425,12 @@ fn main() -> Result<()> {
     let start = Instant::now();
     let extra: Vec<PathBuf> = config.library.homebrew.iter().chain(&args.homebrew).cloned().collect();
     let mut base = load_base(data.as_deref(), &extra, &store)?;
-    let mut status = format!("Loaded {} entries in {} ms", base.entities().len(), start.elapsed().as_millis());
+    let mut status = match backed_up {
+        Some(Ok(done)) => format!("{done} · "),
+        Some(Err(e)) => format!("The automatic backup failed: {e} · "),
+        None => String::new(),
+    };
+    status.push_str(&format!("Loaded {} entries in {} ms", base.entities().len(), start.elapsed().as_millis()));
     if !base.warnings.is_empty() {
         status.push_str(&format!(" ({} warnings)", base.warnings.len()));
     }

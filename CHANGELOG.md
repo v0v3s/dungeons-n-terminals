@@ -8,6 +8,31 @@ become the release page.
 
 ## Unreleased
 
+## v1.2.0 - 2026-10-29
+
+### Added
+
+- Backups: everything (campaigns, characters, notes, the imported data,
+  your homebrew and rules) in one zip that restores on another device. By
+  hand, or by itself at start every day, week or month, keeping the last
+  few, into a folder of your choosing (`dnt backup --folder`; on Android
+  `Download/dnt` unless you pick another, such as an SD card or a cloud
+  drive). Restoring replaces
+  everything, after backing up what was there. *Data › Backups*; `dnt
+  backup`, `dnt backups`, `dnt restore`.
+- Export a character with only the homebrew and rules they use, a whole
+  campaign, or a single entry (a spell, a monster, a class with its
+  features), and import them on another device or into another campaign.
+  A character or campaign that is there already asks: replace it, or keep
+  both. *⋯ › Export for dnt*, a campaign's *⋯ › Export*, an entry's
+  *⋯ › Export*, *Data › Import…*; `dnt export`, `dnt import`.
+
+### Changed
+
+- The app: a campaign card's *Books & homebrew*, *Rename* and *Delete*,
+  and a compendium entry's *Edit* and *Clone into the campaign*, are in
+  its *⋯* menu, leaving more room.
+
 ## v1.1.0 - 2026-10-28
 
 ### Changed

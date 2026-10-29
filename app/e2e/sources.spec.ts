@@ -1,16 +1,12 @@
 import type { Locator, Page } from "@playwright/test";
-import { CAMPAIGN, answer, dialog, expect, go, test } from "./fixtures";
+import { answer, CAMPAIGN, campaignAction, dialog, expect, go, test } from "./fixtures";
 
 const exact = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 
 /// The campaign's books and homebrew, from its card.
 async function sources(page: Page): Promise<Locator> {
   await go(page, "Campaigns");
-  await page
-    .locator("section.card")
-    .filter({ has: page.locator(".name", { hasText: exact(CAMPAIGN) }) })
-    .getByRole("button", { name: "Books & homebrew" })
-    .click();
+  await campaignAction(page, CAMPAIGN, "Books & homebrew");
   const d = dialog(page, `Sources · ${CAMPAIGN}`);
   await expect(d.locator("button.source").first()).toBeVisible();
   return d;

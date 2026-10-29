@@ -31,7 +31,7 @@ doubling them.
 
 A campaign holds your characters, notes and homebrew, and chooses the books
 it uses. A new one uses all the books; change them with the compendium's
-`@` button or the campaign's *Books & homebrew* (in the terminal: **4
+`@` button or the campaign's *⋯ › Books & homebrew* (in the terminal: **4
 Campaigns**, `tab` to *Sources*). Imported homebrew is off until a campaign
 turns it on.
 

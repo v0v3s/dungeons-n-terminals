@@ -1,8 +1,10 @@
 //! The dnt app: the commands the web UI calls. Everything game-related is
 //! dnt-core; these modules hold the app's state and turn it into JSON.
 
+mod backups;
 mod characters;
 mod e2e;
+mod folders;
 mod homebrew;
 mod library;
 mod notes;
@@ -103,6 +105,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(folders::init())
         .manage(App::default())
         .setup(|app| {
             // `DNT_HOME` moves everything elsewhere, as for the terminal app
@@ -119,6 +122,15 @@ pub fn run() {
                 let report = move |s: &str| *stage.lock().unwrap() = s.to_string();
                 report("Opening");
                 let mut ws = Workspace::open_reporting(Store::open(dir.join("data"), dir.join("config.toml")), report.clone());
+                match backups::shelf(&handle, &ws.store, &ws.config) {
+                    Ok(shelf) => ws.backups = shelf,
+                    Err(e) => ws.problems.push(format!("The backups folder: {e}")),
+                }
+                // The automatic backup, when it is due.
+                report("Backing up");
+                if let Some(Err(e)) = ws.auto_backup() {
+                    ws.problems.push(format!("The automatic backup failed: {e}"));
+                }
                 // The compendium is the first screen: index it now.
                 report("Indexing the compendium");
                 let start = std::time::Instant::now();
@@ -134,6 +146,18 @@ pub fn run() {
             library::status,
             library::import_zip,
             library::e2e_import_zip,
+            backups::backups,
+            backups::backup_now,
+            backups::backup_schedule,
+            backups::e2e_backup_auto,
+            backups::restore_backup,
+            backups::pick_backup_folder,
+            backups::backup_folder,
+            backups::import_plan,
+            backups::import_file,
+            backups::export_character,
+            backups::export_campaign,
+            backups::export_entry,
             e2e::e2e_stash_zip,
             e2e::e2e_read,
             e2e::e2e_put_file,

@@ -3,6 +3,8 @@
 //! data to draw. Nothing here knows about terminals, browsers or phones;
 //! frontends turn input into calls here and draw what comes back.
 
+pub mod backup;
+pub mod bundle;
 pub mod commands;
 pub mod compendium;
 pub mod creation;

@@ -10,7 +10,7 @@ test("the sections are reached from the menu or the header", { tag: "@nav.sectio
   await go(page, "Campaigns");
   await expect(page.locator("section.card", { hasText: CAMPAIGN })).toBeVisible();
   await go(page, "Data");
-  await expect(page.getByRole("button", { name: "Import a zip…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import…" })).toBeVisible();
   await go(page, "Compendium");
   await expect(page.locator(".compendium .prompt input")).toBeVisible();
   await expect(page.locator(".compendium ul.rows button").first()).toBeVisible();

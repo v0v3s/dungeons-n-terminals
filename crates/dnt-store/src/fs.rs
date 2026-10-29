@@ -27,6 +27,11 @@ pub trait Fs: Send + Sync + Debug {
         self.is_file(path) || self.is_dir(path)
     }
 
+    /// A file's size in bytes.
+    fn len(&self, path: &Path) -> io::Result<u64> {
+        self.read(path).map(|b| b.len() as u64)
+    }
+
     fn read_to_string(&self, path: &Path) -> io::Result<String> {
         String::from_utf8(self.read(path)?).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
@@ -83,6 +88,10 @@ impl Fs for OsFs {
 
     fn is_dir(&self, path: &Path) -> bool {
         path.is_dir()
+    }
+
+    fn len(&self, path: &Path) -> io::Result<u64> {
+        std::fs::metadata(path).map(|m| m.len())
     }
 }
 

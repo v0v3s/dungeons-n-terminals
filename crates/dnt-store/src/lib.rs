@@ -73,6 +73,59 @@ pub struct Config {
     /// Default notes folder order for new campaigns.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes_order: Vec<String>,
+    /// Automatic backups.
+    #[serde(default)]
+    pub backup: BackupConfig,
+}
+
+/// How often dnt backs everything up by itself (when it starts).
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Every {
+    Off,
+    Day,
+    #[default]
+    Week,
+    Month,
+}
+
+impl Every {
+    /// Days between backups (none when off).
+    pub fn days(self) -> Option<i64> {
+        match self {
+            Every::Off => None,
+            Every::Day => Some(1),
+            Every::Week => Some(7),
+            Every::Month => Some(30),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackupConfig {
+    #[serde(default)]
+    pub every: Every,
+    /// How many automatic backups to keep (older ones are deleted).
+    #[serde(default = "default_keep")]
+    pub keep: u32,
+    /// When the last one was made (`2026-10-29 21:30`), or when automatic
+    /// backups started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last: Option<String>,
+    /// Where they go, when not the default folder: a path, or on Android a
+    /// folder picked in the system's dialog (a `content://` URI).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
+}
+
+fn default_keep() -> u32 {
+    5
+}
+
+impl Default for BackupConfig {
+    fn default() -> BackupConfig {
+        BackupConfig { every: Every::default(), keep: default_keep(), last: None, folder: None }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -199,6 +252,16 @@ impl Store {
 
     pub fn fs(&self) -> &dyn Fs {
         &*self.fs
+    }
+
+    /// The file system, to share.
+    pub fn shared_fs(&self) -> Arc<dyn Fs> {
+        self.fs.clone()
+    }
+
+    /// The folder with everything dnt keeps (campaigns, the library).
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
     }
 
     pub fn config_path(&self) -> &Path {
@@ -675,6 +738,7 @@ mod tests {
             library: LibraryConfig { path: Some("/data/dnd".into()), homebrew: vec![] },
             last_campaign: Some("cos".into()),
             notes_order: vec![],
+            backup: BackupConfig { every: Every::Day, keep: 3, last: Some("2026-10-29 10:00".into()), folder: Some("/mnt/backups".into()) },
         };
         store.save_config(&config).unwrap();
         assert_eq!(store.load_config().unwrap(), config);

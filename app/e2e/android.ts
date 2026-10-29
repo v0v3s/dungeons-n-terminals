@@ -42,6 +42,9 @@ export async function connect(port = 9333): Promise<string> {
   // Keep the screen on while it is plugged in, so it does not lock mid-run.
   adb("shell", "svc", "power", "stayon", "usb");
   if (!pid()) adb("shell", "monkey", "-p", PACKAGE, "-c", "android.intent.category.LAUNCHER", "1");
+  // Upright: the tests are for a phone held in portrait, and monkey turns
+  // auto-rotate back on (a phone lying on its side would turn the app).
+  adb("shell", "cmd", "window", "user-rotation", "lock", "0");
   for (let i = 0; i < 100; i++) {
     const p = pid();
     if (p && adb("shell", "cat", "/proc/net/unix").includes(`webview_devtools_remote_${p}`)) {

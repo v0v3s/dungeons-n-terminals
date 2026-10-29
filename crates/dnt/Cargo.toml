@@ -25,5 +25,6 @@ unicode-width = "0.2.2"
 [dev-dependencies]
 portable-pty = "0.9.0"
 tempfile = "3.27.0"
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 toml = "1.1.8"
 vt100 = "0.18.1"

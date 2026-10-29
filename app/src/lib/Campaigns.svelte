@@ -1,7 +1,9 @@
 <!-- Campaigns: which one is active, and the books each one uses. -->
 <script lang="ts">
   import * as api from "./api";
+  import { saveAs } from "./files";
   import { working } from "./working.svelte";
+  import Menu from "./Menu.svelte";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
   import Prompt from "./Prompt.svelte";
@@ -29,6 +31,21 @@
     } catch (e) {
       error = String(e);
       return false;
+    }
+  }
+
+  /// What an export did.
+  let notice = $state("");
+
+  /// The campaign with all it has, to import elsewhere (Data › Import).
+  async function exportCampaign(c: api.CampaignInfo) {
+    const path = await saveAs(`${c.name}.dnt.zip`, "dnt export", "zip");
+    if (!path) return;
+    try {
+      error = "";
+      notice = await working("Exporting…", () => api.exportCampaign(c.slug, path));
+    } catch (e) {
+      error = String(e);
     }
   }
 
@@ -76,19 +93,28 @@
               <span class="mark">{c.active ? "◈" : "◇"}</span>
               <span class="name">{c.name}</span>
               {#if c.active}<span class="badge">active</span>{/if}
+              <Menu
+                title={c.name}
+                actions={[
+                  ["Books & homebrew", () => (editing = c)],
+                  ["Rename", () => (renaming = c)],
+                  ["Export", () => exportCampaign(c)],
+                  ["Delete", () => (deleting = c), true],
+                ]}
+              />
             </div>
             <div class="dim books">{describe(c)}{c.source ? ` · its own entries are source ${c.source}` : ""}</div>
-            <div class="actions">
-              {#if !c.active}<button class="primary" onclick={() => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug))}>Make active</button>{/if}
-              <button class="ghost" onclick={() => (editing = c)}>Books &amp; homebrew</button>
-              <button class="ghost" onclick={() => (renaming = c)}>Rename</button>
-              <button class="ghost danger" onclick={() => (deleting = c)}>Delete</button>
-            </div>
+            {#if !c.active}
+              <div class="actions">
+                <button class="primary" onclick={() => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug))}>Make active</button>
+              </div>
+            {/if}
           </section>
         {/each}
       </div>
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
+    {#if notice}<p class="ok">✓ {notice}</p>{/if}
   </div>
 </div>
 
@@ -200,7 +226,7 @@
   }
   .head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 1.5ch;
   }
   .mark {
@@ -211,10 +237,11 @@
     color: var(--accent);
   }
   .name {
+    flex: 1;
+    min-width: 0;
     font-weight: 700;
   }
   .badge {
-    margin-left: auto;
     font-size: 0.85em;
     color: var(--black);
     background: var(--accent);
@@ -231,8 +258,9 @@
     color: var(--red);
     margin-top: 1em;
   }
-  .ghost.danger {
-    color: var(--red);
+  .ok {
+    color: var(--green);
+    margin-top: 1em;
   }
   .primary.danger {
     background: var(--red);
@@ -287,14 +315,8 @@
       width: 100%;
       min-height: 48px;
     }
-    /* Make active and the books on rows of their own; Rename and Delete share one. */
-    .actions {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .actions .primary,
-    .actions button:nth-last-child(3) {
-      grid-column: 1 / -1;
+    .actions button {
+      flex: 1;
     }
     .preset {
       min-height: 52px;
