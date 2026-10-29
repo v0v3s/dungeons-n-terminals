@@ -42,70 +42,64 @@ const score = (page: Page, ability: string) => page.locator(`.abil .score[data-o
 
 test("levelling up the same class takes the average hit points", { tag: "@levelup.average" }, async ({ page }) => {
   await openSheet(page);
-  await expect(hp(page)).toContainText("7/7");
+  await expect(hp(page)).toContainText("8/8");
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 1 → 2"]);
+  await pick(page, ["Wizard 1 → 2"]);
   await pick(page, ["Average"]);
   await expect(dialog(page, "Level up")).toContainText("Hit points: Average 4");
   await apply(page);
   await expect(status(page)).toContainText("Now level 2");
-  await expect(identity(page)).toContainText("Mage 2");
-  // 4 for the level and 1 for Constitution.
-  await expect(hp(page)).toContainText("12/12");
+  await expect(identity(page)).toContainText("Wizard 2");
+  // 4 for the level and 2 for Constitution.
+  await expect(hp(page)).toContainText("14/14");
 });
 
 test("hit points rolled at the table are typed in", { tag: "@levelup.hp" }, async ({ page }) => {
   await openSheet(page);
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 1 → 2"]);
+  await pick(page, ["Wizard 1 → 2"]);
   await pick(page, ["Roll it at the table…"]);
   const roll = dialog(page, "Level up").getByPlaceholder("the roll");
   await roll.fill("3");
   await dialog(page, "Level up").getByRole("button", { name: "OK" }).click();
   await apply(page);
-  await expect(identity(page)).toContainText("Mage 2");
-  await expect(hp(page)).toContainText("11/11");
+  await expect(identity(page)).toContainText("Wizard 2");
+  // 3 for the level and 2 for Constitution.
+  await expect(hp(page)).toContainText("13/13");
 });
 
 test("the maximum hit points can be taken", { tag: "@levelup.hp" }, async ({ page }) => {
   await openSheet(page);
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 1 → 2"]);
+  await pick(page, ["Wizard 1 → 2"]);
   await pick(page, ["Maximum"]);
   await apply(page);
-  await expect(hp(page)).toContainText("14/14");
+  // 6 for the level and 2 for Constitution.
+  await expect(hp(page)).toContainText("16/16");
 });
 
 test("a level in another class, when the scores allow it", { tag: "@levelup.multiclass" }, async ({ page }) => {
-  await seedLevels(page, "tester", 2);
   await openSheet(page, "Skills");
-  // Wisdom 11 → 13: with Dexterity 14, the Warden is open.
+  await expect(score(page, "Strength")).toHaveText("15");
+  // Strength 15: the Fighter is open.
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 3 → 4"]);
-  await pick(page, ["Average"]);
-  await pick(page, ["+2 to one ability score"]);
-  await pick(page, ["Wisdom"]);
-  await apply(page);
-  await expect(score(page, "Wisdom")).toHaveText("13");
-
-  await more(page, "Tester", "Level up…");
-  const warden = dialog(page, "Level up").locator("li button", {
-    hasText: "New class: Warden",
+  const fighter = dialog(page, "Level up").locator("li button", {
+    hasText: "New class: Fighter",
   });
-  await expect(warden).toBeVisible();
-  await expect(warden.locator(".warn")).toHaveCount(0);
+  await expect(fighter).toBeVisible();
+  await expect(fighter.locator(".warn")).toHaveCount(0);
   // Not the Hexer: Charisma 8.
   await expect(dialog(page, "Level up").locator("li button", { hasText: "New class: Hexer" }).locator(".warn")).toContainText("Charisma 13");
-  await warden.click();
+  await fighter.click();
   await pick(page, ["Average"]);
   // The new class's own choices at its first level.
-  await expect(dialog(page, "Level up")).toContainText("Favored Ground");
-  await pick(page, ["Mountain Ground"]);
+  await expect(dialog(page, "Level up")).toContainText("Fighting Style");
+  await pick(page, ["Defense"]);
   await expect(dialog(page, "Level up")).toContainText("Weapon Mastery");
-  await pick(page, ["Longfang", "Thunderbow"]);
+  await pick(page, ["Greatsword", "Handaxe", "Longsword"]);
   await apply(page);
-  await expect(identity(page)).toContainText("Mage 4");
-  await expect(identity(page)).toContainText("Warden 1");
+  await expect(identity(page)).toContainText("Wizard 1");
+  await expect(identity(page)).toContainText("Fighter 1");
   await expect(page.getByRole("button", { name: "Warnings" })).toHaveCount(0);
 });
 
@@ -113,41 +107,43 @@ test("the subclass is chosen at the level the class gets it", { tag: "@levelup.s
   await seedLevels(page, "tester", 1);
   await openSheet(page);
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 2 → 3"]);
+  await pick(page, ["Wizard 2 → 3"]);
   await expect(dialog(page, "Level up")).toContainText("Choose a subclass");
-  await pick(page, ["Order of Wards"]);
+  // Only the Wizard's subclasses.
+  await expect(dialog(page, "Level up")).not.toContainText("The Lantern");
+  await pick(page, ["Evoker"]);
   await pick(page, ["Average"]);
   await apply(page);
-  await expect(identity(page)).toContainText("Mage 3");
+  await expect(identity(page)).toContainText("Wizard 3");
   await sheetTab(page, "Features");
-  await expect(page.locator(".pane", { hasText: "Order of Wards" }).first()).toBeVisible();
+  await expect(page.locator(".pane", { hasText: "Evoker" }).first()).toBeVisible();
 });
 
 test("an ability score improvement raises a score", { tag: "@levelup.asi" }, async ({ page }) => {
   await seedLevels(page, "tester", 2);
   await openSheet(page, "Skills");
-  await expect(score(page, "Intelligence")).toHaveText("14");
+  await expect(score(page, "Intelligence")).toHaveText("13");
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 3 → 4"]);
+  await pick(page, ["Wizard 3 → 4"]);
   await pick(page, ["Average"]);
   await pick(page, ["+2 to one ability score"]);
   await pick(page, ["Intelligence"]);
   await apply(page);
-  await expect(identity(page)).toContainText("Mage 4");
-  await expect(score(page, "Intelligence")).toHaveText("16");
+  await expect(identity(page)).toContainText("Wizard 4");
+  await expect(score(page, "Intelligence")).toHaveText("15");
 });
 
 test("an ability score improvement can be a feat instead", { tag: "@levelup.asi" }, async ({ page }) => {
   await seedLevels(page, "tester", 2);
   await openSheet(page);
   await more(page, "Tester", "Level up…");
-  await pick(page, ["Mage 3 → 4"]);
+  await pick(page, ["Wizard 3 → 4"]);
   await pick(page, ["Average"]);
   await pick(page, ["Take a feat instead…"]);
-  await pick(page, ["Tough as Roots"]);
+  await pick(page, ["Grappler"]);
   await apply(page);
   await sheetTab(page, "Features");
-  await expect(page.locator(".feature", { hasText: "Tough as Roots" })).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Grappler" })).toBeVisible();
 });
 
 test("a character with no levels takes the first one", { tag: "@levelup.first-level" }, async ({ page }) => {
@@ -155,59 +151,61 @@ test("a character with no levels takes the first one", { tag: "@levelup.first-le
   // No levels: the file without them.
   await more(page, "Tester", "Edit the character file…");
   const box = dialog(page, "Tester · the file").getByRole("textbox");
-  await box.fill((await box.inputValue()).replace('[[levels]]\nclass = "class:Mage|TST"\n', ""));
+  await box.fill((await box.inputValue()).replace('[[levels]]\nclass = "class:Wizard|SRD52"\n', ""));
   await dialog(page, "Tester · the file").getByRole("button", { name: "Save" }).click();
-  await expect(identity(page)).not.toContainText("Mage");
+  await expect(identity(page)).not.toContainText("Wizard");
 
   await page.getByRole("button", { name: "Take the first level" }).click();
   await expect(dialog(page, "First level")).toBeVisible();
-  await pick(page, ["Mage"]);
+  await pick(page, ["Wizard"]);
   await apply(page);
-  await expect(identity(page)).toContainText("Mage 1");
+  await expect(identity(page)).toContainText("Wizard 1");
   await expect(page.getByRole("button", { name: "Take the first level" })).toHaveCount(0);
-  await expect(hp(page)).toContainText("7/7");
+  // The maximum 6 at the first level and 2 for Constitution.
+  await expect(hp(page)).toContainText("8/8");
 });
 
 test("undoing the latest level asks first", { tag: "@levelup.undo" }, async ({ page }) => {
   await seedLevels(page, "tester", 1);
   await openSheet(page);
-  await expect(identity(page)).toContainText("Mage 2");
+  await expect(identity(page)).toContainText("Wizard 2");
   await more(page, "Tester", "Remove the latest level");
   await choose(page, "Undo a level", "Cancel");
-  await expect(identity(page)).toContainText("Mage 2");
+  await expect(identity(page)).toContainText("Wizard 2");
   await more(page, "Tester", "Remove the latest level");
   await choose(page, "Undo a level", "Yes");
-  await expect(identity(page)).toContainText("Mage 1");
-  await expect(hp(page)).toContainText("7/7");
+  await expect(identity(page)).toContainText("Wizard 1");
+  await expect(hp(page)).toContainText("8/8");
 });
 
 test("choices a level left open are made afterwards", { tag: "@choices.pending" }, async ({ page }) => {
   await openSheet(page, "Overview", "Ranger");
-  // A second level written into the file, without its choices.
+  // A Fighter level written into the file, without its choices.
   await more(page, "Ranger", "Edit the character file…");
   const box = dialog(page, "Ranger · the file").getByRole("textbox");
   await box.fill(
     // After the first level and its choices, before the inventory.
-    (await box.inputValue()).replace("[[inventory]]", '[[levels]]\nclass = "class:Warden|TST"\n\n[[inventory]]'),
+    (await box.inputValue()).replace("[[inventory]]", '[[levels]]\nclass = "class:Fighter|SRD52"\n\n[[inventory]]'),
   );
   await dialog(page, "Ranger · the file").getByRole("button", { name: "Save" }).click();
-  await expect(identity(page)).toContainText("Warden 2");
+  await expect(identity(page)).toContainText("Fighter 1");
 
   await page.getByRole("button", { name: /2 choices/ }).click();
   await expect(dialog(page, /Fighting Style/)).toBeVisible();
-  await pick(page, ["Guardian Style"]);
-  const tricks = dialog(page, /Warden's Tricks/);
-  await expect(tricks).toBeVisible();
-  // Two picks of two: the second one closes it.
-  await tricks.locator("li button", { hasText: "Quick Step" }).click();
-  await tricks.locator("li button", { hasText: "Thorn Shot" }).click();
-  await expect(tricks).toHaveCount(0);
+  await pick(page, ["Defense"]);
+  const masteries = dialog(page, /Weapon Mastery/);
+  await expect(masteries).toBeVisible();
+  // Three picks of three: the third one closes it.
+  await masteries.locator("li button", { hasText: "Greatsword" }).click();
+  await masteries.locator("li button", { hasText: "Handaxe" }).click();
+  await masteries.locator("li button", { hasText: "Longsword" }).click();
+  await expect(masteries).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /choices? to make|^\d+ choices?$/ })).toHaveCount(0);
   await sheetTab(page, "Features");
-  await expect(page.locator(".feature", { hasText: "Guardian Style" })).toBeVisible();
-  await expect(page.locator(".feature", { hasText: "Quick Step" })).toBeVisible();
-  await expect(page.locator(".feature", { hasText: "Thorn Shot" })).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Defense" })).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Greatsword" })).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Handaxe" })).toBeVisible();
 });
 
 test("open choices are also made from the sheet's menu", { tag: "@choices.pending" }, async ({ page }) => {
@@ -216,11 +214,11 @@ test("open choices are also made from the sheet's menu", { tag: "@choices.pendin
   const box = dialog(page, "Ranger · the file").getByRole("textbox");
   await box.fill(
     // After the first level and its choices, before the inventory.
-    (await box.inputValue()).replace("[[inventory]]", '[[levels]]\nclass = "class:Warden|TST"\n\n[[inventory]]'),
+    (await box.inputValue()).replace("[[inventory]]", '[[levels]]\nclass = "class:Fighter|SRD52"\n\n[[inventory]]'),
   );
   await dialog(page, "Ranger · the file").getByRole("button", { name: "Save" }).click();
   await more(page, "Ranger", "Make 2 missing choice(s)…");
-  await pick(page, ["Marksman Style"]);
+  await pick(page, ["Archery"]);
   await page.keyboard.press("Escape");
   // One left, for later.
   await expect(page.getByRole("button", { name: /^1 choice/ })).toBeVisible();

@@ -5,9 +5,9 @@ use crate::steps::{character_file, row, see, squash};
 /// Open Ranger's sheet from the roster, on the Features tab.
 fn ranger_features(mut t: Tui) -> Tui {
     t.send("2").wait("Ranger");
-    t.send("j").send("j").wait("Skyborn · Drifter · Warden 1");
+    t.send("j").send("j").wait("Tiefling; Infernal Legacy · Criminal · Ranger 1");
     t.send(ENTER);
-    see(&mut t, "Skyborn · Drifter · Warden 1 · Level 1");
+    see(&mut t, "Tiefling; Infernal Legacy · Criminal · Ranger 1 · Level 1");
     t.send(TAB);
     see(&mut t, "╭ Features ─");
     t
@@ -32,25 +32,26 @@ fn features_are_grouped_by_where_they_come_from() {
     let rows = list(&t);
     let at = |name: &str| rows.iter().position(|r| r == name).unwrap_or_else(|| panic!("no {name:?} in {rows:#?}"));
     // Class levels first, then species, background, feats, masteries.
-    assert!(at("Warden 1") < at("1 Spellcasting"));
-    assert!(at("1 Favored Ground") < at("1 Forest Ground"));
-    assert!(at("1 Forest Ground") < at("Species"));
-    assert!(at("Species") < at("Skyborn") && at("Skyborn") < at("Background"));
-    assert!(at("Background") < at("Drifter") && at("Drifter") < at("Feats"));
-    assert!(at("Feats") < at("Lucky Charm") && at("Lucky Charm") < at("Weapon Mastery"));
-    assert!(at("Weapon Mastery") < at("Ashstaff") && at("Ashstaff") < at("Hand Hook"));
+    assert!(at("Ranger 1") < at("1 Spellcasting"));
+    assert!(at("1 Spellcasting") < at("1 Favored Enemy") && at("1 Favored Enemy") < at("1 Weapon Mastery"));
+    assert!(at("1 Weapon Mastery") < at("Species"));
+    assert!(at("Species") < at("Tiefling; Infernal Legacy") && at("Tiefling; Infernal Legacy") < at("Background"));
+    assert!(at("Background") < at("Criminal") && at("Criminal") < at("Feats"));
+    assert!(at("Feats") < at("Alert") && at("Alert") < at("Weapon Mastery"));
+    assert!(at("Weapon Mastery") < at("Longbow") && at("Longbow") < at("Scimitar"));
     // The text of the one under the cursor.
     see(&mut t, "╭ Spellcasting ─");
-    see(&mut t, "You cast warden spells using Wisdom.");
+    see(&mut t, "Wisdom is your spellcasting ability for your Ranger spells.");
+    t.send("j");
+    see(&mut t, "╭ Favored Enemy ─");
+    see(&mut t, "You can cast it twice without expending");
     t.send("j");
     see(&mut t, "╭ Weapon Mastery ─");
-    see(&mut t, "You master two kinds of weapons.");
-    t.send("j").send("j");
-    see(&mut t, "You move through undergrowth without slowing.");
+    see(&mut t, "Your training with weapons allows you");
     t.send("j");
-    see(&mut t, "You have a flying speed of 30 feet.");
+    see(&mut t, "You have Darkvision with a range of 60 feet.");
     t.send("k");
-    see(&mut t, "╭ Forest Ground ─");
+    see(&mut t, "╭ Weapon Mastery ─");
 }
 
 /// The value row of the Overview's stat boxes (Armor Class, …, Speed).
@@ -77,10 +78,10 @@ fn a_mistake_in_the_rules_is_named_at_start() {
 #[test]
 fn rules_written_for_a_feature_change_the_sheet() {
     let mut t = ranger_features(Tui::scenario("features.rules", Home::party()));
-    t.send("j").send("j").send("j");
-    see(&mut t, "╭ Forest Ground ─");
+    t.send("j");
+    see(&mut t, "╭ Favored Enemy ─");
     t.send("O");
-    see(&mut t, "╭ Rules for Forest Ground ─");
+    see(&mut t, "╭ Rules for Favored Enemy ─");
     see(&mut t, "Nothing automates this feature yet");
     // Ten more feet of speed.
     t.send("G").send("o");
@@ -95,7 +96,7 @@ fn rules_written_for_a_feature_change_the_sheet() {
     see(&mut t, "NORMAL");
     t.send(ESC);
     see(&mut t, "Saved your rules");
-    assert!(row(&t, "1 Forest Ground").contains("auto"), "{}", t.screen());
+    assert!(row(&t, "1 Favored Enemy").contains("auto"), "{}", t.screen());
     t.send(BACKTAB);
     see(&mut t, "╭ Abilities ─");
     assert!(stat_boxes(&t).contains("│ 40 │"), "{}", t.screen());
@@ -107,52 +108,61 @@ fn rules_written_for_a_feature_change_the_sheet() {
     let mut t = Tui::scenario("features.rules", std::mem::replace(&mut t.home, Home::empty()));
     t.send("2").wait("Ranger");
     t.send("j").send("j");
-    see(&mut t, "Skyborn · Drifter · Warden 1 · Level 1");
+    see(&mut t, "Tiefling; Infernal Legacy · Criminal · Ranger 1 · Level 1");
     t.send(ENTER);
     see(&mut t, "╭ Abilities ─");
-    see(&mut t, "Skyborn · Drifter · Warden 1 · Level 1");
+    see(&mut t, "Tiefling; Infernal Legacy · Criminal · Ranger 1 · Level 1");
     assert!(stat_boxes(&t).contains("│ 40 │"), "{}", t.screen());
 }
 
 #[test]
 fn a_weapon_mastery_is_swapped() {
     let mut t = ranger_features(Tui::scenario("features.mastery-swap", Home::party()));
-    // To Ashstaff, the first mastery.
-    for _ in 0..7 {
+    // To Longbow, the first mastery.
+    for _ in 0..6 {
         t.send("j");
     }
-    see(&mut t, "╭ Ashstaff ─");
+    see(&mut t, "╭ Longbow ─");
     t.send("r");
-    see(&mut t, "Swap the mastery of Ashstaff for…");
+    see(&mut t, "Swap the mastery of Longbow for…");
     // Not the ones already mastered.
-    t.wait("Longfang").wait("Twin Sickle");
-    assert!(!row(&t, "Swap the mastery").contains("Hand Hook"));
-    t.typed("Longfang");
+    t.wait("Longsword").wait("Shortsword");
+    assert!(!row(&t, "Swap the mastery").contains("Scimitar"));
+    t.typed("Longsword");
     t.send(ENTER);
-    see(&mut t, "Weapon Mastery: Ashstaff → Longfang");
+    see(&mut t, "Weapon Mastery: Longbow → Longsword");
     let rows = list(&t);
     let mastery = rows.iter().position(|r| r == "Weapon Mastery").expect("the masteries");
-    assert_eq!(rows[mastery + 1..], ["Longfang".to_string(), "Hand Hook".to_string()], "{rows:#?}");
+    assert_eq!(rows[mastery + 1..], ["Longsword".to_string(), "Scimitar".to_string()], "{rows:#?}");
 }
 
-/// A level 2 Warden written by hand: the choices of its levels not made.
+/// A Cleric 1 / Ranger 2 / Warlock 2 written by hand: the choices of its levels not made.
 const WANDERER: &str = r#"name = "Wanderer"
-species = "race:Kindred|TST"
-background = "background:Drifter|TST"
+species = "race:Dwarf|SRD52"
+background = "background:Soldier|SRD52"
 
 [abilities]
 str = 15
 dex = 14
 con = 13
-int = 10
-wis = 12
-cha = 8
+int = 8
+wis = 13
+cha = 13
 
 [[levels]]
-class = "class:Warden|TST"
+class = "class:Cleric|SRD52"
 
 [[levels]]
-class = "class:Warden|TST"
+class = "class:Ranger|SRD52"
+
+[[levels]]
+class = "class:Ranger|SRD52"
+
+[[levels]]
+class = "class:Warlock|SRD52"
+
+[[levels]]
+class = "class:Warlock|SRD52"
 "#;
 
 #[test]
@@ -162,16 +172,17 @@ fn choices_left_open_are_made() {
     let mut t = Tui::scenario("choices.pending", home);
     t.send("2").wait("Wanderer");
     t.send("G").send(ENTER);
-    see(&mut t, "Kindred · Drifter · Warden 2 · Level 2");
-    see(&mut t, "4 choice(s) to make press c");
+    see(&mut t, "Dwarf · Soldier · Cleric 1 / Ranger 2 / Warlock 2 · Level 5");
+    see(&mut t, "5 choice(s) to make press c");
     t.send("c");
-    see(&mut t, "4 choice(s) left");
-    see(&mut t, "Mountain Ground");
-    t.typed("Mountain");
+    see(&mut t, "5 choice(s) left");
+    // The Cleric's Divine Order: one option.
+    see(&mut t, "Thaumaturge");
+    t.typed("Thaumaturge");
     t.send(ENTER);
-    see(&mut t, "Favored Ground chosen");
-    see(&mut t, "3 choice(s) left");
-    for weapon in ["Longfang", "Thunderbow"] {
+    see(&mut t, "Divine Order chosen");
+    see(&mut t, "4 choice(s) left");
+    for weapon in ["Longsword", "Scimitar"] {
         t.typed(weapon);
         t.send(" ").send(&ctrl('u'));
     }
@@ -179,15 +190,22 @@ fn choices_left_open_are_made() {
     t.send(ENTER);
     see(&mut t, "Weapon Mastery chosen");
     // The fighting style.
-    t.wait("Guardian Style");
-    t.typed("Guardian");
+    t.wait("Two-Weapon Fighting");
+    t.typed("Defense");
     t.send(ENTER);
     see(&mut t, "Fighting Style chosen");
+    see(&mut t, "2 choice(s) left");
+    // The first level's invocation; some need level 2.
+    see(&mut t, "Eldritch Invocations: choose one (Warlock 1)");
+    see(&mut t, "Fiendish Vigor ⚠ needs level 2");
+    t.typed("Armor of Shadows");
+    t.send(ENTER);
     see(&mut t, "1 choice(s) left");
-    // Two tricks; one needs level 5.
-    see(&mut t, "Keen Eye ⚠ needs level 5");
-    for trick in ["Iron Grip", "Thorn Shot"] {
-        t.typed(trick);
+    // Two more at the second; one needs level 5.
+    see(&mut t, "Eldritch Invocations: choose 2 (Warlock 2)");
+    see(&mut t, "Ascendant Step ⚠ needs level 5");
+    for invocation in ["Fiendish Vigor", "Mask of Many Faces"] {
+        t.typed(invocation);
         t.send(" ").send(&ctrl('u'));
     }
     see(&mut t, "2/2 chosen");
@@ -199,7 +217,22 @@ fn choices_left_open_are_made() {
     t.send(TAB);
     see(&mut t, "╭ Features ─");
     let rows = list(&t);
-    for name in ["1 Mountain Ground", "2 Fighting Style", "Guardian Style", "Iron Grip", "Thorn Shot", "Longfang", "Thunderbow"] {
+    for name in [
+        "1 Thaumaturge",
+        "2 Fighting Style",
+        "Defense",
+        "Armor of Shadows",
+        "Fiendish Vigor",
+        "Mask of Many Faces",
+        "Longsword",
+        "Scimitar",
+    ] {
         assert!(rows.iter().any(|r| r == name), "no {name:?} in {rows:#?}");
     }
+    // The option is listed under the class feature it is chosen for.
+    let at = |name: &str| rows.iter().position(|r| r == name).unwrap_or_else(|| panic!("no {name:?} in {rows:#?}"));
+    assert!(
+        at("Cleric 1") < at("1 Divine Order") && at("1 Divine Order") < at("1 Thaumaturge") && at("1 Thaumaturge") < at("Ranger 2"),
+        "{rows:#?}"
+    );
 }

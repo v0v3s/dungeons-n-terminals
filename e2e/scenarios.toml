@@ -398,7 +398,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "choices.pending"
-does = "Make the choices a level left open (a fighting style, tricks)."
+does = "Make the choices levels left open (a class option, weapon masteries, a fighting style, invocations)."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- overview
