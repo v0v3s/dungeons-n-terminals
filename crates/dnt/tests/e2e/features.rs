@@ -33,11 +33,12 @@ fn features_are_grouped_by_where_they_come_from() {
     let at = |name: &str| rows.iter().position(|r| r == name).unwrap_or_else(|| panic!("no {name:?} in {rows:#?}"));
     // Class levels first, then species, background, feats, masteries.
     assert!(at("Ranger 1") < at("1 Spellcasting"));
-    assert!(at("1 Spellcasting") < at("1 Favored Enemy") && at("1 Favored Enemy") < at("1 Weapon Mastery"));
+    // Favored Enemy and Alert have built-in rules: marked auto.
+    assert!(at("1 Spellcasting") < at("1 Favored Enemy auto") && at("1 Favored Enemy auto") < at("1 Weapon Mastery"));
     assert!(at("1 Weapon Mastery") < at("Species"));
     assert!(at("Species") < at("Tiefling; Infernal Legacy") && at("Tiefling; Infernal Legacy") < at("Background"));
     assert!(at("Background") < at("Criminal") && at("Criminal") < at("Feats"));
-    assert!(at("Feats") < at("Alert") && at("Alert") < at("Weapon Mastery"));
+    assert!(at("Feats") < at("Alert auto") && at("Alert auto") < at("Weapon Mastery"));
     assert!(at("Weapon Mastery") < at("Longbow") && at("Longbow") < at("Scimitar"));
     // The text of the one under the cursor.
     see(&mut t, "╭ Spellcasting ─");
@@ -78,10 +79,11 @@ fn a_mistake_in_the_rules_is_named_at_start() {
 #[test]
 fn rules_written_for_a_feature_change_the_sheet() {
     let mut t = ranger_features(Tui::scenario("features.rules", Home::party()));
-    t.send("j");
-    see(&mut t, "╭ Favored Enemy ─");
+    // Weapon Mastery: no built-in rules.
+    t.send("j").send("j");
+    see(&mut t, "╭ Weapon Mastery ─");
     t.send("O");
-    see(&mut t, "╭ Rules for Favored Enemy ─");
+    see(&mut t, "╭ Rules for Weapon Mastery ─");
     see(&mut t, "Nothing automates this feature yet");
     // Ten more feet of speed.
     t.send("G").send("o");
@@ -96,7 +98,7 @@ fn rules_written_for_a_feature_change_the_sheet() {
     see(&mut t, "NORMAL");
     t.send(ESC);
     see(&mut t, "Saved your rules");
-    assert!(row(&t, "1 Favored Enemy").contains("auto"), "{}", t.screen());
+    assert!(row(&t, "1 Weapon Mastery").contains("auto"), "{}", t.screen());
     t.send(BACKTAB);
     see(&mut t, "╭ Abilities ─");
     assert!(stat_boxes(&t).contains("│ 40 │"), "{}", t.screen());
@@ -220,7 +222,7 @@ fn choices_left_open_are_made() {
     for name in [
         "1 Thaumaturge",
         "2 Fighting Style",
-        "Defense",
+        "Defense auto",
         "Armor of Shadows",
         "Fiendish Vigor",
         "Mask of Many Faces",

@@ -303,7 +303,8 @@ fn container_settings_and_making_an_item_a_container() {
     t.send("w").wait(CONTAINER);
     retype(&mut t, "off");
     t.wait("Not a container");
-    assert!(!row(&t, "Spellbook").contains("lb"), "{}", t.screen());
+    // No capacity on its row ("Spellbook" itself has an "lb" in it).
+    assert!(!row(&t, "Spellbook").contains(" lb"), "{}", t.screen());
 }
 
 #[test]

@@ -59,13 +59,8 @@ fn conditions_and_exhaustion_turn_on_and_off() {
 fn feature_uses_slots_and_hit_dice_are_spent_and_restored() {
     let mut t = Tui::scenario("resources.spend", Home::party());
     open(&mut t, "Tester");
-    // The SRD's features come without rules for their uses: give Arcane
-    // Recovery (the Wizard's third feature) one, through its rules.
-    write_rules(
-        &mut t,
-        3,
-        "[[feature.resource]]\nkey = \"arcane_recovery\"\nname = \"Arcane Recovery\"\nmax = \"1\"\nrecharge = \"long_rest\"",
-    );
+    // Arcane Recovery's use comes with the built-in rules; the Human's
+    // Heroic Inspiration is the next resource.
     t.wait("Resources");
     assert!(t.line("Arcane Recovery").contains("1/1"), "{}", t.screen());
     to(&mut t, FIRST_RESOURCE);
@@ -77,8 +72,8 @@ fn feature_uses_slots_and_hit_dice_are_spent_and_restored() {
     t.send("+");
     wait_status(&mut t, "Restored Arcane Recovery");
     assert!(t.line("Arcane Recovery").contains("1/1"), "{}", t.screen());
-    // A spell slot.
-    t.send("j").send("-");
+    // A spell slot, past Heroic Inspiration.
+    t.send("j").send("j").send("-");
     wait_status(&mut t, "Used level 1 slot");
     assert!(t.line("│ Level 1 ").contains("1/2"), "{}", t.screen());
     t.send("=");
@@ -184,7 +179,8 @@ fn a_tracker_of_your_own_is_removed_after_confirming() {
     wait_status(&mut t, "No longer tracking Lucky Break");
     let s = t.screen();
     assert_eq!(s.matches("Lucky Break").count(), 1, "only the status line names it:\n{s}");
-    assert!(!t.shows("Resources"), "{s}");
+    // The features' own resources stay.
+    assert!(t.line("Arcane Recovery").contains("1/1"), "{s}");
 }
 
 #[test]
