@@ -21,9 +21,9 @@ async function editFile(page: Page, name: string, edit: (text: string) => string
 test("the roster lists the party with their levels", { tag: "@roster.list" }, async ({ page }) => {
   await go(page, "Characters");
   await expect(page.locator("button.card .name")).toHaveText(["Brawler", "Hexa", "Ranger", "Tester"]);
-  await expect(card(page, "Brawler")).toContainText("Stoneling · Drifter · Monk 1");
-  await expect(card(page, "Hexa")).toContainText("Emberkin; Ash Lineage · Acolyte of Gears · Hexer 1");
-  await expect(card(page, "Tester")).toContainText("Kindred · Archivist · Mage 1");
+  await expect(card(page, "Brawler")).toContainText("Stoneling · Soldier · Monk 1");
+  await expect(card(page, "Hexa")).toContainText("Elf; High Elf Lineage · Acolyte · Warlock 1");
+  await expect(card(page, "Tester")).toContainText("Human · Sage · Wizard 1");
   await expect(card(page, "Tester")).toContainText("Level 1");
 });
 
@@ -91,7 +91,7 @@ test("the sheet exports as a printable page and as Markdown", { tag: "@character
     await expect(status(page)).toContainText("Exported Tester");
     const text = await invoke<string>(page, "e2e_read", { path: `e2e:${file}` });
     expect(text).toContain("Tester");
-    expect(text).toContain("Kindred");
+    expect(text).toContain("Human");
     if (file.endsWith(".html")) expect(text).toMatch(/<html/i);
     else expect(text).toMatch(/^# /m);
   }

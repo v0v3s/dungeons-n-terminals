@@ -1,9 +1,11 @@
 use crate::harness::*;
 use crate::seed::Home;
 use crate::sheet_play::*;
+use crate::steps::row;
 
-/// Tester's first resource, after the three attacks and 18 skills.
-const FIRST_RESOURCE: usize = FIRST_ATTACK + 3 + 18;
+/// Tester's first resource, after the four attacks (Dagger, the Arcane
+/// Focus (Quarterstaff), Quarterstaff, Unarmed Strike) and 18 skills.
+const FIRST_RESOURCE: usize = FIRST_ATTACK + 4 + 18;
 
 /// Write rules for the `n`th feature on the Features tab, as a user does
 /// with `O`: the lines go at the end of the template, then Esc saves.
@@ -57,24 +59,24 @@ fn conditions_and_exhaustion_turn_on_and_off() {
 fn feature_uses_slots_and_hit_dice_are_spent_and_restored() {
     let mut t = Tui::scenario("resources.spend", Home::party());
     open(&mut t, "Tester");
-    // The test data's features have no uses of their own: give Arcane
-    // Recall one, through its rules.
+    // The SRD's features come without rules for their uses: give Arcane
+    // Recovery (the Wizard's third feature) one, through its rules.
     write_rules(
         &mut t,
-        2,
-        "[[feature.resource]]\nkey = \"arcane_recall\"\nname = \"Arcane Recall\"\nmax = \"1\"\nrecharge = \"long_rest\"",
+        3,
+        "[[feature.resource]]\nkey = \"arcane_recovery\"\nname = \"Arcane Recovery\"\nmax = \"1\"\nrecharge = \"long_rest\"",
     );
     t.wait("Resources");
-    assert!(t.line("Arcane Recall").contains("1/1"), "{}", t.screen());
+    assert!(t.line("Arcane Recovery").contains("1/1"), "{}", t.screen());
     to(&mut t, FIRST_RESOURCE);
     t.send(" ");
-    wait_status(&mut t, "Used Arcane Recall");
-    assert!(t.line("Arcane Recall").contains("0/1"), "{}", t.screen());
+    wait_status(&mut t, "Used Arcane Recovery");
+    assert!(t.line("Arcane Recovery").contains("0/1"), "{}", t.screen());
     t.send(" ");
-    wait_status(&mut t, "No Arcane Recall left");
+    wait_status(&mut t, "No Arcane Recovery left");
     t.send("+");
-    wait_status(&mut t, "Restored Arcane Recall");
-    assert!(t.line("Arcane Recall").contains("1/1"), "{}", t.screen());
+    wait_status(&mut t, "Restored Arcane Recovery");
+    assert!(t.line("Arcane Recovery").contains("1/1"), "{}", t.screen());
     // A spell slot.
     t.send("j").send("-");
     wait_status(&mut t, "Used level 1 slot");
@@ -92,7 +94,7 @@ fn feature_uses_slots_and_hit_dice_are_spent_and_restored() {
     // Nothing to restore on a full one.
     to(&mut t, FIRST_RESOURCE);
     t.send("+");
-    wait_status(&mut t, "Arcane Recall is full");
+    wait_status(&mut t, "Arcane Recovery is full");
 }
 
 #[test]
@@ -191,42 +193,44 @@ fn weapons_are_held_from_the_attacks() {
     open(&mut t, "Tester");
     // Apart from the keys' hint, not run into it.
     assert!(t.line("In hand").contains("nothing  "), "{}", t.screen());
-    // Thornknife, the first attack, in the main hand.
+    // A Dagger, the first attack, in the main hand.
     to(&mut t, FIRST_ATTACK);
     t.send(" ");
-    wait_status(&mut t, "Thornknife: main hand");
-    t.wait("main  Thornknife");
-    // The second Thornknife in the off hand.
+    wait_status(&mut t, "Dagger: main hand");
+    t.wait("main  Dagger");
+    // The second Dagger in the off hand.
     t.send("o");
-    wait_status(&mut t, "Thornknife: one in each hand");
-    assert!(t.line("Thornknife  ").contains("pair  Thornknife"), "{}", t.screen());
-    assert!(t.line("In hand").contains("Thornknife ×2"), "{}", t.screen());
+    wait_status(&mut t, "Dagger: one in each hand");
+    assert!(t.line("Dagger  ").contains("pair  Dagger"), "{}", t.screen());
+    assert!(t.line("In hand").contains("Dagger ×2"), "{}", t.screen());
     // A light weapon is not held in both hands.
     t.send("b");
-    wait_status(&mut t, "Thornknife is not used with two hands");
-    // The Ashstaff (versatile) in both hands puts the knives away.
+    wait_status(&mut t, "Dagger is not used with two hands");
+    // The Quarterstaff (versatile, after the Arcane Focus one) in both
+    // hands puts the daggers away.
     t.send("w");
-    wait_status(&mut t, "Thornknife: main hand");
-    t.send("j").send("b");
-    wait_status(&mut t, "Ashstaff: both hands (put away Thornknife)");
-    assert!(t.line("Ashstaff  ").contains("both  Ashstaff"), "{}", t.screen());
-    assert!(t.line("In hand").contains("Ashstaff (two hands)"), "{}", t.screen());
-    assert!(!t.line("Thornknife  ").contains("main"), "{}", t.screen());
+    wait_status(&mut t, "Dagger: main hand");
+    t.send("jj").send("b");
+    wait_status(&mut t, "Quarterstaff: both hands (put away Dagger)");
+    assert!(t.line(" Quarterstaff  ").contains("both  Quarterstaff"), "{}", t.screen());
+    assert!(t.line("In hand").contains("Quarterstaff (two hands)"), "{}", t.screen());
+    assert!(!t.line("Dagger  ").contains("main"), "{}", t.screen());
 }
 
 #[test]
 fn a_weapon_is_held_in_the_off_hand() {
     let mut t = Tui::scenario("attacks.hold", Home::party());
     open(&mut t, "Ranger");
-    // Longfang, the first attack.
+    // The Scimitar (light), the first attack.
     to(&mut t, FIRST_ATTACK);
     t.send("o");
-    wait_status(&mut t, "Longfang: off hand");
-    assert!(t.line("Longfang  ").contains("off"), "{}", t.screen());
-    assert!(t.line("In hand").contains("Longfang"), "{}", t.screen());
-    // Unarmed strikes need no hands.
+    wait_status(&mut t, "Scimitar: off hand");
+    assert!(row(&t, "Scimitar +").contains("│ off Scimitar"), "{}", t.screen());
+    assert!(t.line("In hand").contains("Scimitar"), "{}", t.screen());
+    // Unarmed strikes need no hands: after the Scimitar, Shortsword,
+    // Longbow and Dagger.
     t.send("G");
-    to(&mut t, FIRST_ATTACK + 2);
+    to(&mut t, FIRST_ATTACK + 4);
     t.send(" ");
     wait_status(&mut t, "Unarmed strikes need no hands");
 }
@@ -237,18 +241,20 @@ fn the_shield_is_taken_up_and_put_away() {
     open(&mut t, "Tester");
     t.send("S");
     wait_status(&mut t, "No shield in the inventory");
-    // A Buckler from the Inventory.
+    // A Shield from the Inventory: the plain one, after eight magic items
+    // and gear with "Shield" in the name.
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
-    t.send("a").send("Buckler").send(ENTER);
-    wait_status(&mut t, "Added Buckler");
+    t.send("a").send("Shield").wait("Spellguard Shield");
+    t.send(&DOWN.repeat(8)).send(ENTER);
+    wait_status(&mut t, "Added Shield");
     t.send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(stat_box(&t, "Armor Class"), "12");
     t.send("S");
-    wait_status(&mut t, "Buckler: off hand");
-    assert!(t.line("In hand").contains("Buckler"), "{}", t.screen());
+    wait_status(&mut t, "Shield: off hand");
+    assert!(t.line("In hand").contains("Shield"), "{}", t.screen());
     assert_eq!(stat_box(&t, "Armor Class"), "14");
     t.send("S");
-    wait_status(&mut t, "Put away Buckler");
+    wait_status(&mut t, "Put away Shield");
     // Apart from the keys' hint, not run into it.
     assert!(t.line("In hand").contains("nothing  "), "{}", t.screen());
     assert_eq!(stat_box(&t, "Armor Class"), "12");

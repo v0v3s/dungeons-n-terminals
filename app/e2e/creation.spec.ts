@@ -47,8 +47,8 @@ const tab = (page: Page, name: "Features" | "Inventory") => sheetTab(page, name)
 
 test("a character is made step by step", { tag: "@creation.full" }, async ({ page }) => {
   await start(page, "Nova");
-  await step(page, "Choose a species", "Kindred");
-  await step(page, "Choose a background", "Archivist");
+  await step(page, "Choose a species", "Human");
+  await step(page, "Choose a background", "Sage");
   // The scores start as the standard array: raising one swaps it with the next value.
   await expect(ask(page).getByRole("button", { name: "Standard array" })).toHaveAttribute("aria-pressed", "true");
   await expect(value(page, "Intelligence")).toHaveText("12");
@@ -56,63 +56,65 @@ test("a character is made step by step", { tag: "@creation.full" }, async ({ pag
   await expect(value(page, "Intelligence")).toHaveText("13");
   await expect(value(page, "Constitution")).toHaveText("12");
   await ask(page).getByRole("button", { name: "Next" }).click();
-  await step(page, "Background (Archivist): ability increases", "+2 / +1");
+  await step(page, "Background (Sage): ability increases", "+2 / +1");
   await step(page, "+2 to which ability?", "Intelligence");
   await step(page, "+1 to which ability?", "Wisdom");
-  await step(page, "Choose a feat", "Lucky Charm");
-  await step(page, "Choose your starting class", "Mage");
-  await step(page, "Mage: choose 2 skill(s)", "Arcana", "Nature");
-  await step(page, "Kindred: choose 1 skill(s)", "Stealth");
-  await step(page, "Class (Mage): starting equipment", "A:");
-  await step(page, "Background (Archivist): starting equipment", "B:");
+  // The Human's Versatile: an origin feat.
+  await step(page, "Choose a feat", "Alert");
+  await step(page, "Choose your starting class", "Wizard");
+  // Arcana and History come with the Sage, so the Wizard does not offer them.
+  await step(page, "Wizard: choose 2 skill(s)", "Investigation", "Nature");
+  await step(page, "Human: choose 1 skill(s)", "Stealth");
+  await step(page, "Class (Wizard): starting equipment", "A:");
+  await step(page, "Background (Sage): starting equipment", "B:");
   await create(page);
 
   await expect(page.locator(".sheet h1")).toContainText("Nova");
-  await expect(identity(page)).toContainText("Kindred · Archivist · Mage 1");
+  await expect(identity(page)).toContainText("Human · Sage · Wizard 1");
   // Intelligence 13 + 2.
   await sheetTab(page, "Skills");
   await expect(page.locator('.abil .score[data-of="Intelligence"]')).toHaveText("15");
   await expect(page.locator("button.skill", { hasText: "Stealth" }).locator(".mark")).toHaveClass(/on/);
   await expect(page.locator("button.skill", { hasText: "Survival" }).locator(".mark")).not.toHaveClass(/on/);
   await tab(page, "Features");
-  await expect(page.locator(".feature", { hasText: "Lucky Charm" })).toBeVisible();
-  await expect(page.locator(".feature", { hasText: "Quick Wits" })).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Alert" })).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Magic Initiate; Wizard" })).toBeVisible();
   await tab(page, "Inventory");
-  await expect(page.locator("button.line", { hasText: "Scribe's Pack" })).toBeVisible();
+  await expect(page.locator("button.line", { hasText: "Scholar’s Pack" })).toBeVisible();
 
   await invoke(page, "close_character");
   await page.reload();
   await go(page, "Characters");
-  await expect(page.locator("button.card", { hasText: "Nova" })).toContainText("Mage 1");
+  await expect(page.locator("button.card", { hasText: "Nova" })).toContainText("Wizard 1");
 });
 
 test(
-  "a lineage, a subclass at level 1 and an arcane focus are chosen",
+  "a lineage, a subclass at level 1 and a holy symbol are chosen",
   {
     tag: ["@creation.lineage", "@creation.subclass", "@creation.equipment-pick"],
   },
   async ({ page }) => {
     await start(page, "Ember");
-    await step(page, "Choose a species", "Emberkin");
-    await step(page, "Emberkin: choose a lineage", "Emberkin; Cinder Lineage");
-    await step(page, "Choose a background", "Archivist");
+    await step(page, "Choose a species", "Tiefling");
+    await step(page, "Tiefling: choose a lineage", "Tiefling; Chthonic Legacy");
+    await step(page, "Choose a background", "Acolyte");
     await ask(page).getByRole("button", { name: "Next" }).click();
     await step(page, "ability increases", "Skip");
+    // The Hexer (the test supplement) chooses its subclass at level 1.
     await step(page, "Choose your starting class", "Hexer");
     await step(page, "Choose a subclass", "The Tide");
-    // History comes with the Archivist, so the Hexer does not offer it.
-    await step(page, "Hexer: choose 2 skill(s)", "Arcana", "Nature");
-    await step(page, "Class (Hexer): starting equipment", "A: an arcane focus");
-    await step(page, "Choose an arcane focus", "Crystal Orb");
-    await step(page, "Background (Archivist): starting equipment", "B:");
+    await step(page, "Hexer: choose 2 skill(s)", "Arcana", "Deception");
+    await step(page, "Class (Hexer): starting equipment", "A:");
+    await step(page, "Background (Acolyte): starting equipment", "A:");
+    await step(page, "Choose a holy symbol", "Reliquary");
     await create(page);
 
-    await expect(identity(page)).toContainText("Emberkin; Cinder Lineage · Archivist · Hexer 1");
+    await expect(identity(page)).toContainText("Tiefling; Chthonic Legacy · Acolyte · Hexer 1");
     await tab(page, "Features");
     await expect(page.locator(".feature", { hasText: "The Tide" }).first()).toBeVisible();
     await tab(page, "Inventory");
-    await expect(page.locator("button.line", { hasText: "Crystal Orb" })).toBeVisible();
-    await expect(page.locator("button.line", { hasText: "Hex Pouch" })).toHaveCount(0);
+    await expect(page.locator("button.line", { hasText: "Reliquary" })).toBeVisible();
+    await expect(page.locator("button.line", { hasText: "Amulet" })).toHaveCount(0);
   },
 );
 
@@ -126,48 +128,48 @@ test("a subspecies is chosen after the species", { tag: "@creation.lineage" }, a
 });
 
 test(
-  "a class feature's option, weapon masteries and an instrument are chosen at level 1",
+  "a class feature's option, weapon masteries and a gaming set are chosen at level 1",
   { tag: ["@creation.feature-choice", "@creation.equipment-pick"] },
   async ({ page }) => {
     await start(page, "Scout");
-    await step(page, "Choose a species", "Emberkin");
-    await step(page, "Emberkin: choose a lineage", "Emberkin; Ash Lineage");
-    await step(page, "Choose a background", "Drifter");
+    await step(page, "Choose a species", "Tiefling");
+    await step(page, "Tiefling: choose a lineage", "Tiefling; Abyssal Legacy");
+    await step(page, "Choose a background", "Soldier");
     await ask(page).getByRole("button", { name: "Next" }).click();
     await step(page, "ability increases", "Skip");
-    await step(page, "Choose your starting class", "Warden");
-    // The Drifter's choice comes after: it offers what the Warden left.
-    await step(page, "Warden: choose 3 skill(s)", "Athletics", "Nature", "Perception");
-    await step(page, "Drifter: choose 2 skill(s)", "Stealth", "Survival");
-    await step(page, "Favored Ground: choose one", "Mountain Ground");
-    await step(page, "Weapon Mastery: choose 2", "Longfang", "Thunderbow");
-    await step(page, "Class (Warden): starting equipment", "A:");
-    await step(page, "Background (Drifter): starting equipment", "A:");
-    await step(page, "Choose a musical instrument", "Hand Drum");
+    await step(page, "Choose your starting class", "Fighter");
+    // Athletics and Intimidation come with the Soldier.
+    await step(page, "Fighter: choose 2 skill(s)", "Acrobatics", "Perception");
+    await step(page, "Fighting Style: choose one", "Two-Weapon Fighting");
+    await step(page, "Weapon Mastery: choose 3", "Flail", "Greatsword", "Longbow");
+    await step(page, "Class (Fighter): starting equipment", "A:");
+    await step(page, "Background (Soldier): starting equipment", "A:");
+    await step(page, "Choose a gaming set", "Playing Cards");
     await create(page);
 
-    await expect(identity(page)).toContainText("Warden 1");
+    await expect(identity(page)).toContainText("Fighter 1");
     await tab(page, "Features");
-    await expect(page.locator(".feature", { hasText: "Mountain Ground" })).toBeVisible();
-    await expect(page.locator(".feature", { hasText: "Forest Ground" })).toHaveCount(0);
+    await expect(page.locator(".feature", { hasText: "Two-Weapon Fighting" })).toBeVisible();
+    await expect(page.locator(".feature", { hasText: "Archery" })).toHaveCount(0);
     const masteries = page
       .locator("section.pane", {
         has: page.locator(".title", { hasText: "Weapon Mastery" }),
       })
       .last();
-    await expect(masteries).toContainText("Longfang");
-    await expect(masteries).toContainText("Thunderbow");
+    await expect(masteries).toContainText("Flail");
+    await expect(masteries).toContainText("Greatsword");
+    await expect(masteries).toContainText("Longbow");
     await tab(page, "Inventory");
-    await expect(page.locator("button.line", { hasText: "Hand Drum" })).toBeVisible();
-    await expect(page.locator("button.line", { hasText: "Reed Pipe" })).toHaveCount(0);
+    await expect(page.locator("button.line", { hasText: "Playing Cards" })).toBeVisible();
+    await expect(page.locator("button.line", { hasText: "Dice" })).toHaveCount(0);
   },
 );
 
 test("ability scores are bought with 27 points", { tag: "@creation.point-buy" }, async ({ page }) => {
   await start(page, "Thrifty");
-  await step(page, "Choose a species", "Emberkin");
-  await step(page, "Emberkin: choose a lineage", "Emberkin; Ash Lineage");
-  await step(page, "Choose a background", "Archivist");
+  await step(page, "Choose a species", "Tiefling");
+  await step(page, "Tiefling: choose a lineage", "Tiefling; Abyssal Legacy");
+  await step(page, "Choose a background", "Acolyte");
   // The method changes on the same screen.
   await expect(value(page, "Strength")).toHaveText("15");
   await ask(page).getByRole("button", { name: "Point buy" }).click();
@@ -197,7 +199,7 @@ test("ability scores are bought with 27 points", { tag: "@creation.point-buy" },
 
 test("going back changes an answer; going back from the start cancels", { tag: "@creation.back" }, async ({ page }) => {
   await start(page, "Waverer");
-  await step(page, "Choose a species", "Kindred");
+  await step(page, "Choose a species", "Human");
   await expect(ask(page).locator(".title")).toContainText("Choose a background");
   await page.getByRole("button", { name: "‹ Back" }).click();
   await step(page, "Choose a species", "Stoneling");
@@ -215,7 +217,7 @@ test("going back changes an answer; going back from the start cancels", { tag: "
   // Cancel, from any step.
   await page.getByRole("button", { name: "+ New character" }).click();
   await answer(page, "New character", "Quitter");
-  await step(page, "Choose a species", "Kindred");
+  await step(page, "Choose a species", "Human");
   await page.locator(".creation").getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.locator(".creation")).toHaveCount(0);
   await expect(page.locator("button.card", { hasText: "Quitter" })).toHaveCount(0);
@@ -226,15 +228,16 @@ const hint = (page: Page, label: string) => ask(page).locator("li button", { has
 
 test("each choice says what it gives", { tag: "@creation.row-hints" }, async ({ page }) => {
   await start(page, "Reader");
-  await expect(hint(page, "Kindred")).toHaveText("speed 30 ft · any 1 skill · TST");
-  await step(page, "Choose a species", "Kindred");
-  await expect(hint(page, "Archivist")).toHaveText("History, Investigation · +2/+1 INT/WIS/CHA · Quick Wits · TST");
-  await step(page, "Choose a background", "Archivist");
+  await expect(hint(page, "Human")).toHaveText("speed 30 ft · any 1 skill · SRD52");
+  await expect(hint(page, "Elf")).toHaveText("speed 30 ft · darkvision 60 ft · 1 of Insight, Perception, Survival · SRD52");
+  await step(page, "Choose a species", "Human");
+  await expect(hint(page, "Sage")).toHaveText("Arcana, History · +2/+1 CON/INT/WIS · Magic Initiate; Wizard · SRD52");
+  await step(page, "Choose a background", "Sage");
   await ask(page).getByRole("button", { name: "Next" }).click();
   await step(page, "ability increases", "Skip");
-  await step(page, "Choose a feat", "Lucky Charm");
+  await step(page, "Choose a feat", "Alert");
   await expect(ask(page).locator(".title")).toContainText("Choose your starting class");
-  await expect(hint(page, "Warden")).toHaveText("d10 · DEX & WIS · saves STR, DEX · TST");
+  await expect(hint(page, "Ranger")).toHaveText("d10 · DEX & WIS · saves STR, DEX · SRD52");
 });
 
 /// The checklist: beside the question, or folded above it on a phone.
@@ -248,34 +251,34 @@ const item = (list: Awaited<ReturnType<typeof checklist>>, label: string) => lis
 
 test("the steps are a checklist of what was chosen", { tag: "@creation.checklist" }, async ({ page }) => {
   await start(page, "Lister");
-  await step(page, "Choose a species", "Kindred");
-  await step(page, "Choose a background", "Archivist");
+  await step(page, "Choose a species", "Human");
+  await step(page, "Choose a background", "Sage");
   const list = await checklist(page);
-  await expect(item(list, "Species")).toContainText("Kindred");
-  await expect(item(list, "Background")).toContainText("Archivist");
+  await expect(item(list, "Species")).toContainText("Human");
+  await expect(item(list, "Background")).toContainText("Sage");
   await expect(item(list, "Ability scores")).toHaveClass(/current/);
   await expect(item(list, "Class")).not.toHaveClass(/done|current/);
 
   // The review is the whole checklist.
   await ask(page).getByRole("button", { name: "Next" }).click();
   await step(page, "ability increases", "Skip");
-  await step(page, "Choose a feat", "Lucky Charm");
-  await step(page, "Choose your starting class", "Mage");
-  await step(page, "Mage: choose 2 skill(s)", "Arcana", "Nature");
-  await step(page, "Kindred: choose 1 skill(s)", "Stealth");
-  await step(page, "Class (Mage): starting equipment", "A:");
-  await step(page, "Background (Archivist): starting equipment", "B:");
+  await step(page, "Choose a feat", "Alert");
+  await step(page, "Choose your starting class", "Wizard");
+  await step(page, "Wizard: choose 2 skill(s)", "Investigation", "Nature");
+  await step(page, "Human: choose 1 skill(s)", "Stealth");
+  await step(page, "Class (Wizard): starting equipment", "A:");
+  await step(page, "Background (Sage): starting equipment", "B:");
   await expect(ask(page)).toContainText("Everything is chosen");
   const review = await checklist(page);
-  await expect(item(review, "Class")).toContainText("Mage 1");
-  await expect(item(review, "Skills & features")).toContainText("Arcana, Nature");
-  await expect(item(review, "Equipment")).toContainText("Class (Mage)");
+  await expect(item(review, "Class")).toContainText("Wizard 1");
+  await expect(item(review, "Skills & features")).toContainText("Investigation, Nature");
+  await expect(item(review, "Equipment")).toContainText("Class (Wizard)");
 });
 
 test("a finished step is chosen again from the checklist", { tag: "@creation.reopen" }, async ({ page }) => {
   await start(page, "Changer");
-  await step(page, "Choose a species", "Kindred");
-  await step(page, "Choose a background", "Archivist");
+  await step(page, "Choose a species", "Human");
+  await step(page, "Choose a background", "Sage");
   await ask(page).getByRole("button", { name: "Next" }).click();
   await step(page, "ability increases", "Skip");
   await expect(ask(page).locator(".title")).toContainText("Choose a feat");
@@ -299,14 +302,14 @@ test("a finished step is chosen again from the checklist", { tag: "@creation.reo
 
 test("on a phone a choice's text is read from its ?, and chosen there", { tag: ["@creation.details", "@android"] }, async ({ page }) => {
   await start(page, "Curious");
-  await ask(page).getByRole("button", { name: "About Emberkin" }).click();
-  const about = page.getByRole("dialog", { name: "Emberkin" });
-  await expect(about).toContainText("You resist fire");
-  await about.getByRole("button", { name: "Choose Emberkin" }).click();
+  await ask(page).getByRole("button", { name: "About Tiefling" }).click();
+  const about = page.getByRole("dialog", { name: "Tiefling" });
+  await expect(about).toContainText("You are the recipient of a legacy");
+  await about.getByRole("button", { name: "Choose Tiefling" }).click();
   await expect(about).toHaveCount(0);
-  await expect(ask(page).locator(".title")).toContainText("Emberkin: choose a lineage");
+  await expect(ask(page).locator(".title")).toContainText("Tiefling: choose a lineage");
   // Choices without a text to read have no ?.
-  await step(page, "Emberkin: choose a lineage", "Emberkin; Ash Lineage");
-  await step(page, "Choose a background", "Archivist");
+  await step(page, "Tiefling: choose a lineage", "Tiefling; Abyssal Legacy");
+  await step(page, "Choose a background", "Sage");
   await expect(ask(page).getByRole("button", { name: /^About / })).toHaveCount(0);
 });

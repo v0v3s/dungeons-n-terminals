@@ -305,7 +305,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "creation.equipment-pick"
-does = "Pick an item for an equipment choice (any instrument, an arcane focus)."
+does = "Pick an item for an equipment choice (an instrument, a holy symbol, a gaming set)."
 targets = ["tui", "app"]
 
 [[scenario]]
