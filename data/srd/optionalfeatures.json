@@ -1,0 +1,786 @@
+{
+ "optionalfeature": [
+  {
+   "name": "Careful Spell",
+   "source": "SRD52",
+   "page": 66,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you cast a spell that forces other creatures to make a saving throw, you can protect some of those creatures from the spell’s full force. To do so, spend 1 Sorcery Point and choose a number of those creatures up to your Charisma modifier (minimum of one creature). A chosen creature automatically succeeds on its saving throw against the spell, and it takes no damage if it would normally take half damage on a successful save."
+   ]
+  },
+  {
+   "name": "Distant Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you cast a spell that has a range of at least 5 feet, you can spend 1 Sorcery Point to double the spell’s range. Or when you cast a spell that has a range of Touch, you can spend 1 Sorcery Point to make the spell’s range 30 feet."
+   ]
+  },
+  {
+   "name": "Empowered Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you roll damage for a spell, you can spend 1 Sorcery Point to reroll a number of the damage dice up to your Charisma modifier (minimum of one), and you must use the new rolls.",
+    "You can use Empowered Spell even if you’ve already used a different Metamagic option during the casting of the spell."
+   ]
+  },
+  {
+   "name": "Extended Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you cast a spell that has a duration of 1 minute or longer, you can spend 1 Sorcery Point to double its duration to a maximum duration of 24 hours.",
+    "If the affected spell requires Concentration, you have Advantage on any saving throw you make to maintain that Concentration."
+   ]
+  },
+  {
+   "name": "Heightened Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 2 Sorcery Points",
+    "When you cast a spell that forces a creature to make a saving throw, you can spend 2 Sorcery Points to give one target of the spell Disadvantage on saves against the spell."
+   ]
+  },
+  {
+   "name": "Quickened Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 2 Sorcery Points",
+    "When you cast a spell that has a casting time of an action, you can spend 2 Sorcery Points to change the casting time to a Bonus Action for this casting. You can’t modify a spell in this way if you’ve already cast a level 1+ spell on the current turn, nor can you cast a level 1+ spell on this turn after modifying a spell in this way."
+   ]
+  },
+  {
+   "name": "Seeking Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "If you make an attack roll for a spell and miss, you can spend 1 Sorcery Point to reroll the {@dice d20}, and you must use the new roll.",
+    "You can use Seeking Spell even if you’ve already used a different Metamagic option during the casting of the spell."
+   ]
+  },
+  {
+   "name": "Subtle Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you cast a spell, you can spend 1 Sorcery Point to cast it without any Verbal, Somatic, or Material components, except Material components that are consumed by the spell or that have a cost specified in the spell."
+   ]
+  },
+  {
+   "name": "Transmuted Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you cast a spell that deals a type of damage from the following list, you can spend 1 Sorcery Point to change that damage type to one of the other listed types: Acid, Cold, Fire, Lightning, Poison, Thunder."
+   ]
+  },
+  {
+   "name": "Twinned Spell",
+   "source": "SRD52",
+   "page": 67,
+   "featureType": [
+    "MM"
+   ],
+   "entries": [
+    "Cost: 1 Sorcery Point",
+    "When you cast a spell, such as {@spell Charm Person|SRD52}, that can be cast with a higher-level spell slot to target an additional creature, you can spend 1 Sorcery Point to increase the spell’s effective level by 1."
+   ]
+  },
+  {
+   "name": "Agonizing Blast",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "spell": [
+      {
+       "choose": "level=0|class=Warlock",
+       "entrySummary": "a Warlock cantrip that deals damage"
+      }
+     ]
+    }
+   ],
+   "entries": [
+    "Choose one of your known Warlock cantrips that deals damage. You can add your Charisma modifier to that spell’s damage rolls.",
+    {
+     "type": "entries",
+     "name": "Repeatable",
+     "entries": [
+      "You can gain this invocation more than once. Each time you do so, choose a different eligible cantrip."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Armor of Shadows",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "entries": [
+    "You can cast {@spell Mage Armor|SRD52} on yourself without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Ascendant Step",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Levitate|SRD52} on yourself without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Devil’s Sight",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can see normally in Dim Light and Darkness—both magical and nonmagical—within 120 feet of yourself."
+   ]
+  },
+  {
+   "name": "Devouring Blade",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 12,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "optionalfeature": [
+      "thirsting blade|srd52"
+     ]
+    }
+   ],
+   "entries": [
+    "The Extra Attack of your Thirsting Blade invocation confers two extra attacks rather than one."
+   ]
+  },
+  {
+   "name": "Eldritch Mind",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "entries": [
+    "You have Advantage on Constitution saving throws that you make to maintain Concentration."
+   ]
+  },
+  {
+   "name": "Eldritch Smite",
+   "source": "SRD52",
+   "page": 72,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "optionalfeature": [
+      "pact of the blade|srd52"
+     ]
+    }
+   ],
+   "entries": [
+    "Once per turn when you hit a creature with your pact weapon, you can expend a Pact Magic spell slot to deal an extra {@damage 1d8} Force damage to the target, plus another {@dice 1d8} per level of the spell slot, and you can give the target the {@condition Prone|SRD52} condition if it is Huge or smaller."
+   ]
+  },
+  {
+   "name": "Eldritch Spear",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "spell": [
+      {
+       "choose": "level=0|class=Warlock",
+       "entrySummary": "a Warlock cantrip that deals damage"
+      }
+     ]
+    }
+   ],
+   "entries": [
+    "Choose one of your known Warlock cantrips that deals damage and has a range of 10+ feet. When you cast that spell, its range increases by a number of feet equal to 30 times your Warlock level.",
+    {
+     "type": "entries",
+     "name": "Repeatable",
+     "entries": [
+      "You can gain this invocation more than once. Each time you do so, choose a different eligible cantrip."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Fiendish Vigor",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell False Life|SRD52} on yourself without expending a spell slot. When you cast the spell with this feature, you don’t roll the die for the Temporary Hit Points; you automatically get the highest number on the die."
+   ]
+  },
+  {
+   "name": "Gaze of Two Minds",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can use a Bonus Action to touch a willing creature and perceive through its senses until the end of your next turn. As long as the creature is on the same plane of existence as you, you can take a Bonus Action on subsequent turns to maintain this connection, extending the duration until the end of your next turn. The connection ends if you don’t maintain it in this way.",
+    "While perceiving through the other creature’s senses, you benefit from any special senses possessed by that creature, and you can cast spells as if you were in your space or the other creature’s space if the two of you are within 60 feet of each other."
+   ]
+  },
+  {
+   "name": "Gift of the Depths",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can breathe underwater, and you gain a Swim Speed equal to your Speed.",
+    "You can also cast {@spell Water Breathing|SRD52} once without expending a spell slot. You regain the ability to cast it in this way again when you finish a Long Rest."
+   ]
+  },
+  {
+   "name": "Gift of the Protectors",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 9,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "optionalfeature": [
+      "pact of the tome|srd52"
+     ]
+    }
+   ],
+   "entries": [
+    "A new page appears in your Book of Shadows when you conjure it. With your permission, a creature can take an action to write its name on that page, which can contain a number of names equal to your Charisma modifier (minimum of one name).",
+    "When any creature whose name is on the page is reduced to 0 Hit Points but not killed outright, the creature magically drops to 1 Hit Point instead. Once this magic is triggered, no creature can benefit from it until you finish a Long Rest.",
+    "As a Magic action, you can erase a name on the page by touching it."
+   ]
+  },
+  {
+   "name": "Investment of the Chain Master",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "optionalfeature": [
+      "pact of the chain|srd52"
+     ]
+    }
+   ],
+   "entries": [
+    "When you cast {@spell Find Familiar|SRD52}, you infuse the summoned familiar with a measure of your eldritch power, granting the creature the following benefits.",
+    {
+     "type": "entries",
+     "name": "Aerial or Aquatic",
+     "entries": [
+      "The familiar gains either a Fly Speed or a Swim Speed (your choice) of 40 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Quick Attack",
+     "entries": [
+      "As a Bonus Action, you can command the familiar to take the Attack action."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Necrotic or Radiant Damage",
+     "entries": [
+      "Whenever the familiar deals Bludgeoning, Piercing, or Slashing damage, you can make it deal Necrotic or Radiant damage instead."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Your Save DC",
+     "entries": [
+      "If the familiar forces a creature to make a saving throw, it uses your spell save DC."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Resistance",
+     "entries": [
+      "When the familiar takes damage, you can take a Reaction to grant it Resistance against that damage."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Lessons of the First Ones",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You have received knowledge from an elder entity of the multiverse, allowing you to gain one Origin feat of your choice (see “Feats”).",
+    {
+     "type": "entries",
+     "name": "Repeatable",
+     "entries": [
+      "You can gain this invocation more than once. Each time you do so, choose a different Origin feat."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Lifedrinker",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 9,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "optionalfeature": [
+      "pact of the blade|srd52"
+     ]
+    }
+   ],
+   "entries": [
+    "Once per turn when you hit a creature with your pact weapon, you can deal an extra {@dice 1d6} Necrotic, Psychic, or Radiant damage (your choice) to the creature, and you can expend one of your Hit Point Dice to roll it and regain a number of Hit Points equal to the roll plus your Constitution modifier (minimum of 1 Hit Point)."
+   ]
+  },
+  {
+   "name": "Mask of Many Faces",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Disguise Self|SRD52} without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Master of Myriad Forms",
+   "source": "SRD52",
+   "page": 73,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Alter Self|SRD52} without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Misty Visions",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Silent Image|SRD52} without expending a spell slot."
+   ]
+  },
+  {
+   "name": "One with Shadows",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "While you’re in an area of Dim Light or Darkness, you can cast {@spell Invisibility|SRD52} on yourself without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Otherworldly Leap",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Jump|SRD52} on yourself without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Pact of the Blade",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "entries": [
+    "As a Bonus Action, you can conjure a pact weapon in your hand—a Simple or Martial Melee weapon of your choice with which you bond—or create a bond with a magic weapon you touch; you can’t bond with a magic weapon if someone else is attuned to it or another Warlock is bonded with it. Until the bond ends, you have proficiency with the weapon, and you can use it as a Spellcasting Focus.",
+    "Whenever you attack with the bonded weapon, you can use your Charisma modifier for the attack and damage rolls instead of using Strength or Dexterity; and you can cause the weapon to deal Necrotic, Psychic, or Radiant damage or its normal damage type.",
+    "Your bond with the weapon ends if you use this feature’s Bonus Action again, if the weapon is more than 5 feet away from you for 1 minute or more, or if you die. A conjured weapon disappears when the bond ends."
+   ]
+  },
+  {
+   "name": "Pact of the Chain",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "entries": [
+    "You learn the {@spell Find Familiar|SRD52} spell and can cast it as a Magic action without expending a spell slot.",
+    "When you cast the spell, you choose one of the normal forms for your familiar or one of the following special forms: Imp, Pseudodragon, Quasit, Skeleton, Sphinx of Wonder, Sprite, or Venomous Snake (see “Monsters” for the familiar’s stat block).",
+    "Additionally, when you take the Attack action, you can forgo one of your own attacks to allow your familiar to make one attack of its own with its Reaction."
+   ]
+  },
+  {
+   "name": "Pact of the Tome",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "entries": [
+    "Stitching together strands of shadow, you conjure forth a book in your hand at the end of a Short or Long Rest. This Book of Shadows (you determine its appearance) contains eldritch magic that only you can access, granting you the benefits below. The book disappears if you conjure another book with this feature or if you die.",
+    {
+     "type": "entries",
+     "name": "Cantrips and Rituals",
+     "entries": [
+      "When the book appears, choose three cantrips, and choose two level 1 spells that have the Ritual tag. The spells can be from any class’s spell list, and they must be spells you don’t already have prepared. While the book is on your person, you have the chosen spells prepared, and they function as Warlock spells for you."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Spellcasting Focus",
+     "entries": [
+      "You can use the book as a Spellcasting Focus."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Repelling Blast",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 2,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "spell": [
+      {
+       "choose": "level=0|class=Warlock",
+       "entrySummary": "a Warlock cantrip that deals damage with an attack roll"
+      }
+     ]
+    }
+   ],
+   "entries": [
+    "Choose one of your known Warlock cantrips that requires an attack roll. When you hit a Large or smaller creature with that cantrip, you can push the creature up to 10 feet straight away from you.",
+    {
+     "type": "entries",
+     "name": "Repeatable",
+     "entries": [
+      "You can gain this invocation more than once. Each time you do so, choose a different eligible cantrip."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Thirsting Blade",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 5,
+      "class": {
+       "name": "Warlock"
+      }
+     },
+     "optionalfeature": [
+      "pact of the blade|srd52"
+     ]
+    }
+   ],
+   "entries": [
+    "You gain the Extra Attack feature for your pact weapon only. With that feature, you can attack twice with the weapon instead of once when you take the Attack action on your turn."
+   ]
+  },
+  {
+   "name": "Visions of Distant Realms",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 9,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Arcane Eye|SRD52} without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Whispers of the Grave",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 7,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You can cast {@spell Speak with Dead|SRD52} without expending a spell slot."
+   ]
+  },
+  {
+   "name": "Witch Sight",
+   "source": "SRD52",
+   "page": 74,
+   "featureType": [
+    "EI"
+   ],
+   "prerequisite": [
+    {
+     "level": {
+      "level": 15,
+      "class": {
+       "name": "Warlock"
+      }
+     }
+    }
+   ],
+   "entries": [
+    "You have Truesight with a range of 30 feet."
+   ]
+  }
+ ]
+}

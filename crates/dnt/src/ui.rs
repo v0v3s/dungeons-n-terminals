@@ -644,8 +644,8 @@ fn draw_campaigns(frame: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         lines.push(line.style(base));
     }
     if c.list.is_empty() && c.name_input.is_none() {
-        // Getting started, step 2 (the data is there: step 1 is done).
-        lines.push(Line::styled("✓ 1 · Import the data", theme.dim));
+        // Getting started, step 2 (the rules are built in: step 1 is done).
+        lines.push(Line::styled("✓ 1 · The rules: the SRD 5.2.1 is built in (dnt import adds your books)", theme.dim));
         lines.push(Line::styled("▸ 2 · Create a campaign", theme.label));
         lines.push(Line::styled("It holds your characters, notes and homebrew, and chooses its books.", theme.muted));
         lines.push(Line::from(vec![

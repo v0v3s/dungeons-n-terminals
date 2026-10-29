@@ -156,14 +156,25 @@ pub fn draw(frame: &mut Frame, area: Rect, help: &mut Help, theme: &Theme) {
 
 /// Who made dnt and on what terms, after the keys.
 fn about(theme: &Theme) -> Vec<Line<'static>> {
-    vec![
+    let mut out = vec![
         Line::default(),
         Line::styled("About", theme.label),
         Line::raw(format!("dnt {} · MIT license", env!("CARGO_PKG_VERSION"))),
         Line::styled("github.com/v0v3s/dungeons-n-terminals", theme.muted),
         Line::styled("A fan project, not affiliated with Wizards of the Coast.", theme.muted),
-        Line::styled("It ships no game content and reads the data you provide.", theme.muted),
-    ]
+        Line::styled("It has the SRD 5.2.1 built in, and reads the books you import.", theme.muted),
+        Line::default(),
+    ];
+    // The SRD's attribution, in lines that fit beside the keys.
+    let mut line = String::new();
+    for word in dnt_data::srd::ATTRIBUTION.split(' ') {
+        if !line.is_empty() && line.width() + word.width() > 60 {
+            out.push(Line::styled(std::mem::take(&mut line), theme.muted));
+        }
+        line = if line.is_empty() { word.to_string() } else { format!("{line} {word}") };
+    }
+    out.push(Line::styled(line, theme.muted));
+    out
 }
 
 mod content {

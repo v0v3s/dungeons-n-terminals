@@ -167,9 +167,8 @@ impl Workspace {
 
     fn load_base(&self) -> Result<Option<Library>, String> {
         let mut base = match &self.config.library.path {
-            Some(dir) => Library::load_dir(dir).map_err(|e| e.to_string())?,
-            None if import::has_imported(&self.store) => import::load(&self.store)?,
-            None => return Ok(None),
+            Some(dir) => Library::load_dir_over_srd(dir).map_err(|e| e.to_string())?,
+            None => import::load(&self.store)?,
         };
         for path in self.store.global_homebrew_files() {
             let text = self.store.read_text(&path).map_err(|e| e.to_string())?;
@@ -488,13 +487,14 @@ mod tests {
     fn campaigns_layer_their_homebrew() {
         let store = Store::with_fs(Arc::new(MemFs::new()), "/data", "/config.toml");
         let mut ws = Workspace::open(store);
-        assert!(!ws.has_data(), "nothing imported yet");
+        assert!(ws.has_data(), "the SRD is built in");
 
         let mut src = MemorySource::default();
         src.insert("x.json", json!({"item": [{"name": "Rope", "source": "B"}, {"name": "Lute", "source": "C"}]}).to_string());
         import::import_files(&ws.store, &src).unwrap();
         ws.reload();
-        assert_eq!(ws.lib.as_ref().unwrap().entities().len(), 2);
+        let imported = |ws: &Workspace| ws.lib.as_ref().unwrap().entities().iter().filter(|e| e.source != dnt_data::srd::SOURCE).count();
+        assert_eq!(imported(&ws), 2);
         assert!(ws.filter().hide_reprinted, "without a campaign, reprints replace their originals");
 
         let slug = ws.create_campaign("Curse of Strahd", vec!["B".into()]).unwrap();
@@ -531,7 +531,8 @@ mod tests {
         ws.clear_imported(true).unwrap();
         assert!(ws.homebrew.is_empty() && ws.has_data());
         ws.clear_imported(false).unwrap();
-        assert!(!ws.has_data() && !ws.campaigns.is_empty(), "campaigns stay");
+        assert!(!ws.lib.as_ref().unwrap().entities().iter().any(|e| e.source == "B"), "the imported data goes");
+        assert!(ws.has_data() && !ws.campaigns.is_empty(), "the SRD and the campaigns stay");
         import::import_files(&ws.store, &src).unwrap();
         ws.reload();
 
@@ -547,12 +548,13 @@ mod tests {
         assert!(ws.campaigns.is_empty() && ws.active.is_none());
         assert!(Workspace::open(ws.store).campaigns.is_empty(), "gone from the store too");
 
-        // Starting over leaves nothing.
+        // Starting over leaves nothing but the SRD.
         ws = Workspace::open(Store::with_fs(Arc::new(MemFs::new()), "/data", "/config.toml"));
         import::import_files(&ws.store, &src).unwrap();
         ws.reload();
         ws.create_campaign("Curse of Strahd", vec![]).unwrap();
         ws.reset().unwrap();
-        assert!(!ws.has_data() && ws.campaigns.is_empty() && ws.active.is_none());
+        assert!(ws.campaigns.is_empty() && ws.active.is_none());
+        assert!(!ws.lib.as_ref().unwrap().entities().iter().any(|e| e.source == "B"));
     }
 }

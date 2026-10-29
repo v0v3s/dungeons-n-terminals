@@ -301,11 +301,17 @@
     </Pane>
   {/if}
   <Pane title="About">
-    <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It ships no game content and reads the data you import.</p>
+    <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It has the SRD 5.2.1 built in, and reads the books you import.</p>
     <p>dnt {version} · MIT license · <span class="url">github.com/v0v3s/dungeons-n-terminals</span></p>
     <p class="dim">
       Icons by {iconAuthors.join(" and ")} from <span class="url">game-icons.net</span>, under CC BY 3.0
       (<span class="url">creativecommons.org/licenses/by/3.0</span>).
+    </p>
+    <p class="dim srd">
+      This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast
+      LLC, available at <span class="url">https://www.dndbeyond.com/srd</span>. The SRD 5.2.1 is licensed under the
+      Creative Commons Attribution 4.0 International License, available at
+      <span class="url">https://creativecommons.org/licenses/by/4.0/legalcode</span>.
     </p>
     <p class="dim">Not affiliated with Wizards of the Coast.</p>
   </Pane>
@@ -373,6 +379,9 @@
 <style>
   .url {
     color: var(--link);
+  }
+  .srd .url {
+    overflow-wrap: anywhere;
   }
   summary {
     cursor: pointer;

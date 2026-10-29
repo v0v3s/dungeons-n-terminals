@@ -1,0 +1,460 @@
+{
+ "condition": [
+  {
+   "name": "Blinded",
+   "source": "SRD52",
+   "page": 177,
+   "entries": [
+    "While you have the {@condition Blinded|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Can’t See",
+     "entries": [
+      "You can’t see and automatically fail any ability check that requires sight."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Advantage, and your attack rolls have Disadvantage."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Charmed",
+   "source": "SRD52",
+   "page": 178,
+   "entries": [
+    "While you have the {@condition Charmed|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Can’t Harm the Charmer",
+     "entries": [
+      "You can’t attack the charmer or target the charmer with damaging abilities or magical effects."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Social Advantage",
+     "entries": [
+      "The charmer has Advantage on any ability check to interact with you socially."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Deafened",
+   "source": "SRD52",
+   "page": 181,
+   "entries": [
+    "While you have the {@condition Deafened|SRD52} condition, you experience the following effect.",
+    {
+     "type": "entries",
+     "name": "Can’t Hear",
+     "entries": [
+      "You can’t hear and automatically fail any ability check that requires hearing."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Exhaustion",
+   "source": "SRD52",
+   "page": 181,
+   "entries": [
+    "While you have the {@condition Exhaustion|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Exhaustion Levels",
+     "entries": [
+      "This condition is cumulative. Each time you receive it, you gain 1 Exhaustion level. You die if your Exhaustion level is 6."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "D20 Tests Affected",
+     "entries": [
+      "When you make a D20 Test, the roll is reduced by 2 times your Exhaustion level."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Speed Reduced",
+     "entries": [
+      "Your Speed is reduced by a number of feet equal to 5 times your Exhaustion level."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Removing Exhaustion Levels",
+     "entries": [
+      "Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Frightened",
+   "source": "SRD52",
+   "page": 182,
+   "entries": [
+    "While you have the {@condition Frightened|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Ability Checks and Attacks Affected",
+     "entries": [
+      "You have Disadvantage on ability checks and attack rolls while the source of fear is within line of sight."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Can’t Approach",
+     "entries": [
+      "You can’t willingly move closer to the source of fear."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Grappled",
+   "source": "SRD52",
+   "page": 182,
+   "entries": [
+    "While you have the {@condition Grappled|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Speed 0",
+     "entries": [
+      "Your Speed is 0 and can’t increase."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "You have Disadvantage on attack rolls against any target other than the grappler."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Movable",
+     "entries": [
+      "The grappler can drag or carry you when it moves, but every foot of movement costs it 1 extra foot unless you are Tiny or two or more sizes smaller than it."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Incapacitated",
+   "source": "SRD52",
+   "page": 184,
+   "entries": [
+    "While you have the {@condition Incapacitated|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Inactive",
+     "entries": [
+      "You can’t take any action, Bonus Action, or Reaction."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "No Concentration",
+     "entries": [
+      "Your Concentration is broken."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Speechless",
+     "entries": [
+      "You can’t speak."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Surprised",
+     "entries": [
+      "If you’re Incapacitated when you roll Initiative, you have Disadvantage on the roll."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Invisible",
+   "source": "SRD52",
+   "page": 184,
+   "entries": [
+    "While you have the {@condition Invisible|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Surprise",
+     "entries": [
+      "If you’re Invisible when you roll Initiative, you have Advantage on the roll."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Concealed",
+     "entries": [
+      "You aren’t affected by any effect that requires its target to be seen unless the effect’s creator can somehow see you. Any equipment you are wearing or carrying is also concealed."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Disadvantage, and your attack rolls have Advantage. If a creature can somehow see you, you don’t gain this benefit against that creature."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Paralyzed",
+   "source": "SRD52",
+   "page": 186,
+   "entries": [
+    "While you have the {@condition Paralyzed|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Incapacitated",
+     "entries": [
+      "You have the {@condition Incapacitated|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Speed 0",
+     "entries": [
+      "Your Speed is 0 and can’t increase."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Saving Throws Affected",
+     "entries": [
+      "You automatically fail Strength and Dexterity saving throws."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Advantage."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Automatic Critical Hits",
+     "entries": [
+      "Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Petrified",
+   "source": "SRD52",
+   "page": 186,
+   "entries": [
+    "While you have the {@condition Petrified|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Turned to Inanimate Substance",
+     "entries": [
+      "You are transformed, along with any nonmagical objects you are wearing and carrying, into a solid inanimate substance (usually stone). Your weight increases by a factor of ten, and you cease aging."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Incapacitated",
+     "entries": [
+      "You have the {@condition Incapacitated|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Speed 0",
+     "entries": [
+      "Your Speed is 0 and can’t increase."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Advantage."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Saving Throws Affected",
+     "entries": [
+      "You automatically fail Strength and Dexterity saving throws."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Resist Damage",
+     "entries": [
+      "You have Resistance to all damage."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Poison Immunity",
+     "entries": [
+      "You have Immunity to the {@condition Poisoned|SRD52} condition."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Poisoned",
+   "source": "SRD52",
+   "page": 186,
+   "entries": [
+    "While you have the {@condition Poisoned|SRD52} condition, you experience the following effect.",
+    {
+     "type": "entries",
+     "name": "Ability Checks and Attacks Affected",
+     "entries": [
+      "You have Disadvantage on attack rolls and ability checks."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Prone",
+   "source": "SRD52",
+   "page": 186,
+   "entries": [
+    "While you have the {@condition Prone|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Restricted Movement",
+     "entries": [
+      "Your only movement options are to crawl or to spend an amount of movement equal to half your Speed (round down) to right yourself and thereby end the condition. If your Speed is 0, you can’t right yourself."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "You have Disadvantage on attack rolls. An attack roll against you has Advantage if the attacker is within 5 feet of you. Otherwise, that attack roll has Disadvantage."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Restrained",
+   "source": "SRD52",
+   "page": 187,
+   "entries": [
+    "While you have the {@condition Restrained|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Speed 0",
+     "entries": [
+      "Your Speed is 0 and can’t increase."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Advantage, and your attack rolls have Disadvantage."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Saving Throws Affected",
+     "entries": [
+      "You have Disadvantage on Dexterity saving throws."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Stunned",
+   "source": "SRD52",
+   "page": 189,
+   "entries": [
+    "While you have the {@condition Stunned|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Incapacitated",
+     "entries": [
+      "You have the {@condition Incapacitated|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Saving Throws Affected",
+     "entries": [
+      "You automatically fail Strength and Dexterity saving throws."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Advantage."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Unconscious",
+   "source": "SRD52",
+   "page": 191,
+   "entries": [
+    "While you have the {@condition Unconscious|SRD52} condition, you experience the following effects.",
+    {
+     "type": "entries",
+     "name": "Inert",
+     "entries": [
+      "You have the Incapacitated and {@condition Prone|SRD52} conditions, and you drop whatever you’re holding. When this condition ends, you remain Prone."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Speed 0",
+     "entries": [
+      "Your Speed is 0 and can’t increase."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Attacks Affected",
+     "entries": [
+      "Attack rolls against you have Advantage."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Saving Throws Affected",
+     "entries": [
+      "You automatically fail Strength and Dexterity saving throws."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Automatic Critical Hits",
+     "entries": [
+      "Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Unaware",
+     "entries": [
+      "You’re unaware of your surroundings."
+     ]
+    }
+   ]
+  }
+ ]
+}

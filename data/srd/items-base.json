@@ -1,0 +1,1268 @@
+{
+ "baseitem": [
+  {
+   "name": "Club",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d4",
+   "dmgType": "B",
+   "rarity": "none",
+   "property": [
+    "L|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "weight": 2,
+   "value": 10
+  },
+  {
+   "name": "Dagger",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d4",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "20/60",
+   "property": [
+    "F|SRD52",
+    "L|SRD52",
+    "T|SRD52"
+   ],
+   "mastery": [
+    "Nick|SRD52"
+   ],
+   "weight": 1,
+   "value": 200
+  },
+  {
+   "name": "Greatclub",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d8",
+   "dmgType": "B",
+   "rarity": "none",
+   "property": [
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Push|SRD52"
+   ],
+   "weight": 10,
+   "value": 20
+  },
+  {
+   "name": "Handaxe",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d6",
+   "dmgType": "S",
+   "rarity": "none",
+   "range": "20/60",
+   "property": [
+    "L|SRD52",
+    "T|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 2,
+   "value": 500
+  },
+  {
+   "name": "Javelin",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d6",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "30/120",
+   "property": [
+    "T|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "weight": 2,
+   "value": 50
+  },
+  {
+   "name": "Light Hammer",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d4",
+   "dmgType": "B",
+   "rarity": "none",
+   "range": "20/60",
+   "property": [
+    "L|SRD52",
+    "T|SRD52"
+   ],
+   "mastery": [
+    "Nick|SRD52"
+   ],
+   "weight": 2,
+   "value": 200
+  },
+  {
+   "name": "Mace",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d6",
+   "dmgType": "B",
+   "rarity": "none",
+   "mastery": [
+    "Sap|SRD52"
+   ],
+   "weight": 4,
+   "value": 500
+  },
+  {
+   "name": "Quarterstaff",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d6",
+   "dmgType": "B",
+   "rarity": "none",
+   "dmg2": "1d8",
+   "property": [
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Topple|SRD52"
+   ],
+   "weight": 4,
+   "value": 20
+  },
+  {
+   "name": "Sickle",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d4",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "L|SRD52"
+   ],
+   "mastery": [
+    "Nick|SRD52"
+   ],
+   "weight": 2,
+   "value": 100
+  },
+  {
+   "name": "Spear",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d6",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "20/60",
+   "dmg2": "1d8",
+   "property": [
+    "T|SRD52",
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Sap|SRD52"
+   ],
+   "weight": 3,
+   "value": 100
+  },
+  {
+   "name": "Dart",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d4",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "20/60",
+   "property": [
+    "F|SRD52",
+    "T|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 1,
+   "value": 5
+  },
+  {
+   "name": "Light Crossbow",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d8",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "80/320",
+   "property": [
+    "A|SRD52",
+    "LD|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "weight": 5,
+   "value": 2500
+  },
+  {
+   "name": "Shortbow",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d6",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "80/320",
+   "property": [
+    "A|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 2,
+   "value": 2500
+  },
+  {
+   "name": "Sling",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "simple",
+   "dmg1": "1d4",
+   "dmgType": "B",
+   "rarity": "none",
+   "range": "30/120",
+   "property": [
+    "A|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "value": 10
+  },
+  {
+   "name": "Battleaxe",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "S",
+   "rarity": "none",
+   "dmg2": "1d10",
+   "property": [
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Topple|SRD52"
+   ],
+   "weight": 4,
+   "value": 1000
+  },
+  {
+   "name": "Flail",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "B",
+   "rarity": "none",
+   "mastery": [
+    "Sap|SRD52"
+   ],
+   "weight": 2,
+   "value": 1000
+  },
+  {
+   "name": "Glaive",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d10",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "R|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Graze|SRD52"
+   ],
+   "weight": 6,
+   "value": 2000
+  },
+  {
+   "name": "Greataxe",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d12",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Cleave|SRD52"
+   ],
+   "weight": 7,
+   "value": 3000
+  },
+  {
+   "name": "Greatsword",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "2d6",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Graze|SRD52"
+   ],
+   "weight": 6,
+   "value": 5000
+  },
+  {
+   "name": "Halberd",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d10",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "R|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Cleave|SRD52"
+   ],
+   "weight": 6,
+   "value": 2000
+  },
+  {
+   "name": "Lance",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d10",
+   "dmgType": "P",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "R|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Topple|SRD52"
+   ],
+   "weight": 6,
+   "value": 1000
+  },
+  {
+   "name": "Longsword",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "S",
+   "rarity": "none",
+   "dmg2": "1d10",
+   "property": [
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Sap|SRD52"
+   ],
+   "weight": 3,
+   "value": 1500
+  },
+  {
+   "name": "Maul",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "2d6",
+   "dmgType": "B",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Topple|SRD52"
+   ],
+   "weight": 10,
+   "value": 1000
+  },
+  {
+   "name": "Morningstar",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "P",
+   "rarity": "none",
+   "mastery": [
+    "Sap|SRD52"
+   ],
+   "weight": 4,
+   "value": 1500
+  },
+  {
+   "name": "Pike",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d10",
+   "dmgType": "P",
+   "rarity": "none",
+   "property": [
+    "H|SRD52",
+    "R|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Push|SRD52"
+   ],
+   "weight": 18,
+   "value": 500
+  },
+  {
+   "name": "Rapier",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "P",
+   "rarity": "none",
+   "property": [
+    "F|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 2,
+   "value": 2500
+  },
+  {
+   "name": "Scimitar",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d6",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "F|SRD52",
+    "L|SRD52"
+   ],
+   "mastery": [
+    "Nick|SRD52"
+   ],
+   "weight": 3,
+   "value": 2500
+  },
+  {
+   "name": "Shortsword",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d6",
+   "dmgType": "P",
+   "rarity": "none",
+   "property": [
+    "F|SRD52",
+    "L|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 2,
+   "value": 1000
+  },
+  {
+   "name": "Trident",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "20/60",
+   "dmg2": "1d10",
+   "property": [
+    "T|SRD52",
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Topple|SRD52"
+   ],
+   "weight": 4,
+   "value": 500
+  },
+  {
+   "name": "Warhammer",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "B",
+   "rarity": "none",
+   "dmg2": "1d10",
+   "property": [
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Push|SRD52"
+   ],
+   "weight": 5,
+   "value": 1500
+  },
+  {
+   "name": "War Pick",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "P",
+   "rarity": "none",
+   "dmg2": "1d10",
+   "property": [
+    "V|SRD52"
+   ],
+   "mastery": [
+    "Sap|SRD52"
+   ],
+   "weight": 2,
+   "value": 500
+  },
+  {
+   "name": "Whip",
+   "source": "SRD52",
+   "page": 91,
+   "type": "M|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d4",
+   "dmgType": "S",
+   "rarity": "none",
+   "property": [
+    "F|SRD52",
+    "R|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "weight": 3,
+   "value": 200
+  },
+  {
+   "name": "Blowgun",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "25/100",
+   "property": [
+    "A|SRD52",
+    "LD|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 1,
+   "value": 1000
+  },
+  {
+   "name": "Hand Crossbow",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d6",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "30/120",
+   "property": [
+    "A|SRD52",
+    "L|SRD52",
+    "LD|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 3,
+   "value": 7500
+  },
+  {
+   "name": "Heavy Crossbow",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d10",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "100/400",
+   "property": [
+    "A|SRD52",
+    "H|SRD52",
+    "LD|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Push|SRD52"
+   ],
+   "weight": 18,
+   "value": 5000
+  },
+  {
+   "name": "Longbow",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d8",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "150/600",
+   "property": [
+    "A|SRD52",
+    "H|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "weight": 2,
+   "value": 5000
+  },
+  {
+   "name": "Musket",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d12",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "40/120",
+   "property": [
+    "A|SRD52",
+    "LD|SRD52",
+    "2H|SRD52"
+   ],
+   "mastery": [
+    "Slow|SRD52"
+   ],
+   "weight": 10,
+   "value": 50000
+  },
+  {
+   "name": "Pistol",
+   "source": "SRD52",
+   "page": 91,
+   "type": "R|SRD52",
+   "weapon": true,
+   "weaponCategory": "martial",
+   "dmg1": "1d10",
+   "dmgType": "P",
+   "rarity": "none",
+   "range": "30/90",
+   "property": [
+    "A|SRD52",
+    "LD|SRD52"
+   ],
+   "mastery": [
+    "Vex|SRD52"
+   ],
+   "weight": 3,
+   "value": 25000
+  },
+  {
+   "name": "Padded Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "LA|SRD52",
+   "ac": 11,
+   "rarity": "none",
+   "armor": true,
+   "stealth": true,
+   "weight": 8,
+   "value": 500
+  },
+  {
+   "name": "Leather Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "LA|SRD52",
+   "ac": 11,
+   "rarity": "none",
+   "armor": true,
+   "weight": 10,
+   "value": 1000
+  },
+  {
+   "name": "Studded Leather Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "LA|SRD52",
+   "ac": 12,
+   "rarity": "none",
+   "armor": true,
+   "weight": 13,
+   "value": 4500
+  },
+  {
+   "name": "Hide Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "MA|SRD52",
+   "ac": 12,
+   "rarity": "none",
+   "armor": true,
+   "weight": 12,
+   "value": 1000
+  },
+  {
+   "name": "Chain Shirt",
+   "source": "SRD52",
+   "page": 92,
+   "type": "MA|SRD52",
+   "ac": 13,
+   "rarity": "none",
+   "armor": true,
+   "weight": 20,
+   "value": 5000
+  },
+  {
+   "name": "Scale Mail",
+   "source": "SRD52",
+   "page": 92,
+   "type": "MA|SRD52",
+   "ac": 14,
+   "rarity": "none",
+   "armor": true,
+   "stealth": true,
+   "weight": 45,
+   "value": 5000
+  },
+  {
+   "name": "Breastplate",
+   "source": "SRD52",
+   "page": 92,
+   "type": "MA|SRD52",
+   "ac": 14,
+   "rarity": "none",
+   "armor": true,
+   "weight": 20,
+   "value": 40000
+  },
+  {
+   "name": "Half Plate Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "MA|SRD52",
+   "ac": 15,
+   "rarity": "none",
+   "armor": true,
+   "stealth": true,
+   "weight": 40,
+   "value": 75000
+  },
+  {
+   "name": "Ring Mail",
+   "source": "SRD52",
+   "page": 92,
+   "type": "HA|SRD52",
+   "ac": 14,
+   "rarity": "none",
+   "armor": true,
+   "stealth": true,
+   "weight": 40,
+   "value": 3000
+  },
+  {
+   "name": "Chain Mail",
+   "source": "SRD52",
+   "page": 92,
+   "type": "HA|SRD52",
+   "ac": 16,
+   "rarity": "none",
+   "armor": true,
+   "strength": "13",
+   "stealth": true,
+   "weight": 55,
+   "value": 7500
+  },
+  {
+   "name": "Splint Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "HA|SRD52",
+   "ac": 17,
+   "rarity": "none",
+   "armor": true,
+   "strength": "15",
+   "stealth": true,
+   "weight": 60,
+   "value": 20000
+  },
+  {
+   "name": "Plate Armor",
+   "source": "SRD52",
+   "page": 92,
+   "type": "HA|SRD52",
+   "ac": 18,
+   "rarity": "none",
+   "armor": true,
+   "strength": "15",
+   "stealth": true,
+   "weight": 65,
+   "value": 150000
+  },
+  {
+   "name": "Shield",
+   "source": "SRD52",
+   "page": 92,
+   "type": "S|SRD52",
+   "ac": 2,
+   "rarity": "none",
+   "weight": 6,
+   "value": 1000
+  },
+  {
+   "name": "Arrow",
+   "source": "SRD52",
+   "type": "A|SRD52",
+   "rarity": "none",
+   "entries": [
+    "Sold 20 at a time, stored in a Quiver."
+   ],
+   "value": 5,
+   "weight": 0.05
+  },
+  {
+   "name": "Bolt",
+   "source": "SRD52",
+   "type": "A|SRD52",
+   "rarity": "none",
+   "entries": [
+    "Sold 20 at a time, stored in a Case."
+   ],
+   "value": 5,
+   "weight": 0.075
+  },
+  {
+   "name": "Firearm Bullet",
+   "source": "SRD52",
+   "type": "A|SRD52",
+   "rarity": "none",
+   "entries": [
+    "Sold 10 at a time, stored in a Pouch."
+   ],
+   "value": 30,
+   "weight": 0.2
+  },
+  {
+   "name": "Sling Bullet",
+   "source": "SRD52",
+   "type": "A|SRD52",
+   "rarity": "none",
+   "entries": [
+    "Sold 20 at a time, stored in a Pouch."
+   ],
+   "value": 0.2,
+   "weight": 0.075
+  },
+  {
+   "name": "Needle",
+   "source": "SRD52",
+   "type": "A|SRD52",
+   "rarity": "none",
+   "entries": [
+    "Sold 50 at a time, stored in a Pouch."
+   ],
+   "value": 2,
+   "weight": 0.02
+  }
+ ],
+ "itemMastery": [
+  {
+   "name": "Cleave",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If you hit a creature with a melee attack roll using this weapon, you can make a melee attack roll with the weapon against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon’s damage, but don’t add your ability modifier to that damage unless that modifier is negative. You can make this extra attack only once per turn."
+   ]
+  },
+  {
+   "name": "Graze",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If your attack roll with this weapon misses a creature, you can deal damage to that creature equal to the ability modifier you used to make the attack roll. This damage is the same type dealt by the weapon, and the damage can be increased only by increasing the ability modifier."
+   ]
+  },
+  {
+   "name": "Nick",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "When you make the extra attack of the Light property, you can make it as part of the Attack action instead of as a Bonus Action. You can make this extra attack only once per turn."
+   ]
+  },
+  {
+   "name": "Push",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If you hit a creature with this weapon, you can push the creature up to 10 feet straight away from yourself if it is Large or smaller."
+   ]
+  },
+  {
+   "name": "Sap",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn."
+   ]
+  },
+  {
+   "name": "Slow",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If you hit a creature with this weapon and deal damage to it, you can reduce its Speed by 10 feet until the start of your next turn. If the creature is hit more than once by weapons that have this property, the Speed reduction doesn’t exceed 10 feet."
+   ]
+  },
+  {
+   "name": "Topple",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If you hit a creature with this weapon, you can force the creature to make a Constitution saving throw (DC 8 plus the ability modifier used to make the attack roll and your Proficiency Bonus). On a failed save, the creature has the Prone condition."
+   ]
+  },
+  {
+   "name": "Vex",
+   "source": "SRD52",
+   "page": 90,
+   "entries": [
+    "If you hit a creature with this weapon and deal damage to the creature, you have Advantage on your next attack roll against that creature before the end of your next turn.",
+    {
+     "type": "table",
+     "caption": "Weapons",
+     "colLabels": [
+      "Name",
+      "Damage",
+      "Properties"
+     ],
+     "rows": [
+      [
+       "Simple Melee Weapons",
+       "",
+       ""
+      ],
+      [
+       "Club",
+       "1d4 Bludgeoning",
+       "Light"
+      ],
+      [
+       "Dagger",
+       "1d4 Piercing",
+       "Finesse, Light, Thrown (Range 20/60) Nick 1 lb. 2 GP"
+      ],
+      [
+       "Greatclub",
+       "1d8 Bludgeoning",
+       "Two-Handed"
+      ],
+      [
+       "Handaxe",
+       "1d6 Slashing",
+       "Light, Thrown (Range 20/60) Vex 2 lb. 5 GP"
+      ],
+      [
+       "Javelin",
+       "1d6 Piercing",
+       "Thrown (Range 30/120) Slow 2 lb. 5 SP"
+      ],
+      [
+       "Light Hammer",
+       "1d4 Bludgeoning",
+       "Light, Thrown (Range 20/60) Nick 2 lb. 2 GP"
+      ],
+      [
+       "Mace",
+       "1d6 Bludgeoning",
+       "—"
+      ],
+      [
+       "Quarterstaff",
+       "1d6 Bludgeoning",
+       "Versatile (1d8)"
+      ],
+      [
+       "Sickle",
+       "1d4 Slashing",
+       "Light"
+      ],
+      [
+       "Spear",
+       "1d6 Piercing",
+       "Thrown (Range 20/60), Versatile (1d8) Sap 3 lb. 1 GP"
+      ],
+      [
+       "Simple Ranged Weapons",
+       "",
+       ""
+      ],
+      [
+       "Dart",
+       "1d4 Piercing",
+       "Finesse, Thrown (Range 20/60) Vex 1/4 lb. 5 CP"
+      ],
+      [
+       "Light Crossbow",
+       "1d8 Piercing",
+       "Ammunition (Range 80/320; Bolt), Loading, Slow 5 lb. 25 GP Two-Handed"
+      ],
+      [
+       "Shortbow",
+       "1d6 Piercing",
+       "Ammunition (Range 80/320; Arrow), Two-Handed Vex 2 lb. 25 GP"
+      ],
+      [
+       "Sling",
+       "1d4 Bludgeoning",
+       "Ammunition (Range 30/120; Bullet) Slow — 1 SP"
+      ],
+      [
+       "Martial Melee Weapons",
+       "",
+       ""
+      ],
+      [
+       "Battleaxe",
+       "1d8 Slashing",
+       "Versatile (1d10)"
+      ],
+      [
+       "Flail",
+       "1d8 Bludgeoning",
+       "—"
+      ],
+      [
+       "Glaive",
+       "1d10 Slashing",
+       "Heavy, Reach, Two-Handed Graze 6 lb. 20 GP"
+      ],
+      [
+       "Greataxe",
+       "1d12 Slashing",
+       "Heavy, Two-Handed"
+      ],
+      [
+       "Greatsword",
+       "2d6 Slashing",
+       "Heavy, Two-Handed"
+      ],
+      [
+       "Halberd",
+       "1d10 Slashing",
+       "Heavy, Reach, Two-Handed Cleave 6 lb. 20 GP"
+      ],
+      [
+       "Lance",
+       "1d10 Piercing",
+       "Heavy, Reach, Two-Handed (unless mounted) Topple 6 lb. 10 GP"
+      ],
+      [
+       "Longsword",
+       "1d8 Slashing",
+       "Versatile (1d10)"
+      ],
+      [
+       "Maul",
+       "2d6 Bludgeoning",
+       "Heavy, Two-Handed"
+      ],
+      [
+       "Morningstar",
+       "1d8 Piercing",
+       "—"
+      ],
+      [
+       "Pike",
+       "1d10 Piercing",
+       "Heavy, Reach, Two-Handed Push 18 lb. 5 GP"
+      ],
+      [
+       "Rapier",
+       "1d8 Piercing",
+       "Finesse"
+      ],
+      [
+       "Scimitar",
+       "1d6 Slashing",
+       "Finesse, Light"
+      ],
+      [
+       "Shortsword",
+       "1d6 Piercing",
+       "Finesse, Light"
+      ],
+      [
+       "Trident",
+       "1d8 Piercing",
+       "Thrown (Range 20/60), Versatile (1d10) Topple 4 lb. 5 GP"
+      ],
+      [
+       "Warhammer",
+       "1d8 Bludgeoning",
+       "Versatile (1d10)"
+      ],
+      [
+       "War Pick",
+       "1d8 Piercing",
+       "Versatile (1d10)"
+      ],
+      [
+       "Whip",
+       "1d4 Slashing",
+       "Finesse, Reach"
+      ],
+      [
+       "Martial Ranged Weapons",
+       "",
+       ""
+      ],
+      [
+       "Blowgun",
+       "1 Piercing",
+       "Ammunition (Range 25/100; Needle), Loading Vex 1 lb. 10 GP"
+      ],
+      [
+       "Hand Crossbow",
+       "1d6 Piercing",
+       "Ammunition (Range 30/120; Bolt), Light, Loading Vex 3 lb. 75 GP"
+      ],
+      [
+       "Heavy Crossbow",
+       "1d10 Piercing",
+       "Ammunition (Range 100/400; Bolt), Heavy, Loading, Push 18 lb. 50 GP Two-Handed"
+      ],
+      [
+       "Longbow",
+       "1d8 Piercing",
+       "Ammunition (Range 150/600; Arrow), Heavy, Slow 2 lb. 50 GP Two-Handed"
+      ],
+      [
+       "Musket",
+       "1d12 Piercing",
+       "Ammunition (Range 40/120; Bullet), Loading, Slow 10 lb. 500 GP Two-Handed"
+      ],
+      [
+       "Pistol",
+       "1d10 Piercing",
+       "Ammunition (Range 30/90; Bullet), Loading Vex 3 lb. 250 GP Mastery Weight Cost Slow 2 lb. 1 SP Push 10 lb. 2 SP Sap 4 lb. 5 GP Topple 4 lb. 2 SP Nick 2 lb. 1 GP Topple 4 lb. 10 GP Sap 2 lb. 10 GP Cleave 7 lb. 30 GP Graze 6 lb. 50 GP Sap 3 lb. 15 GP Topple 10 lb. 10 GP Sap 4 lb. 15 GP Vex 2 lb. 25 GP Nick 3 lb. 25 GP Vex 2 lb. 10 GP Push 5 lb. 15 GP Sap 2 lb. 5 GP Slow 3 lb. 2 GP"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

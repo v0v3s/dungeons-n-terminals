@@ -11,6 +11,7 @@ pub mod library;
 pub mod query;
 pub mod search;
 pub mod source;
+pub mod srd;
 pub mod tags;
 pub mod view;
 

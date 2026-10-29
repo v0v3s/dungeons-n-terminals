@@ -10,7 +10,6 @@ mod notes_view;
 mod overlay_editor;
 mod picker;
 mod render;
-mod setup;
 mod theme;
 mod ui;
 mod ui_editor;
@@ -371,7 +370,7 @@ fn run_command(cmd: Cmd, store: Store, config: &dnt_store::Config) -> Result<()>
 /// (see App::prepare_library).
 fn load_base(data: Option<&Path>, extra: &[PathBuf], store: &Store) -> Result<Library> {
     let mut base = match data {
-        Some(data) => Library::load_dir(data).with_context(|| format!("loading {}", data.display()))?,
+        Some(data) => Library::load_dir_over_srd(data).with_context(|| format!("loading {}", data.display()))?,
         None => dnt_core::import::load(store).map_err(anyhow::Error::msg).context("loading the imported data")?,
     };
     for path in store.global_homebrew_files().iter().chain(extra) {
@@ -392,7 +391,8 @@ fn main() -> Result<()> {
     let backed_up = dnt_core::backup::auto(&store, &shelf, &dnt_core::backup::now());
     let mut config = store.load_config()?;
 
-    // A data folder if one is given or configured, else the imported data.
+    // A data folder if one is given or configured, else the imported data
+    // (over the built-in SRD either way).
     let data = match (&args.data, &config.library.path) {
         (Some(path), _) => {
             if config.library.path.as_ref() != Some(path) {
@@ -401,18 +401,7 @@ fn main() -> Result<()> {
             }
             Some(path.clone())
         }
-        (None, Some(path)) => Some(path.clone()),
-        (None, None) if dnt_core::import::has_imported(&store) => None,
-        // No data yet: getting started asks for it.
-        (None, None) => match setup::run(&store)? {
-            setup::Outcome::Imported => None,
-            setup::Outcome::Folder(path) => {
-                config.library.path = Some(path.clone());
-                store.save_config(&config)?;
-                Some(path)
-            }
-            setup::Outcome::Quit => return Ok(()),
-        },
+        (None, path) => path.clone(),
     };
     if data.is_none() {
         // Homebrew imported before it had a store of its own.

@@ -35,7 +35,6 @@ BOOK = {
     "source": SOURCE,
     "group": "core",
     "published": "2025-04-22",
-    "author": "Wizards of the Coast",
 }
 
 

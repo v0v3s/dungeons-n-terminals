@@ -1,0 +1,1704 @@
+{
+ "race": [
+  {
+   "name": "Dragonborn",
+   "source": "SRD52",
+   "page": 84,
+   "edition": "one",
+   "size": [
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "darkvision": 60,
+   "entries": [
+    "As a Dragonborn, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Draconic Ancestry",
+     "entries": [
+      "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+      {
+       "type": "table",
+       "caption": "Draconic Ancestors",
+       "colLabels": [
+        "Dragon",
+        "Damage Type",
+        "Dragon",
+        "Damage Type"
+       ],
+       "rows": [
+        [
+         "Black",
+         "Acid",
+         "Gold",
+         "Fire"
+        ],
+        [
+         "Blue",
+         "Lightning",
+         "Green",
+         "Poison"
+        ],
+        [
+         "Brass",
+         "Fire",
+         "Red",
+         "Fire"
+        ],
+        [
+         "Bronze",
+         "Lightning",
+         "Silver",
+         "Cold"
+        ],
+        [
+         "Copper",
+         "Acid",
+         "White",
+         "Cold"
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Breath Weapon",
+     "entries": [
+      "When you take the Attack action on your turn, you can replace one of your attacks with an exhalation of magical energy in either a 15-foot Cone or a 30-foot Line that is 5 feet wide (choose the shape each time). Each creature in that area must make a Dexterity saving throw (DC 8 plus your Constitution modifier and Proficiency Bonus). On a failed save, a creature takes {@dice 1d10} damage of the type determined by your Draconic Ancestry trait. On a successful save, a creature takes half as much damage. This damage increases by {@dice 1d10} when you reach character levels 5 ({@dice 2d10}), 11 ({@dice 3d10}), and 17 ({@dice 4d10}).",
+      "You can use this Breath Weapon a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Damage Resistance",
+     "entries": [
+      "You have Resistance to the damage type determined by your Draconic Ancestry trait."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Darkvision",
+     "entries": [
+      "You have Darkvision with a range of 60 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Draconic Flight",
+     "entries": [
+      "When you reach character level 5, you can channel draconic magic to give yourself temporary flight. As a Bonus Action, you sprout spectral wings on your back that last for 10 minutes or until you retract the wings (no action required) or have the {@condition Incapacitated|SRD52} condition. During that time, you have a Fly Speed equal to your Speed. Your wings appear to be made of the same energy as your Breath Weapon. Once you use this trait, you can’t use it again until you finish a Long Rest."
+     ]
+    }
+   ],
+   "_versions": [
+    {
+     "name": "Dragonborn; Black Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "acid"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Black)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Blue Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "lightning"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Blue)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Brass Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "fire"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Brass)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Bronze Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "lightning"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Bronze)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Copper Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "acid"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Copper)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Gold Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "fire"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Gold)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Green Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "poison"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Green)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Red Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "fire"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Red)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; Silver Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "cold"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (Silver)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Dragonborn; White Dragon Ancestry",
+     "source": "SRD52",
+     "resist": [
+      "cold"
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Draconic Ancestry",
+       "items": {
+        "type": "entries",
+        "name": "Draconic Ancestry (White)",
+        "entries": [
+         "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+         {
+          "type": "table",
+          "caption": "Draconic Ancestors",
+          "colLabels": [
+           "Dragon",
+           "Damage Type",
+           "Dragon",
+           "Damage Type"
+          ],
+          "rows": [
+           [
+            "Black",
+            "Acid",
+            "Gold",
+            "Fire"
+           ],
+           [
+            "Blue",
+            "Lightning",
+            "Green",
+            "Poison"
+           ],
+           [
+            "Brass",
+            "Fire",
+            "Red",
+            "Fire"
+           ],
+           [
+            "Bronze",
+            "Lightning",
+            "Silver",
+            "Cold"
+           ],
+           [
+            "Copper",
+            "Acid",
+            "White",
+            "Cold"
+           ]
+          ]
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Dwarf",
+   "source": "SRD52",
+   "page": 84,
+   "edition": "one",
+   "size": [
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "darkvision": 120,
+   "resist": [
+    "poison"
+   ],
+   "entries": [
+    "As a Dwarf, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Darkvision",
+     "entries": [
+      "You have Darkvision with a range of 120 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Dwarven Resilience",
+     "entries": [
+      "You have Resistance to Poison damage. You also have Advantage on saving throws you make to avoid or end the {@condition Poisoned|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Dwarven Toughness",
+     "entries": [
+      "Your Hit Point maximum increases by 1, and it increases by 1 again whenever you gain a level."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Stonecunning",
+     "entries": [
+      "As a Bonus Action, you gain Tremorsense with a range of 60 feet for 10 minutes. You must be on a stone surface or touching a stone surface to use this Tremorsense. The stone can be natural or worked.",
+      "You can use this Bonus Action a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Elf",
+   "source": "SRD52",
+   "page": 84,
+   "edition": "one",
+   "size": [
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "darkvision": 60,
+   "skillProficiencies": [
+    {
+     "choose": {
+      "from": [
+       "insight",
+       "perception",
+       "survival"
+      ],
+      "count": 1
+     }
+    }
+   ],
+   "entries": [
+    "As an Elf, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Darkvision",
+     "entries": [
+      "You have Darkvision with a range of 60 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Elven Lineage",
+     "entries": [
+      "You are part of a lineage that grants you supernatural abilities. Choose a lineage from the Elven Lineages table. You gain the level 1 benefit of that lineage.",
+      "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+      {
+       "type": "table",
+       "caption": "Elven Lineages",
+       "colLabels": [
+        "Lineage",
+        "Level 1",
+        "Level 3",
+        "Level 5"
+       ],
+       "rows": [
+        [
+         "Drow",
+         "The range of your Darkvision increases to 120 feet. ​ You also know the Dancing Lights cantrip.",
+         "Faerie Fire",
+         "Darkness"
+        ],
+        [
+         "High Elf",
+         "You know the Prestidigitation cantrip. Whenever you finish a Long Rest, you can replace that cantrip with a different cantrip from the Wizard spell list.",
+         "Detect Magic",
+         "Misty Step"
+        ],
+        [
+         "Wood Elf",
+         "Your Speed increases to 35 feet. You also know the Druidcraft cantrip.",
+         "Longstrider",
+         "Pass without Trace"
+        ]
+       ]
+      },
+      "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the lineage)."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Fey Ancestry",
+     "entries": [
+      "You have Advantage on saving throws you make to avoid or end the {@condition Charmed|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Keen Senses",
+     "entries": [
+      "You have proficiency in the Insight, Perception, or Survival skill."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Trance",
+     "entries": [
+      "You don’t need to sleep, and magic can’t put you to sleep. You can finish a Long Rest in 4 hours if you spend those hours in a trancelike meditation, during which you retain consciousness."
+     ]
+    }
+   ],
+   "_versions": [
+    {
+     "name": "Elf; Drow Lineage",
+     "source": "SRD52",
+     "darkvision": 120,
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "dancing lights|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       },
+       "innate": {
+        "3": {
+         "daily": {
+          "1": [
+           "faerie fire|srd52"
+          ]
+         }
+        },
+        "5": {
+         "daily": {
+          "1": [
+           "darkness|srd52"
+          ]
+         }
+        }
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Elven Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Elven Lineage (Drow)",
+        "entries": [
+         "You are part of a lineage that grants you supernatural abilities. Choose a lineage from the Elven Lineages table. You gain the level 1 benefit of that lineage.",
+         "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+         {
+          "type": "table",
+          "caption": "Elven Lineages",
+          "colLabels": [
+           "Lineage",
+           "Level 1",
+           "Level 3",
+           "Level 5"
+          ],
+          "rows": [
+           [
+            "Drow",
+            "The range of your Darkvision increases to 120 feet. ​ You also know the Dancing Lights cantrip.",
+            "Faerie Fire",
+            "Darkness"
+           ],
+           [
+            "High Elf",
+            "You know the Prestidigitation cantrip. Whenever you finish a Long Rest, you can replace that cantrip with a different cantrip from the Wizard spell list.",
+            "Detect Magic",
+            "Misty Step"
+           ],
+           [
+            "Wood Elf",
+            "Your Speed increases to 35 feet. You also know the Druidcraft cantrip.",
+            "Longstrider",
+            "Pass without Trace"
+           ]
+          ]
+         },
+         "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the lineage)."
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Elf; High Elf Lineage",
+     "source": "SRD52",
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "prestidigitation|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       },
+       "innate": {
+        "3": {
+         "daily": {
+          "1": [
+           "detect magic|srd52"
+          ]
+         }
+        },
+        "5": {
+         "daily": {
+          "1": [
+           "misty step|srd52"
+          ]
+         }
+        }
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Elven Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Elven Lineage (High Elf)",
+        "entries": [
+         "You are part of a lineage that grants you supernatural abilities. Choose a lineage from the Elven Lineages table. You gain the level 1 benefit of that lineage.",
+         "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+         {
+          "type": "table",
+          "caption": "Elven Lineages",
+          "colLabels": [
+           "Lineage",
+           "Level 1",
+           "Level 3",
+           "Level 5"
+          ],
+          "rows": [
+           [
+            "Drow",
+            "The range of your Darkvision increases to 120 feet. ​ You also know the Dancing Lights cantrip.",
+            "Faerie Fire",
+            "Darkness"
+           ],
+           [
+            "High Elf",
+            "You know the Prestidigitation cantrip. Whenever you finish a Long Rest, you can replace that cantrip with a different cantrip from the Wizard spell list.",
+            "Detect Magic",
+            "Misty Step"
+           ],
+           [
+            "Wood Elf",
+            "Your Speed increases to 35 feet. You also know the Druidcraft cantrip.",
+            "Longstrider",
+            "Pass without Trace"
+           ]
+          ]
+         },
+         "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the lineage)."
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Elf; Wood Elf Lineage",
+     "source": "SRD52",
+     "speed": 35,
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "druidcraft|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       },
+       "innate": {
+        "3": {
+         "daily": {
+          "1": [
+           "longstrider|srd52"
+          ]
+         }
+        },
+        "5": {
+         "daily": {
+          "1": [
+           "pass without trace|srd52"
+          ]
+         }
+        }
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Elven Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Elven Lineage (Wood Elf)",
+        "entries": [
+         "You are part of a lineage that grants you supernatural abilities. Choose a lineage from the Elven Lineages table. You gain the level 1 benefit of that lineage.",
+         "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+         {
+          "type": "table",
+          "caption": "Elven Lineages",
+          "colLabels": [
+           "Lineage",
+           "Level 1",
+           "Level 3",
+           "Level 5"
+          ],
+          "rows": [
+           [
+            "Drow",
+            "The range of your Darkvision increases to 120 feet. ​ You also know the Dancing Lights cantrip.",
+            "Faerie Fire",
+            "Darkness"
+           ],
+           [
+            "High Elf",
+            "You know the Prestidigitation cantrip. Whenever you finish a Long Rest, you can replace that cantrip with a different cantrip from the Wizard spell list.",
+            "Detect Magic",
+            "Misty Step"
+           ],
+           [
+            "Wood Elf",
+            "Your Speed increases to 35 feet. You also know the Druidcraft cantrip.",
+            "Longstrider",
+            "Pass without Trace"
+           ]
+          ]
+         },
+         "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the lineage)."
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Gnome",
+   "source": "SRD52",
+   "page": 85,
+   "edition": "one",
+   "size": [
+    "S"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "darkvision": 60,
+   "entries": [
+    "As a Gnome, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Darkvision",
+     "entries": [
+      "You have Darkvision with a range of 60 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Gnomish Cunning",
+     "entries": [
+      "You have Advantage on Intelligence, Wisdom, and Charisma saving throws."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Gnomish Lineage",
+     "entries": [
+      "You are part of a lineage that grants you supernatural abilities. Choose one of the following options; whichever one you choose, Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with this trait (choose the ability when you select the lineage):"
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Forest Gnome",
+     "entries": [
+      "You know the Minor Illusion cantrip. You also always have the {@spell Speak with Animals|SRD52} spell prepared. You can cast it without a spell slot a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest. You can also use any spell slots you have to cast the spell."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Rock Gnome",
+     "entries": [
+      "You know the {@spell Mending|SRD52} and {@spell Prestidigitation|SRD52} cantrips. In addition, you can spend 10 minutes casting {@spell Prestidigitation|SRD52} to create a Tiny clockwork device (AC 5, 1 HP), such as a toy, fire starter, or music box. When you create the device, you determine its function by choosing one effect from {@spell Prestidigitation|SRD52}; the device produces that effect whenever you or another creature takes a Bonus Action to activate it with a touch. If the chosen effect has options within it, you choose one of those options for the device when you create it. For example, if you choose the spell’s ignite-extin-guish effect, you determine whether the device ignites or extinguishes fire; the device doesn’t do both. You can have three such devices in existence at a time, and each falls apart 8 hours after its creation or when you dismantle it with a touch as a Utilize action."
+     ]
+    }
+   ],
+   "_versions": [
+    {
+     "name": "Gnome; Forest Gnome Lineage",
+     "source": "SRD52",
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "minor illusion|srd52#c"
+        ]
+       },
+       "prepared": {
+        "1": [
+         "speak with animals|srd52"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Gnomish Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Gnomish Lineage (Forest Gnome)",
+        "entries": [
+         "You are part of a lineage that grants you supernatural abilities. Choose one of the following options; whichever one you choose, Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with this trait (choose the ability when you select the lineage):",
+         "You know the _Minor Illusion _cantrip. You also always have the _Speak with Animals_ spell prepared. You can cast it without a spell slot a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest. You can also use any spell slots you have to cast the spell."
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Gnome; Rock Gnome Lineage",
+     "source": "SRD52",
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "mending|srd52#c",
+         "prestidigitation|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Gnomish Lineage",
+       "items": {
+        "type": "entries",
+        "name": "Gnomish Lineage (Rock Gnome)",
+        "entries": [
+         "You are part of a lineage that grants you supernatural abilities. Choose one of the following options; whichever one you choose, Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with this trait (choose the ability when you select the lineage):",
+         "You know the _Mending_ and _Prestidigitation_ cantrips. In addition, you can spend 10 minutes casting _Prestidigitation_ to create a Tiny clockwork device (AC 5, 1 HP), such as a toy, fire starter, or music box. When you create the device, you determine its function by choosing one effect from _Prestidigitation_; the device produces that effect whenever you or another creature takes a Bonus Action to activate it with a touch. If the chosen effect has options within it, you choose one of those options for the device when you create it. For example, if you choose the spell’s ignite-extin-guish effect, you determine whether the device ignites or extinguishes fire; the device doesn’t do both. You can have three such devices in existence at a time, and each falls apart 8 hours after its creation or when you dismantle it with a touch as a Utilize action."
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Goliath",
+   "source": "SRD52",
+   "page": 85,
+   "edition": "one",
+   "size": [
+    "M"
+   ],
+   "speed": 35,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "entries": [
+    "As a Goliath, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Giant Ancestry",
+     "entries": [
+      "You are descended from Giants. Choose one of the following benefits—a supernatural boon from your ancestry; you can use the chosen benefit a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest:"
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Cloud’s Jaunt (Cloud Giant)",
+     "entries": [
+      "As a Bonus Action, you magically teleport up to 30 feet to an unoccupied space you can see."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Fire’s Burn (Fire Giant)",
+     "entries": [
+      "When you hit a target with an attack roll and deal damage to it, you can also deal {@damage 1d10} Fire damage to that target."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Frost’s Chill (Frost Giant)",
+     "entries": [
+      "When you hit a target with an attack roll and deal damage to it, you can also deal {@damage 1d6} Cold damage to that target and reduce its Speed by 10 feet until the start of your next turn."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Hill’s Tumble (Hill Giant)",
+     "entries": [
+      "When you hit a Large or smaller creature with an attack roll and deal damage to it, you can give that target the {@condition Prone|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Stone’s Endurance (Stone Giant)",
+     "entries": [
+      "When you take damage, you can take a Reaction to roll {@dice 1d12}. Add your Constitution modifier to the number rolled and reduce the damage by that total."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Storm’s Thunder (Storm Giant)",
+     "entries": [
+      "When you take damage from a creature within 60 feet of you, you can take a Reaction to deal {@damage 1d8} Thunder damage to that creature."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Large Form",
+     "entries": [
+      "Starting at character level 5, you can change your size to Large as a Bonus Action if you’re in a big enough space. This transformation lasts for 10 minutes or until you end it (no action required). For that duration, you have Advantage on Strength checks, and your Speed increases by 10 feet. Once you use this trait, you can’t use it again until you finish a Long Rest."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Powerful Build",
+     "entries": [
+      "You have Advantage on any ability check you make to end the {@condition Grappled|SRD52} condition. You also count as one size larger when determining your carrying capacity."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Halfling",
+   "source": "SRD52",
+   "page": 86,
+   "edition": "one",
+   "size": [
+    "S"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "entries": [
+    "As a Halfling, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Brave",
+     "entries": [
+      "You have Advantage on saving throws you make to avoid or end the {@condition Frightened|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Halfling Nimbleness",
+     "entries": [
+      "You can move through the space of any creature that is a size larger than you, but you can’t stop in the same space."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Luck",
+     "entries": [
+      "When you roll a 1 on the {@dice d20} of a D20 Test, you can reroll the die, and you must use the new roll."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Naturally Stealthy",
+     "entries": [
+      "You can take the Hide action even when you are obscured only by a creature that is at least one size larger than you."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Human",
+   "source": "SRD52",
+   "page": 86,
+   "edition": "one",
+   "size": [
+    "S",
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "skillProficiencies": [
+    {
+     "any": 1
+    }
+   ],
+   "feats": [
+    {
+     "anyFromCategory": {
+      "category": [
+       "O"
+      ],
+      "count": 1
+     }
+    }
+   ],
+   "entries": [
+    "As a Human, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Resourceful",
+     "entries": [
+      "You gain Heroic Inspiration whenever you finish a Long Rest."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Skillful",
+     "entries": [
+      "You gain proficiency in one skill of your choice."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Versatile",
+     "entries": [
+      "You gain an Origin feat of your choice (see “Feats”). Skilled is recommended."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Orc",
+   "source": "SRD52",
+   "page": 86,
+   "edition": "one",
+   "size": [
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "darkvision": 120,
+   "entries": [
+    "As an Orc, you have these special traits.",
+    {
+     "type": "entries",
+     "name": "Adrenaline Rush",
+     "entries": [
+      "You can take the Dash action as a Bonus Action. When you do so, you gain a number of Temporary Hit Points equal to your Proficiency Bonus.",
+      "You can use this trait a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Short or Long Rest."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Darkvision",
+     "entries": [
+      "You have Darkvision with a range of 120 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Relentless Endurance",
+     "entries": [
+      "When you are reduced to 0 Hit Points but not killed outright, you can drop to 1 Hit Point instead. Once you use this trait, you can’t do so again until you finish a Long Rest."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Tiefling",
+   "source": "SRD52",
+   "page": 86,
+   "edition": "one",
+   "size": [
+    "S",
+    "M"
+   ],
+   "speed": 30,
+   "creatureTypes": [
+    "humanoid"
+   ],
+   "darkvision": 60,
+   "entries": [
+    "As a Tiefling, you have the following special traits.",
+    {
+     "type": "entries",
+     "name": "Darkvision",
+     "entries": [
+      "You have Darkvision with a range of 60 feet."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Fiendish Legacy",
+     "entries": [
+      "You are the recipient of a legacy that grants you supernatural abilities. Choose a legacy from the Fiendish Legacies table. You gain the level 1 benefit of the chosen legacy.",
+      "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+      "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the legacy).",
+      {
+       "type": "table",
+       "caption": "Fiendish Legacies",
+       "colLabels": [
+        "Legacy",
+        "Level 1"
+       ],
+       "rows": [
+        [
+         "Abyssal",
+         "You have Resistance to Poison damage. You also know the Poison Spray cantrip."
+        ],
+        [
+         "Chthonic",
+         "You have Resistance to Necrotic damage. You also know the Chill Touch cantrip."
+        ],
+        [
+         "Infernal",
+         "You have Resistance to Fire damage. You also know the Fire Bolt cantrip."
+        ]
+       ]
+      }
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Otherworldly Presence",
+     "entries": [
+      "You know the {@spell Thaumaturgy|SRD52} cantrip. When you cast it with this trait, the spell uses the same spellcasting ability you use for your Fiendish Legacy trait.",
+      {
+       "type": "table",
+       "colLabels": [
+        "Level 3",
+        "Level 5"
+       ],
+       "rows": [
+        [
+         "Ray of Sickness",
+         "Hold Person"
+        ],
+        [
+         "False Life",
+         "Ray of Enfeeblement"
+        ],
+        [
+         "Hellish Rebuke",
+         "Darkness"
+        ]
+       ]
+      }
+     ]
+    }
+   ],
+   "_versions": [
+    {
+     "name": "Tiefling; Abyssal Legacy",
+     "source": "SRD52",
+     "resist": [
+      "poison"
+     ],
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "poison spray|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       },
+       "innate": {
+        "3": {
+         "daily": {
+          "1": [
+           "ray of sickness|srd52"
+          ]
+         }
+        },
+        "5": {
+         "daily": {
+          "1": [
+           "hold person|srd52"
+          ]
+         }
+        }
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Fiendish Legacy",
+       "items": {
+        "type": "entries",
+        "name": "Fiendish Legacy (Abyssal)",
+        "entries": [
+         "You are the recipient of a legacy that grants you supernatural abilities. Choose a legacy from the Fiendish Legacies table. You gain the level 1 benefit of the chosen legacy.",
+         "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+         "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the legacy)."
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Tiefling; Chthonic Legacy",
+     "source": "SRD52",
+     "resist": [
+      "necrotic"
+     ],
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "chill touch|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       },
+       "innate": {
+        "3": {
+         "daily": {
+          "1": [
+           "false life|srd52"
+          ]
+         }
+        },
+        "5": {
+         "daily": {
+          "1": [
+           "ray of enfeeblement|srd52"
+          ]
+         }
+        }
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Fiendish Legacy",
+       "items": {
+        "type": "entries",
+        "name": "Fiendish Legacy (Chthonic)",
+        "entries": [
+         "You are the recipient of a legacy that grants you supernatural abilities. Choose a legacy from the Fiendish Legacies table. You gain the level 1 benefit of the chosen legacy.",
+         "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+         "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the legacy)."
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "Tiefling; Infernal Legacy",
+     "source": "SRD52",
+     "resist": [
+      "fire"
+     ],
+     "additionalSpells": [
+      {
+       "known": {
+        "1": [
+         "fire bolt|srd52#c"
+        ]
+       },
+       "ability": {
+        "choose": [
+         "int",
+         "wis",
+         "cha"
+        ]
+       },
+       "innate": {
+        "3": {
+         "daily": {
+          "1": [
+           "hellish rebuke|srd52"
+          ]
+         }
+        },
+        "5": {
+         "daily": {
+          "1": [
+           "darkness|srd52"
+          ]
+         }
+        }
+       }
+      }
+     ],
+     "_mod": {
+      "entries": {
+       "mode": "replaceArr",
+       "replace": "Fiendish Legacy",
+       "items": {
+        "type": "entries",
+        "name": "Fiendish Legacy (Infernal)",
+        "entries": [
+         "You are the recipient of a legacy that grants you supernatural abilities. Choose a legacy from the Fiendish Legacies table. You gain the level 1 benefit of the chosen legacy.",
+         "When you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.",
+         "Intelligence, Wisdom, or Charisma is your spell-casting ability for the spells you cast with this trait (choose the ability when you select the legacy)."
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,166 @@
+{
+ "skill": [
+  {
+   "name": "Acrobatics",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "dex",
+   "entries": [
+    "Stay on your feet in a tricky situation, or perform an acrobatic stunt."
+   ]
+  },
+  {
+   "name": "Animal Handling",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "wis",
+   "entries": [
+    "Calm or train an animal, or get an animal to behave in a certain way."
+   ]
+  },
+  {
+   "name": "Arcana",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "int",
+   "entries": [
+    "Recall lore about spells, magic items, and the planes of existence."
+   ]
+  },
+  {
+   "name": "Athletics",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "str",
+   "entries": [
+    "Jump farther than normal, stay afloat in rough water, or break something."
+   ]
+  },
+  {
+   "name": "Deception",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "cha",
+   "entries": [
+    "Tell a convincing lie, or wear a disguise convincingly."
+   ]
+  },
+  {
+   "name": "History",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "int",
+   "entries": [
+    "Recall lore about historical events, people, nations, and cultures."
+   ]
+  },
+  {
+   "name": "Insight",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "wis",
+   "entries": [
+    "Discern a person’s mood and intentions."
+   ]
+  },
+  {
+   "name": "Intimidation",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "cha",
+   "entries": [
+    "Awe or threaten someone into doing what you want."
+   ]
+  },
+  {
+   "name": "Investigation",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "int",
+   "entries": [
+    "Find obscure information in books, or deduce how something works."
+   ]
+  },
+  {
+   "name": "Medicine",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "wis",
+   "entries": [
+    "Diagnose an illness, or determine what killed the recently slain."
+   ]
+  },
+  {
+   "name": "Nature",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "int",
+   "entries": [
+    "Recall lore about terrain, plants, animals, and weather."
+   ]
+  },
+  {
+   "name": "Perception",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "wis",
+   "entries": [
+    "Using a combination of senses, notice something that’s easy to miss."
+   ]
+  },
+  {
+   "name": "Performance",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "cha",
+   "entries": [
+    "Act, tell a story, perform music, or dance."
+   ]
+  },
+  {
+   "name": "Persuasion",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "cha",
+   "entries": [
+    "Honestly and graciously convince someone of something."
+   ]
+  },
+  {
+   "name": "Religion",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "int",
+   "entries": [
+    "Recall lore about gods, religious rituals, and holy symbols."
+   ]
+  },
+  {
+   "name": "Sleight of Hand",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "dex",
+   "entries": [
+    "Pick a pocket, conceal a handheld object, or perform legerdemain."
+   ]
+  },
+  {
+   "name": "Stealth",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "dex",
+   "entries": [
+    "Escape notice by moving quietly and hiding behind things."
+   ]
+  },
+  {
+   "name": "Survival",
+   "source": "SRD52",
+   "page": 9,
+   "ability": "wis",
+   "entries": [
+    "Follow tracks, forage, find a trail, or avoid natural hazards."
+   ]
+  }
+ ]
+}

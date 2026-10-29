@@ -1,0 +1,846 @@
+{
+ "class": [
+  {
+   "name": "Ranger",
+   "source": "SRD52",
+   "page": 57,
+   "edition": "one",
+   "hd": {
+    "number": 1,
+    "faces": 10
+   },
+   "proficiency": [
+    "str",
+    "dex"
+   ],
+   "primaryAbility": [
+    {
+     "dex": true,
+     "wis": true
+    }
+   ],
+   "startingProficiencies": {
+    "armor": [
+     "light",
+     "medium",
+     "shield"
+    ],
+    "weapons": [
+     "simple",
+     "martial"
+    ],
+    "skills": [
+     {
+      "choose": {
+       "from": [
+        "animal handling",
+        "athletics",
+        "insight",
+        "investigation",
+        "nature",
+        "perception",
+        "stealth",
+        "survival"
+       ],
+       "count": 3
+      }
+     }
+    ]
+   },
+   "startingEquipment": {
+    "default": [
+     "Choose A or B: (A) Studded Leather Armor, Scimitar, Shortsword, Longbow, 20 Arrows, Quiver, Druidic Focus (sprig of mistletoe), Explorer’s Pack, and 7 GP; or (B) 150 GP"
+    ],
+    "defaultData": [
+     {
+      "A": [
+       "studded leather armor|srd52",
+       "scimitar|srd52",
+       "shortsword|srd52",
+       "longbow|srd52",
+       {
+        "item": "arrow|srd52",
+        "quantity": 20
+       },
+       "quiver|srd52",
+       {
+        "item": "sprig of mistletoe|srd52",
+        "displayName": "Druidic Focus (sprig of mistletoe)"
+       },
+       "explorer’s pack|srd52",
+       {
+        "value": 700
+       }
+      ],
+      "B": [
+       {
+        "value": 15000
+       }
+      ]
+     }
+    ]
+   },
+   "casterProgression": "1/2",
+   "spellcastingAbility": "wis",
+   "preparedSpellsProgression": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    6,
+    7,
+    7,
+    9,
+    9,
+    10,
+    10,
+    11,
+    11,
+    12,
+    12,
+    14,
+    14,
+    15,
+    15
+   ],
+   "classTableGroups": [
+    {
+     "colLabels": [
+      "Favored Enemy",
+      "Prepared Spells"
+     ],
+     "rows": [
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       4,
+       10
+      ],
+      [
+       4,
+       10
+      ],
+      [
+       5,
+       11
+      ],
+      [
+       5,
+       11
+      ],
+      [
+       5,
+       12
+      ],
+      [
+       5,
+       12
+      ],
+      [
+       6,
+       14
+      ],
+      [
+       6,
+       14
+      ],
+      [
+       6,
+       15
+      ],
+      [
+       6,
+       15
+      ]
+     ]
+    },
+    {
+     "title": "Spell Slots per Spell Level",
+     "colLabels": [
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "5th"
+     ],
+     "rowsSpellProgression": [
+      [
+       2,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       2,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       3,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       3,
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       2,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       2,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       0,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       2,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       2,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       0,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       1,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       1,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       2,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       2,
+       0
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       1
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2
+      ],
+      [
+       4,
+       3,
+       3,
+       3,
+       2
+      ]
+     ]
+    }
+   ],
+   "subclassTitle": "Ranger Subclass",
+   "classFeatures": [
+    "Spellcasting|Ranger|SRD52|1",
+    "Favored Enemy|Ranger|SRD52|1",
+    "Weapon Mastery|Ranger|SRD52|1",
+    "Deft Explorer|Ranger|SRD52|2",
+    "Fighting Style|Ranger|SRD52|2",
+    {
+     "classFeature": "Ranger Subclass|Ranger|SRD52|3",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Ranger|SRD52|4",
+    "Extra Attack|Ranger|SRD52|5",
+    "Roving|Ranger|SRD52|6",
+    {
+     "classFeature": "Subclass Feature|Ranger|SRD52|7",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Ranger|SRD52|8",
+    "Expertise|Ranger|SRD52|9",
+    "Tireless|Ranger|SRD52|10",
+    {
+     "classFeature": "Subclass Feature|Ranger|SRD52|11",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Ranger|SRD52|12",
+    "Relentless Hunter|Ranger|SRD52|13",
+    "Nature’s Veil|Ranger|SRD52|14",
+    {
+     "classFeature": "Subclass Feature|Ranger|SRD52|15",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Ranger|SRD52|16",
+    "Precise Hunter|Ranger|SRD52|17",
+    "Feral Senses|Ranger|SRD52|18",
+    "Epic Boon|Ranger|SRD52|19",
+    "Foe Slayer|Ranger|SRD52|20"
+   ]
+  }
+ ],
+ "subclass": [
+  {
+   "name": "Hunter",
+   "shortName": "Hunter",
+   "source": "SRD52",
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "page": 57,
+   "edition": "one",
+   "subclassFeatures": [
+    "Hunter|Ranger|SRD52|Hunter|SRD52|3",
+    "Defensive Tactics|Ranger|SRD52|Hunter|SRD52|7",
+    "Superior Hunter’s Prey|Ranger|SRD52|Hunter|SRD52|11",
+    "Superior Hunter’s Defense|Ranger|SRD52|Hunter|SRD52|15"
+   ]
+  }
+ ],
+ "classFeature": [
+  {
+   "name": "Spellcasting",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "You have learned to channel the magical essence of nature to cast spells. See “Spells” for the rules on spellcasting. The information below details how you use those rules with Ranger spells, which appear in the Ranger spell list later in the class’s description.",
+    {
+     "type": "entries",
+     "name": "Spell Slots",
+     "entries": [
+      "The Ranger Features table shows how many spell slots you have to cast your level 1+ spells. You regain all expended slots when you finish a Long Rest.",
+      "Prepared Spells of Level 1+. You prepare the list of level 1+ spells that are available for you to cast with this feature. To start, choose two level 1 Ranger spells. {@spell Cure Wounds|SRD52} and {@spell Ensnaring Strike|SRD52} are recommended.",
+      "The number of spells on your list increases as you gain Ranger levels, as shown in the Prepared Spells column of the Ranger Features table. Whenever that number increases, choose additional Ranger spells until the number of spells on your list matches the number in the Ranger Features table. The chosen spells must be of a level for which you have spell slots. For example, if you’re a level 5 Ranger, your list of prepared spells can include six Ranger spells of level 1 or 2 in any combination.",
+      "If another Ranger feature gives you spells that you always have prepared, those spells don’t count against the number of spells you can prepare with this feature, but those spells otherwise count as Ranger spells for you."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Changing Your Prepared Spells",
+     "entries": [
+      "Whenever you finish a Long Rest, you can replace one spell on your list with another Ranger spell for which you have spell slots."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Spellcasting Ability",
+     "entries": [
+      "Wisdom is your spellcasting ability for your Ranger spells."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Spellcasting Focus",
+     "entries": [
+      "You can use a Druidic Focus as a Spellcasting Focus for your Ranger spells."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Favored Enemy",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "You always have the {@spell Hunter’s Mark|SRD52} spell prepared. You can cast it twice without expending a spell slot, and you regain all expended uses of this ability when you finish a Long Rest.",
+    "The number of times you can cast the spell without a spell slot increases when you reach certain Ranger levels, as shown in the Favored Enemy column of the Ranger Features table."
+   ]
+  },
+  {
+   "name": "Weapon Mastery",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your choice with which you have proficiency, such as Longbows and Shortswords.",
+    "Whenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Scimitars and Longswords."
+   ]
+  },
+  {
+   "name": "Deft Explorer",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 2,
+   "entries": [
+    "Thanks to your travels, you gain the following benefits.",
+    {
+     "type": "entries",
+     "name": "Expertise",
+     "entries": [
+      "Choose one of your skill proficiencies with which you lack Expertise. You gain Expertise in that skill."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Languages",
+     "entries": [
+      "You know two languages of your choice from the language tables in “Character Creation.”"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Fighting Style",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 2,
+   "entries": [
+    "You gain a Fighting Style feat of your choice (see “Feats”). Instead of choosing one of those feats, you can choose the option below.",
+    {
+     "type": "entries",
+     "name": "Druidic Warrior",
+     "entries": [
+      "You learn two Druid cantrips of your choice (see the Druid class’s section for a list of Druid spells). {@spell Guidance|SRD52} and {@spell Starry Wisp|SRD52} are recommended. The chosen cantrips count as Ranger spells for you, and Wisdom is your spellcasting ability for them. Whenever you gain a Ranger level, you can replace one of these cantrips with another Druid cantrip."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ranger Subclass",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "You gain a Ranger subclass of your choice. The Hunter subclass is detailed after this class’s description. A subclass is a specialization that grants you features at certain Ranger levels. For the rest of your career, you gain each of your subclass’s features that are of your Ranger level or lower."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 4,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Extra Attack",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 5,
+   "entries": [
+    "You can attack twice instead of once whenever you take the Attack action on your turn."
+   ]
+  },
+  {
+   "name": "Roving",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 6,
+   "entries": [
+    "Your Speed increases by 10 feet while you aren’t wearing Heavy armor. You also have a Climb Speed and a Swim Speed equal to your Speed."
+   ]
+  },
+  {
+   "name": "Subclass Feature",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 7,
+   "entries": [
+    "You gain a feature from your Ranger subclass."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 8,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Expertise",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 9,
+   "entries": [
+    "Choose two of your skill proficiencies with which you lack Expertise. You gain Expertise in those skills."
+   ]
+  },
+  {
+   "name": "Tireless",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 10,
+   "entries": [
+    "Primal forces now help fuel you on your journeys, granting you the following benefits.",
+    {
+     "type": "entries",
+     "name": "Temporary Hit Points",
+     "entries": [
+      "As a Magic action, you can give yourself a number of Temporary Hit Points equal to {@dice 1d8} plus your Wisdom modifier (minimum of 1). You can use this action a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Decrease Exhaustion",
+     "entries": [
+      "Whenever you finish a Short Rest, your Exhaustion level, if any, decreases by 1."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Subclass Feature",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 11,
+   "entries": [
+    "You gain a feature from your Ranger subclass."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 12,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Relentless Hunter",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 13,
+   "entries": [
+    "Taking damage can’t break your Concentration on {@spell Hunter’s Mark|SRD52}."
+   ]
+  },
+  {
+   "name": "Nature’s Veil",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 14,
+   "entries": [
+    "You invoke spirits of nature to magically hide yourself. As a Bonus Action, you can give yourself the {@condition Invisible|SRD52} condition until the end of your next turn.",
+    "You can use this feature a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest."
+   ]
+  },
+  {
+   "name": "Subclass Feature",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 15,
+   "entries": [
+    "You gain a feature from your Ranger subclass."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 16,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Ranger levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Precise Hunter",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 17,
+   "entries": [
+    "You have Advantage on attack rolls against the creature currently marked by your {@spell Hunter’s Mark|SRD52}."
+   ]
+  },
+  {
+   "name": "Feral Senses",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 18,
+   "entries": [
+    "Your connection to the forces of nature grants you Blindsight with a range of 30 feet."
+   ]
+  },
+  {
+   "name": "Epic Boon",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 19,
+   "entries": [
+    "You gain an Epic Boon feat (see “Feats”) or another feat of your choice for which you qualify. Boon of Dimensional Travel is recommended."
+   ]
+  },
+  {
+   "name": "Foe Slayer",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "level": 20,
+   "entries": [
+    "The damage die of your {@spell Hunter’s Mark|SRD52} is a {@dice d10} rather than a {@dice d6}."
+   ]
+  }
+ ],
+ "subclassFeature": [
+  {
+   "name": "Hunter’s Lore",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "subclassShortName": "Hunter",
+   "subclassSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "You can call on the forces of nature to reveal certain strengths and weaknesses of your prey. While a creature is marked by your {@spell Hunter’s Mark|SRD52}, you know whether that creature has any Immunities, Resistances, or Vulnerabilities, and if the creature has any, you know what they are."
+   ]
+  },
+  {
+   "name": "Hunter’s Prey",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "subclassShortName": "Hunter",
+   "subclassSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "You gain one of the following feature options of your choice. Whenever you finish a Short or Long Rest, you can replace the chosen option with the other one.",
+    {
+     "type": "entries",
+     "name": "Colossus Slayer",
+     "entries": [
+      "Your tenacity can wear down even the most resilient foes. When you hit a creature with a weapon, the weapon deals an extra {@dice 1d8} damage to the target if it’s missing any of its Hit Points. You can deal this extra damage only once per turn."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Horde Breaker",
+     "entries": [
+      "Once on each of your turns when you make an attack with a weapon, you can make another attack with the same weapon against a different creature that is within 5 feet of the original target, that is within the weapon’s range, and that you haven’t attacked this turn."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Hunter",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "subclassShortName": "Hunter",
+   "subclassSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "Protect Nature and People from Destruction You stalk prey in the wilds and elsewhere, using your abilities as a Hunter to protect nature and people everywhere from forces that would destroy them.",
+    {
+     "type": "refSubclassFeature",
+     "subclassFeature": "Hunter’s Lore|Ranger|SRD52|Hunter|SRD52|3"
+    },
+    {
+     "type": "refSubclassFeature",
+     "subclassFeature": "Hunter’s Prey|Ranger|SRD52|Hunter|SRD52|3"
+    }
+   ]
+  },
+  {
+   "name": "Defensive Tactics",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "subclassShortName": "Hunter",
+   "subclassSource": "SRD52",
+   "level": 7,
+   "entries": [
+    "You gain one of the following feature options of your choice. Whenever you finish a Short or Long Rest, you can replace the chosen option with the other one.",
+    {
+     "type": "entries",
+     "name": "Escape the Horde",
+     "entries": [
+      "Opportunity Attacks have Disadvantage against you."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Multiattack Defense",
+     "entries": [
+      "When a creature hits you with an attack roll, that creature has Disadvantage on all other attack rolls against you this turn."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Superior Hunter’s Prey",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "subclassShortName": "Hunter",
+   "subclassSource": "SRD52",
+   "level": 11,
+   "entries": [
+    "Once per turn when you deal damage to a creature marked by your {@spell Hunter’s Mark|SRD52}, you can also deal that spell’s extra damage to a different creature that you can see within 30 feet of the first creature."
+   ]
+  },
+  {
+   "name": "Superior Hunter’s Defense",
+   "source": "SRD52",
+   "page": 57,
+   "className": "Ranger",
+   "classSource": "SRD52",
+   "subclassShortName": "Hunter",
+   "subclassSource": "SRD52",
+   "level": 15,
+   "entries": [
+    "When you take damage, you can take a Reaction to give yourself Resistance to that damage and any other damage of the same type until the end of the current turn."
+   ]
+  }
+ ]
+}

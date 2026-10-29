@@ -1,0 +1,156 @@
+{
+ "language": [
+  {
+   "name": "Common",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Common Sign Language",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Draconic",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Dwarvish",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Elvish",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Giant",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Gnomish",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Goblin",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Halfling",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Orc",
+   "source": "SRD52",
+   "type": "standard",
+   "entries": [
+    "A standard language."
+   ]
+  },
+  {
+   "name": "Abyssal",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Primordial",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "Primordial includes the Aquan, Auran, Ignan, and Terran dialects. Creatures that know one of these dialects can communicate with those that know a different one."
+   ]
+  },
+  {
+   "name": "Celestial",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Sylvan",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Deep Speech",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Thieves’ Cant",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Druidic",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Undercommon",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  },
+  {
+   "name": "Infernal",
+   "source": "SRD52",
+   "type": "rare",
+   "entries": [
+    "A rare language."
+   ]
+  }
+ ]
+}
