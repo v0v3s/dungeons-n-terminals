@@ -301,6 +301,8 @@ def gear(lines, pdf_path):
             if (lb := weight(r["Weight"])) is not None:
                 item["weight"] = lb
             out.append(item)
+    # Ammunition is a base item: magic ammunition is made from it.
+    ammunition = []
     t = titles["Ammunition"]
     for r in _column_grid(pdf_path, t.page, t.top, *_column(t)):
         # Its columns are close and flush right: read the row as a whole.
@@ -311,8 +313,8 @@ def gear(lines, pdf_path):
         cp = cost(price)
         item["value"] = cp // amount if cp % amount == 0 else round(cp / amount, 2)
         item["weight"] = round(weight(lb) / amount, 3)
-        out.append(item)
-    return out, tools
+        ammunition.append(item)
+    return out, tools, ammunition
 
 
 def _inverted(name):

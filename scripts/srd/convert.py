@@ -16,7 +16,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 import backgrounds  # noqa: E402
 import classes  # noqa: E402
 import feats  # noqa: E402
+import glossary  # noqa: E402
 import items  # noqa: E402
+import magicitems  # noqa: E402
 import options  # noqa: E402
 import pdf  # noqa: E402
 import species  # noqa: E402
@@ -25,7 +27,7 @@ import tags  # noqa: E402
 from tags import SOURCE  # noqa: E402
 
 # Where each part of the SRD is (its pages).
-PAGES = {"classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "equipment": (89, 101), "spells": (107, 175)}
+PAGES = {"skills": (9, 9), "languages": (20, 20), "classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "equipment": (89, 101), "spells": (107, 175), "glossary": (176, 191), "magic items": (204, 253)}
 
 BOOK = {
     "name": "System Reference Document 5.2.1",
@@ -90,12 +92,25 @@ def main(pdf_path, out):
     write(f"{out}/races.json", {"race": races})
     print(f"{len(found_feats)} feats, {len(races)} species")
     gear_lines = pdf.lines(pdf_path, *PAGES["equipment"])
-    base = items.weapons(gear_lines, pdf_path) + items.armor(gear_lines, pdf_path)
+    gear, tools, ammunition = items.gear(gear_lines, pdf_path)
+    base = items.weapons(gear_lines, pdf_path) + items.armor(gear_lines, pdf_path) + ammunition
     write(f"{out}/items-base.json", {"baseitem": base, "itemMastery": items.masteries(gear_lines, pdf_path)})
-    gear, tools = items.gear(gear_lines, pdf_path)
-    things = [dict(i, entries=tagged(i["entries"])) if "entries" in i else i for i in gear + tools + items.mounts(gear_lines, pdf_path)]
+    magic, variants = magicitems.magic_items(pdf.lines(pdf_path, *PAGES["magic items"]), pdf_path, {b["name"]: b for b in base})
+    things = [dict(i, entries=tagged(i["entries"])) if "entries" in i else i for i in gear + tools + items.mounts(gear_lines, pdf_path) + magic]
     write(f"{out}/items.json", {"item": things})
-    print(f"{len(base)} weapons and armor, {len(things)} items")
+    for v in variants:
+        v["inherits"]["entries"] = tagged(v["inherits"]["entries"])
+    write(f"{out}/magicvariants.json", {"magicvariant": variants})
+    print(f"{len(base)} weapons, armor and ammunition, {len(things)} items, {len(variants)} magic variants")
+    rules = glossary.glossary(pdf.lines(pdf_path, *PAGES["glossary"]), pdf_path)
+    rules = {k: [dict(e, entries=tagged(e["entries"])) for e in v] for k, v in rules.items()}
+    write(f"{out}/conditionsdiseases.json", {"condition": rules["condition"]})
+    write(f"{out}/actions.json", {"action": rules["action"]})
+    write(f"{out}/senses.json", {"sense": rules["sense"]})
+    write(f"{out}/variantrules.json", {"variantrule": rules["variantrule"]})
+    write(f"{out}/skills.json", {"skill": glossary.skills(pdf.lines(pdf_path, *PAGES["skills"]), pdf_path)})
+    write(f"{out}/languages.json", {"language": glossary.languages(pdf.lines(pdf_path, *PAGES["languages"]), pdf_path)})
+    print(", ".join(f"{len(v)} {k}s" for k, v in rules.items()))
     missing = unknown_items(found["class"], [json.load(open(f"{out}/backgrounds.json"))["background"]][0], base + things)
     if missing:
         print("items named but not in the data:", ", ".join(sorted(missing)))
