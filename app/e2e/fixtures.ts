@@ -3,7 +3,7 @@
 // commands: the app reset, the test data imported (e2e/data), the campaign
 // and the test party (e2e/characters.json), unless it asks for less.
 import { test as base, chromium, expect, type Locator, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as android from "./android";
@@ -20,6 +20,20 @@ export const CAMPAIGN = PARTY.campaign;
 /// Call one of the app's commands, as the frontend does.
 export function invoke<T = unknown>(page: Page, cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   return page.evaluate(([cmd, args]) => (window as any).__TAURI_INTERNALS__.invoke(cmd, args), [cmd, args] as const) as Promise<T>;
+}
+
+/// The tests' rules library (e2e/rules), given to the app instead of the
+/// one on the web.
+export async function useTestRulesLibrary(page: Page) {
+  const root = join(E2E, "rules");
+  const files: [string, string][] = [];
+  for (const folder of readdirSync(root).sort()) {
+    if (!statSync(join(root, folder)).isDirectory()) continue;
+    for (const name of readdirSync(join(root, folder)).sort()) {
+      if (name.endsWith(".toml")) files.push([`${folder}/${name}`, readFileSync(join(root, folder, name), "utf8")]);
+    }
+  }
+  await invoke(page, "e2e_rules_library", { files });
 }
 
 /// The test data zip (made by the runner script from e2e/data and e2e/homebrew).
@@ -131,13 +145,23 @@ export { expect };
 export const phone = (page: Page) => page.evaluate(() => matchMedia("(max-width: 760px)").matches);
 
 /// Go to a section: through the menu (☰) on a phone, the header on a desktop.
-export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data") {
+/// A tab of the Data screen.
+export type DataTab = "Import" | "Rules" | "Backups" | "Problems" | "About";
+
+/// Go to a section; to Data, on one of its tabs (Import, else).
+export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data", tab?: DataTab) {
   const menu = page.getByRole("button", { name: "Menu", exact: true });
   if (await menu.isVisible()) await menu.click();
   // The desktop header numbers them ("2 Characters").
   // A section, not something inside one (the character's Notes tab).
   const button = page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).and(page.locator(":not(.child)"));
   await button.filter({ visible: true }).first().click();
+  if (tab) await dataTab(page, tab);
+}
+
+/// A tab of the open Data screen.
+export async function dataTab(page: Page, tab: DataTab) {
+  await page.getByRole("combobox", { name: "Data" }).selectOption(tab);
 }
 
 /// Open a character's sheet (Tester by default) on a tab.
@@ -214,7 +238,19 @@ export async function pick(page: Page, labels: string[]) {
   await page
     .waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 2000 })
     .catch(() => {});
-  const picker = page.getByRole("dialog").last();
+  // The picker offering the first choice (the question before may still
+  // be up while the app works out the next), else the last one open.
+  // Held by its place: filtering its list must not lose it.
+  const dialogs = page.getByRole("dialog");
+  const offering = dialogs.filter({ has: page.locator("li button", { hasText: labels[0] }) });
+  await offering.last().waitFor({ timeout: 5000 }).catch(() => {});
+  let picker = dialogs.last();
+  for (let i = (await dialogs.count()) - 1; i >= 0; i--) {
+    if (await dialogs.nth(i).locator("li button", { hasText: labels[0] }).count()) {
+      picker = dialogs.nth(i);
+      break;
+    }
+  }
   // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
   // fewer need "done".
   const counter = picker.locator(".count");
@@ -226,6 +262,10 @@ export async function pick(page: Page, labels: string[]) {
     await picker.locator("li button", { hasText: label }).first().click();
   }
   if (labels.length < of) await picker.getByRole("button", { name: "done" }).click();
+  // Answered: wait for the next question (the app may take a moment), so
+  // the next pick does not find this one.
+  const last = labels[labels.length - 1];
+  if (last) await expect(picker.locator("li button", { hasText: last })).toHaveCount(0, { timeout: 5000 }).catch(() => {});
 }
 
 /// The status line under the sheet (messages and rolls).

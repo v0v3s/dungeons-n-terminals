@@ -8,6 +8,7 @@ mod folders;
 mod homebrew;
 mod library;
 mod notes;
+mod rules_library;
 
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -32,6 +33,10 @@ pub struct Inner {
     pub creation: Option<NewCharacter>,
     /// The homebrew entry being edited.
     pub editing: Option<dnt_core::homebrew::EntryRef>,
+    /// The rules library's files, as last read.
+    pub rules_files: Option<Vec<(String, String)>>,
+    /// The tests' rules library, read instead of the web's.
+    pub rules_test: Option<Vec<(String, String)>>,
 }
 
 impl Inner {
@@ -136,7 +141,16 @@ pub fn run() {
                 let start = std::time::Instant::now();
                 let search = ws.lib.as_ref().map(|lib| Search::new(lib, ws.filter()));
                 ws.progress.done.push(("Indexing the compendium".into(), start.elapsed()));
-                *state.inner.lock().unwrap() = Some(Inner { ws, search, sheet: None, levelup: None, creation: None, editing: None });
+                *state.inner.lock().unwrap() = Some(Inner {
+                    ws,
+                    search,
+                    sheet: None,
+                    levelup: None,
+                    creation: None,
+                    editing: None,
+                    rules_files: None,
+                    rules_test: None,
+                });
                 state.ready.notify_all();
             });
             Ok(())
@@ -161,6 +175,9 @@ pub fn run() {
             e2e::e2e_stash_zip,
             e2e::e2e_read,
             e2e::e2e_put_file,
+            rules_library::rules_library,
+            rules_library::rules_library_import,
+            rules_library::e2e_rules_library,
             library::clear_imported,
             library::reset_app,
             library::sources,

@@ -1,5 +1,5 @@
-<!-- Getting started, for a new app (or one just reset): import the data,
-     create a campaign, then start. Each step says what it is for and does
+<!-- Getting started, for a new app (or one just reset): the rules (built
+     in, more imported), create a campaign, then start. Each step says what it is for and does
      it in place; the done ones are ticked. -->
 <script lang="ts">
   import { openZip } from "./files";
@@ -67,20 +67,16 @@
       </div>
     </div>
 
-    <Pane title="{mark(1)} 1 · Import the data" focused={step === 1} class={step > 1 ? "done" : ""}>
-      {#if step === 1}
-        <p>
-          dnt ships no game content: it reads the rules, spells, classes and items from data you import, as a
-          <b>zip</b>.
-        </p>
-        <p class="dim">
-          On a computer, the project's <code>scripts/pack-data.sh</code> makes a small zip of just what dnt reads,
-          from a data repository and a homebrew collection. Put the zip on this device, then import it.
-        </p>
-        <div><button class="primary" onclick={importZip}>Import a zip…</button></div>
-      {:else}
-        <p class="dim">{imported ? `${imported}.` : `${status.entries} entries.`} More data or homebrew can be imported later, under Data.</p>
-      {/if}
+    <Pane title="{mark(1)} 1 · The rules" focused={step === 1} class={step > 1 ? "done" : ""}>
+      <p>
+        The rules of the System Reference Document 5.2.1 are built in: {status.entries} entries.
+        {imported ? `${imported}.` : ""}
+      </p>
+      <p class="dim">
+        Your own books and homebrew can be imported as a <b>zip</b>, now or later under Data. On a computer, the
+        project's <code>scripts/pack-data.sh</code> makes a small zip of just what dnt reads.
+      </p>
+      <div><button class={step === 1 ? "primary" : "ghost"} onclick={importZip}>Import a zip…</button></div>
     </Pane>
 
     <Pane title="{mark(2)} 2 · Create a campaign" focused={step === 2} class={step !== 2 ? "done" : ""}>

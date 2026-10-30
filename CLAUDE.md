@@ -15,10 +15,12 @@ both call — ships in the same change with:
      `Tui::scenario("<id>", Home::…)` and drives the real binary with keys;
    - app: `app/e2e/*.spec.ts`, a test tagged `{ tag: "@<id>" }` that taps
      and types like a user (the same specs run on Android and Windows).
-3. **The test data it needs**, in `e2e/data` (invented content only,
-   validated by `cargo run -p dnt-data --example validate -- e2e/data`) or
-   the party in `e2e/characters.json`, when the feature reads something the
-   data does not have yet.
+3. **The test data it needs**: tests use the built-in SRD 5.2.1
+   (`data/srd`, made by `scripts/srd`; never edited by hand) and the party
+   in `e2e/characters.json`. Only what the SRD lacks goes in the small
+   supplement `e2e/data` (invented content only, validated by
+   `cargo run -p dnt-data --example validate -- e2e/data`) or the test
+   homebrew `e2e/homebrew`.
 
 A feature is not done until its scenario tests pass on every target. Fixing
 a bug adds the test that would have caught it. Removing a feature removes
@@ -31,7 +33,8 @@ Running them: `e2e/README.md`.
 ## Also
 
 - Never mention the source site of the game data, anywhere (code, docs,
-  commits). The data format is "the data format"; test data is invented.
+  commits). The data format is "the data format"; test data is the SRD
+  or invented.
 - Commits follow Conventional Commits; the PR title sets the release
   version. Changes go under `## Unreleased` in `CHANGELOG.md`.
 - `cargo fmt --all` and `cargo clippy --workspace --all-targets` before

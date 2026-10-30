@@ -18,11 +18,11 @@ fn keep(t: &Tui, name: &str, shows: &str) {
 #[test]
 fn screenshots_of_the_terminal_app() {
     let mut t = Tui::for_docs(Home::empty());
-    t.wait("Getting started");
-    keep(&t, "tui-welcome", "Getting started");
+    t.wait("Create a campaign");
+    keep(&t, "tui-welcome", "Create a campaign");
 
     let mut t = Tui::for_docs(Home::party());
-    t.send("2").send("G").wait("Kindred · Archivist · Mage 1");
+    t.send("2").send("G").wait("Human · Sage · Wizard 1");
     t.send(ENTER).wait("Overview");
     keep(&t, "tui-sheet", "Tester");
 
@@ -36,8 +36,8 @@ fn screenshots_of_the_terminal_app() {
     keep(&t, "tui-creation", "Choose a species");
 
     let mut t = Tui::for_docs(Home::campaign());
-    t.send("1").send("/").typed("ember bolt").send(ENTER).wait("Using a Higher-Level Spell Slot");
-    keep(&t, "tui-compendium", "Ember Bolt");
+    t.send("1").send("/").typed("fireball").send(ENTER).wait("Using a Higher-Level Spell Slot");
+    keep(&t, "tui-compendium", "Fireball");
 
     let mut t = Tui::for_docs(Home::campaign());
     t.send("3").wait("Sessions").send("c").wait("Campaign");

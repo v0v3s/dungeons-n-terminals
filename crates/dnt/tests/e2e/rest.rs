@@ -32,8 +32,8 @@ fn a_short_rest_brings_back_a_short_rest_tracker() {
     wait_status(&mut t, "Tracking Lucky Break");
     t.send("a").send("Long Watch, 1, long").send(ENTER);
     wait_status(&mut t, "Tracking Long Watch");
-    // The trackers come right after the skills: 12 + 3 attacks + 18 skills.
-    to(&mut t, 33);
+    // The trackers come right after the skills: 12 + 4 attacks + 18 skills.
+    to(&mut t, 34);
     t.send(" ");
     wait_status(&mut t, "Used Lucky Break");
     t.send("j").send(" ");
@@ -52,7 +52,7 @@ fn a_long_rest_brings_back_hit_points_slots_and_hit_dice() {
     open(&mut t, "Tester");
     t.send("d").send("3").send(ENTER);
     wait_status(&mut t, "Damage 3");
-    assert_eq!(hit_points(&t), "4/7");
+    assert_eq!(hit_points(&t), "5/8");
     // The last items: the level 1 slots, then the hit die.
     t.send("G").send(" ");
     wait_status(&mut t, "Used d6 hit die");
@@ -63,11 +63,11 @@ fn a_long_rest_brings_back_hit_points_slots_and_hit_dice() {
     // Not without confirming.
     t.send("L").wait("Take a long rest?");
     t.send(ESC).wait_gone("Take a long rest?");
-    assert_eq!(hit_points(&t), "4/7");
+    assert_eq!(hit_points(&t), "5/8");
     t.send("L").wait("Take a long rest?");
     t.send("y");
     wait_status(&mut t, "Long rest: ");
-    t.wait_until("full hit points", |s| s.lines().any(|l| l.contains("Hit Points") && l.contains("7/7")));
+    t.wait_until("full hit points", |s| s.lines().any(|l| l.contains("Hit Points") && l.contains("8/8")));
     assert!(t.line("│ Level 1 ").contains("2/2"), "{}", t.screen());
     assert!(t.line("│ d6 ").contains("1/1"), "{}", t.screen());
 }

@@ -1,0 +1,9 @@
+# Invented for the tests.
+
+[[feature]]
+id = "feat:Savage Attacker|SRD52"
+[[feature.resource]]
+key = "savage_attacker"
+name = "Savage Attacker"
+max = "1"
+recharge = "short_rest"

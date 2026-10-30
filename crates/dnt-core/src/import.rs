@@ -553,12 +553,15 @@ pub fn has_imported(store: &Store) -> bool {
     store.fs().is_file(&store.imported_dir().join("books.json"))
 }
 
-/// The imported library, loaded.
+/// The library: the built-in SRD, and the imported data over it.
 pub fn load(store: &Store) -> Result<Library, String> {
+    if !has_imported(store) {
+        return Ok(Library::srd());
+    }
     let lib = Imported::open(store)?;
     let docs: Vec<Value> = lib.sources.into_values().collect();
     let lookup = lib.spell_sources.as_object().is_some_and(|o| !o.is_empty()).then_some(lib.spell_sources);
-    Ok(Library::load_parsed(&lib.books, &docs, lookup))
+    Ok(Library::load_parsed_over_srd(&lib.books, &docs, lookup))
 }
 
 /// Sources in the imported library, with how many entities each has.
@@ -610,8 +613,9 @@ mod tests {
         ])
     }
 
+    /// Entities of a kind, besides the built-in SRD's.
     fn count(lib: &Library, kind: Kind) -> usize {
-        lib.entities().iter().filter(|e| e.kind == kind).count()
+        lib.entities().iter().filter(|e| e.kind == kind && e.source != dnt_data::srd::SOURCE).count()
     }
 
     #[test]

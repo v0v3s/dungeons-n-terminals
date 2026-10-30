@@ -1,0 +1,4876 @@
+{
+ "SRD52": {
+  "Acid Arrow": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Acid Splash": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Aid": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Alarm": {
+   "class": [
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Alter Self": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Animal Friendship": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Animal Messenger": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Animal Shapes": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Animate Dead": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Animate Objects": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Antilife Shell": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Antimagic Field": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Antipathy/Sympathy": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Arcane Eye": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Arcane Hand": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Arcane Lock": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Arcane Sword": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Arcanist’s Magic Aura": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Astral Projection": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Augury": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Aura of Life": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Awaken": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Bane": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Banishment": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Barkskin": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Beacon of Hope": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Befuddlement": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Bestow Curse": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Black Tentacles": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Blade Barrier": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Bless": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Blight": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Blindness/Deafness": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Blink": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Blur": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Burning Hands": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Call Lightning": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Calm Emotions": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Chain Lightning": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Charm Monster": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Charm Person": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Chill Touch": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Chromatic Orb": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Circle of Death": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Clairvoyance": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Clone": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Cloudkill": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Color Spray": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Command": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Commune": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Commune with Nature": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Comprehend Languages": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Compulsion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Cone of Cold": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Confusion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Conjure Animals": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Conjure Celestial": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Conjure Elemental": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Conjure Fey": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Conjure Minor Elementals": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Conjure Woodland Beings": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Contact Other Plane": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Contagion": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Contingency": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Continual Flame": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Control Water": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Control Weather": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Counterspell": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Create Food and Water": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Create or Destroy Water": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Create Undead": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Creation": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Cure Wounds": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dancing Lights": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Darkness": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Darkvision": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Daylight": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Death Ward": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Delayed Blast Fireball": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Demiplane": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Detect Evil and Good": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Detect Magic": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Detect Poison and Disease": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Detect Thoughts": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dimension Door": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Disguise Self": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Disintegrate": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dispel Evil and Good": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dispel Magic": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dissonant Whispers": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Divination": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Divine Favor": {
+   "class": [
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Divine Smite": {
+   "class": [
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Divine Word": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dominate Beast": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dominate Monster": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dominate Person": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dragon’s Breath": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Dream": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Druidcraft": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Earthquake": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Eldritch Blast": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Elementalism": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Enhance Ability": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Enlarge/Reduce": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Ensnaring Strike": {
+   "class": [
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Entangle": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Enthrall": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Etherealness": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Expeditious Retreat": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Eyebite": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fabricate": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Faerie Fire": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Faithful Hound": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "False Life": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fear": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Feather Fall": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Find Familiar": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Find Steed": {
+   "class": [
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Find the Path": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Find Traps": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Finger of Death": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fireball": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fire Bolt": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fire Shield": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fire Storm": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Flame Blade": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Flame Strike": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Flaming Sphere": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Flesh to Stone": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Floating Disk": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fly": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Fog Cloud": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Forbiddance": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Forcecage": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Foresight": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Freedom of Movement": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Freezing Sphere": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Gaseous Form": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Gate": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Geas": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Gentle Repose": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Giant Insect": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Glibness": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Globe of Invulnerability": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Glyph of Warding": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Goodberry": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Grease": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Greater Invisibility": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Greater Restoration": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Guardian of Faith": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Guards and Wards": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Guidance": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Guiding Bolt": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Gust of Wind": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hallow": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hallucinatory Terrain": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Harm": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Haste": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Heal": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Healing Word": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Heat Metal": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hellish Rebuke": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Heroes’ Feast": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Heroism": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hex": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hideous Laughter": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hold Monster": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hold Person": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Holy Aura": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hunter’s Mark": {
+   "class": [
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Hypnotic Pattern": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Ice Knife": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Ice Storm": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Identify": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Illusory Script": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Imprisonment": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Incendiary Cloud": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Inflict Wounds": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Insect Plague": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Instant Summons": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Irresistible Dance": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Invisibility": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Jump": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Knock": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Legend Lore": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Lesser Restoration": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Levitate": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Light": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Lightning Bolt": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Locate Animals or Plants": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Locate Creature": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Locate Object": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Longstrider": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mage Armor": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mage Hand": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Magic Circle": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Magic Jar": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Magic Missile": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Magic Mouth": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Magic Weapon": {
+   "class": [
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Magnificent Mansion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Major Image": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mass Cure Wounds": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mass Heal": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mass Healing Word": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mass Suggestion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Maze": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Meld into Stone": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mending": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Message": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Meteor Swarm": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mind Blank": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mind Spike": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Minor Illusion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mirage Arcane": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mirror Image": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Mislead": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Misty Step": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Modify Memory": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Moonbeam": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Move Earth": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Nondetection": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Passwall": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Pass without Trace": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Phantasmal Force": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Phantasmal Killer": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Phantom Steed": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Planar Ally": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Planar Binding": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Plane Shift": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Plant Growth": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Poison Spray": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Polymorph": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Power Word Heal": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Power Word Kill": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Power Word Stun": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Prayer of Healing": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Prestidigitation": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Prismatic Spray": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Prismatic Wall": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Private Sanctum": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Produce Flame": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Programmed Illusion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Project Image": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Protection from Energy": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Protection from Evil and Good": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Protection from Poison": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Purify Food and Drink": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Raise Dead": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Ray of Enfeeblement": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Ray of Frost": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Regenerate": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Ray of Sickness": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Reincarnate": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Remove Curse": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Resilient Sphere": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Resistance": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Resurrection": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Reverse Gravity": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Revivify": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Rope Trick": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sacred Flame": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sanctuary": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Scorching Ray": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Scrying": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Searing Smite": {
+   "class": [
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Secret Chest": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "See Invisibility": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Seeming": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sending": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sequester": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shapechange": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shatter": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shield": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shield of Faith": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shillelagh": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shining Smite": {
+   "class": [
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Shocking Grasp": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Silence": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Silent Image": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Simulacrum": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sleep": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sleet Storm": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Slow": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sorcerous Burst": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Spare the Dying": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Speak with Animals": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Speak with Dead": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Speak with Plants": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Spider Climb": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Spike Growth": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Spirit Guardians": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Spiritual Weapon": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Starry Wisp": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Stinking Cloud": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Stone Shape": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Stoneskin": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Storm of Vengeance": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Suggestion": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Summon Dragon": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sunbeam": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Sunburst": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Symbol": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Telekinesis": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Telepathic Bond": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Teleport": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Teleportation Circle": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Thaumaturgy": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Thunderwave": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Time Stop": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Tiny Hut": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Tongues": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Transport via Plants": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Tree Stride": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "True Polymorph": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "True Resurrection": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "True Seeing": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "True Strike": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Tsunami": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Unseen Servant": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Vampiric Touch": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Vicious Mockery": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Vitriolic Sphere": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wall of Fire": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wall of Force": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wall of Ice": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wall of Stone": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wall of Thorns": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Warding Bond": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Water Breathing": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Water Walk": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    },
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Web": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Weird": {
+   "class": [
+    {
+     "name": "Warlock",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wind Walk": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wind Wall": {
+   "class": [
+    {
+     "name": "Druid",
+     "source": "SRD52"
+    },
+    {
+     "name": "Ranger",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Wish": {
+   "class": [
+    {
+     "name": "Sorcerer",
+     "source": "SRD52"
+    },
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Word of Recall": {
+   "class": [
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    }
+   ]
+  },
+  "Zone of Truth": {
+   "class": [
+    {
+     "name": "Bard",
+     "source": "SRD52"
+    },
+    {
+     "name": "Cleric",
+     "source": "SRD52"
+    },
+    {
+     "name": "Paladin",
+     "source": "SRD52"
+    }
+   ]
+  }
+ }
+}

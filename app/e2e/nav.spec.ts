@@ -81,7 +81,7 @@ test("every screen fits its window", { tag: "@layout.fits" }, async ({ page }) =
   }
 });
 
-test("the menu reaches inside a section: a category, the open character's tab", { tag: ["@nav.menu-inside", "@android"] }, async ({ page }) => {
+test("the menu reaches inside a section: a category, the open character's tab, a tab of Data", { tag: ["@nav.menu-inside", "@android"] }, async ({ page }) => {
   const menu = () => page.getByRole("button", { name: "Menu", exact: true }).click();
   const inside = (section: string) => page.locator(`.drawer .child[data-in="${section}"]`);
   await openSheet(page);
@@ -102,4 +102,9 @@ test("the menu reaches inside a section: a category, the open character's tab", 
   await menu();
   await inside("characters").filter({ has: page.getByText("Notes", { exact: true }) }).click();
   await expect(page.locator(".note")).toContainText("Tester.md");
+  // A tab of Data.
+  await menu();
+  await page.getByRole("button", { name: "What is in Data" }).click();
+  await inside("data").filter({ has: page.getByText("Backups", { exact: true }) }).click();
+  await expect(page.getByRole("combobox", { name: "Data" })).toHaveValue("Backups");
 });

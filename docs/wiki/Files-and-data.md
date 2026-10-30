@@ -1,3 +1,11 @@
+In the app, *Data* has it all in tabs: **Import** (zips of books,
+homebrew or anything exported from dnt; what has been imported; starting
+over), **Rules** (the [[Homebrew and rules|rules library]]), **Backups**,
+**Problems** (only while there are some) and **About**. The menu lists them
+under Data.
+
+![The data in the app](images/app-data.png)
+
 Everything is plain files you can read, edit and back up.
 
 ```

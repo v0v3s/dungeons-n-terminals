@@ -4,9 +4,11 @@
 
 `dnt` is a D&D 5e companion for players, in the terminal: a compendium,
 character sheets that do the maths, dice, campaign notes and campaign
-homebrew. It reads the rules from a data directory you provide, in the
-JSON format described in [`schemas/`](schemas/README.md), and works with
-the 2024 and the 2014 rules. dnt ships no game content.
+homebrew. It has the rules of the System Reference Document 5.2.1 (the
+SRD, the free rules of the 2024 edition) built in, and reads your own
+books and homebrew from data you import, in the JSON format described in
+[`schemas/`](schemas/README.md); it works with the 2024 and the 2014
+rules.
 
 There is also **the dnt app** for Windows and Android (phones and
 tablets): the same compendium, campaigns, characters and notes, in the
@@ -292,8 +294,15 @@ release (with `SHA256SUMS`) only if every one of them built. The release
 notes are that changelog section (or, if it was left empty, the commit
 subjects). `scripts/next-version.sh "<title>"` shows what a title would do.
 
-dnt is a fan project and not affiliated with Wizards of the Coast; it
-ships no game content and reads the data you provide.
+dnt is a fan project and not affiliated with Wizards of the Coast. It has
+the SRD 5.2.1 built in ([`data/srd`](data/srd), made from the SRD's PDF by
+[`scripts/srd`](scripts/srd)), and reads the books you import.
+
+This work includes material from the System Reference Document 5.2.1
+("SRD 5.2.1") by Wizards of the Coast LLC, available at
+https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the
+Creative Commons Attribution 4.0 International License, available at
+https://creativecommons.org/licenses/by/4.0/legalcode.
 
 The app's icons are by Lorc and Delapouite from
 [game-icons.net](https://game-icons.net), under

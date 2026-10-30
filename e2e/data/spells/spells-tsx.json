@@ -1,7 +1,7 @@
 {
  "spell": [
   {
-   "name": "Spark",
+   "name": "Fire Bolt",
    "source": "TSX",
    "level": 0,
    "school": "V",
@@ -28,16 +28,16 @@
     }
    ],
    "entries": [
-    "The old spark: {@damage 1d4} lightning damage."
+    "The old fire bolt: {@damage 1d8} fire damage."
    ],
    "reprintedAs": [
-    "Spark|TST"
-   ],
-   "savingThrow": [
-    "dexterity"
+    "Fire Bolt|SRD52"
    ],
    "damageInflict": [
-    "lightning"
+    "fire"
+   ],
+   "spellAttack": [
+    "R"
    ]
   },
   {

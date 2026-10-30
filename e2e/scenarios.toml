@@ -17,9 +17,15 @@
 
 # ---------------------------------------------------------------- setup
 [[scenario]]
-id = "setup.import-first-run"
-does = "On the first start, import the data zip from the getting-started screen; it then asks for a campaign."
+id = "setup.srd-built-in"
+does = "On the first start the SRD 5.2.1 is there, nothing to import: it asks for a campaign, and the compendium has the SRD's entries."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "setup.import-first-run"
+does = "On the first start, a zip of more data can be imported from getting started (the app); it joins the SRD."
+targets = ["app"]
+not = { tui = "the terminal app imports with dnt import (data.import-later)" }
 
 [[scenario]]
 id = "setup.first-campaign"
@@ -28,7 +34,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "setup.import-folder"
-does = "Read a data folder in place (a path at getting started, or --data), not imported."
+does = "Read a data folder in place with --data, over the built-in SRD, not imported."
 targets = ["tui"]
 not = { app = "the app imports zips only: it has no folder of its own to read" }
 
@@ -42,6 +48,12 @@ targets = ["tui", "app"]
 id = "data.list"
 does = "List the imported sources with their entry counts, and the imported homebrew."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "data.tabs"
+does = "The data's parts are tabs: Import, Rules, Backups, Problems (with how many, only while there are some) and About; the menu lists them under Data."
+targets = ["app"]
+not = { tui = "the terminal app has no Data screen: importing, backups and the rules are commands (dnt import, dnt backup, dnt rules), the rules library also L on Campaigns" }
 
 [[scenario]]
 id = "data.forget-source"
@@ -66,7 +78,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "data.about"
-does = "See the version, the licence, the repository and that dnt ships no game content."
+does = "See the version, the licence, the repository, that the SRD 5.2.1 is built in, and its attribution."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- backups and exports
@@ -299,7 +311,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "creation.equipment-pick"
-does = "Pick an item for an equipment choice (any instrument, an arcane focus)."
+does = "Pick an item for an equipment choice (an instrument, a holy symbol, a gaming set)."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -392,7 +404,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "choices.pending"
-does = "Make the choices a level left open (a fighting style, tricks)."
+does = "Make the choices levels left open (a class option, weapon masteries, a fighting style, invocations)."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- overview
@@ -557,7 +569,22 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "features.rules-problems"
-does = "A mistake in your rules is named, with its file and what is wrong: on the terminal's status line when it starts, under Problems on the app's Data screen."
+does = "A mistake in your rules is named, with its file and what is wrong: on the terminal's status line when it starts, under Problems on the app's Data screen. Rules for imported homebrew are not a mistake, even where no campaign turns that homebrew on."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rules.library-browse"
+does = "Browse the rules library (github.com/v0v3s/dnt-rules) as a tree: its folders (the SRD first), files and rules, each marked new, yours already or differing from yours, and whether it replaces dnt's own; folded at first (a folder says how many rules it has), folders and files unfold. The terminal app also lists it with dnt rules."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rules.library-import"
+does = "Check a whole folder, a file or single rules of the library and import them as your own rules: the sheet uses them. The terminal app also imports with dnt rules import <folder, file or rule>."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rules.library-conflict"
+does = "Rules of the library that differ from yours ask before importing: overwrite or keep each one, or all at once; kept ones stay yours, overwritten ones are replaced where they were."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -776,7 +803,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "nav.menu-inside"
-does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories and the open character's tabs, so the menu goes from anywhere to, say, the character's spells."
+does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories, the open character's tabs and the tabs of Data, so the menu goes from anywhere to, say, the character's spells."
 targets = ["android"]
 not = { tui = "no menu: the number keys change the section, Tab the category or the tab" }
 

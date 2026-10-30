@@ -1,0 +1,363 @@
+{
+ "background": [
+  {
+   "name": "Acolyte",
+   "source": "SRD52",
+   "page": 83,
+   "edition": "one",
+   "ability": [
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "int",
+        "wis",
+        "cha"
+       ],
+       "weights": [
+        2,
+        1
+       ]
+      }
+     }
+    },
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "int",
+        "wis",
+        "cha"
+       ],
+       "weights": [
+        1,
+        1,
+        1
+       ]
+      }
+     }
+    }
+   ],
+   "feats": [
+    {
+     "magic initiate; cleric|srd52": true
+    }
+   ],
+   "skillProficiencies": [
+    {
+     "insight": true,
+     "religion": true
+    }
+   ],
+   "toolProficiencies": [
+    {
+     "calligrapher’s supplies|srd52": true
+    }
+   ],
+   "startingEquipment": [
+    {
+     "A": [
+      "calligrapher’s supplies|srd52",
+      {
+       "item": "book|srd52",
+       "displayName": "Book (prayers)"
+      },
+      {
+       "equipmentType": "focusSpellcastingHoly"
+      },
+      {
+       "item": "parchment|srd52",
+       "quantity": 10
+      },
+      "robe|srd52",
+      {
+       "value": 800
+      }
+     ],
+     "B": [
+      {
+       "value": 5000
+      }
+     ]
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Equipment",
+     "entries": [
+      "Choose A or B: (A) Calligrapher’s Supplies, Book (prayers), Holy Symbol, Parchment (10 sheets), Robe, 8 GP; or (B) 50 GP"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Criminal",
+   "source": "SRD52",
+   "page": 83,
+   "edition": "one",
+   "ability": [
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "dex",
+        "con",
+        "int"
+       ],
+       "weights": [
+        2,
+        1
+       ]
+      }
+     }
+    },
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "dex",
+        "con",
+        "int"
+       ],
+       "weights": [
+        1,
+        1,
+        1
+       ]
+      }
+     }
+    }
+   ],
+   "feats": [
+    {
+     "alert|srd52": true
+    }
+   ],
+   "skillProficiencies": [
+    {
+     "sleight of hand": true,
+     "stealth": true
+    }
+   ],
+   "toolProficiencies": [
+    {
+     "thieves’ tools|srd52": true
+    }
+   ],
+   "startingEquipment": [
+    {
+     "A": [
+      {
+       "item": "dagger|srd52",
+       "quantity": 2
+      },
+      "thieves’ tools|srd52",
+      "crowbar|srd52",
+      {
+       "item": "pouch|srd52",
+       "quantity": 2
+      },
+      "traveler’s clothes|srd52",
+      {
+       "value": 1600
+      }
+     ],
+     "B": [
+      {
+       "value": 5000
+      }
+     ]
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Equipment",
+     "entries": [
+      "Choose A or B: (A) 2 Daggers, Thieves’ Tools, Crowbar, 2 Pouches, Traveler’s Clothes, 16 GP; or (B) 50 GP"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Sage",
+   "source": "SRD52",
+   "page": 83,
+   "edition": "one",
+   "ability": [
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "con",
+        "int",
+        "wis"
+       ],
+       "weights": [
+        2,
+        1
+       ]
+      }
+     }
+    },
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "con",
+        "int",
+        "wis"
+       ],
+       "weights": [
+        1,
+        1,
+        1
+       ]
+      }
+     }
+    }
+   ],
+   "feats": [
+    {
+     "magic initiate; wizard|srd52": true
+    }
+   ],
+   "skillProficiencies": [
+    {
+     "arcana": true,
+     "history": true
+    }
+   ],
+   "toolProficiencies": [
+    {
+     "calligrapher’s supplies|srd52": true
+    }
+   ],
+   "startingEquipment": [
+    {
+     "A": [
+      "quarterstaff|srd52",
+      "calligrapher’s supplies|srd52",
+      {
+       "item": "book|srd52",
+       "displayName": "Book (history)"
+      },
+      {
+       "item": "parchment|srd52",
+       "quantity": 8
+      },
+      "robe|srd52",
+      {
+       "value": 800
+      }
+     ],
+     "B": [
+      {
+       "value": 5000
+      }
+     ]
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Equipment",
+     "entries": [
+      "Choose A or B: (A) Quarterstaff, Calligrapher’s Supplies, Book (history), Parchment (8 sheets), Robe, 8 GP; or (B) 50 GP"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Soldier",
+   "source": "SRD52",
+   "page": 83,
+   "edition": "one",
+   "ability": [
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "str",
+        "dex",
+        "con"
+       ],
+       "weights": [
+        2,
+        1
+       ]
+      }
+     }
+    },
+    {
+     "choose": {
+      "weighted": {
+       "from": [
+        "str",
+        "dex",
+        "con"
+       ],
+       "weights": [
+        1,
+        1,
+        1
+       ]
+      }
+     }
+    }
+   ],
+   "feats": [
+    {
+     "savage attacker|srd52": true
+    }
+   ],
+   "skillProficiencies": [
+    {
+     "athletics": true,
+     "intimidation": true
+    }
+   ],
+   "toolProficiencies": [
+    {
+     "gaming set": 1
+    }
+   ],
+   "startingEquipment": [
+    {
+     "A": [
+      "spear|srd52",
+      "shortbow|srd52",
+      {
+       "item": "arrow|srd52",
+       "quantity": 20
+      },
+      {
+       "equipmentType": "setGaming"
+      },
+      "healer’s kit|srd52",
+      "quiver|srd52",
+      "traveler’s clothes|srd52",
+      {
+       "value": 1400
+      }
+     ],
+     "B": [
+      {
+       "value": 5000
+      }
+     ]
+    }
+   ],
+   "entries": [
+    {
+     "type": "entries",
+     "name": "Equipment",
+     "entries": [
+      "Choose A or B: (A) Spear, Shortbow, 20 Arrows, Gaming Set (same as above), Healer’s Kit, Quiver, Traveler’s Clothes, 14 GP; or (B) 50 GP"
+     ]
+    }
+   ]
+  }
+ ]
+}

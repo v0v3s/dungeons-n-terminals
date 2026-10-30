@@ -473,7 +473,10 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
 
     // ---- spells granted by features ----
     let mut granted = Vec::new();
-    let mut sources: Vec<(EntityId, i64)> = classes.iter().filter_map(|c| Some((c.subclass?, c.level))).collect();
+    // Classes (Favored Enemy's Hunter's Mark) and subclasses at their
+    // class level.
+    let mut sources: Vec<(EntityId, i64)> = classes.iter().map(|c| (c.entity, c.level)).collect();
+    sources.extend(classes.iter().filter_map(|c| Some((c.subclass?, c.level))));
     for f in &features {
         if matches!(f.source, FeatureSource::Species | FeatureSource::Background | FeatureSource::Feat | FeatureSource::Option) {
             sources.push((f.entity, total));

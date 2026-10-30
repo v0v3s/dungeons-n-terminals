@@ -3,7 +3,7 @@ use crate::seed::Home;
 
 const MIRA: &str = "---\ntype: npc\ntags: npc\nstatus: alive\n---\n# Mira Vell\n\n**Who:** the bell-ringer of Hollowmere.\n";
 const GRIM: &str = "---\ntype: npc\nstatus: dead\n---\n# Grim Hollow\n\nA #villain who hid the bell.\n";
-const LOST_BELL: &str = "---\ntype: quest\nstatus: active\n---\n# Lost Bell\n\nAsk [[Mira Vell]] about it.\nThe bell hums like [[spell:Frost Needle]].\nFind [[Old Tower]].\nIt rings at midnight.\n";
+const LOST_BELL: &str = "---\ntype: quest\nstatus: active\n---\n# Lost Bell\n\nAsk [[Mira Vell]] about it.\nThe bell hums like [[spell:Ray of Frost]].\nFind [[Old Tower]].\nIt rings at midnight.\n";
 const DONE_DEAL: &str = "---\ntype: quest\nstatus: done\n---\n# Done Deal\n";
 const SESSION: &str = "---\ntype: session\ndate: 2026-01-02\n---\n# 2026-01-02\n\nWe met [[Mira Vell]].\n";
 
@@ -184,7 +184,7 @@ fn following_links_and_going_back() {
     t.send("jjjjjj").send("0").send("f[").send("gd").wait("NPCs/Mira Vell").wait("the bell-ringer of Hollowmere");
     t.send(&ctrl('o')).wait("Quests/Lost Bell");
     // A compendium entry.
-    t.send("j").send("0").send("f[").send("gd").wait("Frost Needle").wait("Make a ranged spell attack");
+    t.send("j").send("0").send("f[").send("gd").wait("Ray of Frost").wait("A frigid beam of blue-white light");
     t.send("3").wait("Quests/Lost Bell");
     // A missing note: made in the chosen folder, from its template.
     t.send("j").send("0").send("f[").send("gd").wait("Create “Old Tower” in which folder?");
@@ -205,7 +205,7 @@ fn previewing_a_link() {
     t.send("x").wait_gone("any key closes");
     // Still here, unchanged.
     t.wait("Quests/Lost Bell").wait("Ask [[Mira Vell]] about it.");
-    t.send("j").send("0").send("f[").send("K").wait("any key closes").wait("Make a ranged spell attack");
+    t.send("j").send("0").send("f[").send("K").wait("any key closes").wait("A frigid beam of blue-white light");
     t.send(ESC).wait_gone("any key closes").wait("Quests/Lost Bell");
     // A missing note.
     t.send("j").send("0").send("f[").send("K").wait("No such note yet");

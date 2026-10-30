@@ -58,7 +58,7 @@ fn importing_again_updates_instead_of_doubling() {
     assert_eq!(before, after);
 
     let mut t = Tui::scenario("data.import-later", home);
-    t.wait("Browse").wait("All 203");
+    t.wait("Browse").wait("All 2041");
     t.send("/").typed("mirefolk").wait("1 results");
 }
 
@@ -66,8 +66,8 @@ fn importing_again_updates_instead_of_doubling() {
 fn imported_lists_sources_with_counts_and_the_homebrew() {
     let home = Home::data();
     let listed = stdout(&run("data.list", &home, &["imported"]));
-    assert_eq!(count(&listed, "TST").as_deref(), Some("184"), "{listed}");
-    assert_eq!(count(&listed, "TSX").as_deref(), Some("5"), "{listed}");
+    assert_eq!(count(&listed, "TST").as_deref(), Some("18"), "{listed}");
+    assert_eq!(count(&listed, "TSX").as_deref(), Some("3"), "{listed}");
     assert!(listed.contains("Homebrew (enable per campaign)"), "{listed}");
     let brew = listed.lines().find(|l| l.starts_with("TSTB")).unwrap_or_else(|| panic!("{listed}"));
     assert!(brew.contains("3 entries") && brew.contains("Proving Grounds Brew"), "{listed}");
@@ -96,7 +96,7 @@ fn forgetting_homebrew_keeps_the_data() {
     assert!(count(&listed, "TST").is_some() && !listed.contains("TSTB"), "{listed}");
 
     let mut t = Tui::scenario("data.forget-homebrew", home);
-    t.wait("All 203");
+    t.wait("All 2041");
     t.send("4").send(TAB).send(TAB).wait("Books · E2E");
     assert!(!t.shows("Proving Grounds Brew"), "{}", t.screen());
 }
@@ -109,12 +109,11 @@ fn forgetting_everything_keeps_the_campaigns() {
     let listed = stdout(&run("data.forget-all", &home, &["imported"]));
     assert!(listed.trim().is_empty(), "{listed}");
 
-    // Without data dnt asks for it again; the campaign and party are still there.
-    let zip = all_zip(&home);
+    // Only the built-in SRD is left; the campaign and party are still there.
     let mut t = Tui::scenario("data.forget-all", home);
-    t.wait("Getting started");
-    t.typed(&zip).send(ENTER);
-    t.wait("◈ E2E");
+    t.wait("◈ E2E").wait("All 2021");
+    t.send("/").typed("mirefolk").wait("0 results");
+    t.send(ESC).send(ESC);
     t.send("2").wait("Brawler").wait("Tester");
 }
 
@@ -149,7 +148,8 @@ fn after_a_reset_dnt_starts_as_new() {
     let said = stdout(&run("data.reset", &home, &["reset", "--yes"]));
     assert!(said.contains("dnt is reset"), "{said}");
     let mut t = Tui::scenario("data.reset", home);
-    t.wait("Getting started").wait("1 · Import the data");
+    // Nothing but the built-in SRD: getting started asks for a campaign.
+    t.wait("no campaign").wait("✓ 1 · The rules: the SRD 5.2.1").wait("▸ 2 · Create a campaign");
 }
 
 #[test]
@@ -159,6 +159,9 @@ fn the_help_ends_with_about() {
     t.send("G").wait("About");
     t.wait(&format!("dnt {} · MIT license", env!("CARGO_PKG_VERSION")));
     t.wait("github.com/v0v3s/dungeons-n-terminals");
-    t.wait("It ships no game content and reads the data you provide.");
+    t.wait("It has the SRD 5.2.1 built in, and reads the books you import.");
+    // The attribution the SRD's licence asks for.
+    t.wait("This work includes material from the System Reference");
+    t.wait("licensed under the Creative Commons Attribution 4.0");
     t.send(ESC).wait_gone("MIT license");
 }

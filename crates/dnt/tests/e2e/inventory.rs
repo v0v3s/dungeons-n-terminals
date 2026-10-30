@@ -94,10 +94,17 @@ fn add(t: &mut Tui, filter: &str, name: &str) {
     t.typed(filter).send(ENTER).wait(&format!("Added {name}"));
 }
 
-/// Unpack Tester's Scribe's Pack into its Satchel.
+/// Add an item from the library that is not the first match (magic items
+/// made from it sort before it): move down to it.
+fn add_below(t: &mut Tui, filter: &str, down: usize, name: &str) {
+    t.send("a").wait("Add an item");
+    t.typed(filter).wait(name).send(&DOWN.repeat(down)).send(ENTER).wait(&format!("Added {name}"));
+}
+
+/// Unpack Tester's Scholar’s Pack into its Backpack.
 fn unpack(t: &mut Tui) {
-    to_item(t, "Scribe's Pack");
-    t.send("p").wait("Unpacked Scribe's Pack").wait("▾ Satchel");
+    to_item(t, "Scholar’s Pack");
+    t.send("p").wait("Unpacked Scholar’s Pack").wait("▾ Backpack");
 }
 
 /// Whether the inventory list has a row for an item.
@@ -118,12 +125,12 @@ fn adding_an_item_from_the_library() {
     let mut t = Tui::scenario("inventory.add", Home::party());
     inventory_of(&mut t, "Tester");
     t.send("a").wait("Add an item").wait("Create new item…").wait("Custom item…");
-    t.typed("bone").wait("Bone Dice").send(ENTER).wait("Added Bone Dice");
-    assert!(!inside(&t, "Bone Dice"), "{}", t.screen());
-    assert_eq!(focus(&t), "Bone Dice");
+    t.typed("dice").wait("Dice").send(ENTER).wait("Added Dice");
+    assert!(!inside(&t, "Dice"), "{}", t.screen());
+    assert_eq!(focus(&t), "Dice");
     // A magic item that needs attunement says so.
-    add(&mut t, "ring of", "Ring of Warding");
-    assert!(row(&t, "Ring of Warding").contains("☆ Ring of Warding"), "{}", t.screen());
+    add(&mut t, "ring of prot", "Ring of Protection");
+    assert!(row(&t, "Ring of Protection").contains("☆ Ring of Protection"), "{}", t.screen());
 }
 
 #[test]
@@ -141,18 +148,18 @@ fn adding_into_the_container_under_the_cursor() {
     let mut t = Tui::scenario("inventory.add-into", Home::party());
     inventory_of(&mut t, "Tester");
     unpack(&mut t);
-    // The cursor on an item in the Satchel: new items go in there too.
-    to_item(&mut t, "Ink Pot");
-    assert!(inside(&t, "Ink Pot"), "{}", t.screen());
-    add(&mut t, "bone", "Bone Dice");
-    assert!(inside(&t, "Bone Dice"), "{}", t.screen());
+    // The cursor on an item in the Backpack: new items go in there too.
+    to_item(&mut t, "Ink");
+    assert!(inside(&t, "Ink"), "{}", t.screen());
+    add(&mut t, "dice", "Dice");
+    assert!(inside(&t, "Dice"), "{}", t.screen());
     t.send("a").wait("Add an item").typed("custom").send(ENTER).wait("Custom item name");
     t.typed("Lucky Feather").send(ENTER).wait("Lucky Feather");
     assert!(inside(&t, "Lucky Feather"), "{}", t.screen());
     // On a loose item, new items stay loose.
-    to_item(&mut t, "Grimoire");
-    add(&mut t, "chalk", "Chalk");
-    assert!(!inside(&t, "Chalk"), "{}", t.screen());
+    to_item(&mut t, "Quarterstaff");
+    add(&mut t, "bell", "Bell");
+    assert!(!inside(&t, "Bell"), "{}", t.screen());
 }
 
 #[test]
@@ -162,48 +169,49 @@ fn wearing_armor_and_holding_a_weapon_and_a_shield() {
     assert_eq!(armor_class(&t), "12");
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     // Armor is worn in a slot: AC follows.
-    add(&mut t, "quilted coat", "Quilted Coat");
-    t.send(" ").wait("Wear Quilted Coat").wait("Body").send(ENTER).wait("Wearing Quilted Coat (Body)");
-    assert!(row(&t, "Quilted Coat").contains("◉ Quilted Coat"), "{}", t.screen());
-    assert!(t.line("Body ").contains("Quilted Coat"), "{}", t.screen());
+    add_below(&mut t, "padded", 6, "Padded Armor");
+    t.send(" ").wait("Wear Padded Armor").wait("Body").send(ENTER).wait("Wearing Padded Armor (Body)");
+    assert!(row(&t, "Padded Armor").contains("◉ Padded Armor"), "{}", t.screen());
+    assert!(t.line("Body ").contains("Padded Armor"), "{}", t.screen());
     // A weapon is held in a hand.
-    to_item(&mut t, "Thornknife");
-    t.send(" ").wait("Thornknife: main hand");
-    assert!(row(&t, "Thornknife").contains("◈ Thornknife"), "{}", t.screen());
-    assert!(t.line("Main hand").contains("Thornknife"), "{}", t.screen());
+    to_item(&mut t, "Dagger");
+    t.send(" ").wait("Dagger: main hand");
+    assert!(row(&t, "Dagger").contains("◈ Dagger"), "{}", t.screen());
+    assert!(t.line("Main hand").contains("Dagger"), "{}", t.screen());
     // A shield too.
-    add(&mut t, "buckler", "Buckler");
-    t.send(" ").wait_until("the buckler is in hand", |s| s.lines().any(|l| l.contains("Off hand") && l.contains("Buckler")));
+    add_below(&mut t, "shield", 8, "Shield");
+    t.send(" ").wait_until("the shield is in hand", |s| s.lines().any(|l| l.contains("Off hand") && l.contains("Shield")));
+    // Padded Armor 11 + Dexterity 2, and the Shield 2.
     t.send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "15", "{}", t.screen());
-    assert!(t.line("main  Thornknife").contains("1d4 + 2 piercing"), "{}", t.screen());
+    assert!(t.line("main  Dagger").contains("1d4 + 2 piercing"), "{}", t.screen());
     // Put away: AC and attacks follow.
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
-    to_item(&mut t, "Quilted Coat");
-    t.send(" ").wait_until("the coat is off", |s| !s.contains("◉ Quilted Coat"));
-    to_item(&mut t, "Thornknife");
-    t.send(" ").wait_until("the knife is put away", |s| !s.contains("◈ Thornknife"));
-    to_item(&mut t, "Buckler");
-    t.send(" ").wait_until("the buckler is put away", |s| !s.contains("◈ Buckler"));
+    to_item(&mut t, "Padded Armor");
+    t.send(" ").wait_until("the armor is off", |s| !s.contains("◉ Padded Armor"));
+    to_item(&mut t, "Dagger");
+    t.send(" ").wait_until("the dagger is put away", |s| !s.contains("◈ Dagger"));
+    to_item(&mut t, "Shield");
+    t.send(" ").wait_until("the shield is put away", |s| !s.contains("◈ Shield"));
     t.send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "12", "{}", t.screen());
-    assert!(!t.shows("main  Thornknife"), "{}", t.screen());
+    assert!(!t.shows("main  Dagger"), "{}", t.screen());
 }
 
 #[test]
 fn attuning_to_an_item_and_ending_it() {
     let mut t = Tui::scenario("inventory.attune", Home::party());
     inventory_of(&mut t, "Tester");
-    add(&mut t, "ring of", "Ring of Warding");
-    t.send(" ").wait("Wear Ring of Warding").send(ENTER).wait("Wearing Ring of Warding");
-    t.send("A").wait("Attuned to Ring of Warding").wait("Attunement 1 / 3");
-    assert!(row(&t, "Ring of Warding").contains("★ Ring of Warding"), "{}", t.screen());
+    add(&mut t, "ring of prot", "Ring of Protection");
+    t.send(" ").wait("Wear Ring of Protection").send(ENTER).wait("Wearing Ring of Protection");
+    t.send("A").wait("Attuned to Ring of Protection").wait("Attunement 1 / 3");
+    assert!(row(&t, "Ring of Protection").contains("★ Ring of Protection"), "{}", t.screen());
     t.send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "13", "{}", t.screen());
     // Its saves bonus too: Strength +2 becomes +3.
     assert!(t.line("Strength").contains("+3"), "{}", t.screen());
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
-    to_item(&mut t, "Ring of Warding");
+    to_item(&mut t, "Ring of Protection");
     t.send("A").wait("Attunement 0 / 3");
     t.send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "12", "{}", t.screen());
@@ -213,30 +221,28 @@ fn attuning_to_an_item_and_ending_it() {
 fn changing_how_many() {
     let mut t = Tui::scenario("inventory.quantity", Home::party());
     inventory_of(&mut t, "Tester");
-    to_item(&mut t, "Thornknife");
+    to_item(&mut t, "Dagger");
     // Name, how many, weight.
     let shows = |n: &'static str, lb: &'static str| {
-        move |s: &str| {
-            s.lines().filter_map(|l| l.split('│').nth(1)).any(|c| c.split_whitespace().collect::<Vec<_>>() == ["Thornknife", n, lb])
-        }
+        move |s: &str| s.lines().filter_map(|l| l.split('│').nth(1)).any(|c| c.split_whitespace().collect::<Vec<_>>() == ["Dagger", n, lb])
     };
-    t.wait_until("2 knives", shows("2", "2.0"));
-    t.send("+").wait_until("3 knives", shows("3", "3.0"));
-    t.send("-").wait_until("2 knives", shows("2", "2.0"));
-    t.send("-").wait_until("1 knife", shows("1", "1.0"));
+    t.wait_until("2 daggers", shows("2", "2.0"));
+    t.send("+").wait_until("3 daggers", shows("3", "3.0"));
+    t.send("-").wait_until("2 daggers", shows("2", "2.0"));
+    t.send("-").wait_until("1 dagger", shows("1", "1.0"));
 }
 
 #[test]
 fn removing_an_item() {
     let mut t = Tui::scenario("inventory.remove", Home::party());
     inventory_of(&mut t, "Tester");
-    to_item(&mut t, "Ashstaff");
-    t.send("x").wait("Removed Ashstaff");
-    assert!(!listed(&t, "Ashstaff"), "{}", t.screen());
-    assert_eq!(focus(&t), "Grimoire");
+    to_item(&mut t, "Arcane Focus (Quarterstaff)");
+    t.send("x").wait("Removed Arcane Focus (Quarterstaff)");
+    assert!(!listed(&t, "Arcane Focus"), "{}", t.screen());
+    assert_eq!(focus(&t), "Robe");
     // Gone from the attacks too.
     t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("Armor Class");
-    assert!(t.shows("Thornknife") && !t.shows("Ashstaff"), "{}", t.screen());
+    assert!(t.shows("Dagger") && !t.shows("Arcane Focus"), "{}", t.screen());
 }
 
 #[test]
@@ -244,29 +250,31 @@ fn putting_an_item_in_a_container_and_out() {
     let mut t = Tui::scenario("inventory.put-in", Home::party());
     inventory_of(&mut t, "Tester");
     unpack(&mut t);
-    to_item(&mut t, "Thornknife");
-    t.send("M").wait("Put Thornknife in…").wait("Carried loose");
-    t.typed("satchel").send(ENTER).wait_gone("Put Thornknife in…");
-    assert!(inside(&t, "Thornknife"), "{}", t.screen());
-    assert!(row(&t, "Satchel").contains("Satchel 9/30 lb"), "{}", t.screen());
-    to_item(&mut t, "Thornknife");
-    t.send("M").wait("Put Thornknife in…").typed("loose").send(ENTER).wait_gone("Put Thornknife in…");
-    assert!(!inside(&t, "Thornknife"), "{}", t.screen());
-    assert!(row(&t, "Satchel").contains("Satchel 7/30 lb"), "{}", t.screen());
+    to_item(&mut t, "Dagger");
+    t.send("M").wait("Put Dagger in…").wait("Carried loose");
+    t.typed("backpack").send(ENTER).wait_gone("Put Dagger in…");
+    assert!(inside(&t, "Dagger"), "{}", t.screen());
+    // 17 lb from the pack, and the two daggers.
+    assert!(row(&t, "Backpack").contains("Backpack 19/30 lb"), "{}", t.screen());
+    to_item(&mut t, "Dagger");
+    t.send("M").wait("Put Dagger in…").typed("loose").send(ENTER).wait_gone("Put Dagger in…");
+    assert!(!inside(&t, "Dagger"), "{}", t.screen());
+    assert!(row(&t, "Backpack").contains("Backpack 17/30 lb"), "{}", t.screen());
 }
 
 #[test]
 fn unpacking_an_equipment_pack() {
     let mut t = Tui::scenario("inventory.unpack", Home::party());
     inventory_of(&mut t, "Tester");
-    assert!(!t.shows("Ink Pot"), "{}", t.screen());
-    to_item(&mut t, "Scribe's Pack");
-    t.send("p").wait("Unpacked Scribe's Pack: 7 items").wait("▾ Satchel");
-    assert!(!listed(&t, "Scribe's Pack"), "{}", t.screen());
-    for item in ["Ink Pot", "Lantern", "Lamp Oil", "a little bag of sand"] {
+    assert!(!t.shows("Ink Pen"), "{}", t.screen());
+    to_item(&mut t, "Scholar’s Pack");
+    t.send("p").wait("Unpacked Scholar’s Pack: 8 items").wait("▾ Backpack");
+    assert!(!listed(&t, "Scholar’s Pack"), "{}", t.screen());
+    // (Its Book and Parchment share their names with the Sage's, loose.)
+    for item in ["Ink", "Ink Pen", "Lamp", "Oil", "Tinderbox"] {
         assert!(inside(&t, item), "{item}: {}", t.screen());
     }
-    assert!(row(&t, "Lamp Oil").split_whitespace().any(|c| c == "5"), "{}", t.screen());
+    assert!(row(&t, "Oil").split_whitespace().any(|c| c == "10"), "{}", t.screen());
 }
 
 #[test]
@@ -274,60 +282,62 @@ fn container_settings_and_making_an_item_a_container() {
     let mut t = Tui::scenario("inventory.container", Home::party());
     inventory_of(&mut t, "Tester");
     // Any item can hold things.
-    to_item(&mut t, "Grimoire");
+    to_item(&mut t, "Spellbook");
     t.send("w").wait(CONTAINER).typed("10").send(ENTER).wait("Container: 10 lb");
-    assert!(row(&t, "Grimoire").contains("Grimoire 0/10 lb"), "{}", t.screen());
-    to_item(&mut t, "Ink Quill");
-    t.send("M").wait("Put Ink Quill in…").typed("grimoire").send(ENTER).wait_gone("Put Ink Quill in…");
-    assert!(inside(&t, "Ink Quill"), "{}", t.screen());
+    assert!(row(&t, "Spellbook").contains("Spellbook 0/10 lb"), "{}", t.screen());
+    to_item(&mut t, "Book (history)");
+    t.send("M").wait("Put Book (history) in…").typed("spellbook").send(ENTER).wait_gone("Put Book (history) in…");
+    assert!(inside(&t, "Book (history)"), "{}", t.screen());
     // A container's own settings change: a weightless one adds nothing.
     unpack(&mut t);
     let carried = t.line("Carried");
-    to_item(&mut t, "Satchel");
+    to_item(&mut t, "Backpack");
     t.send("w").wait(CONTAINER);
     retype(&mut t, "30 weightless");
     t.wait("Container: 30 lb, weightless");
-    t.wait_until("the satchel's contents weigh nothing", |s| !s.contains(&carried));
-    assert!(t.line("Carried").contains("22.0"), "{}", t.screen());
+    t.wait_until("the backpack's contents weigh nothing", |s| !s.contains(&carried));
+    // 50 lb, less the 17 lb in the Backpack.
+    assert!(t.line("Carried").contains("33.0"), "{}", t.screen());
     // And off: no longer a container.
-    to_item(&mut t, "Grimoire");
+    to_item(&mut t, "Spellbook");
     t.send("w").wait(CONTAINER);
     retype(&mut t, "off");
     t.wait("Not a container");
-    assert!(!row(&t, "Grimoire").contains("lb"), "{}", t.screen());
+    // No capacity on its row ("Spellbook" itself has an "lb" in it).
+    assert!(!row(&t, "Spellbook").contains(" lb"), "{}", t.screen());
 }
 
 #[test]
 fn a_monk_weapon_follows_martial_arts() {
     let mut t = Tui::scenario("inventory.monk-weapon", Home::party());
     inventory_of(&mut t, "Brawler");
-    assert!(row(&t, "Thornknife").contains("monk weapon"), "{}", t.screen());
-    to_item(&mut t, "Thornknife");
-    t.send("m").wait("Thornknife is not a monk weapon");
-    assert!(!row(&t, "Thornknife").contains("monk weapon"), "{}", t.screen());
+    assert!(row(&t, "Dagger").contains("monk weapon"), "{}", t.screen());
+    to_item(&mut t, "Dagger");
+    t.send("m").wait("Dagger is not a monk weapon");
+    assert!(!row(&t, "Dagger").contains("monk weapon"), "{}", t.screen());
     t.send(TAB).send(TAB).wait("Armor Class");
-    assert!(t.line("  Thornknife ").contains("1d4 + 4 piercing"), "{}", t.screen());
+    assert!(t.line("  Dagger ").contains("1d4 + 4 piercing"), "{}", t.screen());
     // Marked again: the Martial Arts die.
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
-    to_item(&mut t, "Thornknife");
+    to_item(&mut t, "Dagger");
     t.send("m").wait("monk weapon");
     t.send(TAB).send(TAB).wait("Armor Class");
-    assert!(t.line("  Thornknife ").contains("1d6 + 4 piercing"), "{}", t.screen());
+    assert!(t.line("  Dagger ").contains("1d6 + 4 piercing"), "{}", t.screen());
 }
 
 #[test]
 fn a_monk_weapon_without_martial_arts() {
     let mut t = Tui::scenario("inventory.monk-weapon", Home::party());
     inventory_of(&mut t, "Tester");
-    to_item(&mut t, "Thornknife");
-    t.send("m").wait("Thornknife is marked as a monk weapon (it counts once you have Martial Arts)");
+    to_item(&mut t, "Dagger");
+    t.send("m").wait("Dagger is marked as a monk weapon (it counts once you have Martial Arts)");
     // Without Martial Arts it does not count: the attack stays the same.
     t.send(TAB).send(TAB).wait("Armor Class");
-    assert!(t.line("  Thornknife ").contains("1d4 + 2 piercing"), "{}", t.screen());
+    assert!(t.line("  Dagger ").contains("1d4 + 2 piercing"), "{}", t.screen());
     // The mark was kept: pressed again, it goes.
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
-    to_item(&mut t, "Thornknife");
-    t.send("m").wait("Thornknife is not a monk weapon");
+    to_item(&mut t, "Dagger");
+    t.send("m").wait("Dagger is not a monk weapon");
 }
 
 #[test]
@@ -362,12 +372,12 @@ fn folding_a_container() {
     let mut t = Tui::scenario("inventory.fold", Home::party());
     inventory_of(&mut t, "Tester");
     unpack(&mut t);
-    to_item(&mut t, "Satchel");
-    t.send(ENTER).wait("▸ Satchel").wait_gone("Ink Pot");
-    t.send(ENTER).wait("▾ Satchel").wait("Ink Pot");
+    to_item(&mut t, "Backpack");
+    t.send(ENTER).wait("▸ Backpack").wait_gone("Ink Pen");
+    t.send(ENTER).wait("▾ Backpack").wait("Ink Pen");
     // ← folds from inside (to the container first), → unfolds.
-    to_item(&mut t, "Lantern");
-    t.send(LEFT).wait_until("the cursor is on the Satchel", |s| focus_on(s) == "Satchel");
-    t.send(LEFT).wait("▸ Satchel").wait_gone("Lantern");
-    t.send(RIGHT).wait("▾ Satchel").wait("Lantern");
+    to_item(&mut t, "Lamp");
+    t.send(LEFT).wait_until("the cursor is on the Backpack", |s| focus_on(s) == "Backpack");
+    t.send(LEFT).wait("▸ Backpack").wait_gone("Lamp");
+    t.send(RIGHT).wait("▾ Backpack").wait("Lamp");
 }

@@ -52,80 +52,80 @@ fn a_mage_adds_cantrips_and_spellbook_spells() {
     let mut t = Tui::scenario("spells.add", Home::party());
     spells_of(&mut t, "Tester");
     t.wait("cantrips 0/3  prepared 0/4  book 0/6");
-    t.send("a").wait("Mage 1: add a cantrip or spellbook spell").wait("Ember Bolt").wait("Frost Needle");
+    t.send("a").wait("Wizard 1: add a cantrip or spellbook spell").wait("Burning Hands").wait("Ray of Frost");
     // A spell of another class is not offered.
-    assert!(!t.shows("Hunter's Brand"), "{}", t.screen());
-    t.typed("ember").send(ENTER).wait("Added Ember Bolt");
-    assert!(t.line("○ Ember Bolt").contains("spellbook"), "{}", t.screen());
-    add(&mut t, "frost", "Frost Needle");
-    assert!(t.shows("◦ Frost Needle"), "{}", t.screen());
+    assert!(!t.shows("Hunter's Mark"), "{}", t.screen());
+    t.typed("burning").send(ENTER).wait("Added Burning Hands");
+    assert!(t.line("○ Burning Hands").contains("spellbook"), "{}", t.screen());
+    add(&mut t, "ray of frost", "Ray of Frost");
+    assert!(t.shows("◦ Ray of Frost"), "{}", t.screen());
     t.wait("cantrips 1/3  prepared 0/4  book 1/6");
     // A cantrip fills a gap; a spellbook spell does once prepared.
-    t.wait("6 spell(s) to choose");
+    t.wait("9 spell(s) to choose");
 }
 
 #[test]
 fn a_grant_chooses_its_spells() {
     let mut t = Tui::scenario("spells.choose", Home::party());
     spells_of(&mut t, "Hexa");
-    t.wait("Spark Initiate; Mage").wait("+ choose 2 Mage cantrip");
-    // The class's 2 cantrips and 2 spells, and the feat's 2 cantrips.
-    t.wait("6 spell(s) to choose");
-    t.send("G").send(ENTER).wait("Choose 2 Mage cantrip");
-    t.typed("frost").send(" ").send(&ctrl('u')).typed("spark").send(" ").send(ENTER);
-    t.wait("Added Frost Needle, Spark").wait_gone("+ choose 2 Mage cantrip");
-    t.wait("4 spell(s) to choose");
+    t.wait("Magic Initiate; Cleric").wait("+ choose 2 Cleric cantrip");
+    // The class's 2 cantrips and 2 spells, and the feat's 2 cantrips and 1 spell.
+    t.wait("7 spell(s) to choose");
+    t.send("G").send("k").send(ENTER).wait("Choose 2 Cleric cantrip");
+    t.typed("guidance").send(" ").send(&ctrl('u')).typed("sacred").send(" ").send(ENTER);
+    t.wait("Added Guidance, Sacred Flame").wait_gone("+ choose 2 Cleric cantrip");
+    t.wait("5 spell(s) to choose");
     // The chosen cantrips are listed under the feat that grants them.
     let s = t.screen();
-    let feat = s.find("Spark Initiate; Mage").unwrap();
-    assert!(s[feat..].contains("◆ Frost Needle") && s[feat..].contains("◆ Spark"), "{s}");
+    let feat = s.find("Magic Initiate; Cleric").unwrap();
+    assert!(s[feat..].contains("◆ Guidance") && s[feat..].contains("◆ Sacred Flame"), "{s}");
 }
 
 #[test]
 fn a_class_header_chooses_the_class_spells() {
     let mut t = Tui::scenario("spells.choose", Home::party());
     spells_of(&mut t, "Hexa");
-    t.wait("cantrips 0/2  known 0/2");
-    t.send("g").send(ENTER).wait("Hexer 1: add");
-    t.typed("hex bolt").send(ENTER).wait("Added Hex Bolt");
-    t.wait("cantrips 1/2  known 0/2");
+    t.wait("cantrips 0/2  prepared 0/2");
+    t.send("g").send(ENTER).wait("Warlock 1: add");
+    t.typed("eldritch").send(ENTER).wait("Added Eldritch Blast");
+    t.wait("cantrips 1/2  prepared 0/2");
 }
 
 #[test]
 fn preparing_a_spellbook_spell_and_unpreparing_it() {
     let mut t = Tui::scenario("spells.prepare", Home::party());
     spells_of(&mut t, "Tester");
-    add(&mut t, "ember", "Ember Bolt");
-    to_spell(&mut t, "Ember Bolt");
-    t.send("p").wait("Prepared Ember Bolt").wait("prepared 1/4  book 1/6").wait("● Ember Bolt");
-    t.send("p").wait("prepared 0/4  book 1/6").wait("○ Ember Bolt");
+    add(&mut t, "burning", "Burning Hands");
+    to_spell(&mut t, "Burning Hands");
+    t.send("p").wait("Prepared Burning Hands").wait("prepared 1/4  book 1/6").wait("● Burning Hands");
+    t.send("p").wait("prepared 0/4  book 1/6").wait("○ Burning Hands");
 }
 
 #[test]
 fn casting_spends_a_slot_and_notes_concentration() {
     let mut t = Tui::scenario("spells.cast", Home::party());
     spells_of(&mut t, "Tester");
-    add(&mut t, "ward of", "Ward of Thorns");
-    to_spell(&mut t, "Ward of Thorns");
-    t.send("p").wait("Prepared Ward of Thorns");
+    add(&mut t, "fog cloud", "Fog Cloud");
+    to_spell(&mut t, "Fog Cloud");
+    t.send("p").wait("Prepared Fog Cloud");
     assert!(t.line("Slots").contains("1 ●●"), "{}", t.screen());
-    t.send(ENTER).wait("Cast Ward of Thorns").wait("Level 1 slot");
+    t.send(ENTER).wait("Cast Fog Cloud").wait("Level 1 slot");
     assert!(t.line("Level 1 slot").contains("2 left"), "{}", t.screen());
-    t.send(ENTER).wait("◎ concentrating on Ward of Thorns");
+    t.send(ENTER).wait("◎ concentrating on Fog Cloud");
     assert!(t.line("Slots").contains("1 ●○"), "{}", t.screen());
     // The overview tracks the slot too.
     t.send(BACKTAB).send(BACKTAB).wait("Spell slots");
     assert!(t.line("●○").contains("1/2"), "{}", t.screen());
-    t.send(TAB).send(TAB).wait("╭ Spells").send("C").wait("Stopped concentrating on Ward of Thorns").wait_gone("◎ concentrating");
+    t.send(TAB).send(TAB).wait("╭ Spells").send("C").wait("Stopped concentrating on Fog Cloud").wait_gone("◎ concentrating");
 }
 
 #[test]
 fn a_cantrip_needs_no_slot() {
     let mut t = Tui::scenario("spells.cast", Home::party());
     spells_of(&mut t, "Tester");
-    add(&mut t, "frost", "Frost Needle");
-    to_spell(&mut t, "Frost Needle");
-    t.send(ENTER).wait("Frost Needle is a cantrip: no slot needed");
+    add(&mut t, "ray of frost", "Ray of Frost");
+    to_spell(&mut t, "Ray of Frost");
+    t.send(ENTER).wait("Ray of Frost is a cantrip: no slot needed");
     assert!(t.line("Slots").contains("1 ●●"), "{}", t.screen());
 }
 
@@ -133,19 +133,26 @@ fn a_cantrip_needs_no_slot() {
 fn an_innate_spell_is_cast_free_and_comes_back_on_a_rest() {
     let mut t = Tui::scenario("spells.cast-free", Home::party());
     spells_of(&mut t, "Hexa");
-    // Emberkin cast Ember Bolt once a day from level 3.
-    assert!(!t.shows("Ember Bolt"), "{}", t.screen());
-    for level in ["Hexer 2", "Hexer 3"] {
-        t.send("u").wait("Level up: choose a class").send(ENTER).wait("Hit points for this level");
-        t.send(ENTER).wait("Confirm level up").send(ENTER).wait(level);
-    }
-    t.wait("Ember Bolt");
-    assert!(t.line("◆ Ember Bolt").contains("1/1 free"), "{}", t.screen());
-    let slots = t.line("Slots");
-    to_spell(&mut t, "Ember Bolt");
+    // A High Elf casts Detect Magic once a day from level 3.
+    assert!(!t.shows("Detect Magic"), "{}", t.screen());
+    // Warlock 2 takes two more invocations; Warlock 3 a patron.
+    t.send("u").wait("Level up: choose a class").send(ENTER).wait("Hit points for this level");
+    t.send(ENTER).wait("Eldritch Invocations: choose 2");
+    t.typed("fiendish").send(" ").send(&ctrl('u')).typed("mask").send(" ").send(ENTER);
+    t.wait("Confirm level up").send(ENTER).wait("Warlock 2");
+    t.send("u").wait("Level up: choose a class").send(ENTER).wait("Choose a subclass");
+    t.send(ENTER).wait("Hit points for this level");
+    t.send(ENTER).wait("Confirm level up").send(ENTER).wait("Warlock 3");
+    t.wait("Detect Magic");
+    assert!(t.line("◆ Detect Magic").contains("1/1 free"), "{}", t.screen());
+    // The slots, without the concentration noted on the same line.
+    let slots = |t: &Tui| t.line("Slots").split('◎').next().unwrap().trim_end().to_string();
+    let before = slots(&t);
+    assert!(before.contains("pact 2 ●●"), "{}", t.screen());
+    to_spell(&mut t, "Detect Magic");
     t.send(ENTER).wait_until("the free use is spent", |s| s.contains("0/1 free"));
     // No pact slot is spent.
-    assert_eq!(t.line("Slots"), slots, "{}", t.screen());
+    assert_eq!(slots(&t), before, "{}", t.screen());
     t.send("L").wait("Take a long rest?").send("y").wait_until("the free use is back", |s| s.contains("1/1 free"));
 }
 
@@ -153,41 +160,42 @@ fn an_innate_spell_is_cast_free_and_comes_back_on_a_rest() {
 fn a_favorite_is_listed_on_top() {
     let mut t = Tui::scenario("spells.favorite", Home::party());
     spells_of(&mut t, "Tester");
-    add(&mut t, "frost", "Frost Needle");
-    to_spell(&mut t, "Frost Needle");
-    t.send("f").wait("Frost Needle is a favorite").wait("★ Favorites");
-    assert!(t.line("Frost Needle ★").contains("◦ Frost Needle ★"), "{}", t.screen());
+    add(&mut t, "ray of frost", "Ray of Frost");
+    to_spell(&mut t, "Ray of Frost");
+    t.send("f").wait("Ray of Frost is a favorite").wait("★ Favorites");
+    assert!(t.line("Ray of Frost ★").contains("◦ Ray of Frost ★"), "{}", t.screen());
     t.send("f").wait_gone("★ Favorites");
-    assert!(!t.shows("Frost Needle ★"), "{}", t.screen());
+    assert!(!t.shows("Ray of Frost ★"), "{}", t.screen());
 }
 
 #[test]
 fn removing_a_spell() {
     let mut t = Tui::scenario("spells.remove", Home::party());
     spells_of(&mut t, "Tester");
-    add(&mut t, "frost", "Frost Needle");
-    add(&mut t, "ember", "Ember Bolt");
-    to_spell(&mut t, "Frost Needle");
-    t.send("x").wait("Removed Frost Needle").wait("cantrips 0/3  prepared 0/4  book 1/6");
-    assert!(!t.screen().contains("◦ Frost Needle"), "{}", t.screen());
-    assert!(t.shows("○ Ember Bolt"), "{}", t.screen());
+    add(&mut t, "ray of frost", "Ray of Frost");
+    add(&mut t, "burning", "Burning Hands");
+    to_spell(&mut t, "Ray of Frost");
+    t.send("x").wait("Removed Ray of Frost").wait("cantrips 0/3  prepared 0/4  book 1/6");
+    assert!(!t.screen().contains("◦ Ray of Frost"), "{}", t.screen());
+    assert!(t.shows("○ Burning Hands"), "{}", t.screen());
 }
 
 #[test]
 fn rolling_a_spell_uses_its_class_numbers() {
     let mut t = Tui::scenario("spells.roll", Home::party());
     spells_of(&mut t, "Tester");
-    t.wait("DC 12 · +4");
-    add(&mut t, "frost", "Frost Needle");
-    add(&mut t, "spark", "Spark");
-    // An attack: the class's +4, and damage.
-    to_spell(&mut t, "Frost Needle");
-    t.send("r").wait("Frost Needle: ");
-    let line = t.line("Frost Needle: ");
-    assert!(line.contains("to hit (") && line.contains(" + 4 = ") && line.contains("cold damage"), "{line}");
+    // Intelligence 13: DC 8 + 2 + 1, attack 2 + 1.
+    t.wait("DC 11 · +3");
+    add(&mut t, "ray of frost", "Ray of Frost");
+    add(&mut t, "acid splash", "Acid Splash");
+    // An attack: the class's +3, and damage.
+    to_spell(&mut t, "Ray of Frost");
+    t.send("r").wait("Ray of Frost: ");
+    let line = t.line("Ray of Frost: ");
+    assert!(line.contains("to hit (") && line.contains(" + 3 = ") && line.contains("cold damage"), "{line}");
     // A save: the class's DC, and damage.
-    to_spell(&mut t, "Spark");
-    t.send("r").wait("Spark: ");
-    let line = t.line("Spark: ");
-    assert!(line.contains("DC 12 (Dexterity save)") && line.contains("lightning damage"), "{line}");
+    to_spell(&mut t, "Acid Splash");
+    t.send("r").wait("Acid Splash: ");
+    let line = t.line("Acid Splash: ");
+    assert!(line.contains("DC 11 (Dexterity save)") && line.contains("acid damage"), "{line}");
 }

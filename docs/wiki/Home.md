@@ -6,8 +6,9 @@ campaign homebrew. It comes twice:
 - **the app**, for Windows and Android (phones and tablets), in the same
   look, made for touch.
 
-They have the same features. dnt ships no game content: it reads the rules
-from data you provide, and works with the 2024 and the 2014 rules.
+They have the same features. The rules of the SRD 5.2.1 (the free rules of
+the 2024 edition) are built in; your own books and homebrew are imported,
+2024 or 2014 rules.
 
 | The app on a phone | The terminal app |
 | --- | --- |
@@ -16,7 +17,7 @@ from data you provide, and works with the 2024 and the 2014 rules.
 ## Start here
 
 1. [[Installing]] the terminal app or the app.
-2. [[Getting started]]: import the data, create a campaign.
+2. [[Getting started]]: create a campaign; import your books if you like.
 3. [[Characters]]: create one, level up.
 4. [[Playing]]: roll, take damage, rest, track what you use.
 

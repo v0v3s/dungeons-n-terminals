@@ -71,8 +71,8 @@ fn editing_the_whole_entry_in_the_editor() {
 #[test]
 fn x_reverts_a_field_to_the_book() {
     let mut t = Tui::scenario("homebrew.revert-field", Home::campaign());
-    t.send("1").wait("Browse").send("/").typed("ember bolt").wait("1 results").send(ESC);
-    t.send("c").send(ENTER).wait("Editing Ember Bolt · campaign version");
+    t.send("1").wait("Browse").send("/").typed("guiding bolt").wait("1 results").send(ESC);
+    t.send("c").send(ENTER).wait("Editing Guiding Bolt · campaign version");
     // time is the fourth field.
     t.send("j").send("j").send("j").send(ENTER).wait("❯ 1 action");
     t.send(&ctrl('u')).typed("1 bonus action").send(ENTER).wait("Saved time");
@@ -80,7 +80,7 @@ fn x_reverts_a_field_to_the_book() {
     t.send("x");
     t.wait_until("time back to the book's", |s| s.lines().any(|l| l.contains(" time ") && l.contains("1 action") && !l.contains("bonus")));
     assert!(!t.line(" time ").contains('●'), "{}", t.screen());
-    read(&mut t, "ember bolt");
+    read(&mut t, "guiding bolt");
     assert!(t.line("Casting Time").contains("1 action"), "{}", t.screen());
     assert!(!t.line("Casting Time").contains("bonus"), "{}", t.screen());
 }
@@ -122,15 +122,15 @@ fn deleting_asks_first() {
 #[test]
 fn a_new_item_from_the_inventory_is_carried() {
     let mut t = Tui::scenario("inventory.homebrew-item", Home::party());
-    t.send("2").wait("Brawler").send("G").send(ENTER).wait("Kindred · Archivist · Mage 1");
-    t.send(TAB).send(TAB).send(TAB).wait("Grimoire");
+    t.send("2").wait("Brawler").send("G").send(ENTER).wait("Human · Sage · Wizard 1");
+    t.send(TAB).send(TAB).send(TAB).wait("Spellbook");
     t.send("a").wait("Add an item").wait("Create new item…").send(ENTER);
     t.wait("Create a new item").wait("Adventuring gear");
     // Magic item, Weapon.
     t.send("j").send(ENTER).typed("Frost Pick").send(ENTER);
     t.wait("Created Frost Pick and added it to Tester").wait("Editing Frost Pick · campaign entry");
     // Back on the sheet, the item is carried.
-    t.send(ESC).wait("Kindred · Archivist · Mage 1");
+    t.send(ESC).wait("Human · Sage · Wizard 1");
     assert!(t.line("│    Frost Pick").contains(" 1 "), "{}", t.screen());
     t.quit();
     let saved = std::fs::read_dir(t.home.campaign_file("characters"))

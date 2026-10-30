@@ -2,7 +2,9 @@ import type { Page } from "@playwright/test";
 import { answer, choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
 
 const roll = (page: Page) => page.locator(".status.roll");
-const attack = (page: Page, name: string) => page.locator(".attack").filter({ has: page.locator(".aname", { hasText: name }) });
+const attack = (page: Page, name: string | RegExp) => page.locator(".attack").filter({ has: page.locator(".aname", { hasText: name }) });
+/// The Quarterstaff itself, not the Arcane Focus (Quarterstaff).
+const STAFF = /^\s*Quarterstaff\s*$/;
 const held = (page: Page) => page.locator(".held");
 const chip = (page: Page) => page.locator(".state");
 const tracker = (page: Page, name: string) => page.locator(".tracker").filter({ has: page.locator(".tname", { hasText: name }) });
@@ -41,15 +43,15 @@ async function addTracker(page: Page, name: string, uses: number, back: string) 
 
 test("an attack rolls to hit with its damage", { tag: "@roll.attack" }, async ({ page }) => {
   await openSheet(page);
-  await attack(page, "Thornknife").locator("button.arow").click();
-  await expect(roll(page)).toContainText("Thornknife");
+  await attack(page, "Dagger").locator("button.arow").click();
+  await expect(roll(page)).toContainText("Dagger");
   await expect(roll(page)).toContainText(/to hit|critical|miss/);
   await expect(roll(page)).toContainText("piercing damage");
 
   // The same from the attack's menu.
-  await attack(page, "Ashstaff").getByRole("button", { name: "More" }).click();
-  await choose(page, "Ashstaff", "Roll the attack");
-  await expect(roll(page)).toContainText("Ashstaff");
+  await attack(page, STAFF).getByRole("button", { name: "More" }).click();
+  await choose(page, "Quarterstaff", "Roll the attack");
+  await expect(roll(page)).toContainText("Quarterstaff");
   await expect(roll(page)).toContainText("bludgeoning damage");
 });
 
@@ -126,8 +128,8 @@ test("a feature's toggle is turned on and off, and the numbers follow", { tag: "
   const before = Number(await ac.innerText());
   await writeRules(
     page,
-    "Mage 1",
-    "Arcane Recall",
+    "Wizard 1",
+    "Arcane Recovery",
     '[[feature.toggle]]\nkey = "warded"\nname = "Warded"\n\n[[feature.effect]]\ntarget = "ac"\nadd = "2"\nwhen = "toggle(\'warded\')"\n',
   );
   const toggle = page.locator("button.toggle", { hasText: "Warded" });
@@ -172,20 +174,21 @@ test("a weapon is held from the attacks: main hand, off hand or both hands", { t
   await openSheet(page);
   await expect(held(page)).toHaveText(/In hand\s+nothing/);
 
-  await attack(page, "Ashstaff").getByRole("button", { name: "More" }).click();
-  await choose(page, "Ashstaff", "Hold with both hands");
-  await expect(held(page)).toContainText("Ashstaff (two hands)");
-  await expect(attack(page, "Ashstaff").locator(".hand")).not.toBeEmpty();
+  await attack(page, STAFF).getByRole("button", { name: "More" }).click();
+  await choose(page, "Quarterstaff", "Hold with both hands");
+  // That Quarterstaff, not the Arcane Focus (Quarterstaff) (the same weapon).
+  await expect(held(page)).toContainText(/In hand\s+Quarterstaff \(two hands\)/);
+  await expect(attack(page, STAFF).locator(".hand")).not.toBeEmpty();
 
-  await attack(page, "Thornknife").getByRole("button", { name: "More" }).click();
-  await choose(page, "Thornknife", "Hold in the main hand");
-  await expect(held(page)).toContainText("Thornknife");
+  await attack(page, "Dagger").getByRole("button", { name: "More" }).click();
+  await choose(page, "Dagger", "Hold in the main hand");
+  await expect(held(page)).toContainText("Dagger");
   // Both hands are needed for the staff: it is put away.
-  await expect(held(page)).not.toContainText("Ashstaff");
+  await expect(held(page)).not.toContainText("Quarterstaff");
 
-  await attack(page, "Thornknife").getByRole("button", { name: "More" }).click();
-  await choose(page, "Thornknife", "Hold in the off hand");
-  await expect(held(page)).toContainText("Thornknife");
+  await attack(page, "Dagger").getByRole("button", { name: "More" }).click();
+  await choose(page, "Dagger", "Hold in the off hand");
+  await expect(held(page)).toContainText("Dagger");
   const hands = await page.locator(".attack .hand").allInnerTexts();
   expect(hands.filter((h) => h.trim()).length).toBeGreaterThan(0);
 });
@@ -193,21 +196,21 @@ test("a weapon is held from the attacks: main hand, off hand or both hands", { t
 test("concentration on a spell is ended from the overview", { tag: "@concentration.end" }, async ({ page }) => {
   await openSheet(page, "Spells");
   await page.getByRole("button", { name: "+ add" }).first().click();
-  await pick(page, ["Ward of Thorns"]);
-  const spell = page.locator("button.spell", { hasText: "Ward of Thorns" });
+  await pick(page, ["Fog Cloud"]);
+  const spell = page.locator("button.spell", { hasText: "Fog Cloud" });
   await expect(spell).toBeVisible();
   await spell.click();
-  if (await dialog(page, "Ward of Thorns").getByRole("button", { name: "Prepare", exact: true }).count()) {
-    await choose(page, "Ward of Thorns", "Prepare");
+  if (await dialog(page, "Fog Cloud").getByRole("button", { name: "Prepare", exact: true }).count()) {
+    await choose(page, "Fog Cloud", "Prepare");
     await spell.click();
   }
-  await choose(page, "Ward of Thorns", "Cast…");
+  await choose(page, "Fog Cloud", "Cast…");
   await page.getByRole("dialog").last().locator("li button").first().click();
-  await expect(status(page)).toContainText("Ward of Thorns");
+  await expect(status(page)).toContainText("Fog Cloud");
 
   await sheetTab(page, "Overview");
   const conc = chip(page).locator("button.conc");
-  await expect(conc).toContainText("Ward of Thorns");
+  await expect(conc).toContainText("Fog Cloud");
   await conc.click();
   await expect(conc).toHaveCount(0);
 });

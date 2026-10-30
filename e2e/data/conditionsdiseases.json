@@ -1,34 +1,5 @@
 {
- "condition": [
-  {
-   "name": "Dazed",
-   "source": "TST",
-   "entries": [
-    "You have disadvantage on saving throws."
-   ]
-  },
-  {
-   "name": "Soaked",
-   "source": "TST",
-   "entries": [
-    "You resist fire and are vulnerable to lightning."
-   ]
-  },
-  {
-   "name": "Poisoned",
-   "source": "TST",
-   "entries": [
-    "Disadvantage on attack rolls and ability checks."
-   ]
-  },
-  {
-   "name": "Prone",
-   "source": "TST",
-   "entries": [
-    "You can only crawl."
-   ]
-  }
- ],
+ "condition": [],
  "disease": [
   {
    "name": "Grey Cough",

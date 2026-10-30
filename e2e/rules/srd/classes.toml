@@ -1,0 +1,16 @@
+# Invented for the tests.
+
+[[feature]]
+id = "classFeature:Ritual Adept|Wizard|SRD52|1"
+[[feature.effect]]
+target = "speed"
+add = "5"
+
+# dnt has its own rules for this one.
+[[feature]]
+id = "classFeature:Favored Enemy|Ranger|SRD52|1"
+[[feature.resource]]
+key = "favored_enemy"
+name = "Favored Enemy"
+max = "3"
+recharge = "long_rest"

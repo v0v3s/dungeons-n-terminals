@@ -12,7 +12,7 @@ fn the_number_keys_move_between_sections() {
     t.send("4").wait("Books · E2E");
     t.send("1").wait("Browse").wait_gone("Books · E2E");
     // While typing, alt and a number.
-    t.send("/").typed("spark").wait("Spark Affinity");
+    t.send("/").typed("fireball").wait("Fireball");
     t.send(&alt('2')).wait("Preview").wait("Tester");
 }
 
@@ -74,6 +74,8 @@ fn grid(screen: &str) -> Vec<Vec<char>> {
 /// from its top corners to its bottom ones.
 #[track_caller]
 fn fits(t: &Tui, what: &str) {
+    // A whole frame, not one half drawn.
+    t.settle();
     let screen = t.screen();
     let g = grid(&screen);
     let fail = |why: String| panic!("{what}: {why}\n{screen}");

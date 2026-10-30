@@ -32,7 +32,7 @@ fn brewer(home: &Home) {
     let mut ws = home.workspace();
     let slug = ws.active_campaign().unwrap().slug.clone();
     ws.set_sources(&slug, Vec::new(), vec!["TSTB".into()], false).unwrap();
-    let toml = "name = \"Brewer\"\nspecies = \"race:Kindred|TST\"\nfeats = [\"feat:Brewed Luck|TSTB\"]\n\n[abilities]\nstr = 10\ndex = 10\ncon = 10\nint = 10\nwis = 10\ncha = 10\n\n[[levels]]\nclass = \"class:Mage|TST\"\n";
+    let toml = "name = \"Brewer\"\nspecies = \"race:Stoneling|TST\"\nfeats = [\"feat:Brewed Luck|TSTB\"]\n\n[abilities]\nstr = 10\ndex = 10\ncon = 10\nint = 10\nwis = 10\ncha = 10\n\n[[levels]]\nclass = \"class:Wizard|SRD52\"\n";
     std::fs::write(home.campaign_file("characters").join("brewer.toml"), toml).unwrap();
 }
 
@@ -129,7 +129,7 @@ fn a_character_goes_with_what_they_use() {
     let names = zip_names(&zip);
     assert!(names.contains(&"character.toml".to_string()), "{names:?}");
     let manifest = zip_text(&zip, "dnt.toml");
-    assert!(manifest.contains("kind = \"character\"") && manifest.contains("needs = [\"TST\"]"), "{manifest}");
+    assert!(manifest.contains("kind = \"character\"") && manifest.contains("needs = [\"SRD52\", \"TST\"]"), "{manifest}");
     // The homebrew feat, not the rest of that homebrew.
     let brew = zip_text(&zip, "homebrew/tstb.json");
     assert!(brew.contains("Brewed Luck") && !brew.contains("Sun Glint"), "{brew}");
@@ -172,9 +172,9 @@ fn an_entry_is_exported_and_imported() {
     assert_eq!(stdout(&run("export.entry", &other, &["import", "glint.json"])).trim(), "Imported Sun Glint");
     assert!(std::fs::read_to_string(other.campaign_file("campaign.toml")).unwrap().contains("TSTB"));
     // A book's entry is there already.
-    stdout(&run("export.entry", &home, &["export", "entry", "spell:Frost Needle|TST", "-o", "needle.json"]));
-    std::fs::copy(home.path().join("needle.json"), other.path().join("needle.json")).unwrap();
-    assert_eq!(stdout(&run("export.entry", &other, &["import", "needle.json"])).trim(), "Frost Needle is in your data already");
+    stdout(&run("export.entry", &home, &["export", "entry", "spell:Ray of Frost|SRD52", "-o", "ray.json"]));
+    std::fs::copy(home.path().join("ray.json"), other.path().join("ray.json")).unwrap();
+    assert_eq!(stdout(&run("export.entry", &other, &["import", "ray.json"])).trim(), "Ray of Frost is in your data already");
     let mut t = Tui::scenario("export.entry", other);
     t.send("1").wait("Browse").send("/").typed("sun glint").wait("Sun Glint");
 }

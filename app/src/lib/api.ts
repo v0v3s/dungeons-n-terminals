@@ -659,3 +659,34 @@ export const killsOutright = (amount: number) => invoke<boolean>("kills_outright
 /// The new character in progress (kept while other sections are open), and giving it up.
 export const creationCurrent = () => invoke<CreationStep | null>("creation_current");
 export const creationCancel = () => invoke<void>("creation_cancel");
+
+// ---- the rules library ----
+
+export type RuleStatus = "new" | "same" | "differs";
+export interface LibraryRule {
+  id: string;
+  label: string;
+  text: string;
+  status: RuleStatus;
+  /// dnt has its own rules for the feature (these replace them).
+  builtin: boolean;
+}
+export interface LibraryFile {
+  path: string;
+  label: string;
+  rules: LibraryRule[];
+}
+export interface LibraryFolder {
+  name: string;
+  label: string;
+  files: LibraryFile[];
+}
+export interface RulesLibrary {
+  folders: LibraryFolder[];
+  problems: string[];
+}
+/// The rules library's tree, read again.
+export const rulesLibrary = () => invoke<RulesLibrary>("rules_library");
+/// Import these rules as yours; `overwrite`: those of them that replace yours.
+export const rulesLibraryImport = (ids: string[], overwrite: string[]) =>
+  invoke<{ summary: string; library: RulesLibrary }>("rules_library_import", { ids, overwrite });

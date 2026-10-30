@@ -8,6 +8,48 @@ become the release page.
 
 ## Unreleased
 
+## v1.3.0 - 2026-10-30
+
+### Added
+
+- The rules of the SRD 5.2.1 are built in: classes and subclasses,
+  species, backgrounds, feats, spells, weapons, armor, gear, magic items
+  and the rules glossary, from the first start, with nothing to import.
+  Imported books and data folders load over them; where a book has an
+  entry of the SRD, the book's shows while the book is on. The SRD's
+  attribution is in *About*.
+- The built-in rules of the 2024 entries work for the SRD's too (Alert,
+  Rage, Monk's Focus, Arcane Recovery…).
+- A class can grant spells: the Ranger's Hunter's Mark, the Paladin's
+  Divine Smite, the Druid's Speak with Animals.
+- Skilled (and any origin feat with a skill choice) asks for its skills
+  at creation.
+- The rules library (github.com/v0v3s/dnt-rules): rules for features of
+  the SRD and of homebrew, browsed as a tree of folders, files and rules,
+  and imported as your own rules, a whole folder or single rules at once.
+  Folded at first, each folder saying how many rules it has. Rules that
+  differ from yours ask to overwrite or keep, each or all.
+  *Data › Rules library*; `L` on Campaigns; `dnt rules`.
+
+### Changed
+
+- The app's *Data* is in tabs: Import, Rules, Backups, Problems (with how
+  many, only while there are some) and About; the menu lists them under
+  Data.
+- The first start no longer asks for data: it asks for a campaign. The
+  terminal app's getting-started screen is gone (`dnt import` and
+  `--data` add your books).
+
+### Fixed
+
+- Your rules for a feature of imported homebrew are no longer named as
+  "not in the library" when the open campaign does not turn that
+  homebrew on.
+- In the app, after *Reset the app*, backups no longer go on to the
+  folder chosen before the reset (until the app restarted).
+- In the app, holding one of two lines of the same weapon (a Quarterstaff
+  and an Arcane Focus (Quarterstaff)) holds that line, not the other.
+
 ## v1.2.0 - 2026-10-29
 
 ### Added

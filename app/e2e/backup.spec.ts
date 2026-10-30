@@ -13,7 +13,7 @@ async function files(page: Page, open: string | null) {
 
 /// Import a file saved before (e2e:<name>) from Data › Import.
 async function importSaved(page: Page, name: string) {
-  await go(page, "Data");
+  await go(page, "Data", "Import");
   await files(page, `e2e:${name}`);
   await page.getByRole("button", { name: "Import…" }).click();
 }
@@ -23,12 +23,12 @@ async function brewer(page: Page) {
   await invoke(page, "set_campaign_sources", { slug: "e2e", sources: [], homebrew: ["TSTB"], showReprinted: false });
   await invoke(page, "e2e_put_file", {
     path: "characters/brewer.toml",
-    text: 'name = "Brewer"\nspecies = "race:Kindred|TST"\nfeats = ["feat:Brewed Luck|TSTB"]\n\n[abilities]\nstr = 10\ndex = 10\ncon = 10\nint = 10\nwis = 10\ncha = 10\n\n[[levels]]\nclass = "class:Mage|TST"\n',
+    text: 'name = "Brewer"\nspecies = "race:Stoneling|TST"\nfeats = ["feat:Brewed Luck|TSTB"]\n\n[abilities]\nstr = 10\ndex = 10\ncon = 10\nint = 10\nwis = 10\ncha = 10\n\n[[levels]]\nclass = "class:Wizard|SRD52"\n',
   });
 }
 
 test("everything is backed up and listed", { tag: "@backup.now" }, async ({ page }) => {
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   await expect(saved(page)).toHaveCount(0);
   await page.getByRole("button", { name: "Back up now" }).click();
   await expect(done(page)).toContainText("Backed up to dnt-backup-");
@@ -37,7 +37,7 @@ test("everything is backed up and listed", { tag: "@backup.now" }, async ({ page
 });
 
 test("a backup is restored, and a broken one changes nothing", { tag: "@backup.restore" }, async ({ page }) => {
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   await page.getByRole("button", { name: "Back up now" }).click();
   await expect(saved(page)).toHaveCount(1);
   // Someone new after the backup.
@@ -60,20 +60,20 @@ test("a backup is restored, and a broken one changes nothing", { tag: "@backup.r
 });
 
 test("backups are made on schedule, keeping the last few", { tag: "@backup.auto" }, async ({ page }) => {
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   await page.getByRole("combobox", { name: "Automatic backups" }).selectOption("day");
   for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Keep fewer" }).click();
   await expect(page.locator(".keep b")).toHaveText("1");
   // Days go by (the app checks at start): one is kept.
   for (const day of ["2099-01-01", "2099-01-03", "2099-01-05"]) await invoke(page, "e2e_backup_auto", { now: `${day} 10:00` });
   await go(page, "Compendium");
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   await expect(saved(page)).toHaveCount(1);
   await expect(saved(page).first()).toContainText("2099-01-05");
 });
 
 test("backups go to the folder chosen, and back to the default one", { tag: "@backup.folder" }, async ({ page }) => {
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   // A folder of its own each run (the app's cache outlives a reset).
   const folder = `elsewhere-${Date.now()}`;
   await page.evaluate((folder) => ((window as any).dntE2eFiles = { folder: `e2e:${folder}` }), folder);
@@ -85,7 +85,7 @@ test("backups go to the folder chosen, and back to the default one", { tag: "@ba
   // The automatic one too (the first start only notes the time).
   for (const day of ["2099-01-01", "2099-02-01"]) await invoke(page, "e2e_backup_auto", { now: `${day} 10:00` });
   await go(page, "Compendium");
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   await expect(saved(page)).toHaveCount(2);
   // Back to the default folder: they stay where they are.
   await page.getByRole("button", { name: "Default" }).click();

@@ -15,7 +15,7 @@ use crate::{App, Res};
 /// The zip a test handed over, for an import of `e2e:stash`.
 static STASH: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
-fn enabled() -> Res<()> {
+pub fn enabled() -> Res<()> {
     if cfg!(feature = "e2e") {
         Ok(())
     } else {

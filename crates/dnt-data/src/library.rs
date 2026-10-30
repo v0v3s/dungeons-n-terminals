@@ -111,23 +111,59 @@ impl Library {
 
     /// Load the data a source holds (see [`crate::source`]).
     pub fn load(src: &impl DataSource) -> Result<Library, LoadError> {
-        let files = Library::data_files(src)?;
         let mut lib = Library::new();
-        lib.load_books(&read_json(src, "books.json")?, "book", None);
+        lib.read(src)?;
+        lib.finish();
+        Ok(lib)
+    }
+
+    /// The built-in SRD 5.2.1 alone.
+    pub fn srd() -> Library {
+        let mut lib = Library::new();
+        lib.read_srd();
+        lib.finish();
+        lib
+    }
+
+    /// A data directory over the built-in SRD.
+    pub fn load_dir_over_srd(root: &Path) -> Result<Library, LoadError> {
+        let mut lib = Library::new();
+        lib.read_srd();
+        lib.read(&DirSource::open(root)?)?;
+        lib.finish();
+        Ok(lib)
+    }
+
+    fn read_srd(&mut self) {
+        self.read(&crate::srd::files()).expect("the built-in SRD loads");
+    }
+
+    /// Read a source's books and entities into the library (finished by
+    /// [`Library::finish`]).
+    fn read(&mut self, src: &impl DataSource) -> Result<(), LoadError> {
+        let files = Library::data_files(src)?;
+        self.load_books(&read_json(src, "books.json")?, "book", None);
         if let Ok(adventures) = read_json(src, "adventures.json") {
-            lib.load_books(&adventures, "adventure", Some("adventure"));
+            self.load_books(&adventures, "adventure", Some("adventure"));
         }
         for (path, parsed) in parse_all(src, &files) {
             match parsed {
-                Ok(json) => lib.ingest(&json, false),
-                Err(e) => lib.warnings.push(format!("{}: {e}", src.locate(&path).display())),
+                Ok(json) => self.ingest(&json, false),
+                Err(e) => self.warnings.push(format!("{}: {e}", src.locate(&path).display())),
             }
         }
         if let Ok(lookup) = read_json(src, "spells/sources.json") {
-            lib.pending_spell_lookup = Some(lookup);
+            self.add_spell_lookup(lookup);
         }
-        lib.finish();
-        Ok(lib)
+        Ok(())
+    }
+
+    /// Spells' classes by source, added to those read before.
+    fn add_spell_lookup(&mut self, lookup: Value) {
+        match (&mut self.pending_spell_lookup, lookup) {
+            (Some(Value::Object(have)), Value::Object(more)) => have.extend(more),
+            (pending, lookup) => *pending = Some(lookup),
+        }
     }
 
     /// Load documents already read: `books` lists books and adventures
@@ -136,14 +172,29 @@ impl Library {
     /// spells their classes (as `spells/sources.json` does).
     pub fn load_parsed(books: &Value, docs: &[Value], spell_lookup: Option<Value>) -> Library {
         let mut lib = Library::new();
-        lib.load_books(books, "book", None);
-        lib.load_books(books, "adventure", Some("adventure"));
-        for doc in docs {
-            lib.ingest(doc, false);
-        }
-        lib.pending_spell_lookup = spell_lookup;
+        lib.read_parsed(books, docs, spell_lookup);
         lib.finish();
         lib
+    }
+
+    /// [`Library::load_parsed`] over the built-in SRD.
+    pub fn load_parsed_over_srd(books: &Value, docs: &[Value], spell_lookup: Option<Value>) -> Library {
+        let mut lib = Library::new();
+        lib.read_srd();
+        lib.read_parsed(books, docs, spell_lookup);
+        lib.finish();
+        lib
+    }
+
+    fn read_parsed(&mut self, books: &Value, docs: &[Value], spell_lookup: Option<Value>) {
+        self.load_books(books, "book", None);
+        self.load_books(books, "adventure", Some("adventure"));
+        for doc in docs {
+            self.ingest(doc, false);
+        }
+        if let Some(lookup) = spell_lookup {
+            self.add_spell_lookup(lookup);
+        }
     }
 
     /// Read and parse files of a source (in parallel where there are
@@ -337,6 +388,7 @@ impl Library {
 
         self.expand_versions();
         self.expand_magic_variants();
+        self.mark_srd_reprints();
         if let Some(lookup) = self.pending_spell_lookup.take() {
             self.attach_spell_classes(&lookup);
         }
@@ -457,6 +509,36 @@ impl Library {
                     continue;
                 }
                 self.insert(Kind::Item, item);
+            }
+        }
+    }
+
+    /// A book's entry that is in the SRD says so (`"srd52": true`, or the
+    /// SRD's name for it): the built-in SRD's entry is then reprinted as
+    /// the book's, which shows instead where the book is enabled.
+    fn mark_srd_reprints(&mut self) {
+        let srd = crate::srd::SOURCE;
+        let mut found: Vec<(EntityId, String)> = Vec::new();
+        for e in &self.entities {
+            if e.source.eq_ignore_ascii_case(srd) {
+                continue;
+            }
+            let srd_name = match e.data.get("srd52") {
+                Some(Value::Bool(true)) => e.name.as_str(),
+                Some(Value::String(name)) => name.as_str(),
+                _ => continue,
+            };
+            let key = Key::new(e.kind, &[srd_name, srd]);
+            if let Some(&id) = self.index.get(&key) {
+                found.push((id, format!("{}|{}", e.name, e.source)));
+            }
+        }
+        for (id, reprint) in found {
+            if let Some(obj) = self.entities[id].data.as_object_mut() {
+                let list = obj.entry("reprintedAs").or_insert_with(|| Value::Array(Vec::new()));
+                if let Some(list) = list.as_array_mut() {
+                    list.push(Value::String(reprint));
+                }
             }
         }
     }
@@ -820,6 +902,27 @@ mod tests {
         assert_eq!(lib.entity(red).data["resist"], json!(["fire"]));
 
         get(Kind::Feat, "Magic Initiate; Cleric");
+    }
+
+    #[test]
+    fn a_books_srd_entry_hides_the_built_in_one() {
+        let books = json!({"book": [{"name": "Book", "id": "BK", "source": "BK"}]});
+        let docs = [json!({"spell": [{"name": "Fireball", "source": "BK", "srd52": true, "level": 3, "entries": ["x"]}],
+                           "feat": [{"name": "Lucky Break", "source": "BK", "srd52": "Alert", "entries": ["x"]}]})];
+        let lib = Library::load_parsed_over_srd(&books, &docs, None);
+        let shown = |filter: &SourceFilter, kind: Kind, name: &str| {
+            lib.entities()
+                .iter()
+                .filter(|e| e.kind == kind && e.name == name && filter.allows(e))
+                .map(|e| e.source.clone())
+                .collect::<Vec<_>>()
+        };
+        let both = SourceFilter { enabled: None, hide_reprinted: true };
+        assert_eq!(shown(&both, Kind::Spell, "Fireball"), ["BK"]);
+        assert!(shown(&both, Kind::Feat, "Alert").is_empty());
+        // Without the book, the SRD's is there.
+        let srd = SourceFilter::only(["SRD52"]);
+        assert_eq!(shown(&srd, Kind::Spell, "Fireball"), ["SRD52"]);
     }
 
     #[test]

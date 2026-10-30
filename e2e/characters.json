@@ -4,23 +4,55 @@
   "characters": [
     {
       "name": "Tester",
-      "about": "A level 1 Mage: spells (a prepared caster with a grimoire), the Scribe's Pack, an origin feat chosen by the species.",
-      "prefer": ["Kindred", "Archivist", "Standard array", "Lucky Charm", "Mage", "A:"]
+      "about": "A level 1 Wizard: spells (a prepared caster with a spellbook), a Human whose Versatile trait picks an origin feat, the Sage's Magic Initiate.",
+      "prefer": [
+        "Human",
+        "Sage",
+        "Standard array",
+        "Alert",
+        "Wizard",
+        "A:"
+      ]
     },
     {
       "name": "Brawler",
-      "about": "A level 1 Monk: Martial Arts and monk weapons, a subspecies, an instrument picked from the equipment.",
-      "prefer": ["Stoneling", "Stoneling (Deep)", "Drifter", "Standard array", "Monk", "A:", "Reed Pipe"]
+      "about": "A level 1 Monk: Martial Arts and monk weapons, a subspecies (from the invented supplement), a gaming set picked from the Soldier's equipment.",
+      "prefer": [
+        "Stoneling",
+        "Stoneling (Deep)",
+        "Soldier",
+        "Standard array",
+        "Monk",
+        "A:",
+        "Dice"
+      ]
     },
     {
       "name": "Hexa",
-      "about": "A level 1 Hexer: pact magic, a subclass at level 1, a lineage, a feat with versions, a focus picked from the equipment.",
-      "prefer": ["Emberkin", "Emberkin; Ash Lineage", "Acolyte of Gears", "Standard array", "Hexer", "The Lantern", "A:", "Crystal Orb"]
+      "about": "A level 1 Warlock: pact magic and invocations, an Elf lineage, a feat with versions (the Acolyte's Magic Initiate; Cleric), a holy symbol picked from the equipment.",
+      "prefer": [
+        "Elf",
+        "Elf; High Elf Lineage",
+        "Acolyte",
+        "Standard array",
+        "Warlock",
+        "A:",
+        "Amulet"
+      ]
     },
     {
       "name": "Ranger",
-      "about": "A level 1 Warden: a half caster with weapon masteries, a feature choice and a species with a lineage choice.",
-      "prefer": ["Skyborn", "Drifter", "Standard array", "Warden", "Forest Ground", "A:"]
+      "about": "A level 1 Ranger: a half caster with weapon masteries and Favored Enemy, a Tiefling legacy.",
+      "prefer": [
+        "Tiefling",
+        "Tiefling; Infernal Legacy",
+        "Criminal",
+        "Standard array",
+        "Ranger",
+        "Longbow",
+        "Scimitar",
+        "A:"
+      ]
     }
   ]
 }

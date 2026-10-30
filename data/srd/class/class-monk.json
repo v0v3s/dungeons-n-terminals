@@ -1,0 +1,729 @@
+{
+ "class": [
+  {
+   "name": "Monk",
+   "source": "SRD52",
+   "page": 49,
+   "edition": "one",
+   "hd": {
+    "number": 1,
+    "faces": 8
+   },
+   "proficiency": [
+    "str",
+    "dex"
+   ],
+   "primaryAbility": [
+    {
+     "dex": true,
+     "wis": true
+    }
+   ],
+   "startingProficiencies": {
+    "weapons": [
+     "simple",
+     "martial weapons that have the Light property"
+    ],
+    "tools": [
+     "Choose one type of Artisan’s Tools or Musical Instrument"
+    ],
+    "skills": [
+     {
+      "choose": {
+       "from": [
+        "acrobatics",
+        "athletics",
+        "history",
+        "insight",
+        "religion",
+        "stealth"
+       ],
+       "count": 2
+      }
+     }
+    ]
+   },
+   "startingEquipment": {
+    "default": [
+     "Choose A or B: (A) Spear, 5 Daggers, Artisan’s Tools or Musical Instrument chosen for the tool proficiency above, Explorer’s Pack, and 11 GP; or (B) 50 GP"
+    ],
+    "defaultData": [
+     {
+      "A": [
+       "spear|srd52",
+       {
+        "item": "dagger|srd52",
+        "quantity": 5
+       },
+       {
+        "special": "Artisan’s Tools or Musical Instrument chosen for the tool proficiency above"
+       },
+       "explorer’s pack|srd52",
+       {
+        "value": 1100
+       }
+      ],
+      "B": [
+       {
+        "value": 5000
+       }
+      ]
+     }
+    ]
+   },
+   "classTableGroups": [
+    {
+     "colLabels": [
+      "Martial Arts",
+      "Focus Points",
+      "Unarmored Movement"
+     ],
+     "rows": [
+      [
+       "1d6",
+       "—",
+       "—"
+      ],
+      [
+       "1d6",
+       2,
+       "+10 ft."
+      ],
+      [
+       "1d6",
+       3,
+       "+10 ft."
+      ],
+      [
+       "1d6",
+       4,
+       "+10 ft."
+      ],
+      [
+       "1d8",
+       5,
+       "+10 ft."
+      ],
+      [
+       "1d8",
+       6,
+       "+15 ft."
+      ],
+      [
+       "1d8",
+       7,
+       "+15 ft."
+      ],
+      [
+       "1d8",
+       8,
+       "+15 ft."
+      ],
+      [
+       "1d8",
+       9,
+       "+15 ft."
+      ],
+      [
+       "1d8",
+       10,
+       "+20 ft."
+      ],
+      [
+       "1d10",
+       11,
+       "+20 ft."
+      ],
+      [
+       "1d10",
+       12,
+       "+20 ft."
+      ],
+      [
+       "1d10",
+       13,
+       "+20 ft."
+      ],
+      [
+       "1d10",
+       14,
+       "+25 ft."
+      ],
+      [
+       "1d10",
+       15,
+       "+25 ft."
+      ],
+      [
+       "1d10",
+       16,
+       "+25 ft."
+      ],
+      [
+       "1d12",
+       17,
+       "+25 ft."
+      ],
+      [
+       "1d12",
+       18,
+       "+30 ft."
+      ],
+      [
+       "1d12",
+       19,
+       "+30 ft."
+      ],
+      [
+       "1d12",
+       20,
+       "+30 ft."
+      ]
+     ]
+    }
+   ],
+   "subclassTitle": "Monk Subclass",
+   "classFeatures": [
+    "Martial Arts|Monk|SRD52|1",
+    "Unarmored Defense|Monk|SRD52|1",
+    "Monk’s Focus|Monk|SRD52|2",
+    "Unarmored Movement|Monk|SRD52|2",
+    "Uncanny Metabolism|Monk|SRD52|2",
+    "Deflect Attacks|Monk|SRD52|3",
+    {
+     "classFeature": "Monk Subclass|Monk|SRD52|3",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Monk|SRD52|4",
+    "Slow Fall|Monk|SRD52|4",
+    "Extra Attack|Monk|SRD52|5",
+    "Stunning Strike|Monk|SRD52|5",
+    "Empowered Strikes|Monk|SRD52|6",
+    {
+     "classFeature": "Subclass Feature|Monk|SRD52|6",
+     "gainSubclassFeature": true
+    },
+    "Evasion|Monk|SRD52|7",
+    "Ability Score Improvement|Monk|SRD52|8",
+    "Acrobatic Movement|Monk|SRD52|9",
+    "Heightened Focus|Monk|SRD52|10",
+    "Self-Restoration|Monk|SRD52|10",
+    {
+     "classFeature": "Subclass Feature|Monk|SRD52|11",
+     "gainSubclassFeature": true
+    },
+    "Ability Score Improvement|Monk|SRD52|12",
+    "Deflect Energy|Monk|SRD52|13",
+    "Disciplined Survivor|Monk|SRD52|14",
+    "Perfect Focus|Monk|SRD52|15",
+    "Ability Score Improvement|Monk|SRD52|16",
+    {
+     "classFeature": "Subclass Feature|Monk|SRD52|17",
+     "gainSubclassFeature": true
+    },
+    "Superior Defense|Monk|SRD52|18",
+    "Epic Boon|Monk|SRD52|19",
+    "Body and Mind|Monk|SRD52|20"
+   ]
+  }
+ ],
+ "subclass": [
+  {
+   "name": "Warrior of the Open Hand",
+   "shortName": "Open Hand",
+   "source": "SRD52",
+   "className": "Monk",
+   "classSource": "SRD52",
+   "page": 49,
+   "edition": "one",
+   "subclassFeatures": [
+    "Warrior of the Open Hand|Monk|SRD52|Open Hand|SRD52|3",
+    "Wholeness of Body|Monk|SRD52|Open Hand|SRD52|6",
+    "Fleet Step|Monk|SRD52|Open Hand|SRD52|11",
+    "Quivering Palm|Monk|SRD52|Open Hand|SRD52|17"
+   ]
+  }
+ ],
+ "classFeature": [
+  {
+   "name": "Martial Arts",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "Your practice of martial arts gives you mastery of combat styles that use your Unarmed Strike and Monk weapons, which are the following:",
+    {
+     "type": "list",
+     "items": [
+      "Simple Melee weapons",
+      "Martial Melee weapons that have the Light property You gain the following benefits while you are unarmed or wielding only Monk weapons and you aren’t wearing armor or wielding a Shield."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Bonus Unarmed Strike",
+     "entries": [
+      "You can make an Unarmed Strike as a Bonus Action."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Martial Arts Die",
+     "entries": [
+      "You can roll {@dice 1d6} in place of the normal damage of your Unarmed Strike or Monk weapons. This die changes as you gain Monk levels, as shown in the Martial Arts column of the Monk Features table."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Dexterous Attacks",
+     "entries": [
+      "You can use your Dexterity modifier instead of your Strength modifier for the attack and damage rolls of your Unarmed Strikes and Monk weapons. In addition, when you use the Grapple or Shove option of your Unarmed Strike, you can use your Dexterity modifier instead of your Strength modifier to determine the save DC."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Unarmored Defense",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 1,
+   "entries": [
+    "While you aren’t wearing armor or wielding a Shield, your base Armor Class equals 10 plus your Dexterity and Wisdom modifiers."
+   ]
+  },
+  {
+   "name": "Monk’s Focus",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 2,
+   "entries": [
+    "Your focus and martial training allow you to harness a well of extraordinary energy within yourself. This energy is represented by Focus Points. Your Monk level determines the number of points you have, as shown in the Focus Points column of the Monk Features table.",
+    "You can expend these points to enhance or fuel certain Monk features. You start knowing three such features: Flurry of Blows, Patient Defense, and Step of the Wind, each of which is detailed below.",
+    "When you expend a Focus Point, it is unavailable until you finish a Short or Long Rest, at the end of which you regain all your expended points.",
+    "Some features that use Focus Points require your target to make a saving throw. The save DC equals 8 plus your Wisdom modifier and Proficiency Bonus.",
+    {
+     "type": "entries",
+     "name": "Flurry of Blows",
+     "entries": [
+      "You can expend 1 Focus Point to make two Unarmed Strikes as a Bonus Action."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Patient Defense",
+     "entries": [
+      "You can take the Disengage action as a Bonus Action. Alternatively, you can expend 1 Focus Point to take both the Disengage and the Dodge actions as a Bonus Action."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Step of the Wind",
+     "entries": [
+      "You can take the Dash action as a Bonus Action. Alternatively, you can expend 1 Focus Point to take both the Disengage and Dash actions as a Bonus Action, and your jump distance is doubled for the turn."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Unarmored Movement",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 2,
+   "entries": [
+    "Your speed increases by 10 feet while you aren’t wearing armor or wielding a Shield. This bonus increases when you reach certain Monk levels, as shown on the Monk Features table."
+   ]
+  },
+  {
+   "name": "Uncanny Metabolism",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 2,
+   "entries": [
+    "When you roll Initiative, you can regain all expended Focus Points. When you do so, roll your Martial Arts die, and regain a number of Hit Points equal to your Monk level plus the number rolled.",
+    "Once you use this feature, you can’t use it again until you finish a Long Rest."
+   ]
+  },
+  {
+   "name": "Deflect Attacks",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "When an attack roll hits you and its damage includes Bludgeoning, Piercing, or Slashing damage, you can take a Reaction to reduce the attack’s total damage against you. The reduction equals {@dice 1d10} plus your Dexterity modifier and Monk level.",
+    "If you reduce the damage to 0, you can expend 1 Focus Point to redirect some of the attack’s force. If you do so, choose a creature you can see within 5 feet of yourself if the attack was a melee attack or a creature you can see within 60 feet of yourself that isn’t behind Total Cover if the attack was a ranged attack. That creature must succeed on a Dexterity saving throw or take damage equal to two rolls of your Martial Arts die plus your Dexterity modifier. The damage is the same type dealt by the attack."
+   ]
+  },
+  {
+   "name": "Monk Subclass",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "You gain a Monk subclass of your choice. The Warrior of the Open Hand subclass is detailed after this class’s description. A subclass is a specialization that grants you features at certain Monk levels. For the rest of your career, you gain each of your subclass’s features that are of your Monk level or lower."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 4,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Slow Fall",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 4,
+   "entries": [
+    "You can take a Reaction when you fall to reduce any damage you take from the fall by an amount equal to five times your Monk level."
+   ]
+  },
+  {
+   "name": "Extra Attack",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 5,
+   "entries": [
+    "You can attack twice instead of once whenever you take the Attack action on your turn."
+   ]
+  },
+  {
+   "name": "Stunning Strike",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 5,
+   "entries": [
+    "Once per turn when you hit a creature with a Monk weapon or an Unarmed Strike, you can expend 1 Focus Point to attempt a stunning strike. The target must make a Constitution saving throw. On a failed save, the target has the {@condition Stunned|SRD52} condition until the start of your next turn. On a successful save, the target’s Speed is halved until the start of your next turn, and the next attack roll made against the target before then has Advantage."
+   ]
+  },
+  {
+   "name": "Empowered Strikes",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 6,
+   "entries": [
+    "Whenever you deal damage with your Unarmed Strike, it can deal your choice of Force damage or its normal damage type."
+   ]
+  },
+  {
+   "name": "Subclass Feature",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 6,
+   "entries": [
+    "You gain a feature from your Monk subclass."
+   ]
+  },
+  {
+   "name": "Evasion",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 7,
+   "entries": [
+    "When you’re subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw and only half damage if you fail.",
+    "You don’t benefit from this feature if you have the {@condition Incapacitated|SRD52} condition."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 8,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Acrobatic Movement",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 9,
+   "entries": [
+    "While you aren’t wearing armor or wielding a Shield, you gain the ability to move along vertical surfaces and across liquids on your turn without falling during the movement."
+   ]
+  },
+  {
+   "name": "Heightened Focus",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 10,
+   "entries": [
+    "Your Flurry of Blows, Patient Defense, and Step of the Wind gain the following benefits.",
+    {
+     "type": "entries",
+     "name": "Flurry of Blows",
+     "entries": [
+      "You can expend 1 Focus Point to use Flurry of Blows and make three Unarmed Strikes with it instead of two."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Patient Defense",
+     "entries": [
+      "When you expend a Focus Point to use Patient Defense, you gain a number of Temporary Hit Points equal to two rolls of your Martial Arts die."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Step of the Wind",
+     "entries": [
+      "When you expend a Focus Point to use Step of the Wind, you can choose a willing creature within 5 feet of yourself that is Large or smaller. You move the creature with you until the end of your turn. The creature’s movement doesn’t provoke Opportunity Attacks."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Self-Restoration",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 10,
+   "entries": [
+    "Through sheer force of will, you can remove one of the following conditions from yourself at the end of each of your turns: Charmed, Frightened, or Poisoned.",
+    "In addition, forgoing food and drink doesn’t give you levels of Exhaustion."
+   ]
+  },
+  {
+   "name": "Subclass Feature",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 11,
+   "entries": [
+    "You gain a feature from your Monk subclass."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 12,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Deflect Energy",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 13,
+   "entries": [
+    "You can now use your Deflect Attacks feature against attacks that deal any damage type, not just Bludgeoning, Piercing, or Slashing."
+   ]
+  },
+  {
+   "name": "Disciplined Survivor",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 14,
+   "entries": [
+    "Your physical and mental discipline grant you proficiency in all saving throws.",
+    "Additionally, whenever you make a saving throw and fail, you can expend 1 Focus Point to reroll it, and you must use the new roll."
+   ]
+  },
+  {
+   "name": "Perfect Focus",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 15,
+   "entries": [
+    "When you roll Initiative and don’t use Uncanny Metabolism, you regain expended Focus Points until you have 4 if you have 3 or fewer."
+   ]
+  },
+  {
+   "name": "Ability Score Improvement",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 16,
+   "entries": [
+    "You gain the Ability Score Improvement feat (see “Feats”) or another feat of your choice for which you qualify. You gain this feature again at Monk levels 8, 12, and 16."
+   ]
+  },
+  {
+   "name": "Subclass Feature",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 17,
+   "entries": [
+    "You gain a feature from your Monk subclass."
+   ]
+  },
+  {
+   "name": "Superior Defense",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 18,
+   "entries": [
+    "At the start of your turn, you can expend 3 Focus Points to bolster yourself against harm for 1 minute or until you have the {@condition Incapacitated|SRD52} condition. During that time, you have Resistance to all damage except Force damage."
+   ]
+  },
+  {
+   "name": "Epic Boon",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 19,
+   "entries": [
+    "You gain an Epic Boon feat (see “Feats”) or another feat of your choice for which you qualify. Boon of Irresistible Offense is recommended."
+   ]
+  },
+  {
+   "name": "Body and Mind",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "level": 20,
+   "entries": [
+    "You have developed your body and mind to new heights. Your Dexterity and Wisdom scores increase by 4, to a maximum of 25."
+   ]
+  }
+ ],
+ "subclassFeature": [
+  {
+   "name": "Open Hand Technique",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "subclassShortName": "Open Hand",
+   "subclassSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "Whenever you hit a creature with an attack granted by your Flurry of Blows, you can impose one of the following effects on that target.",
+    {
+     "type": "entries",
+     "name": "Addle",
+     "entries": [
+      "The target can’t make Opportunity Attacks until the start of its next turn."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Push",
+     "entries": [
+      "The target must succeed on a Strength saving throw or be pushed up to 15 feet away from you."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Topple",
+     "entries": [
+      "The target must succeed on a Dexterity saving throw or have the {@condition Prone|SRD52} condition."
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Warrior of the Open Hand",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "subclassShortName": "Open Hand",
+   "subclassSource": "SRD52",
+   "level": 3,
+   "entries": [
+    "Master Unarmed Combat Techniques Warriors of the Open Hand are masters of unarmed combat. They learn techniques to push and trip their opponents and manipulate their own energy to protect themselves from harm.",
+    {
+     "type": "refSubclassFeature",
+     "subclassFeature": "Open Hand Technique|Monk|SRD52|Open Hand|SRD52|3"
+    }
+   ]
+  },
+  {
+   "name": "Wholeness of Body",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "subclassShortName": "Open Hand",
+   "subclassSource": "SRD52",
+   "level": 6,
+   "entries": [
+    "You gain the ability to heal yourself. As a Bonus Action, you can roll your Martial Arts die. You regain a number of Hit Points equal to the number rolled plus your Wisdom modifier (minimum of 1 Hit Point regained).",
+    "You can use this feature a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest."
+   ]
+  },
+  {
+   "name": "Fleet Step",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "subclassShortName": "Open Hand",
+   "subclassSource": "SRD52",
+   "level": 11,
+   "entries": [
+    "When you take a Bonus Action other than Step of the Wind, you can also use Step of the Wind immediately after that Bonus Action."
+   ]
+  },
+  {
+   "name": "Quivering Palm",
+   "source": "SRD52",
+   "page": 49,
+   "className": "Monk",
+   "classSource": "SRD52",
+   "subclassShortName": "Open Hand",
+   "subclassSource": "SRD52",
+   "level": 17,
+   "entries": [
+    "You gain the ability to set up lethal vibrations in someone’s body. When you hit a creature with an Unarmed Strike, you can expend 4 Focus Points to start these imperceptible vibrations, which last for a number of days equal to your Monk level. The vibrations are harmless unless you take an action to end them. Alternatively, when you take the Attack action on your turn, you can forgo one of the attacks to end the vibrations. To end them, you and the target must be on the same plane of existence. When you end them, the target must make a Constitution saving throw, taking {@damage 10d12} Force damage on a failed save or half as much damage on a successful one.",
+    "You can have only one creature under the effect of this feature at a time. You can end the vibrations harmlessly (no action required)."
+   ]
+  }
+ ]
+}

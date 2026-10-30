@@ -329,6 +329,27 @@ impl OverlaySet {
     }
 }
 
+/// A file's `[[feature]]` blocks, each with its sub-tables: the text
+/// before the first one and the comments that head the next one are left
+/// out.
+pub fn blocks(text: &str) -> Vec<String> {
+    let mut out: Vec<Vec<&str>> = Vec::new();
+    for line in text.lines() {
+        if line.trim() == "[[feature]]" {
+            out.push(Vec::new());
+        }
+        if let Some(b) = out.last_mut() {
+            b.push(line);
+        }
+    }
+    out.into_iter()
+        .map(|b| {
+            let end = b.iter().rposition(|l| !l.trim_start().starts_with('#') && !l.trim().is_empty()).map_or(0, |i| i + 1);
+            b[..end].join("\n") + "\n"
+        })
+        .collect()
+}
+
 /// A commented starting point for a feature's overlay.
 pub fn template(id: &str, name: &str) -> String {
     format!(
@@ -384,6 +405,18 @@ impl FeatureOverlay {
             model.inputs.entry(format!("toggle.{}", t.key)).or_insert(Value::Bool(false));
         }
         model.effects.extend(self.effects.iter().cloned());
+    }
+}
+
+#[cfg(test)]
+mod blocks_tests {
+    #[test]
+    fn a_file_splits_into_its_features() {
+        let text = "# Rules\n\n[[feature]]\nid = \"feat:A|T\"\n[[feature.effect]]\ntarget = \"ac\"\nadd = \"1\"\n\n# ---- B ----\n\n[[feature]]\nid = \"feat:B|T\"\n";
+        assert_eq!(
+            super::blocks(text),
+            ["[[feature]]\nid = \"feat:A|T\"\n[[feature.effect]]\ntarget = \"ac\"\nadd = \"1\"\n", "[[feature]]\nid = \"feat:B|T\"\n"]
+        );
     }
 }
 

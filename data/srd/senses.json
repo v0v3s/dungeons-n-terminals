@@ -1,0 +1,72 @@
+{
+ "sense": [
+  {
+   "name": "Blindsight",
+   "source": "SRD52",
+   "page": 177,
+   "entries": [
+    "If you have Blindsight, you can see within a specific range without relying on physical sight. Within that range, you can see anything that isn’t behind Total Cover even if you have the {@condition Blinded|SRD52} condition or are in Darkness. Moreover, in that range, you can see something that has the {@condition Invisible|SRD52} condition."
+   ]
+  },
+  {
+   "name": "Darkvision",
+   "source": "SRD52",
+   "page": 180,
+   "entries": [
+    "If you have Darkvision, you can see in Dim Light within a specified range as if it were Bright Light and in Darkness within that range as if it were Dim Light. You discern colors in that Darkness only as shades of gray. See also “Playing the Game” (“Exploration”)."
+   ]
+  },
+  {
+   "name": "Tremorsense",
+   "source": "SRD52",
+   "page": 190,
+   "entries": [
+    "A creature with Tremorsense can pinpoint the location of creatures and moving objects within a specific range, provided that the creature with Tremorsense and anything it is detecting are both in contact with the same surface (such as the ground, a wall, or a ceiling) or the same liquid.",
+    "Tremorsense can’t detect creatures or objects in the air, and it doesn’t count as a form of sight."
+   ]
+  },
+  {
+   "name": "Truesight",
+   "source": "SRD52",
+   "page": 190,
+   "entries": [
+    "If you have Truesight, your vision is enhanced within a specified range. Within that range, your vision pierces through the following:",
+    {
+     "type": "entries",
+     "name": "Darkness",
+     "entries": [
+      "You can see in normal and magical Darkness."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Invisibility",
+     "entries": [
+      "You see creatures and objects that have the {@condition Invisible|SRD52} condition."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Visual Illusions",
+     "entries": [
+      "Visual illusions appear transparent to you, and you automatically succeed on saving throws against them."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Transformations",
+     "entries": [
+      "You discern the true form of any creature or object you see that has been transformed by magic."
+     ]
+    },
+    {
+     "type": "entries",
+     "name": "Ethereal Plane",
+     "entries": [
+      "You see into the Ethereal Plane."
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -134,12 +134,14 @@ pub async fn clear_imported(app: State<'_, App>, homebrew_only: bool) -> Res<Sta
 
 /// Start over: the data, every campaign, character and note.
 #[tauri::command]
-pub async fn reset_app(app: State<'_, App>) -> Res<Status> {
+pub async fn reset_app(handle: tauri::AppHandle, app: State<'_, App>) -> Res<Status> {
     let mut inner = app.lock();
     // An entry being edited belongs to the old campaign or data.
     inner.editing = None;
     inner.sheet = None;
     inner.ws.reset()?;
+    // The settings are gone: backups go to the default folder again.
+    inner.ws.backups = crate::backups::shelf(&handle, &inner.ws.store, &inner.ws.config)?;
     inner.library_changed();
     status_of(&inner)
 }

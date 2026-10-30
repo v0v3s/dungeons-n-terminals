@@ -38,6 +38,8 @@ pub enum Action {
     Delete(usize),
     /// Rename the campaign at this index.
     Rename(usize, String),
+    /// Open the rules library.
+    RulesLibrary,
 }
 
 pub struct Campaigns {
@@ -212,6 +214,7 @@ impl Campaigns {
 
         match key.code {
             KeyCode::Char('q') => return Action::Quit,
+            KeyCode::Char('L') => return Action::RulesLibrary,
             KeyCode::Char('n') => {
                 self.name_input = Some(String::new());
                 return Action::None;

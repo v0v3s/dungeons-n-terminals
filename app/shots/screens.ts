@@ -2,7 +2,7 @@
 // screen, or a desktop window (DNT_E2E_TARGET=windows).
 import type { Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-import { choose, expect, go, invoke, openSheet, pick, sheetTab, test } from "../e2e/fixtures";
+import { choose, expect, go, invoke, openSheet, pick, sheetTab, test, useTestRulesLibrary } from "../e2e/fixtures";
 
 const OUT = fileURLToPath(new URL("../../docs/wiki/images/", import.meta.url));
 
@@ -33,7 +33,7 @@ test("the screens", async ({ page }) => {
   await shot(page, "app-overview");
 
   await sheetTab(page, "Spells");
-  for (const name of ["Frost Needle", "Glimmer", "Ember Bolt", "Ward of Thorns"]) {
+  for (const name of ["Ray of Frost", "Fire Bolt", "Burning Hands", "Fog Cloud"]) {
     await page.getByRole("button", { name: "+ add" }).first().click();
     await pick(page, [name]);
     await expect(page.locator("button.spell", { hasText: name })).toBeVisible();
@@ -41,8 +41,8 @@ test("the screens", async ({ page }) => {
   await shot(page, "app-spells");
 
   await sheetTab(page, "Inventory");
-  await page.locator("button.line", { hasText: "Scribe's Pack" }).click();
-  await choose(page, "Scribe's Pack", "Unpack");
+  await page.locator("button.line", { hasText: "Scholar’s Pack" }).click();
+  await choose(page, "Scholar’s Pack", "Unpack");
   await shot(page, "app-inventory");
 
   await invoke(page, "close_character");
@@ -55,6 +55,21 @@ test("the screens", async ({ page }) => {
 
   await go(page, "Campaigns");
   await shot(page, "app-campaigns");
+
+  // The data, on its first tab.
+  await go(page, "Data", "Import");
+  await shot(page, "app-data");
+
+  // The rules library (the tests' one), a file ticked.
+  await useTestRulesLibrary(page);
+  await go(page, "Data", "Rules");
+  await page.getByRole("button", { name: "Open the rules library…" }).click();
+  const library = page.getByRole("dialog", { name: "Rules library" });
+  await library.getByRole("button", { name: "Unfold SRD" }).click();
+  await library.getByRole("button", { name: "Unfold Classes" }).click();
+  await library.getByRole("checkbox", { name: "Classes" }).click();
+  await shot(page, "app-rules-library");
+  await page.keyboard.press("Escape");
 
   await go(page, "Characters");
   await page.getByRole("button", { name: "+ New character" }).click();

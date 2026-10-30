@@ -74,8 +74,9 @@ test("a field of a homebrew entry is edited, and the compendium shows it", { tag
   await expect(dialog(page, "Edit · Moth Message")).toBeVisible();
   await dialog(page, "Edit · Moth Message").getByRole("button", { name: "Done" }).click();
 
-  await search(page, "moth");
-  await expect(names(page)).toHaveText(["Moth Message"]);
+  // The SRD has its own moths and mouths: the renamed spell comes first.
+  await search(page, "moth message");
+  await expect(names(page).first()).toHaveText("Moth Message");
   await read(page, "Moth Message");
   await expect(doc(page)).toContainText("Moths carry your words to a friend.");
 });
@@ -98,23 +99,23 @@ test("a homebrew entry is edited as JSON", { tag: "@homebrew.edit-json" }, async
   await search(page, "moth whisper");
   await read(page, "Moth Whisper");
   await expect(doc(page)).toContainText("Written in JSON, a moth flutters.");
-  await search(page, "moth ^2");
+  await search(page, "moth whisper ^2");
   await expect(names(page)).toHaveText(["Moth Whisper"]);
 });
 
 test("a changed field of a campaign version goes back to the book", { tag: "@homebrew.revert-field" }, async ({ page }) => {
-  const editor = await campaignVersion(page, "Glimmer");
+  const editor = await campaignVersion(page, "Guiding Bolt");
   await setText(page, editor, "Description", "A pale moon rises in your palm.");
   await expect(field(editor, "Description")).toHaveClass(/changed/);
   await field(editor, "Description").click();
   await dialog(page, "Description").getByRole("button", { name: "Back to the book" }).click();
   await expect(dialog(page, "Description")).toHaveCount(0);
   await expect(field(editor, "Description")).not.toHaveClass(/changed/);
-  await expect(field(editor, "Description")).toContainText("An object sheds dim light.");
+  await expect(field(editor, "Description")).toContainText("You hurl a bolt of light");
   await editor.getByRole("button", { name: "Done" }).click();
 
-  await read(page, "Glimmer");
-  await expect(doc(page)).toContainText("An object sheds dim light.");
+  await read(page, "Guiding Bolt");
+  await expect(doc(page)).toContainText("You hurl a bolt of light");
   await expect(doc(page)).not.toContainText("A pale moon");
 });
 

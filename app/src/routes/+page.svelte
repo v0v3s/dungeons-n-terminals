@@ -18,6 +18,7 @@
   import { closeTop } from "../lib/modals";
   import { narrow, touch } from "../lib/screen";
   import { SHEET_TABS, type SheetTab } from "../lib/sheetctx";
+  import { dataTabs, type DataTab } from "../lib/datatabs";
 
   type Section = "compendium" | "characters" | "notes" | "campaigns" | "data";
   const SECTIONS: [Section, string][] = [
@@ -45,6 +46,7 @@
   /// The open character's tab, and the compendium's category with every
   /// one there is: the menu lists them under their sections.
   let sheetTab = $state<SheetTab>("Overview");
+  let dataTab = $state<DataTab>("Import");
   /// The open sheet's actions (warnings, ⋯): in the app bar on a phone.
   let sheetActions = $state<{ label: string; name: string; onclick: () => void }[]>([]);
   let category = $state(0);
@@ -60,10 +62,14 @@
         ? categories.map(([c, n], i) => [String(i), c, String(n)])
         : id === "characters" && sheetOpen
           ? SHEET_TABS.map((t) => [t, t, ""])
-          : [],
+          : id === "data"
+            ? dataTabs(status).map(([t, l]) => [t, l, ""])
+            : [],
     ]),
   );
-  const menuChild = $derived(section === "compendium" ? String(category) : section === "characters" && sheetOpen ? sheetTab : "");
+  const menuChild = $derived(
+    section === "compendium" ? String(category) : section === "characters" && sheetOpen ? sheetTab : section === "data" ? dataTab : "",
+  );
 
   /// A section from the menu, or something inside it.
   function pick(id: string, child?: string) {
@@ -73,6 +79,8 @@
       if (section === "compendium" && !welcome) compendium?.showCategory(category);
     } else if (child !== undefined && id === "characters") {
       sheetTab = child as SheetTab;
+    } else if (child !== undefined && id === "data") {
+      dataTab = child as DataTab;
     }
     go(id);
   }
@@ -253,7 +261,7 @@
     {:else if section === "campaigns"}
       <Campaigns {status} onchange={(s) => (status = s)} />
     {:else}
-      <Data {status} onchange={(s) => (status = s)} onreset={() => (welcome = true)} />
+      <Data {status} bind:tab={dataTab} onchange={(s) => (status = s)} onreset={() => (welcome = true)} />
     {/if}
   </main>
 

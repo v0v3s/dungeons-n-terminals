@@ -1,20 +1,3 @@
 {
- "language": [
-  {
-   "name": "Common Tongue",
-   "source": "TST",
-   "type": "standard",
-   "entries": [
-    "Spoken across the Proving Grounds."
-   ]
-  },
-  {
-   "name": "Tidespeak",
-   "source": "TST",
-   "type": "exotic",
-   "entries": [
-    "The language of the deep water."
-   ]
-  }
- ]
+ "language": []
 }
