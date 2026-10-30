@@ -1,0 +1,5 @@
+{
+ "tag_name": "v99.0.0",
+ "body": "### Added\n\n- Everything the tests need.",
+ "assets": [{"name": "dnt-linux-x86_64", "browser_download_url": "dnt-linux-x86_64"},{"name": "dnt-windows-x86_64.exe", "browser_download_url": "dnt-windows-x86_64.exe"},{"name": "dnt-app-android.apk", "browser_download_url": "dnt-app-android.apk"},{"name": "dnt-app-windows-x86_64-setup.exe", "browser_download_url": "dnt-app-windows-x86_64-setup.exe"},{"name": "SHA256SUMS", "browser_download_url": "SHA256SUMS"}]
+}

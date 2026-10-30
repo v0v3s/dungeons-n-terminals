@@ -29,5 +29,25 @@ cargo build --release      # the binary is target/release/dnt
   installing from that app (or `adb install -r dnt-app-android.apk`). Newer
   releases install over older ones.
 
+## Updating
+
+dnt checks for a newer version once a day when it starts, and says so; it
+asks GitHub for the newest release, nothing else.
+
+- **The app**: a notice says *dnt X is out*: *What's new* shows its notes,
+  *Update* downloads it. On Android, Android's installer opens on it:
+  confirm, and the first time allow dnt to install apps (Android installs
+  it only when it comes from the same signed dnt). On Windows, the
+  installer runs. *Data › About* checks by hand, and turns the daily check
+  off.
+- **The terminal app**: the status line says *dnt X is out*. `dnt update`
+  updates it in place, `dnt update --check` says what is new, and
+  `dnt update --auto off` stops the daily check.
+
+Every download is checked against the release's `SHA256SUMS` first: one
+that does not match is not installed.
+
+![A newer dnt in the app](images/app-update.png)
+
 The terminal app and the app keep their own campaigns: they do not share
 them. Next: [[Getting started]].

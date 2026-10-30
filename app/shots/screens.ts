@@ -2,7 +2,7 @@
 // screen, or a desktop window (DNT_E2E_TARGET=windows).
 import type { Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-import { choose, expect, go, invoke, openSheet, pick, sheetTab, test, useTestRulesLibrary } from "../e2e/fixtures";
+import { choose, expect, go, invoke, openSheet, pick, sheetTab, test, useTestRelease, useTestRulesLibrary } from "../e2e/fixtures";
 
 const OUT = fileURLToPath(new URL("../../docs/wiki/images/", import.meta.url));
 
@@ -55,6 +55,16 @@ test("the screens", async ({ page }) => {
 
   await go(page, "Campaigns");
   await shot(page, "app-campaigns");
+
+  // A newer dnt is out (the tests' release): the notice, and About.
+  await useTestRelease(page, "newer");
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+  await expect(page.getByRole("status").filter({ hasText: "is out" })).toBeVisible();
+  await go(page, "Data", "About");
+  await page.getByRole("button", { name: "Check for updates" }).click();
+  await expect(page.getByRole("button", { name: "Update to 99.0.0" })).toBeVisible();
+  await shot(page, "app-update");
 
   // The data, on its first tab.
   await go(page, "Data", "Import");

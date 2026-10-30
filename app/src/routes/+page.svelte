@@ -2,6 +2,8 @@
      with the keys; on touch screens an app bar with a drawer. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import UpdateNotice from "../lib/UpdateNotice.svelte";
+  import { checkForUpdate } from "../lib/update.svelte";
   import { exit, onBackButtonPress } from "@tauri-apps/api/app";
   import * as api from "../lib/api";
   import AppBar from "../lib/AppBar.svelte";
@@ -184,6 +186,8 @@
       }
       status = await api.status();
       welcome = !status.loaded || !status.campaigns.length;
+      // The day's check for a newer dnt, in the background.
+      checkForUpdate(false);
       // Development: `#characters/<slug>` (or VITE_OPEN) opens a section.
       const target = import.meta.env.DEV ? location.hash.slice(1) || import.meta.env.VITE_OPEN : "";
       if (target) {
@@ -236,6 +240,7 @@
   {/if}
 
   <main>
+    {#if status}<UpdateNotice />{/if}
     {#if error}
       <p class="err">{error}</p>
     {:else if !status}

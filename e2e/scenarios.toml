@@ -573,6 +573,21 @@ does = "A mistake in your rules is named, with its file and what is wrong: on th
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "update.check"
+does = "See whether there is a newer dnt and what is new in it (its release notes); the terminal app: dnt update --check."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "update.install"
+does = "Update to the newer dnt: its file for this system is downloaded and checked against the release's SHA256SUMS (a file that does not match is not installed), then installed: the terminal app replaces itself (dnt update); the app hands the APK to Android's installer, or runs the Windows installer."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "update.auto"
+does = "Once a day when it starts, dnt checks for a newer version by itself and says so (the terminal app on its status line, the app in a notice); the check can be turned off (dnt update --auto off; Data › About)."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "rules.library-browse"
 does = "Browse the rules library (github.com/v0v3s/dnt-rules) as a tree: its folders (the SRD first), files and rules, each marked new, yours already or differing from yours, and whether it replaces dnt's own; folded at first (a folder says how many rules it has), folders and files unfold. The terminal app also lists it with dnt rules."
 targets = ["tui", "app"]

@@ -36,6 +36,14 @@ export async function useTestRulesLibrary(page: Page) {
   await invoke(page, "e2e_rules_library", { files });
 }
 
+/// One of the tests' releases (e2e/update: newer, older, broken), given to
+/// the app instead of GitHub's newest.
+export async function useTestRelease(page: Page, which: "newer" | "older" | "broken") {
+  const root = join(E2E, "update", which);
+  const files = readdirSync(root).map((name: string) => [name, readFileSync(join(root, name), "utf8")] as [string, string]);
+  await invoke(page, "e2e_update_source", { files });
+}
+
 /// The test data zip (made by the runner script from e2e/data and e2e/homebrew).
 export function dataZip(): Buffer {
   const zip = process.env.DNT_E2E_ZIP;

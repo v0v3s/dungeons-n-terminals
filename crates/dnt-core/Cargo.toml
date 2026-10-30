@@ -14,6 +14,7 @@ serde_json = "1.0.154"
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 toml = "1.1.8"
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+sha2 = "0.10.9"
 
 # The rules library is fetched over HTTPS (not in a browser).
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

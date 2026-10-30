@@ -9,6 +9,7 @@ mod homebrew;
 mod library;
 mod notes;
 mod rules_library;
+mod updates;
 
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -37,6 +38,8 @@ pub struct Inner {
     pub rules_files: Option<Vec<(String, String)>>,
     /// The tests' rules library, read instead of the web's.
     pub rules_test: Option<Vec<(String, String)>>,
+    /// The tests' releases (a folder), read instead of GitHub's.
+    pub update_test: Option<String>,
 }
 
 impl Inner {
@@ -111,6 +114,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(folders::init())
+        .plugin(updates::init())
         .manage(App::default())
         .setup(|app| {
             // `DNT_HOME` moves everything elsewhere, as for the terminal app
@@ -150,6 +154,7 @@ pub fn run() {
                     editing: None,
                     rules_files: None,
                     rules_test: None,
+                    update_test: None,
                 });
                 state.ready.notify_all();
             });
@@ -178,6 +183,11 @@ pub fn run() {
             rules_library::rules_library,
             rules_library::rules_library_import,
             rules_library::e2e_rules_library,
+            updates::update_state,
+            updates::update_auto,
+            updates::update_check,
+            updates::update_install,
+            updates::e2e_update_source,
             library::clear_imported,
             library::reset_app,
             library::sources,

@@ -34,3 +34,4 @@ mod sources;
 mod spells;
 #[allow(dead_code)]
 mod steps;
+mod update;

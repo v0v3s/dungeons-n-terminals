@@ -76,6 +76,30 @@ pub struct Config {
     /// Automatic backups.
     #[serde(default)]
     pub backup: BackupConfig,
+    /// Checking for a newer dnt.
+    #[serde(default)]
+    pub update: UpdateConfig,
+}
+
+/// Checking for a newer dnt, once a day when it starts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UpdateConfig {
+    /// Check by itself (on unless turned off).
+    #[serde(default = "yes")]
+    pub auto: bool,
+    /// The day of the last automatic check (`2026-10-30`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checked: Option<String>,
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        UpdateConfig { auto: true, checked: None }
+    }
+}
+
+fn yes() -> bool {
+    true
 }
 
 /// How often dnt backs everything up by itself (when it starts).
@@ -739,6 +763,7 @@ mod tests {
             last_campaign: Some("cos".into()),
             notes_order: vec![],
             backup: BackupConfig { every: Every::Day, keep: 3, last: Some("2026-10-29 10:00".into()), folder: Some("/mnt/backups".into()) },
+            update: UpdateConfig { auto: false, checked: Some("2026-10-30".into()) },
         };
         store.save_config(&config).unwrap();
         assert_eq!(store.load_config().unwrap(), config);
