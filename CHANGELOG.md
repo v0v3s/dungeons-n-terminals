@@ -8,7 +8,7 @@ become the release page.
 
 ## Unreleased
 
-## v1.3.0 - 2026-10-30
+## v1.4.0 - 2026-10-30
 
 ### Added
 
