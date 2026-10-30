@@ -51,6 +51,9 @@ pub fn draw(frame: &mut Frame, lib: &Library, app: &mut App, theme: &Theme) {
     if let Some(flow) = &app.new_flow {
         crate::ui_editor::draw_new(frame, body, flow, theme);
     }
+    if let Some(view) = &app.library {
+        view.draw(frame, body, theme);
+    }
     draw_footer(frame, footer, app, theme);
     if let Some(h) = app.help.as_mut() {
         crate::help::draw(frame, body, h, theme);
@@ -171,12 +174,14 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         (Section::Campaigns, _) if app.campaigns.renaming.is_some() => &[("enter", "rename"), ("esc", "cancel")],
         (Section::Campaigns, _) if app.campaigns.name_input.is_some() => &[("enter", "create"), ("esc", "cancel")],
         (Section::Campaigns, _) if app.campaigns.filtering => &[("enter", "done"), ("esc", "clear")],
+        _ if app.library.is_some() => &[("esc", "close")],
         (Section::Campaigns, _) if app.campaigns.pane == Pane::Campaigns => &[
             ("j k", "move"),
             ("enter", "activate"),
             ("n", "new"),
             ("r", "rename"),
             ("D", "delete"),
+            ("L", "rules library"),
             ("tab", "sources"),
             ("1-4", "section"),
             ("q", "quit"),

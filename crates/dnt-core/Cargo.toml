@@ -15,6 +15,10 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 toml = "1.1.8"
 zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 
+# The rules library is fetched over HTTPS (not in a browser).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = "3.5.0"
+
 # In a browser the clock comes from JavaScript.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "wasmbind"] }

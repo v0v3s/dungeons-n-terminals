@@ -567,6 +567,21 @@ does = "A mistake in your rules is named, with its file and what is wrong: on th
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "rules.library-browse"
+does = "Browse the rules library (github.com/v0v3s/dnt-rules) as a tree: its folders (the SRD first), files and rules, each marked new, yours already or differing from yours, and whether it replaces dnt's own; folders and files fold. The terminal app also lists it with dnt rules."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rules.library-import"
+does = "Check a whole folder, a file or single rules of the library and import them as your own rules: the sheet uses them. The terminal app also imports with dnt rules import <folder, file or rule>."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "rules.library-conflict"
+does = "Rules of the library that differ from yours ask before importing: overwrite or keep each one, or all at once; kept ones stay yours, overwritten ones are replaced where they were."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "features.mastery-swap"
 does = "Swap a weapon mastery."
 targets = ["tui", "app"]

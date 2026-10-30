@@ -254,6 +254,7 @@ mod content {
             ("n", "new campaign (all official sources)"),
             ("r", "rename the campaign"),
             ("D", "delete the campaign (asks first)"),
+            ("L", "the rules library: import rules for features"),
             ("tab", "campaigns → books → homebrew"),
             ("l h", "into · out of the books or homebrew"),
             ("space · enter", "turn a book or homebrew source on or off"),

@@ -8,6 +8,7 @@
   import { working } from "./working.svelte";
   import { ICONS } from "./icons";
   import Modal from "./Modal.svelte";
+  import RulesLibrary from "./RulesLibrary.svelte";
   import Pane from "./Pane.svelte";
 
   let version = $state("");
@@ -170,15 +171,17 @@
   }
 
   const size = (bytes: number) => (bytes < 1e6 ? `${Math.ceil(bytes / 1e3)} kB` : `${(bytes / 1e6).toFixed(1)} MB`);
+  /// The rules library, open.
+  let library = $state(false);
 </script>
 
 <div class="data">
   <div class="inner">
   <Pane title="Data" focused>
     <p>
-      dnt reads the rules and content from data you provide, in the format described in the project's
-      <span class="muted">schemas/</span>. Import a <span class="b">zip</span> of a whole data folder, or of homebrew
-      files in any layout; or a character, a campaign or an entry exported from dnt.
+      The rules of the SRD 5.2.1 are built in. Your own books and homebrew come from data you import, in the format
+      described in the project's <span class="muted">schemas/</span>: a <span class="b">zip</span> of a whole data
+      folder, or of homebrew files in any layout; or a character, a campaign or an entry exported from dnt.
     </p>
     <p class="dim">
       Importing again updates entries instead of doubling them; entries a zip does not have are kept.
@@ -203,6 +206,15 @@
       {/if}
     {/if}
     {#if error}<p class="err">{error}</p>{/if}
+  </Pane>
+
+  <Pane title="Rules library">
+    <p class="dim">
+      Rules make the sheet do a feature's maths (its uses, the Armor Class or speed it gives). The rules library
+      (<span class="url">github.com/v0v3s/dnt-rules</span>) has rules for the SRD and for homebrew that dnt does not
+      have built in: pick some, or a whole folder, and they become your rules.
+    </p>
+    <div><button class="action" onclick={() => (library = true)}>Open the rules library…</button></div>
   </Pane>
 
   <Pane title="Backups">
@@ -375,6 +387,8 @@
     </div>
   </Modal>
 {/if}
+
+{#if library}<RulesLibrary onclose={() => (library = false)} />{/if}
 
 <style>
   .url {

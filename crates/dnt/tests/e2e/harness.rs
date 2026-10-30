@@ -256,6 +256,8 @@ pub fn env(home: &Path) -> Vec<(&'static str, String)> {
         ("EDITOR", editor.into()),
         ("VISUAL", editor.into()),
         ("TERM", "xterm-256color".into()),
+        // The rules library of the tests, not the one on the web.
+        ("DNT_RULES_URL", crate::seed::e2e_dir().join("rules").display().to_string()),
     ]
 }
 

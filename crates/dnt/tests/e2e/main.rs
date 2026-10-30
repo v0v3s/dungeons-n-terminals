@@ -21,6 +21,7 @@ mod homebrew;
 mod hp;
 mod inventory;
 mod levelup;
+mod library;
 mod nav;
 mod notes;
 mod overview;

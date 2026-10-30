@@ -3,7 +3,7 @@
 // commands: the app reset, the test data imported (e2e/data), the campaign
 // and the test party (e2e/characters.json), unless it asks for less.
 import { test as base, chromium, expect, type Locator, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as android from "./android";
@@ -20,6 +20,20 @@ export const CAMPAIGN = PARTY.campaign;
 /// Call one of the app's commands, as the frontend does.
 export function invoke<T = unknown>(page: Page, cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   return page.evaluate(([cmd, args]) => (window as any).__TAURI_INTERNALS__.invoke(cmd, args), [cmd, args] as const) as Promise<T>;
+}
+
+/// The tests' rules library (e2e/rules), given to the app instead of the
+/// one on the web.
+export async function useTestRulesLibrary(page: Page) {
+  const root = join(E2E, "rules");
+  const files: [string, string][] = [];
+  for (const folder of readdirSync(root).sort()) {
+    if (!statSync(join(root, folder)).isDirectory()) continue;
+    for (const name of readdirSync(join(root, folder)).sort()) {
+      if (name.endsWith(".toml")) files.push([`${folder}/${name}`, readFileSync(join(root, folder, name), "utf8")]);
+    }
+  }
+  await invoke(page, "e2e_rules_library", { files });
 }
 
 /// The test data zip (made by the runner script from e2e/data and e2e/homebrew).

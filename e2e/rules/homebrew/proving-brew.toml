@@ -1,0 +1,9 @@
+# Proving Grounds Brew (the test homebrew), by The Test Guild.
+
+[[feature]]
+id = "feat:Brewed Luck|TSTB"
+[[feature.resource]]
+key = "brewed_luck"
+name = "Brewed Luck"
+max = "1"
+recharge = "long_rest"

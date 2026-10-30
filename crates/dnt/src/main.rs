@@ -6,6 +6,7 @@ mod compendium;
 mod entry_editor;
 mod help;
 mod levelup;
+mod library_view;
 mod notes_view;
 mod overlay_editor;
 mod picker;
@@ -115,12 +116,34 @@ enum Cmd {
         #[arg(long)]
         all: bool,
     },
+    /// The rules library (github.com/v0v3s/dnt-rules, or DNT_RULES_URL):
+    /// list its rules, or import some as your own.
+    Rules {
+        #[command(subcommand)]
+        what: Option<RulesWhat>,
+    },
     /// Start over: delete the imported data, every campaign (characters,
     /// notes, homebrew) and the configuration.
     Reset {
         /// Do not ask first.
         #[arg(long)]
         yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum RulesWhat {
+    /// Import rules as your own: a folder (`srd`), a file (`srd/classes`)
+    /// or a rule's id; each rule that differs from yours asks first.
+    Import {
+        #[arg(required = true)]
+        paths: Vec<String>,
+        /// Overwrite your rules where they differ, without asking.
+        #[arg(long, conflicts_with = "keep_all")]
+        overwrite_all: bool,
+        /// Keep your rules where they differ, without asking.
+        #[arg(long)]
+        keep_all: bool,
     },
 }
 
@@ -344,6 +367,7 @@ fn run_command(cmd: Cmd, store: Store, config: &dnt_store::Config) -> Result<()>
             println!("Removed {source}");
         }
         Cmd::Forget { .. } => unreachable!("clap asks for a source"),
+        Cmd::Rules { what } => rules_command(store, what)?,
         Cmd::Reset { yes } => {
             if !yes {
                 println!(
@@ -362,6 +386,83 @@ fn run_command(cmd: Cmd, store: Store, config: &dnt_store::Config) -> Result<()>
             println!("dnt is reset; it starts as new.");
         }
     }
+    Ok(())
+}
+
+/// `dnt rules`: the library's tree, or an import.
+fn rules_command(store: &Store, what: Option<RulesWhat>) -> Result<()> {
+    use dnt_core::rules_library::{self as library, Status};
+    let lib = library::tree(&library::fetch(&library::location()).map_err(anyhow::Error::msg)?, store);
+    for p in &lib.problems {
+        eprintln!("{p}");
+    }
+    let Some(RulesWhat::Import { paths, overwrite_all, keep_all }) = what else {
+        for folder in &lib.folders {
+            println!("{}  ({})", folder.label, folder.name);
+            for file in &folder.files {
+                println!("  {}  ({})", file.label, file.path.trim_end_matches(".toml"));
+                for rule in &file.rules {
+                    println!("    {:<40} {}", rule.label, library::status_text(rule));
+                }
+            }
+        }
+        println!("\nImport with: dnt rules import <folder, file or rule id>…");
+        return Ok(());
+    };
+    let mut ids = std::collections::BTreeSet::new();
+    for path in &paths {
+        let found = library::ids_under(&lib, path.trim_end_matches('/'));
+        anyhow::ensure!(!found.is_empty(), "{path}: not in the rules library (`dnt rules` lists it)");
+        ids.extend(found);
+    }
+    let differ: Vec<_> = lib
+        .folders
+        .iter()
+        .flat_map(|f| &f.files)
+        .flat_map(|f| &f.rules)
+        .filter(|r| ids.contains(&r.id) && r.status == Status::Differs)
+        .collect();
+    let mut overwrite = std::collections::BTreeSet::new();
+    if overwrite_all {
+        overwrite.extend(differ.iter().map(|r| r.id.clone()));
+    } else if !keep_all && !differ.is_empty() {
+        use std::io::IsTerminal;
+        anyhow::ensure!(
+            std::io::stdin().is_terminal(),
+            "{} rule(s) differ from yours: {}; choose with --overwrite-all or --keep-all",
+            differ.len(),
+            differ.iter().map(|r| r.label.as_str()).collect::<Vec<_>>().join(", ")
+        );
+        let mut all: Option<bool> = None;
+        for rule in differ {
+            let yes = match all {
+                Some(a) => a,
+                None => loop {
+                    println!("Your rules for {} differ: [o]verwrite, [k]eep, [O]verwrite all, [K]eep all?", rule.label);
+                    let mut answer = String::new();
+                    std::io::stdin().read_line(&mut answer)?;
+                    match answer.trim() {
+                        "o" => break true,
+                        "k" => break false,
+                        "O" => {
+                            all = Some(true);
+                            break true;
+                        }
+                        "K" => {
+                            all = Some(false);
+                            break false;
+                        }
+                        _ => {}
+                    }
+                },
+            };
+            if yes {
+                overwrite.insert(rule.id.clone());
+            }
+        }
+    }
+    let done = library::import(store, &lib, &ids, &overwrite).map_err(anyhow::Error::msg)?;
+    println!("{}", done.summary());
     Ok(())
 }
 

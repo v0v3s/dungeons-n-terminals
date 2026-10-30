@@ -64,6 +64,8 @@ pub struct App {
     pub editor_return: Option<Section>,
     /// The help screen, while open.
     pub help: Option<crate::help::Help>,
+    /// The rules library, open (L on Campaigns).
+    pub library: Option<crate::library_view::LibraryView>,
     /// A homebrew entry being edited in $EDITOR (a temporary file).
     pub entry_edit_file: Option<PathBuf>,
     pub overlays: OverlaySet,
@@ -137,6 +139,7 @@ impl App {
             global_homebrew: None,
             editor_return: None,
             help: None,
+            library: None,
             entry_edit_file: None,
             overlays,
             pending_edit: None,
@@ -269,6 +272,9 @@ impl App {
             }
             return;
         }
+        if self.library.is_some() {
+            return self.library_key(lib, key);
+        }
         if key.code == KeyCode::F(1) || (key.code == KeyCode::Char('?') && self.capture.is_none() && !self.wants_text()) {
             self.help = Some(crate::help::Help { scroll: 0, context: self.help_context() });
             return;
@@ -363,9 +369,49 @@ impl App {
         }
     }
 
+    fn library_key(&mut self, lib: &Library, key: KeyEvent) {
+        use crate::library_view::Action as A;
+        use dnt_core::rules_library as library;
+        let Some(view) = self.library.as_mut() else { return };
+        match view.handle_key(key) {
+            A::None => {}
+            A::Close => self.library = None,
+            A::Status(s) => self.status = s,
+            A::Import(ids, overwrite) => {
+                let done = library::import(&self.store, &view.lib, &ids, &overwrite);
+                let tree = library::tree(&view.files, &self.store);
+                view.refresh(tree);
+                self.status = match done {
+                    Ok(done) => done.summary(),
+                    Err(e) => format!("Could not import the rules: {e}"),
+                };
+                // The sheet reads the rules again.
+                let (overlays, problems) = dnt_core::rules::load(&self.store, Some(lib));
+                self.overlays = overlays;
+                self.characters.refresh(lib, &self.overlays);
+                if let Some(p) = problems.first() {
+                    self.status.push_str(&format!(" · rules problem: {p}"));
+                }
+            }
+        }
+    }
+
     fn campaign_action(&mut self, lib: &Library, action: Action) {
         match action {
             Action::None => {}
+            Action::RulesLibrary => {
+                use dnt_core::rules_library as library;
+                match library::fetch(&library::location()) {
+                    Ok(files) => {
+                        let tree = library::tree(&files, &self.store);
+                        if let Some(p) = tree.problems.first() {
+                            self.status = format!("Rules library: {p}");
+                        }
+                        self.library = Some(crate::library_view::LibraryView::new(files, tree));
+                    }
+                    Err(e) => self.status = e,
+                }
+            }
             Action::Quit => self.quit = true,
             Action::Create(name) => {
                 // All official sources, newest printings, no homebrew.
