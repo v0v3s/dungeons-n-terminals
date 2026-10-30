@@ -41,6 +41,8 @@ become the release page.
 - Your rules for a feature of imported homebrew are no longer named as
   "not in the library" when the open campaign does not turn that
   homebrew on.
+- In the app, after *Reset the app*, backups no longer go on to the
+  folder chosen before the reset (until the app restarted).
 - In the app, holding one of two lines of the same weapon (a Quarterstaff
   and an Arcane Focus (Quarterstaff)) holds that line, not the other.
 
