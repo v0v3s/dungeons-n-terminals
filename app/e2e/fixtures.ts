@@ -216,9 +216,17 @@ export async function pick(page: Page, labels: string[]) {
     .catch(() => {});
   // The picker offering the first choice (the question before may still
   // be up while the app works out the next), else the last one open.
-  const offering = page.getByRole("dialog").filter({ has: page.locator("li button", { hasText: labels[0] }) });
+  // Held by its place: filtering its list must not lose it.
+  const dialogs = page.getByRole("dialog");
+  const offering = dialogs.filter({ has: page.locator("li button", { hasText: labels[0] }) });
   await offering.last().waitFor({ timeout: 5000 }).catch(() => {});
-  const picker = (await offering.count()) ? offering.last() : page.getByRole("dialog").last();
+  let picker = dialogs.last();
+  for (let i = (await dialogs.count()) - 1; i >= 0; i--) {
+    if (await dialogs.nth(i).locator("li button", { hasText: labels[0] }).count()) {
+      picker = dialogs.nth(i);
+      break;
+    }
+  }
   // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
   // fewer need "done".
   const counter = picker.locator(".count");
