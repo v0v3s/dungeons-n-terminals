@@ -74,6 +74,8 @@ fn grid(screen: &str) -> Vec<Vec<char>> {
 /// from its top corners to its bottom ones.
 #[track_caller]
 fn fits(t: &Tui, what: &str) {
+    // A whole frame, not one half drawn.
+    t.settle();
     let screen = t.screen();
     let g = grid(&screen);
     let fail = |why: String| panic!("{what}: {why}\n{screen}");

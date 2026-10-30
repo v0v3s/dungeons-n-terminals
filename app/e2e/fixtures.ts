@@ -214,7 +214,11 @@ export async function pick(page: Page, labels: string[]) {
   await page
     .waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 2000 })
     .catch(() => {});
-  const picker = page.getByRole("dialog").last();
+  // The picker offering the first choice (the question before may still
+  // be up while the app works out the next), else the last one open.
+  const offering = page.getByRole("dialog").filter({ has: page.locator("li button", { hasText: labels[0] }) });
+  await offering.last().waitFor({ timeout: 5000 }).catch(() => {});
+  const picker = (await offering.count()) ? offering.last() : page.getByRole("dialog").last();
   // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
   // fewer need "done".
   const counter = picker.locator(".count");
