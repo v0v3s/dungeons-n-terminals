@@ -6,6 +6,8 @@ import { dialog, expect, go, invoke, openSheet, test, useTestRulesLibrary } from
 const library = (page: Page) => dialog(page, "Rules library");
 /// A row's tick (a folder, a file or a rule), by its name.
 const tick = (page: Page, name: string) => library(page).getByRole("checkbox", { name });
+/// Unfold a folder or a file.
+const unfold = (page: Page, name: string) => library(page).getByRole("button", { name: `Unfold ${name}` }).click();
 /// The overview's tile with this label.
 const tile = (page: Page, label: string) => page.locator("button.tile", { hasText: label });
 
@@ -24,21 +26,27 @@ async function ownRules(page: Page) {
 
 test("the library is a tree of folders, files and rules", { tag: "@rules.library-browse" }, async ({ page }) => {
   await open(page);
-  // The SRD first, then the homebrew.
+  // Folded at first: the folders, the SRD first, then the homebrew.
   const names = await library(page).locator(".folder .name").allInnerTexts();
   expect(names).toEqual(["SRD", "Homebrew"]);
+  await expect(tick(page, "SRD")).toContainText("3 rule(s)");
+  await expect(tick(page, "Classes")).toHaveCount(0);
+  // Unfolded: its files, folded too; then a file's rules.
+  await unfold(page, "SRD");
   await expect(tick(page, "Classes")).toContainText("2 rule(s)");
+  await expect(tick(page, "Ritual Adept (Wizard 1)")).toHaveCount(0);
+  await unfold(page, "Classes");
   await expect(tick(page, "Ritual Adept (Wizard 1)")).toContainText("new");
   await expect(tick(page, "Favored Enemy (Ranger 1)")).toContainText("new · replaces dnt's own");
-  // A folder folds and unfolds.
+  // And folded again.
   await library(page).getByRole("button", { name: "Fold SRD" }).click();
   await expect(tick(page, "Classes")).toHaveCount(0);
-  await library(page).getByRole("button", { name: "Unfold SRD" }).click();
-  await expect(tick(page, "Classes")).toBeVisible();
 });
 
 test("ticked rules are imported and the sheet uses them", { tag: "@rules.library-import" }, async ({ page }) => {
   await open(page);
+  await unfold(page, "SRD");
+  await unfold(page, "Classes");
   // A whole file: its rules are ticked, its folder partly.
   await tick(page, "Classes").click();
   await expect(tick(page, "Ritual Adept (Wizard 1)")).toHaveAttribute("aria-checked", "true");
@@ -55,6 +63,8 @@ test("ticked rules are imported and the sheet uses them", { tag: "@rules.library
 test("rules that differ from yours ask to overwrite or keep", { tag: "@rules.library-conflict" }, async ({ page }) => {
   await ownRules(page);
   await open(page);
+  await unfold(page, "SRD");
+  await unfold(page, "Classes");
   await expect(tick(page, "Ritual Adept (Wizard 1)")).toContainText("differs from yours");
   await tick(page, "SRD").click();
   await library(page).getByRole("button", { name: "Import 3 rule(s)" }).click();
@@ -77,6 +87,7 @@ test("rules that differ from yours ask to overwrite or keep", { tag: "@rules.lib
 test("kept rules stay yours", { tag: "@rules.library-conflict" }, async ({ page }) => {
   await ownRules(page);
   await open(page);
+  await unfold(page, "SRD");
   await tick(page, "Classes").click();
   await library(page).getByRole("button", { name: "Import 2 rule(s)" }).click();
   await library(page).getByRole("button", { name: "Import", exact: true }).click();

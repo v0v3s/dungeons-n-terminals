@@ -574,7 +574,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "rules.library-browse"
-does = "Browse the rules library (github.com/v0v3s/dnt-rules) as a tree: its folders (the SRD first), files and rules, each marked new, yours already or differing from yours, and whether it replaces dnt's own; folders and files fold. The terminal app also lists it with dnt rules."
+does = "Browse the rules library (github.com/v0v3s/dnt-rules) as a tree: its folders (the SRD first), files and rules, each marked new, yours already or differing from yours, and whether it replaces dnt's own; folded at first (a folder says how many rules it has), folders and files unfold. The terminal app also lists it with dnt rules."
 targets = ["tui", "app"]
 
 [[scenario]]

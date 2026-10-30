@@ -64,7 +64,10 @@ test("the screens", async ({ page }) => {
   await useTestRulesLibrary(page);
   await go(page, "Data", "Rules");
   await page.getByRole("button", { name: "Open the rules library…" }).click();
-  await page.getByRole("dialog", { name: "Rules library" }).getByRole("checkbox", { name: "Classes" }).click();
+  const library = page.getByRole("dialog", { name: "Rules library" });
+  await library.getByRole("button", { name: "Unfold SRD" }).click();
+  await library.getByRole("button", { name: "Unfold Classes" }).click();
+  await library.getByRole("checkbox", { name: "Classes" }).click();
   await shot(page, "app-rules-library");
   await page.keyboard.press("Escape");
 

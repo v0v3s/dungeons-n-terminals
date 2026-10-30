@@ -22,7 +22,11 @@
   // Once, when opened (not an effect: `working` reads and sets state).
   onMount(() => {
     working("Reading the rules library…", () => api.rulesLibrary())
-      .then((l) => (lib = l))
+      .then((l) => {
+        lib = l;
+        // Folded at first: the folders, then what is in one when unfolded.
+        folded = l.folders.flatMap((f) => [f.name, ...f.files.map((x) => x.path)]);
+      })
       .catch((e) => (error = String(e)));
   });
 
@@ -106,6 +110,7 @@
             <button class="fold" aria-label="{folded.includes(folder.name) ? 'Unfold' : 'Fold'} {folder.label}" onclick={() => fold(folder.name)}><span>{folded.includes(folder.name) ? "▸" : "▾"}</span></button>
             <button class="tick" role="checkbox" aria-checked={ticks(ids)} onclick={() => tick(ids)}>
               <span class="glyph">{glyph[ticks(ids)]}</span><span class="name">{folder.label}</span>
+              <span class="dim">{ids.length} rule(s)</span>
             </button>
           </div>
           {#if !folded.includes(folder.name)}

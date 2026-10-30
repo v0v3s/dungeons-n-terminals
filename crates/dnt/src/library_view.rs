@@ -45,8 +45,11 @@ enum Row {
 }
 
 impl LibraryView {
+    /// Folded at first: the folders, then what is in one when unfolded.
     pub fn new(files: Vec<(String, String)>, lib: RulesLibrary) -> LibraryView {
-        LibraryView { files, lib, checked: BTreeSet::new(), folded: BTreeSet::new(), cursor: 0, conflicts: None, conflict_cursor: 0 }
+        let folded =
+            lib.folders.iter().flat_map(|f| std::iter::once(f.name.clone()).chain(f.files.iter().map(|x| x.path.clone()))).collect();
+        LibraryView { files, lib, checked: BTreeSet::new(), folded, cursor: 0, conflicts: None, conflict_cursor: 0 }
     }
 
     /// After an import: the statuses again, nothing checked.
@@ -238,10 +241,12 @@ impl LibraryView {
                 let line = match row {
                     Row::Folder(i) => {
                         let f = &self.lib.folders[i];
+                        let n: usize = f.files.iter().map(|x| x.rules.len()).sum();
                         vec![
                             Span::raw(fold(self.key_of(row))),
                             Span::raw(format!("{} ", self.mark(row))),
                             Span::styled(f.label.clone(), theme.label),
+                            Span::styled(format!("  {n} rule(s)"), theme.dim),
                         ]
                     }
                     Row::File(i, j) => {

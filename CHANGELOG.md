@@ -27,7 +27,8 @@ become the release page.
 - The rules library (github.com/v0v3s/dnt-rules): rules for features of
   the SRD and of homebrew, browsed as a tree of folders, files and rules,
   and imported as your own rules, a whole folder or single rules at once.
-  Rules that differ from yours ask to overwrite or keep, each or all.
+  Folded at first, each folder saying how many rules it has. Rules that
+  differ from yours ask to overwrite or keep, each or all.
   *Data › Rules library*; `L` on Campaigns; `dnt rules`.
 
 ### Changed
