@@ -90,6 +90,10 @@ test.describe("with a campaign", () => {
 
 test("starting over deletes everything, after confirming", { tag: "@data.reset" }, async ({ page }) => {
   await go(page, "Data");
+  // A backups folder of your choosing: forgotten too.
+  await page.evaluate((folder) => ((window as any).dntE2eFiles = { folder: `e2e:${folder}` }), `reset-${Date.now()}`);
+  await page.getByRole("button", { name: "Change…" }).click();
+  expect((await invoke<{ chosen: boolean }>(page, "backups")).chosen).toBe(true);
   await page.getByRole("button", { name: "Reset the app" }).click();
   await expect(dialog(page, "Reset the app")).toContainText("cannot be undone");
   await choose(page, "Reset the app", "Cancel");
@@ -105,6 +109,7 @@ test("starting over deletes everything, after confirming", { tag: "@data.reset" 
   expect(s.loaded).toBe(true);
   expect(s.imported).toHaveLength(0);
   expect(s.campaigns).toHaveLength(0);
+  expect((await invoke<{ chosen: boolean }>(page, "backups")).chosen).toBe(false);
   // The characters and notes went with the campaign.
   await page.getByPlaceholder("the campaign's name").fill(CAMPAIGN);
   await page.getByRole("button", { name: "Create the campaign" }).click();

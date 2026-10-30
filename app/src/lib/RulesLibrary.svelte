@@ -2,6 +2,7 @@
      rules as a tree to tick, then imported as the user's own rules. Rules
      that differ from the user's ask first: overwrite or keep, each or all. -->
 <script lang="ts">
+  import { onMount } from "svelte";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import Modal from "./Modal.svelte";
@@ -18,7 +19,8 @@
   /// Asking about the ticked rules that differ: id → overwrite.
   let asking: Record<string, boolean> | null = $state(null);
 
-  $effect(() => {
+  // Once, when opened (not an effect: `working` reads and sets state).
+  onMount(() => {
     working("Reading the rules library…", () => api.rulesLibrary())
       .then((l) => (lib = l))
       .catch((e) => (error = String(e)));
@@ -101,7 +103,7 @@
         {#each lib.folders as folder (folder.name)}
           {@const ids = idsOf(folderRules(folder))}
           <div class="row folder">
-            <button class="fold" aria-label="{folded.includes(folder.name) ? 'Unfold' : 'Fold'} {folder.label}" onclick={() => fold(folder.name)}>{folded.includes(folder.name) ? "▸" : "▾"}</button>
+            <button class="fold" aria-label="{folded.includes(folder.name) ? 'Unfold' : 'Fold'} {folder.label}" onclick={() => fold(folder.name)}><span>{folded.includes(folder.name) ? "▸" : "▾"}</span></button>
             <button class="tick" role="checkbox" aria-checked={ticks(ids)} onclick={() => tick(ids)}>
               <span class="glyph">{glyph[ticks(ids)]}</span><span class="name">{folder.label}</span>
             </button>
@@ -110,7 +112,7 @@
             {#each folder.files as file (file.path)}
               {@const fids = idsOf(file.rules)}
               <div class="row file">
-                <button class="fold" aria-label="{folded.includes(file.path) ? 'Unfold' : 'Fold'} {file.label}" onclick={() => fold(file.path)}>{folded.includes(file.path) ? "▸" : "▾"}</button>
+                <button class="fold" aria-label="{folded.includes(file.path) ? 'Unfold' : 'Fold'} {file.label}" onclick={() => fold(file.path)}><span>{folded.includes(file.path) ? "▸" : "▾"}</span></button>
                 <button class="tick" role="checkbox" aria-checked={ticks(fids)} onclick={() => tick(fids)}>
                   <span class="glyph">{glyph[ticks(fids)]}</span><span class="name">{file.label}</span>
                   <span class="dim">{file.rules.length} rule(s)</span>
@@ -159,12 +161,23 @@
     padding-left: 7.5ch;
   }
   .fold {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: 0;
     color: var(--dim);
     width: 2.5ch;
     padding: 0;
+    font-size: 1.15em;
+    line-height: 1;
     cursor: pointer;
+  }
+  /* The triangles sit low in their em box. */
+  .fold span {
+    position: relative;
+    top: -0.3em;
   }
   .tick {
     flex: 1;
@@ -253,7 +266,7 @@
       min-height: 44px;
     }
     .row.rule {
-      padding-left: 4ch;
+      padding-left: 6.5ch;
     }
     .tick {
       flex-wrap: wrap;

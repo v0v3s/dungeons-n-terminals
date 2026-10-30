@@ -44,3 +44,5 @@ or single rules (`space` in the terminal), then import them (`enter`, or
 `dnt rules import srd`): they become your rules. Each rule says whether it
 is new, yours already, or differs from yours; rules that differ ask first,
 one by one (*Overwrite* or *Keep*) or all at once.
+
+![The rules library](images/app-rules-library.png)

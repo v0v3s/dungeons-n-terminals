@@ -2,7 +2,7 @@
 // screen, or a desktop window (DNT_E2E_TARGET=windows).
 import type { Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-import { choose, expect, go, invoke, openSheet, pick, sheetTab, test } from "../e2e/fixtures";
+import { choose, expect, go, invoke, openSheet, pick, sheetTab, test, useTestRulesLibrary } from "../e2e/fixtures";
 
 const OUT = fileURLToPath(new URL("../../docs/wiki/images/", import.meta.url));
 
@@ -55,6 +55,14 @@ test("the screens", async ({ page }) => {
 
   await go(page, "Campaigns");
   await shot(page, "app-campaigns");
+
+  // The rules library (the tests' one), a file ticked.
+  await useTestRulesLibrary(page);
+  await go(page, "Data");
+  await page.getByRole("button", { name: "Open the rules library…" }).click();
+  await page.getByRole("dialog", { name: "Rules library" }).getByRole("checkbox", { name: "Classes" }).click();
+  await shot(page, "app-rules-library");
+  await page.keyboard.press("Escape");
 
   await go(page, "Characters");
   await page.getByRole("button", { name: "+ New character" }).click();
