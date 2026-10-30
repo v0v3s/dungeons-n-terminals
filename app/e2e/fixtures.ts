@@ -226,6 +226,10 @@ export async function pick(page: Page, labels: string[]) {
     await picker.locator("li button", { hasText: label }).first().click();
   }
   if (labels.length < of) await picker.getByRole("button", { name: "done" }).click();
+  // Answered: wait for the next question (the app may take a moment), so
+  // the next pick does not find this one.
+  const last = labels[labels.length - 1];
+  if (last) await expect(picker.locator("li button", { hasText: last })).toHaveCount(0, { timeout: 5000 }).catch(() => {});
 }
 
 /// The status line under the sheet (messages and rolls).

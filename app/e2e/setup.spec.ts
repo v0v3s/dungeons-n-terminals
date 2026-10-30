@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, fakeFilePicker, go, invoke, test } from "./fixtures";
+import { CAMPAIGN, expect, fakeFilePicker, go, invoke, test } from "./fixtures";
 
 /// A step of getting started, by its title.
 const step = (page: Page, title: string) =>
@@ -28,7 +28,7 @@ test.describe("a new app", () => {
     await expect(step(page, "✓ 1 · The rules")).toContainText("System Reference Document 5.2.1 are built in");
     await expect(step(page, "▸ 2 · Create a campaign").getByPlaceholder("the campaign's name")).toBeVisible();
     await expect(page.getByRole("button", { name: "Create the campaign" })).toBeDisabled();
-    await createAndBrowse(page, "Westmarch");
+    await createAndBrowse(page, `${CAMPAIGN} Westmarch`);
     await finds(page, "fireball", "Fireball");
   });
 
@@ -43,7 +43,7 @@ test.describe("a new app", () => {
     await expect(step(page, "Create a campaign").getByPlaceholder("the campaign's name")).toBeVisible();
     await expect(page.getByRole("button", { name: "Create the campaign" })).toBeDisabled();
     // The compendium has both: the imported books and the SRD.
-    await createAndBrowse(page, "Westmarch");
+    await createAndBrowse(page, `${CAMPAIGN} Westmarch`);
     await finds(page, "mirefolk", "Mirefolk");
     await finds(page, "fireball", "Fireball");
   });
