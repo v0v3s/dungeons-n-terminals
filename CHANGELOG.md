@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.3.0 - 2026-10-30
+
 ### Added
 
 - The rules of the SRD 5.2.1 are built in: classes and subclasses,
