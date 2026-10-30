@@ -8,11 +8,34 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- The rules of the SRD 5.2.1 are built in: classes and subclasses,
+  species, backgrounds, feats, spells, weapons, armor, gear, magic items
+  and the rules glossary, from the first start, with nothing to import.
+  Imported books and data folders load over them; where a book has an
+  entry of the SRD, the book's shows while the book is on. The SRD's
+  attribution is in *About*.
+- The built-in rules of the 2024 entries work for the SRD's too (Alert,
+  Rage, Monk's Focus, Arcane Recovery…).
+- A class can grant spells: the Ranger's Hunter's Mark, the Paladin's
+  Divine Smite, the Druid's Speak with Animals.
+- Skilled (and any origin feat with a skill choice) asks for its skills
+  at creation.
+
+### Changed
+
+- The first start no longer asks for data: it asks for a campaign. The
+  terminal app's getting-started screen is gone (`dnt import` and
+  `--data` add your books).
+
 ### Fixed
 
 - Your rules for a feature of imported homebrew are no longer named as
   "not in the library" when the open campaign does not turn that
   homebrew on.
+- In the app, holding one of two lines of the same weapon (a Quarterstaff
+  and an Arcane Focus (Quarterstaff)) holds that line, not the other.
 
 ## v1.2.0 - 2026-10-29
 

@@ -33,7 +33,7 @@ test("the screens", async ({ page }) => {
   await shot(page, "app-overview");
 
   await sheetTab(page, "Spells");
-  for (const name of ["Frost Needle", "Glimmer", "Ember Bolt", "Ward of Thorns"]) {
+  for (const name of ["Ray of Frost", "Fire Bolt", "Burning Hands", "Fog Cloud"]) {
     await page.getByRole("button", { name: "+ add" }).first().click();
     await pick(page, [name]);
     await expect(page.locator("button.spell", { hasText: name })).toBeVisible();
@@ -41,8 +41,8 @@ test("the screens", async ({ page }) => {
   await shot(page, "app-spells");
 
   await sheetTab(page, "Inventory");
-  await page.locator("button.line", { hasText: "Scribe's Pack" }).click();
-  await choose(page, "Scribe's Pack", "Unpack");
+  await page.locator("button.line", { hasText: "Scholar’s Pack" }).click();
+  await choose(page, "Scholar’s Pack", "Unpack");
   await shot(page, "app-inventory");
 
   await invoke(page, "close_character");
