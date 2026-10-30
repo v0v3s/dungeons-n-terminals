@@ -69,6 +69,11 @@ impl Tui {
         Tui::start(scenario, home, args, Vec::new())
     }
 
+    /// Run `dnt` with more environment (it wins over the tests' own).
+    pub fn with_env(scenario: &'static str, home: Home, env: &[(&'static str, String)]) -> Tui {
+        Tui::start(scenario, home, &[], env.to_vec())
+    }
+
     /// Run `dnt` with an editor ($EDITOR) that replaces `from` with `to` in
     /// the file it is given, as a user editing it would.
     pub fn with_editor(scenario: &'static str, home: Home, from: &str, to: &str) -> Tui {
@@ -258,6 +263,8 @@ pub fn env(home: &Path) -> Vec<(&'static str, String)> {
         ("TERM", "xterm-256color".into()),
         // The rules library of the tests, not the one on the web.
         ("DNT_RULES_URL", crate::seed::e2e_dir().join("rules").display().to_string()),
+        // A release older than dnt: nothing to update (see e2e/update).
+        ("DNT_UPDATE_URL", crate::seed::e2e_dir().join("update/older").display().to_string()),
     ]
 }
 
@@ -287,10 +294,15 @@ fn editor_file(dir: &Path, from: &str, to: &str) -> std::path::PathBuf {
 
 /// Run `dnt` with arguments, not in a terminal (its subcommands), for a
 /// scenario of `e2e/scenarios.toml`.
-pub fn run(_scenario: &'static str, home: &Home, args: &[&str]) -> std::process::Output {
+pub fn run(scenario: &'static str, home: &Home, args: &[&str]) -> std::process::Output {
+    run_with_env(scenario, home, args, &[])
+}
+
+/// [`run`] with more environment (it wins over the tests' own).
+pub fn run_with_env(_scenario: &'static str, home: &Home, args: &[&str], more: &[(&'static str, String)]) -> std::process::Output {
     let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_dnt"));
     cmd.args(args).current_dir(home.path()).env_remove("DNT_DATA");
-    for (k, v) in env(home.path()) {
+    for (k, v) in env(home.path()).into_iter().chain(more.iter().cloned()) {
         cmd.env(k, v);
     }
     cmd.output().expect("dnt runs")

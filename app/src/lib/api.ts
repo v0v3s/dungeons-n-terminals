@@ -690,3 +690,23 @@ export const rulesLibrary = () => invoke<RulesLibrary>("rules_library");
 /// Import these rules as yours; `overwrite`: those of them that replace yours.
 export const rulesLibraryImport = (ids: string[], overwrite: string[]) =>
   invoke<{ summary: string; library: RulesLibrary }>("rules_library_import", { ids, overwrite });
+
+// ---- updating dnt ----
+
+export interface UpdateState {
+  /// This dnt's version.
+  current: string;
+  /// Whether it checks by itself, once a day.
+  auto: boolean;
+}
+export interface Newer {
+  version: string;
+  /// Its release notes (Markdown).
+  notes: string;
+}
+export const updateState = () => invoke<UpdateState>("update_state");
+export const updateAuto = (on: boolean) => invoke<UpdateState>("update_auto", { on });
+/// A newer dnt, if any: `asked` by the user, else the day's quiet check.
+export const updateCheck = (asked: boolean) => invoke<Newer | null>("update_check", { asked });
+/// Download, check and install it: what happens next.
+export const updateInstall = () => invoke<string>("update_install");

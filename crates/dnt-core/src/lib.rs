@@ -23,6 +23,7 @@ pub mod rules_library;
 pub mod session;
 pub mod sheet;
 pub mod spellbook;
+pub mod update;
 pub mod workspace;
 
 pub use commands::{Command, Outcome, Pool};

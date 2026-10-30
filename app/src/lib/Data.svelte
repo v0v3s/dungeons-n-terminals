@@ -10,6 +10,8 @@
   import { ICONS } from "./icons";
   import Modal from "./Modal.svelte";
   import RulesLibrary from "./RulesLibrary.svelte";
+  import ReleaseNotes from "./ReleaseNotes.svelte";
+  import { checkForUpdate, installUpdate, update } from "./update.svelte";
   import Pane from "./Pane.svelte";
   import TabSelect from "./TabSelect.svelte";
   import { dataTabs, type DataTab } from "./datatabs";
@@ -185,6 +187,12 @@
   const size = (bytes: number) => (bytes < 1e6 ? `${Math.ceil(bytes / 1e3)} kB` : `${(bytes / 1e6).toFixed(1)} MB`);
   /// The rules library, open.
   let library = $state(false);
+  /// Whether dnt checks for updates by itself.
+  let updates: api.UpdateState | null = $state(null);
+  api.updateState().then((u) => (updates = u));
+  async function setAuto(on: boolean) {
+    updates = await api.updateAuto(on);
+  }
 </script>
 
 <div class="data">
@@ -316,7 +324,27 @@
       {#each status?.problems ?? [] as p (p)}<p class="err">{p}</p>{/each}
     </Pane>
   {:else}
-  <Pane title="About" focused>
+  <Pane title="Updates" focused>
+    <p>dnt {version}</p>
+    <div class="row">
+      <button class="action" onclick={() => checkForUpdate(true)}>Check for updates</button>
+    </div>
+    {#if update.newer}
+      <p class="ok">dnt {update.newer.version} is out.</p>
+      <ReleaseNotes text={update.newer.notes} />
+      <div><button class="primary" onclick={installUpdate}>Update to {update.newer.version}</button></div>
+    {:else if update.newest}
+      <p class="ok">✓ dnt {version} is the newest.</p>
+    {/if}
+    {#if update.message}<p class="ok">{update.message}</p>{/if}
+    {#if update.error}<p class="err">{update.error}</p>{/if}
+    <label class="check">
+      <input type="checkbox" checked={updates?.auto ?? true} onchange={(e) => setAuto(e.currentTarget.checked)} />
+      Check for a newer dnt once a day
+    </label>
+  </Pane>
+
+  <Pane title="About">
     <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It has the SRD 5.2.1 built in, and reads the books you import.</p>
     <p>dnt {version} · MIT license · <span class="url">github.com/v0v3s/dungeons-n-terminals</span></p>
     <p class="dim">
@@ -408,6 +436,12 @@
 <style>
   .url {
     color: var(--link);
+  }
+  .check {
+    display: flex;
+    gap: 1ch;
+    align-items: center;
+    margin-top: 0.6em;
   }
   .srd .url {
     overflow-wrap: anywhere;

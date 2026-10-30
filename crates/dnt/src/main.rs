@@ -116,6 +116,16 @@ enum Cmd {
         #[arg(long)]
         all: bool,
     },
+    /// Update dnt: download the newest release (checked against its
+    /// SHA256SUMS) and replace this program with it.
+    Update {
+        /// Only say whether there is a newer dnt.
+        #[arg(long)]
+        check: bool,
+        /// Check by itself once a day when it starts: on or off.
+        #[arg(long, value_parser = ["on", "off"])]
+        auto: Option<String>,
+    },
     /// The rules library (github.com/v0v3s/dnt-rules, or DNT_RULES_URL):
     /// list its rules, or import some as your own.
     Rules {
@@ -368,6 +378,7 @@ fn run_command(cmd: Cmd, store: Store, config: &dnt_store::Config) -> Result<()>
         }
         Cmd::Forget { .. } => unreachable!("clap asks for a source"),
         Cmd::Rules { what } => rules_command(store, what)?,
+        Cmd::Update { check, auto } => update_command(store, check, auto)?,
         Cmd::Reset { yes } => {
             if !yes {
                 println!(
@@ -387,6 +398,101 @@ fn run_command(cmd: Cmd, store: Store, config: &dnt_store::Config) -> Result<()>
         }
     }
     Ok(())
+}
+
+/// What this program updates to: the release file for this system.
+fn update_target() -> Result<dnt_core::update::Target> {
+    use dnt_core::update::Target;
+    if cfg!(windows) {
+        Ok(Target::WindowsTerminal)
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
+        Ok(Target::LinuxTerminal)
+    } else {
+        anyhow::bail!("dnt has no release for this system: build it from source")
+    }
+}
+
+/// `dnt update`: check, turn the daily check on or off, or update.
+fn update_command(store: &Store, check: bool, auto: Option<String>) -> Result<()> {
+    use dnt_core::update;
+    if let Some(auto) = auto {
+        let mut config = store.load_config()?;
+        config.update.auto = auto == "on";
+        store.save_config(&config)?;
+        println!(
+            "{}",
+            if config.update.auto {
+                "dnt checks for a newer version once a day"
+            } else {
+                "dnt no longer checks for a newer version by itself"
+            }
+        );
+        return Ok(());
+    }
+    let latest = update::latest(&update::location()).map_err(anyhow::Error::msg)?;
+    if !update::newer(&latest.version, update::VERSION) {
+        println!("dnt {} is the newest", update::VERSION);
+        return Ok(());
+    }
+    println!("dnt {} is out (you have {})", latest.version, update::VERSION);
+    if check {
+        if !latest.notes.trim().is_empty() {
+            println!("\n{}", latest.notes.trim());
+        }
+        println!("\nUpdate with: dnt update");
+        return Ok(());
+    }
+    // This program, or (the tests) another copy of it.
+    let exe = match std::env::var_os("DNT_UPDATE_EXE").filter(|e| !e.is_empty()) {
+        Some(e) => PathBuf::from(e),
+        None => std::env::current_exe().context("finding this program")?,
+    };
+    let dir = std::env::temp_dir().join(format!("dnt-update-{}", std::process::id()));
+    let new = update::download(&latest, update_target()?, &dir).map_err(anyhow::Error::msg)?;
+    replace_program(&exe, &new).with_context(|| format!("replacing {} (is it yours to write?)", exe.display()))?;
+    let _ = std::fs::remove_dir_all(&dir);
+    println!("Updated to dnt {}: {}", latest.version, exe.display());
+    Ok(())
+}
+
+/// Put `new` where `exe` is. A running program can be renamed but not
+/// overwritten on Windows: the old one steps aside (removed next start).
+fn replace_program(exe: &Path, new: &Path) -> std::io::Result<()> {
+    let next = exe.with_extension("new");
+    std::fs::copy(new, &next)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&next, std::fs::Permissions::from_mode(0o755))?;
+    }
+    if cfg!(windows) {
+        let old = exe.with_extension("old");
+        let _ = std::fs::remove_file(&old);
+        std::fs::rename(exe, &old)?;
+    }
+    std::fs::rename(&next, exe)
+}
+
+/// The day's check for a newer dnt, in the background: what it found, for
+/// the status line.
+fn check_for_update(store: &Store, config: &mut dnt_store::Config) -> std::sync::Arc<std::sync::Mutex<Option<String>>> {
+    use dnt_core::update;
+    let found = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let today = dnt_core::backup::now()[..10].to_string();
+    if !update::due(&config.update, &today) {
+        return found;
+    }
+    config.update.checked = Some(today);
+    let _ = store.save_config(config);
+    let out = found.clone();
+    std::thread::spawn(move || {
+        if let Ok(latest) = update::latest(&update::location()) {
+            if update::newer(&latest.version, update::VERSION) {
+                *out.lock().unwrap() = Some(format!("dnt {} is out: dnt update (dnt update --check for what is new)", latest.version));
+            }
+        }
+    });
+    found
 }
 
 /// `dnt rules`: the library's tree, or an import.
@@ -491,6 +597,12 @@ fn main() -> Result<()> {
     let shelf = dnt_core::backup::Shelf::configured(&store, &store.load_config()?);
     let backed_up = dnt_core::backup::auto(&store, &shelf, &dnt_core::backup::now());
     let mut config = store.load_config()?;
+    // What a Windows update left (the program before it), and the day's
+    // check for a newer one.
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::fs::remove_file(exe.with_extension("old"));
+    }
+    let update_news = check_for_update(&store, &mut config);
 
     // A data folder if one is given or configured, else the imported data
     // (over the built-in SRD either way).
@@ -535,10 +647,16 @@ fn main() -> Result<()> {
     ratatui::run(|terminal| -> Result<()> {
         while !app.quit {
             terminal.draw(|f| ui::draw(f, &lib, &mut app, &theme))?;
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    app.handle_key(&lib, key);
+            // Not blocked on the keys: the update check may come in.
+            if event::poll(std::time::Duration::from_millis(250))? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        app.handle_key(&lib, key);
+                    }
                 }
+            }
+            if let Some(news) = update_news.lock().unwrap().take() {
+                app.status = news;
             }
             if let Some(path) = app.pending_edit.take() {
                 ratatui::restore();

@@ -8,6 +8,18 @@ become the release page.
 
 ## Unreleased
 
+## v1.4.0 - 2026-10-30
+
+### Added
+
+- dnt updates itself. Once a day when it starts (unless turned off) it
+  checks for a newer release and says so; the app shows a notice with what
+  is new and *Update*: on Android, Android's installer opens on the
+  downloaded app (confirm it there), on Windows the installer runs. The
+  terminal app updates in place with `dnt update` (`--check` only looks,
+  `--auto off` stops the daily check). Every download is checked against
+  the release's `SHA256SUMS`. *Data › About*.
+
 ## v1.3.0 - 2026-10-30
 
 ### Added
