@@ -32,6 +32,9 @@ become the release page.
 
 ### Changed
 
+- The app's *Data* is in tabs: Import, Rules, Backups, Problems (with how
+  many, only while there are some) and About; the menu lists them under
+  Data.
 - The first start no longer asks for data: it asks for a campaign. The
   terminal app's getting-started screen is gone (`dnt import` and
   `--data` add your books).

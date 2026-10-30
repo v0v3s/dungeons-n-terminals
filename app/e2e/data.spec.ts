@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { CAMPAIGN, choose, dialog, expect, fakeFilePicker, go, invoke, test } from "./fixtures";
+import { CAMPAIGN, choose, dataTab, dialog, expect, fakeFilePicker, go, invoke, test } from "./fixtures";
 
 /// A pane of the Data screen, by its title.
 const pane = (page: Page, title: string) =>
@@ -18,7 +18,7 @@ test.describe("with the data", () => {
   test.use({ seed: "data" });
 
   test("the imported sources are listed with their entry counts, and the homebrew", { tag: "@data.list" }, async ({ page }) => {
-    await go(page, "Data");
+    await go(page, "Data", "Import");
     await expect(pane(page, "Imported sources").locator("summary")).toContainText(/\d+ sources, \d+ entries/);
     const counts = await listed(page);
     for (const source of ["TST", "TSX"]) expect(counts[source], source).toBeGreaterThan(0);
@@ -26,7 +26,7 @@ test.describe("with the data", () => {
   });
 
   test("importing again updates the entries instead of doubling them", { tag: "@data.import-later" }, async ({ page }) => {
-    await go(page, "Data");
+    await go(page, "Data", "Import");
     const before = await listed(page);
     const brew = await pane(page, "Imported homebrew").innerText();
     await fakeFilePicker(page);
@@ -38,7 +38,7 @@ test.describe("with the data", () => {
 
   test("about tells the version, the licence, the repository and that the SRD is built in", { tag: "@data.about" }, async ({ page }) => {
     const version = readFileSync(new URL("../../Cargo.toml", import.meta.url), "utf8").match(/^version = "(.+)"/m)![1];
-    await go(page, "Data");
+    await go(page, "Data", "About");
     const about = pane(page, "About");
     await expect(about).toContainText("It has the SRD 5.2.1 built in, and reads the books you import.");
     // The attribution the SRD's licence asks for.
@@ -54,7 +54,7 @@ test.describe("with a campaign", () => {
   test.use({ seed: "campaign" });
 
   test("removing the imported homebrew keeps the data", { tag: "@data.forget-homebrew" }, async ({ page }) => {
-    await go(page, "Data");
+    await go(page, "Data", "Import");
     const before = await listed(page);
     await page.getByRole("button", { name: "Remove the imported homebrew" }).click();
     await expect(dialog(page, "Remove the imported homebrew")).toContainText("every imported homebrew source");
@@ -67,7 +67,7 @@ test.describe("with a campaign", () => {
 
   test("removing all the data keeps the campaigns", { tag: "@data.forget-all" }, async ({ page }) => {
     const before = await invoke<{ entries: number }>(page, "status");
-    await go(page, "Data");
+    await go(page, "Data", "Import");
     await page.getByRole("button", { name: "Remove all imported data" }).click();
     await choose(page, "Remove all imported data", "Remove the data");
     // Back to getting started: the built-in SRD is left, and the campaign is still there.
@@ -89,11 +89,12 @@ test.describe("with a campaign", () => {
 });
 
 test("starting over deletes everything, after confirming", { tag: "@data.reset" }, async ({ page }) => {
-  await go(page, "Data");
+  await go(page, "Data", "Backups");
   // A backups folder of your choosing: forgotten too.
   await page.evaluate((folder) => ((window as any).dntE2eFiles = { folder: `e2e:${folder}` }), `reset-${Date.now()}`);
   await page.getByRole("button", { name: "Change…" }).click();
   expect((await invoke<{ chosen: boolean }>(page, "backups")).chosen).toBe(true);
+  await dataTab(page, "Import");
   await page.getByRole("button", { name: "Reset the app" }).click();
   await expect(dialog(page, "Reset the app")).toContainText("cannot be undone");
   await choose(page, "Reset the app", "Cancel");
@@ -123,7 +124,27 @@ test("a mistake in the rules is named on the Data screen", { tag: "@features.rul
   await invoke(page, "e2e_put_file", { path: "overlays/brew.toml", text: '[[feature]]\nid = "feat:Brewed Luck|TSTB"\n' });
   await page.reload();
   await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
-  await go(page, "Data");
+  await go(page, "Data", "Problems");
   await expect(pane(page, "Problems")).toContainText("Rules: mine.toml: not in the library: feat:Nonesuch|TST");
   await expect(pane(page, "Problems")).not.toContainText("brew.toml");
+});
+
+test("the data's parts are tabs; Problems only while there are some", { tag: "@data.tabs" }, async ({ page }) => {
+  await go(page, "Data");
+  const tabs = page.getByRole("combobox", { name: "Data" });
+  await expect(tabs).toHaveValue("Import");
+  await expect(tabs.locator("option")).toHaveText(["Import", "Rules", "Backups", "About"]);
+  // One part at a time.
+  await expect(page.getByRole("button", { name: "Import…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back up now" })).toHaveCount(0);
+  await dataTab(page, "Backups");
+  await expect(page.getByRole("button", { name: "Back up now" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import…" })).toHaveCount(0);
+  // A problem: its tab, with how many.
+  await invoke(page, "e2e_put_file", { path: "overlays/mine.toml", text: '[[feature]]\nid = "feat:Nonesuch|TST"\n' });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+  await go(page, "Data", "Problems");
+  await expect(tabs.locator("option", { hasText: "Problems (1)" })).toHaveCount(1);
+  await expect(page.locator(".err")).toContainText("not in the library: feat:Nonesuch|TST");
 });

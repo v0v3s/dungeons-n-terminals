@@ -1,6 +1,7 @@
-<!-- The data: import zips (a whole data folder, or homebrew files) and
-     anything exported from dnt, backups, what has been imported, and
-     starting over. -->
+<!-- The data, in tabs: Import (zips of a whole data folder, homebrew files
+     or anything exported from dnt; what has been imported; starting over),
+     Rules (the rules library), Backups, Problems (while there are some) and
+     About. -->
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
   import { openFile, pickFolder } from "./files";
@@ -10,6 +11,9 @@
   import Modal from "./Modal.svelte";
   import RulesLibrary from "./RulesLibrary.svelte";
   import Pane from "./Pane.svelte";
+  import TabSelect from "./TabSelect.svelte";
+  import { dataTabs, type DataTab } from "./datatabs";
+  import type { IconName } from "./icons";
 
   let version = $state("");
   getVersion().then((v) => (version = v));
@@ -18,7 +22,15 @@
     status,
     onchange,
     onreset = () => {},
-  }: { status: api.Status | null; onchange: (s: api.Status) => void; onreset?: () => void } = $props();
+    tab = $bindable("Import"),
+  }: { status: api.Status | null; onchange: (s: api.Status) => void; onreset?: () => void; tab?: DataTab } = $props();
+
+  const tabs = $derived(dataTabs(status));
+  // The problems solved: back to the first tab.
+  $effect(() => {
+    if (!tabs.some(([t]) => t === tab)) tab = "Import";
+  });
+  const TAB_ICONS: Record<DataTab, IconName> = { Import: "data", Rules: "features", Backups: "shield", Problems: "warning", About: "d20" };
 
   /// What starting over would remove, while asking.
   type Reset = "homebrew" | "data" | "all";
@@ -177,7 +189,12 @@
 
 <div class="data">
   <div class="inner">
-  <Pane title="Data" focused>
+  <TabSelect label="Data" options={tabs} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as DataTab)} />
+  <!-- What the last action did, whichever tab it came from. -->
+  {#if done}<p class="ok">✓ {done}</p>{/if}
+  {#if error}<p class="err">{error}</p>{/if}
+  {#if tab === "Import"}
+  <Pane title="Import" focused>
     <p>
       The rules of the SRD 5.2.1 are built in. Your own books and homebrew come from data you import, in the format
       described in the project's <span class="muted">schemas/</span>: a <span class="b">zip</span> of a whole data
@@ -193,7 +210,6 @@
     <div>
       <button class="action" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import…"}</button>
     </div>
-    {#if done}<p class="ok">✓ {done}</p>{/if}
     {#if result}
       <p class="ok">✓ {result.summary}</p>
       {#if result.skipped.length}
@@ -205,10 +221,42 @@
         </details>
       {/if}
     {/if}
-    {#if error}<p class="err">{error}</p>{/if}
   </Pane>
 
-  <Pane title="Rules library">
+  {#if status?.homebrew[0]}
+    <Pane title="Imported homebrew">
+      <p>
+        <b>{status.homebrew[0]}</b> sources, <b>{status.homebrew[1]}</b> entries.
+        <span class="dim">Enable them per campaign: Campaigns › Sources › Homebrew, or the compendium's @ button.</span>
+      </p>
+    </Pane>
+  {/if}
+
+  {#if status?.imported.length}
+    <Pane title="Imported sources">
+      <details>
+        <summary>{status.imported.length} sources, {status.entries} entries</summary>
+        <div class="sources">
+          {#each status.imported as [source, n] (source)}
+            <div><span>{source}</span> <span class="dim">{n}</span></div>
+          {/each}
+        </div>
+      </details>
+    </Pane>
+  {/if}
+
+  {#if status?.loaded || status?.campaigns.length}
+    <Pane title="Start over">
+      <p class="dim">If an import went wrong, remove what was imported and import again.</p>
+      <div class="resets">
+        {#if status.homebrew[0]}<button class="ghost" onclick={() => (resetting = "homebrew")}>Remove the imported homebrew</button>{/if}
+        {#if status.loaded}<button class="ghost" onclick={() => (resetting = "data")}>Remove all imported data</button>{/if}
+        <button class="ghost danger" onclick={() => (resetting = "all")}>Reset the app</button>
+      </div>
+    </Pane>
+  {/if}
+  {:else if tab === "Rules"}
+  <Pane title="Rules library" focused>
     <p class="dim">
       Rules make the sheet do a feature's maths (its uses, the Armor Class or speed it gives). The rules library
       (<span class="url">github.com/v0v3s/dnt-rules</span>) has rules for the SRD and for homebrew that dnt does not
@@ -216,8 +264,8 @@
     </p>
     <div><button class="action" onclick={() => (library = true)}>Open the rules library…</button></div>
   </Pane>
-
-  <Pane title="Backups">
+  {:else if tab === "Backups"}
+  <Pane title="Backups" focused>
     <p class="dim">
       Everything (campaigns with their characters and notes, the imported data, your homebrew and rules) in one zip, to
       restore here or on another device.
@@ -263,56 +311,12 @@
       {/each}
     {/if}
   </Pane>
-
-  {#if status?.problems.length}
-    <Pane title="Problems">
-      {#each status.problems as p (p)}<p class="err">{p}</p>{/each}
+  {:else if tab === "Problems"}
+    <Pane title="Problems" focused>
+      {#each status?.problems ?? [] as p (p)}<p class="err">{p}</p>{/each}
     </Pane>
-  {/if}
-
-  {#if status?.timings.length}
-    <Pane title="Last load">
-      <div class="timings">
-        {#each status.timings as [stage, ms], i (i)}
-          <div><span>{stage}</span> <span class="dim">{ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`}</span></div>
-        {/each}
-      </div>
-    </Pane>
-  {/if}
-
-  {#if status?.homebrew[0]}
-    <Pane title="Imported homebrew">
-      <p>
-        <b>{status.homebrew[0]}</b> sources, <b>{status.homebrew[1]}</b> entries.
-        <span class="dim">Enable them per campaign: Campaigns › Sources › Homebrew, or the compendium's @ button.</span>
-      </p>
-    </Pane>
-  {/if}
-
-
-  {#if status?.loaded || status?.campaigns.length}
-    <Pane title="Start over">
-      <p class="dim">If an import went wrong, remove what was imported and import again.</p>
-      <div class="resets">
-        {#if status.homebrew[0]}<button class="ghost" onclick={() => (resetting = "homebrew")}>Remove the imported homebrew</button>{/if}
-        {#if status.loaded}<button class="ghost" onclick={() => (resetting = "data")}>Remove all imported data</button>{/if}
-        <button class="ghost danger" onclick={() => (resetting = "all")}>Reset the app</button>
-      </div>
-    </Pane>
-  {/if}
-  {#if status?.imported.length}
-    <Pane title="Imported sources">
-      <details>
-        <summary>{status.imported.length} sources, {status.entries} entries</summary>
-        <div class="sources">
-          {#each status.imported as [source, n] (source)}
-            <div><span>{source}</span> <span class="dim">{n}</span></div>
-          {/each}
-        </div>
-      </details>
-    </Pane>
-  {/if}
-  <Pane title="About">
+  {:else}
+  <Pane title="About" focused>
     <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It has the SRD 5.2.1 built in, and reads the books you import.</p>
     <p>dnt {version} · MIT license · <span class="url">github.com/v0v3s/dungeons-n-terminals</span></p>
     <p class="dim">
@@ -327,6 +331,17 @@
     </p>
     <p class="dim">Not affiliated with Wizards of the Coast.</p>
   </Pane>
+
+  {#if status?.timings.length}
+    <Pane title="Last load">
+      <div class="timings">
+        {#each status.timings as [stage, ms], i (i)}
+          <div><span>{stage}</span> <span class="dim">{ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`}</span></div>
+        {/each}
+      </div>
+    </Pane>
+  {/if}
+  {/if}
   </div>
 </div>
 

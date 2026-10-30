@@ -283,7 +283,7 @@ test("an entry is exported and imported", { tag: "@export.entry" }, async ({ pag
   await page.evaluate(() =>
     (window as any).__TAURI_INTERNALS__.invoke("set_campaign_sources", { slug: "e2e", sources: [], homebrew: [], showReprinted: false }),
   );
-  await go(page, "Data");
+  await go(page, "Data", "Import");
   await page.evaluate(() => ((window as any).dntE2eFiles = { open: "e2e:Sun Glint.json", save: "e2e:" }));
   await page.getByRole("button", { name: "Import…" }).click();
   await expect(page.locator(".data p.ok")).toContainText("Imported Sun Glint");

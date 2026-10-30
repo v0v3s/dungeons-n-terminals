@@ -11,7 +11,7 @@ const tile = (page: Page, label: string) => page.locator("button.tile", { hasTex
 
 async function open(page: Page) {
   await useTestRulesLibrary(page);
-  await go(page, "Data");
+  await go(page, "Data", "Rules");
   await page.getByRole("button", { name: "Open the rules library…" }).click();
   await expect(tick(page, "SRD")).toBeVisible();
 }

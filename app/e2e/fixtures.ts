@@ -145,13 +145,23 @@ export { expect };
 export const phone = (page: Page) => page.evaluate(() => matchMedia("(max-width: 760px)").matches);
 
 /// Go to a section: through the menu (☰) on a phone, the header on a desktop.
-export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data") {
+/// A tab of the Data screen.
+export type DataTab = "Import" | "Rules" | "Backups" | "Problems" | "About";
+
+/// Go to a section; to Data, on one of its tabs (Import, else).
+export async function go(page: Page, section: "Compendium" | "Characters" | "Notes" | "Campaigns" | "Data", tab?: DataTab) {
   const menu = page.getByRole("button", { name: "Menu", exact: true });
   if (await menu.isVisible()) await menu.click();
   // The desktop header numbers them ("2 Characters").
   // A section, not something inside one (the character's Notes tab).
   const button = page.getByRole("button", { name: new RegExp(`^(\\d )?${section}$`) }).and(page.locator(":not(.child)"));
   await button.filter({ visible: true }).first().click();
+  if (tab) await dataTab(page, tab);
+}
+
+/// A tab of the open Data screen.
+export async function dataTab(page: Page, tab: DataTab) {
+  await page.getByRole("combobox", { name: "Data" }).selectOption(tab);
 }
 
 /// Open a character's sheet (Tester by default) on a tab.

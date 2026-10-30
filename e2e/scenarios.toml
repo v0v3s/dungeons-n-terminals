@@ -50,6 +50,12 @@ does = "List the imported sources with their entry counts, and the imported home
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "data.tabs"
+does = "The data's parts are tabs: Import, Rules, Backups, Problems (with how many, only while there are some) and About; the menu lists them under Data."
+targets = ["app"]
+not = { tui = "the terminal app has no Data screen: importing, backups and the rules are commands (dnt import, dnt backup, dnt rules), the rules library also L on Campaigns" }
+
+[[scenario]]
 id = "data.forget-source"
 does = "Remove one imported source."
 targets = ["tui"]
@@ -797,7 +803,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "nav.menu-inside"
-does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories and the open character's tabs, so the menu goes from anywhere to, say, the character's spells."
+does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories, the open character's tabs and the tabs of Data, so the menu goes from anywhere to, say, the character's spells."
 targets = ["android"]
 not = { tui = "no menu: the number keys change the section, Tab the category or the tab" }
 

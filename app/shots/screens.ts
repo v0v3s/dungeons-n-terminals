@@ -56,9 +56,13 @@ test("the screens", async ({ page }) => {
   await go(page, "Campaigns");
   await shot(page, "app-campaigns");
 
+  // The data, on its first tab.
+  await go(page, "Data", "Import");
+  await shot(page, "app-data");
+
   // The rules library (the tests' one), a file ticked.
   await useTestRulesLibrary(page);
-  await go(page, "Data");
+  await go(page, "Data", "Rules");
   await page.getByRole("button", { name: "Open the rules library…" }).click();
   await page.getByRole("dialog", { name: "Rules library" }).getByRole("checkbox", { name: "Classes" }).click();
   await shot(page, "app-rules-library");
