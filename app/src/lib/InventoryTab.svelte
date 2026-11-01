@@ -50,8 +50,6 @@
   let folded = $state(new Set<string>());
   const foldKey = (l: Line) => `${l.index}:${l.name}`;
   const hasContents = (i: number) => inv.lines[i + 1]?.depth > inv.lines[i].depth;
-  /// Room for the fold arrows only when some line has one.
-  const folds = $derived(inv.lines.some((_, i) => hasContents(i)));
   /// The lines not hidden in a folded container.
   const shown = $derived.by(() => {
     const out: Line[] = [];
@@ -122,12 +120,10 @@
     {#each shown as l (l.index)}
       {@const i = inv.lines.indexOf(l)}
       <div class="lrow" style:padding-left="{l.depth * 2}ch">
+        <!-- A container's fold arrow; equip it (wear or hold) or not, right here. -->
         {#if hasContents(i)}
           <button class="foldbtn" aria-label={folded.has(foldKey(l)) ? "Unfold" : "Fold"} onclick={() => toggleFold(l)}>{folded.has(foldKey(l)) ? "▸" : "▾"}</button>
-        {:else if folds}
-          <span class="foldbtn"></span>
         {/if}
-        <!-- Equip it (wear or hold) or not, right here. -->
         {#if l.equippable}
           <button
             class="equip"
@@ -136,11 +132,11 @@
             aria-label="Equipped: {l.name}"
             onclick={() => ctx.act({ command: "equip", line: l.index })}>{l.worn ? "◉" : l.held ? "◈" : ""}</button
           >
-        {:else}
+        {:else if !hasContents(i)}
           <span class="equip none"></span>
         {/if}
         <button class="line" onclick={() => menu(l)}>
-          <span class="name" class:box={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}</span>
+          <span class="name" class:container={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}</span>
           <span class="kind dim">{l.kind}{#if l.fill} <span class:over={l.over} class="fill">{l.fill}</span>{/if}{l.weightless ? " weightless" : ""}</span>
           <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
           <span class="lb dim">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
@@ -210,8 +206,12 @@
     display: flex;
     align-items: stretch;
   }
+  /* In the checkbox's place, so rows keep their names in line. */
   .foldbtn {
-    flex: 0 0 3ch;
+    flex: 0 0 auto;
+    width: 2.4ch;
+    align-self: center;
+    margin-right: 1ch;
     color: var(--accent);
     text-align: center !important;
     padding: 0;
@@ -236,7 +236,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .name.box {
+  .name.container {
     font-weight: 700;
   }
   .kind {
@@ -351,8 +351,10 @@
       padding-inline: 1ch;
     }
     .foldbtn {
-      flex-basis: 5ch;
+      width: 32px;
       font-size: 1.3em;
+      /* The equip box's 1ch, at this font size. */
+      margin-right: calc(1ch / 1.3);
     }
     .equip {
       width: 32px;
