@@ -188,16 +188,19 @@ export async function openSheet(page: Page, tab: Exclude<SheetTab, "Notes"> = "O
 
 export type SheetTab = "Overview" | "Skills" | "Spells" | "Inventory" | "Features" | "Notes";
 
+/// A touch screen (a phone or a tablet): the sheet's tabs are icons.
+export const touchScreen = (page: Page) => page.evaluate(() => matchMedia("(pointer: coarse)").matches);
+
 /// Change the open sheet's tab (Notes opens the character's note): its
-/// icon on a phone, its select elsewhere.
+/// icon on a phone or a tablet, its select elsewhere.
 export async function sheetTab(page: Page, tab: SheetTab) {
-  if (await phone(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
+  if (await touchScreen(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
   else await page.locator(".sheet .tabs select").selectOption(tab);
 }
 
 /// The open sheet's tab, as its icons or its select show it.
 export async function expectTab(page: Page, tab: SheetTab) {
-  if (await phone(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
+  if (await touchScreen(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
   else await expect(page.locator(".sheet .tabs select")).toHaveValue(tab);
 }
 

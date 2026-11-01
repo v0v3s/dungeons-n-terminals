@@ -233,7 +233,6 @@
     min-height: 2em;
   }
   .spells {
-    max-width: 110ch;
     padding-top: 0.6em;
   }
   :where(button:not(.ghost):not(.primary)) {

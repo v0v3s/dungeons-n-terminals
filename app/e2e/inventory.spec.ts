@@ -31,6 +31,15 @@ test("a pack unpacks into its container", { tag: "@inventory.unpack" }, async ({
 test("a container folds its contents away", { tag: "@inventory.fold" }, async ({ page }) => {
   await openSheet(page, "Inventory");
   await unpack(page);
+  // Its arrow takes the place of the equip box: names stay in line, and no
+  // line keeps an empty column for arrows it lacks.
+  const left = async (name: string) => (await line(page, name).boundingBox())!.x;
+  const first = (await page.locator("button.line .name").first().textContent())!;
+  expect(await left("Backpack")).toBeCloseTo(await left(first), 0);
+  const box = (await page.locator("button.equip").first().boundingBox())!;
+  const row = (await page.locator(".lrow", { has: page.locator("button.equip") }).first().boundingBox())!;
+  expect(box.x - row.x).toBeLessThan(box.width);
+  await expect(line(page, "Backpack").locator(".name")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Fold" }).click();
   await expect(line(page, "Ink Pen")).toHaveCount(0);
   await page.getByRole("button", { name: "Unfold" }).click();

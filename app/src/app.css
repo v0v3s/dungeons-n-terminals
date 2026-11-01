@@ -71,8 +71,10 @@ input {
   background: var(--dark);
 }
 
+/* A scrollbar keeps a gap from what it scrolls: its own transparent
+   side, so the gap is there only when the bar is. */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: calc(8px + var(--gap));
 }
 /* Rows that scroll sideways (tabs, categories) show no bar. */
 .no-bar {
@@ -83,6 +85,8 @@ input {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--dark);
+  background-clip: padding-box;
+  border-left: var(--gap) solid transparent;
   border-radius: 4px;
 }
 

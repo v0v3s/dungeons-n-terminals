@@ -51,7 +51,7 @@
 <style>
   .skills-tab {
     display: grid;
-    grid-template-columns: minmax(0, 46ch) minmax(0, 46ch);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.4em 2ch;
     align-items: start;
     padding-top: 0.6em;

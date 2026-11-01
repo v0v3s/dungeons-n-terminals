@@ -13,6 +13,7 @@
     onhighlight,
     onscores,
     oninfo,
+    next = true,
   }: {
     question: Question;
     onanswer: (a: Answer) => void;
@@ -22,6 +23,8 @@
     onscores?: (scores: number[]) => void;
     /// Read about a choice (a ? on each row).
     oninfo?: (c: Choice) => void;
+    /// The scores' Next here (else the caller's, with its other buttons).
+    next?: boolean;
   } = $props();
 
   const NAMES = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
@@ -129,7 +132,7 @@
     {/each}
   </div>
   <div class="dim later">Species and background increases come next.</div>
-  <div class="actions"><button class="primary" onclick={() => onanswer({ type: "scores", value: scores })}>Next</button></div>
+  {#if next}<div class="actions"><button class="primary" onclick={() => onanswer({ type: "scores", value: scores })}>Next</button></div>{/if}
 {:else if question.type === "confirm"}
   <div class="actions"><button class="primary" onclick={() => onconfirm?.()}>{confirm}</button></div>
 {/if}

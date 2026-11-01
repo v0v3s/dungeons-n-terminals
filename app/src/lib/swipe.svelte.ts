@@ -1,10 +1,11 @@
 // Swiping sideways between views: a sheet's tabs, the compendium's
-// categories. The view follows a sideways drag, and the gap it leaves names
-// the next (or previous) one (see SwipeHint.svelte); let go past SWITCH of
-// the width, or with a flick, and that one opens, otherwise it slides back.
+// categories and entries. The view follows a sideways drag, and the next
+// (or previous) one comes in beside it (or, for the categories, the gap
+// names it: SwipeHint.svelte); let go past SWITCH of the width, or with a
+// flick, and that one opens, otherwise it slides back.
 
 const EDGE = 40;
-const SWITCH = 0.45;
+const SWITCH = 0.18;
 
 export class Swipe<T> {
   /// How far the view is dragged (px), the view beside it, and whether it
@@ -78,7 +79,7 @@ export class Swipe<T> {
     const far = Math.abs(this.drag) >= SWITCH * this.#width;
     // A finger held still before it lifts does not flick.
     const moving = e.timeStamp - g.lastT < 100;
-    const flick = moving && Math.abs(g.speed) > 0.6 && Math.sign(g.speed) === Math.sign(this.drag) && Math.abs(this.drag) > 0.2 * this.#width;
+    const flick = moving && Math.abs(g.speed) > 0.6 && Math.sign(g.speed) === Math.sign(this.drag) && Math.abs(this.drag) > 0.06 * this.#width;
     this.#settle(this.beside !== null && (far || flick) ? Math.sign(this.drag) * this.#width : 0);
   };
 
