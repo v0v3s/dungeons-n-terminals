@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.5.0 - 2026-11-01
+
 ### Changed
 
 - Swiping the app's sheet brings the next tab in beside it again, and it
