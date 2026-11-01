@@ -120,7 +120,8 @@
       entry = null;
       return;
     }
-    const e = await api.entry(id);
+    // One read ahead for a swipe shows at once.
+    const e = near[id] ?? (await api.entry(id));
     if (keep && entry) back = [...back, entry];
     else if (!keep) back = [];
     entry = e;
@@ -135,6 +136,7 @@
     if (!found || i < 0 || i >= found.rows.length) return;
     selected = i;
     show(found.rows[i].id, false);
+    if (touch) readAhead(found.rows, i);
     list?.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ block: "nearest" });
     if (tap && narrow) open = true;
   }
@@ -277,6 +279,23 @@
     open = false;
     setCategory(i);
   }
+
+  // ---- swiping between entries (the open one, on touch) ----
+  /// The entries beside the open one, read ahead for a swipe to show.
+  let near: Record<number, api.Entry> = $state({});
+  function readAhead(rows: api.Row[], at: number) {
+    const ids = [rows[at - 1]?.id, rows[at + 1]?.id].filter((id) => id !== undefined);
+    near = Object.fromEntries(Object.entries(near).filter(([id]) => ids.includes(Number(id))));
+    for (const id of ids) if (!near[id]) api.entry(id).then((e) => (near = { ...near, [id]: e }), () => {});
+  }
+  let entryBody: HTMLElement | undefined = $state();
+  const entrySwipe = new Swipe<number>({
+    // Only the results' entries: not one a link led to.
+    items: () => (back.length ? [] : (found?.rows ?? []).map((_, i) => i)),
+    current: () => selected,
+    open: (i) => pick(i),
+    body: () => entryBody,
+  });
 
   // ---- swiping between categories (the results list, on touch) ----
   let swipeBody: HTMLElement | undefined = $state();
@@ -534,6 +553,7 @@
 
     <Pane focused={open} class="detail">
       {#if entry}
+        {#snippet shown(entry: api.Entry)}
         <div class="head">
           {#if !touch && (open || back.length)}<button class="back" onclick={goBack}>‹ back</button>{/if}
           {#if touch && back.length && !narrow}<button class="back" onclick={goBack}>‹ {back.at(-1)?.name}</button>{/if}
@@ -562,6 +582,28 @@
         <div class="doc" bind:this={detail}>
           <Blocks blocks={entry.blocks} {onlink} />
         </div>
+      {/snippet}
+      {#if touch}
+        <!-- Swiping sideways goes to the next (or previous) result, it coming in beside. -->
+        <div class="entry-swipe" role="presentation" bind:this={entryBody} ontouchstart={entrySwipe.start} ontouchmove={entrySwipe.move} ontouchend={entrySwipe.end} ontouchcancel={entrySwipe.end}>
+          <div class="slide" class:settling={entrySwipe.settling} style:transform={entrySwipe.drag ? `translateX(${entrySwipe.drag}px)` : null} ontransitionend={entrySwipe.settled}>
+            {@render shown(entry)}
+            {#if entrySwipe.beside !== null && found?.rows[entrySwipe.beside]}
+              {@const row = found.rows[entrySwipe.beside]}
+              {@const next = near[row.id]}
+              <div class="beside" inert style:left={entrySwipe.drag < 0 ? "calc(100% + var(--gap))" : "calc(-100% - var(--gap))"}>
+                <div class="head">
+                  <div class="title"><h1><span class="g-{row.group}">{GLYPH[row.group]}</span> {row.name}</h1></div>
+                  {#if next}<div class="sub"><span class="g-{next.group}">{next.kind}</span><span class="dim">{`  ·  ${next.source}`}</span></div>{/if}
+                </div>
+                {#if next}<div class="doc"><Blocks blocks={next.blocks} onlink={() => {}} /></div>{/if}
+              </div>
+            {/if}
+          </div>
+        </div>
+      {:else}
+        {@render shown(entry)}
+      {/if}
       {:else}
         <div class="empty dim">{narrow ? "" : "Nothing matches."}</div>
       {/if}
@@ -700,7 +742,8 @@
     padding: 0 1ch 0.75em 0;
     flex-shrink: 0;
   }
-  .swipe {
+  .swipe,
+  .entry-swipe {
     position: relative;
     flex: 1;
     min-height: 0;
@@ -719,6 +762,20 @@
   }
   .slide.settling {
     transition: transform 0.2s ease-out;
+  }
+  /* The entry a swipe goes to, its top in sight. */
+  .beside {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* Room between the sort above and the results. */
+  .touch .swipe {
+    margin-top: 0.5em;
   }
   .split {
     flex: 1;

@@ -537,7 +537,6 @@
     display: flex;
     flex-direction: column;
     gap: 2em;
-    max-width: calc(80ch + 2ch);
     padding: 0.8em 2ch 1em 0;
   }
   /* Panes keep their height; the area scrolls instead. */

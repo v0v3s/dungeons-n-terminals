@@ -8,6 +8,28 @@ become the release page.
 
 ## Unreleased
 
+### Changed
+
+- Swiping the app's sheet brings the next tab in beside it again, and it
+  opens past 18% of the width (was 45%); the compendium's categories
+  open as easily.
+- Swiping an open entry in the compendium goes to the next or previous
+  result, it coming in beside.
+- Tablets held sideways: the sheet shows its tabs as icons and the name
+  in the app bar only, as on a phone.
+- The sheet's skills, the characters, campaigns and data span the whole
+  window; + New character is wider; in character creation the steps take
+  less room and the preview more, and the scores' Next sits beside Back
+  and Cancel.
+
+### Fixed
+
+- A scrollbar keeps a gap from what it scrolls, instead of touching it.
+- The compendium's results no longer touch the sort above them.
+- The app's inventory: a container's name is no longer drawn as a framed
+  button, and its fold arrow sits in the place of the equip box, so the
+  other lines keep no empty column before theirs.
+
 ## v1.4.0 - 2026-10-30
 
 ### Added

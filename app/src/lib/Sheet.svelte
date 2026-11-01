@@ -17,7 +17,6 @@
   import SpellsTab from "./SpellsTab.svelte";
   import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
   import { Swipe } from "./swipe.svelte";
-  import SwipeHint from "./SwipeHint.svelte";
   import TabSelect from "./TabSelect.svelte";
   import SkillsTab from "./SkillsTab.svelte";
   import { narrow, touch } from "./screen";
@@ -422,8 +421,8 @@
     </div>
   {/if}
 
-  {#if narrow.current}
-    <!-- A phone: every tab as an icon, in one row. -->
+  {#if narrow.current || touch.current}
+    <!-- A phone or a tablet: every tab as an icon, in one row. -->
     <div class="icontabs" role="tablist">
       {#each SHEET_TABS as t (t)}
         <button role="tab" aria-label={t} aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}><Icon name={TAB_ICONS[t]} size="1.5em" /></button>
@@ -441,12 +440,17 @@
     <Tip id="sheet.hold" text="hold a number to see how it adds up" />
   {/if}
 
-  <!-- Swiping sideways changes the tab (the select above does the same). -->
+  <!-- Swiping sideways changes the tab (the tabs above do the same), the
+       next one coming in beside it. -->
   <div class="body" role="presentation" bind:this={body} ontouchstart={swipe.start} ontouchmove={swipe.move} ontouchend={swipe.end} ontouchcancel={swipe.end}>
     <div class="slide" class:settling={swipe.settling} style:transform={swipe.drag ? `translateX(${swipe.drag}px)` : null} ontransitionend={swipe.settled}>
       {@render view(tab)}
+      {#if swipe.beside}
+        <div class="beside" class:ready={swipe.ready} inert data-tab={swipe.beside} style:top="{swipe.top}px" style:height="{swipe.height}px" style:left={swipe.drag < 0 ? "calc(100% + var(--gap))" : "calc(-100% - var(--gap))"}>
+          {@render view(swipe.beside)}
+        </div>
+      {/if}
     </div>
-    {#if swipe.beside}<SwipeHint {swipe} label={swipe.beside} icon={TAB_ICONS[swipe.beside]} />{/if}
   </div>
 
   {#if message}
@@ -729,6 +733,12 @@
   .slide.settling {
     transition: transform 0.2s ease-out;
   }
+  /* The tab a swipe goes to, its top in sight. */
+  .beside {
+    position: absolute;
+    width: 100%;
+    overflow: hidden;
+  }
   .status {
     position: sticky;
     bottom: 0;
@@ -889,16 +899,17 @@
     background: var(--red);
     border-color: var(--red);
   }
+  /* A phone's or a tablet's app bar has the name, the level and the
+     sheet's actions. */
+  :global(.touch) .head {
+    display: none;
+  }
   @media (max-width: 760px) {
     .icon {
       min-height: 44px;
       min-width: 44px;
     }
     .flag .wide {
-      display: none;
-    }
-    /* A phone's app bar has the name, the level and the sheet's actions. */
-    :global(.touch) .head {
       display: none;
     }
     .flags {

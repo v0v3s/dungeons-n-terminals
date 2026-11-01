@@ -257,7 +257,7 @@ test("swiping the results changes the category, the gap naming the next one", { 
   const results = page.locator(".swipe");
   const next = (await select.locator("option").allTextContents())[Number(second)];
   // Part of the way: the gap names the next category; it slides back.
-  await drag(page, results, 0.8, [0.65, 0.5], async () => {
+  await drag(page, results, 0.8, [0.75, 0.7], async () => {
     await expect(page.locator(".compendium .swipe-hint")).toHaveText(next);
   });
   await expect(page.locator(".compendium .swipe-hint")).toHaveCount(0);
@@ -266,6 +266,30 @@ test("swiping the results changes the category, the gap naming the next one", { 
   await expect(select).toHaveValue(second);
   await swipe(page, results, 0.2, 0.8);
   await expect(select).toHaveValue(first);
+});
+
+test("swiping an open entry goes to the next result, it coming in beside", { tag: ["@compendium.swipe-entries", "@android"] }, async ({ page }) => {
+  await compendium(page);
+  await toList(page);
+  const name = (i: number) => names(page).nth(i).textContent().then((t) => t!.trim());
+  const [first, second] = [await name(0), await name(1)];
+  await read(page, first);
+  const open = page.locator(".entry-swipe").filter({ visible: true });
+  const beside = page.locator(".entry-swipe .beside");
+  // A tenth of the way: the next result comes in beside, its text read
+  // ahead; it slides back.
+  await drag(page, open, 0.8, [0.75, 0.7], async () => {
+    await expect(beside.locator("h1")).toContainText(second);
+    await expect(beside.locator(".doc")).not.toBeEmpty();
+  });
+  await expect(beside).toHaveCount(0);
+  await expect(heading(page).filter({ visible: true })).toContainText(first);
+  await swipe(page, open, 0.8, 0.2);
+  await expect(beside).toHaveCount(0);
+  await expect(heading(page).filter({ visible: true })).toContainText(second);
+  await swipe(page, open, 0.2, 0.8);
+  await expect(beside).toHaveCount(0);
+  await expect(heading(page).filter({ visible: true })).toContainText(first);
 });
 
 test("an entry is exported and imported", { tag: "@export.entry" }, async ({ page }) => {

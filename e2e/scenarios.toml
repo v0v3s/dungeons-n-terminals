@@ -498,6 +498,12 @@ targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the category" }
 
 [[scenario]]
+id = "compendium.swipe-entries"
+does = "Swipe an open entry sideways on a phone or a tablet: the next (or previous) result comes in beside it, read ahead, and opens as the sheet's tabs do."
+targets = ["android"]
+not = { tui = "no swiping in a terminal: ↑ and ↓ move through the results, the entry following" }
+
+[[scenario]]
 id = "sheet.app-bar"
 does = "On a phone the app bar carries the open character: their name and level, the warnings and the sheet's ⋯ menu, with the tabs as icons right under it."
 targets = ["android"]
@@ -511,7 +517,7 @@ not = { tui = "the terminal's sheet shows every pane at once: abilities and skil
 
 [[scenario]]
 id = "sheet.swipe-tabs"
-does = "Swipe sideways on a phone: the sheet follows the finger and the gap it leaves names the next tab (its icon and name), lit once letting go opens it: past 45% of the width, or with a flick; otherwise it slides back. The tab icons show the open tab."
+does = "Swipe sideways on a phone or a tablet: the sheet follows the finger and the next tab comes in beside it, ready once letting go opens it: past 18% of the width, or with a flick; otherwise it slides back. The tab icons show the open tab."
 targets = ["android"]
 not = { tui = "no swiping in a terminal: Tab and Shift+Tab change the tab, and every tab is always in sight" }
 
@@ -827,6 +833,12 @@ id = "nav.help"
 does = "See the keys of every screen."
 targets = ["tui"]
 not = { app = "the app has no keys to learn: buttons say what they do" }
+
+[[scenario]]
+id = "layout.tablet"
+does = "A tablet held sideways: every screen spans its width (the sheet's skills in two equal columns, the characters, campaigns and data), the sheet shows its tabs as icons with the name in the app bar, + New character is wide, the scores' Next sits beside Back and Cancel, and the compendium's results start apart from the sort."
+targets = ["android"]
+not = { tui = "a terminal is as wide as its window, in its own layout (layout.fits)" }
 
 [[scenario]]
 id = "layout.fits"

@@ -93,20 +93,21 @@ test("swiping changes the tab, and the tab icons show it", { tag: ["@sheet.swipe
   await expectTab(page, "Inventory");
 });
 
-test("dragging shows the next tab; short of 45% it slides back, past it the tab opens", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
+test("dragging brings the next tab in beside; short of 18% it slides back, past it the tab opens", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
   const body = page.locator(".sheet > .body");
-  const hint = page.locator(".sheet .swipe-hint");
-  // A third of the way: the gap names Skills, not yet lit; it slides back.
-  await drag(page, body, 0.8, [0.65, 0.5], async () => {
-    await expect(hint).toContainText("Skills");
-    await expect(hint).not.toHaveClass(/ready/);
+  const beside = page.locator(".sheet .beside");
+  // A tenth of the way: Skills comes in beside, not yet ready; it slides back.
+  await drag(page, body, 0.8, [0.75, 0.7], async () => {
+    await expect(beside).toHaveAttribute("data-tab", "Skills");
+    await expect(beside.locator(".skills-tab")).toBeAttached();
+    await expect(beside).not.toHaveClass(/ready/);
   });
-  await expect(hint).toHaveCount(0);
+  await expect(beside).toHaveCount(0);
   await expectTab(page, "Overview");
-  // Half the way: it opens.
-  await drag(page, body, 0.8, [0.65, 0.5, 0.3], async () => {
-    await expect(hint).toHaveClass(/ready/);
+  // A quarter of the way: it opens.
+  await drag(page, body, 0.8, [0.7, 0.55], async () => {
+    await expect(beside).toHaveClass(/ready/);
   });
   await expectTab(page, "Skills");
-  await expect(hint).toHaveCount(0);
+  await expect(beside).toHaveCount(0);
 });

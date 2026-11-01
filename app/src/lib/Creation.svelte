@@ -149,12 +149,16 @@
           onhighlight={(v) => (highlighted = v)}
           onscores={(s) => (scores = s)}
           oninfo={step.details && phone.current ? info : undefined}
+          next={false}
         />
       {/key}
     </div>
     <div class="nav">
       <button class="ghost" onclick={back}>‹ Back</button>
       <button class="ghost" onclick={oncancel}>Cancel</button>
+      {#if step.question.type === "abilities" && scores}
+        <button class="primary next" onclick={() => scores && answer({ type: "scores", value: scores })}>Next</button>
+      {/if}
     </div>
     {#if error}<p class="err">{error}</p>{/if}
   </Pane>
@@ -203,7 +207,8 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(24ch, 32ch) minmax(0, 1.3fr) minmax(0, 1fr);
+    /* The steps narrow; the question and the preview share the rest. */
+    grid-template-columns: minmax(20ch, 26ch) minmax(0, 1fr) minmax(0, 1fr);
     gap: 0 2ch;
     padding-top: 0.6em;
   }
@@ -279,6 +284,9 @@
     display: flex;
     gap: 1ch;
     margin-top: 0.75em;
+  }
+  .nav .next {
+    margin-left: auto;
   }
   .err {
     color: var(--red);

@@ -189,7 +189,6 @@
     overflow-y: auto;
   }
   .inner {
-    max-width: 90ch;
     padding: 0.8em 1ch 1em 0;
   }
   p {

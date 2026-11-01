@@ -2,6 +2,8 @@ import type { Page } from "@playwright/test";
 import { answer, expect, go, invoke, sheetTab, test } from "./fixtures";
 
 const ask = (page: Page) => page.locator(".creation .ask");
+/// The scores' Next, beside Back and Cancel.
+const next = (page: Page) => page.locator(".creation .nav").getByRole("button", { name: "Next" });
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /// Start a new character from the roster.
@@ -55,7 +57,7 @@ test("a character is made step by step", { tag: "@creation.full" }, async ({ pag
   await raise(page, "Intelligence");
   await expect(value(page, "Intelligence")).toHaveText("13");
   await expect(value(page, "Constitution")).toHaveText("12");
-  await ask(page).getByRole("button", { name: "Next" }).click();
+  await next(page).click();
   await step(page, "Background (Sage): ability increases", "+2 / +1");
   await step(page, "+2 to which ability?", "Intelligence");
   await step(page, "+1 to which ability?", "Wisdom");
@@ -98,7 +100,7 @@ test(
     await step(page, "Choose a species", "Tiefling");
     await step(page, "Tiefling: choose a lineage", "Tiefling; Chthonic Legacy");
     await step(page, "Choose a background", "Acolyte");
-    await ask(page).getByRole("button", { name: "Next" }).click();
+    await next(page).click();
     await step(page, "ability increases", "Skip");
     // The Hexer (the test supplement) chooses its subclass at level 1.
     await step(page, "Choose your starting class", "Hexer");
@@ -135,7 +137,7 @@ test(
     await step(page, "Choose a species", "Tiefling");
     await step(page, "Tiefling: choose a lineage", "Tiefling; Abyssal Legacy");
     await step(page, "Choose a background", "Soldier");
-    await ask(page).getByRole("button", { name: "Next" }).click();
+    await next(page).click();
     await step(page, "ability increases", "Skip");
     await step(page, "Choose your starting class", "Fighter");
     // Athletics and Intimidation come with the Soldier.
@@ -191,7 +193,7 @@ test("ability scores are bought with 27 points", { tag: "@creation.point-buy" },
   await expect(value(page, "Intelligence")).toHaveText("8");
   await row(page, "Constitution").getByRole("button", { name: "Lower" }).click();
   await expect(left).toContainText("2 / 27");
-  await ask(page).getByRole("button", { name: "Next" }).click();
+  await next(page).click();
   await expect(ask(page).locator(".title")).toContainText("ability increases");
   const now = await invoke<{ summary: [string, string][] }>(page, "creation_current");
   expect(now.summary).toContainEqual(["Abilities", "STR 15 DEX 15 CON 14 INT 8 WIS 8 CHA 8 (Point buy)"]);
@@ -233,7 +235,7 @@ test("each choice says what it gives", { tag: "@creation.row-hints" }, async ({ 
   await step(page, "Choose a species", "Human");
   await expect(hint(page, "Sage")).toHaveText("Arcana, History · +2/+1 CON/INT/WIS · Magic Initiate; Wizard · SRD52");
   await step(page, "Choose a background", "Sage");
-  await ask(page).getByRole("button", { name: "Next" }).click();
+  await next(page).click();
   await step(page, "ability increases", "Skip");
   await step(page, "Choose a feat", "Alert");
   await expect(ask(page).locator(".title")).toContainText("Choose your starting class");
@@ -260,7 +262,7 @@ test("the steps are a checklist of what was chosen", { tag: "@creation.checklist
   await expect(item(list, "Class")).not.toHaveClass(/done|current/);
 
   // The review is the whole checklist.
-  await ask(page).getByRole("button", { name: "Next" }).click();
+  await next(page).click();
   await step(page, "ability increases", "Skip");
   await step(page, "Choose a feat", "Alert");
   await step(page, "Choose your starting class", "Wizard");
@@ -279,7 +281,7 @@ test("a finished step is chosen again from the checklist", { tag: "@creation.reo
   await start(page, "Changer");
   await step(page, "Choose a species", "Human");
   await step(page, "Choose a background", "Sage");
-  await ask(page).getByRole("button", { name: "Next" }).click();
+  await next(page).click();
   await step(page, "ability increases", "Skip");
   await expect(ask(page).locator(".title")).toContainText("Choose a feat");
 

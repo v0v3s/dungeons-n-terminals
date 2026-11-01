@@ -139,7 +139,6 @@
     min-height: 0;
     overflow-y: auto;
     padding: 0.8em 1ch 1em 0;
-    max-width: 100ch;
   }
   .bar {
     display: flex;
@@ -201,6 +200,10 @@
   }
   p {
     margin: 0 0 0.5em;
+  }
+  /* Half as wide again as its label: less of a reach. */
+  .bar button {
+    padding-inline: 6.75ch;
   }
   @media (max-width: 760px) {
     .bar button {
