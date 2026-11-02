@@ -64,6 +64,15 @@ test("a cantrip rolls with the wizard's numbers", { tag: "@spells.roll" }, async
   await expect(page.locator(".status.roll")).toContainText("Ray of Frost");
 });
 
+test("a spell's plain dice are a number, not healing", { tag: "@spells.roll" }, async ({ page }) => {
+  await openSheet(page, "Spells", "Hexa");
+  await page.locator("button.choice", { hasText: "choose 1 Cleric spell" }).click();
+  await pick(page, ["Bane"]);
+  await page.getByRole("button", { name: "Roll Bane" }).click();
+  await expect(page.locator(".status.roll")).toContainText("Charisma save");
+  await expect(page.locator(".status.roll")).not.toContainText("healing");
+});
+
 test("the spells to choose: a class's, and a feat's choice", { tag: "@spells.choose" }, async ({ page }) => {
   await openSheet(page, "Overview", "Hexa");
   // Where the flag says "spells to choose" in full, "spells" and "to" are

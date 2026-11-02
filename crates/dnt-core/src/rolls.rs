@@ -6,9 +6,10 @@ use dnt_data::{EntityId, Library};
 use dnt_rules::attacks::Attack;
 use dnt_rules::character::Hand;
 use dnt_rules::conditions::{self, RollKind};
+use dnt_rules::formula::{Env, Formula};
 use dnt_rules::roll::{self, Advantage, DamageRules, Rng};
 use dnt_rules::standard::ABILITIES;
-use dnt_rules::Evaluation;
+use dnt_rules::{Evaluation, Value};
 
 use crate::session::CharacterSession;
 
@@ -268,9 +269,18 @@ pub fn spell(sheet: &mut CharacterSession, lib: &Library, spell: EntityId, slot_
         // "… plus your spellcasting ability modifier": the DC is 8 + proficiency + it.
         let dice = if s.add_modifier { dice.plus_flat(dc - 8 - sheet.ev.int("prof").unwrap_or(2)) } else { dice.clone() };
         let d = roll::damage(&mut sheet.roller.rng, &dnt_rules::Value::Dice(dice), DamageRules { critical, ..Default::default() });
-        let what = if s.kind == "healing" { "healing".to_string() } else { format!("{} damage", s.kind) };
-        extra.push(format!("{} {what} ({})", d.total, d.describe()));
-        if s.save.is_some() && s.kind != "healing" {
+        let damage = !matches!(s.kind.as_str(), "" | "healing" | "temporary hit points");
+        let what = if s.kind == "damage" {
+            " damage".to_string()
+        } else if damage {
+            format!(" {} damage", s.kind)
+        } else if s.kind.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", s.kind)
+        };
+        extra.push(format!("{}{what} ({})", d.total, d.describe()));
+        if s.save.is_some() && damage {
             extra.push(format!("half on a success: {}", d.total / 2));
         }
     }
@@ -306,6 +316,63 @@ pub fn cast_level(sheet: &CharacterSession, lib: &Library, spell: EntityId, how:
     }
 }
 
+/// The names a custom roll can use, with their values now: proficiency,
+/// the ability modifiers, the spellcasting modifier (casters) and the
+/// character level. Any stat key works too (`skill.stealth`).
+pub fn roll_variables(sheet: &CharacterSession) -> Vec<(String, i64)> {
+    let ev = &sheet.ev;
+    let prof = ev.int("prof").unwrap_or(2);
+    let mut vars = vec![("prof".to_string(), prof)];
+    vars.extend(ABILITIES.iter().map(|(ab, _)| (ab.to_string(), ev.int(&format!("mod.{ab}")).unwrap_or(0))));
+    if sheet.build.classes.iter().any(|c| ev.int(&format!("spell.{}.dc", c.slug)).is_some()) {
+        vars.push(("spell".to_string(), spell_numbers(sheet, None).1 - 8 - prof));
+    }
+    vars.push(("level".to_string(), sheet.file.character.total_level() as i64));
+    vars
+}
+
+/// A roll typed by hand: dice and numbers with the names of
+/// [`roll_variables`] (`d20 + prof + dex`, `2d6 + str`). A single d20 takes
+/// the advantage chosen for the next roll.
+pub fn custom(sheet: &mut CharacterSession, text: &str) -> Result<Rolled, String> {
+    struct Vars<'a>(Vec<(String, i64)>, &'a Evaluation);
+    impl Env for Vars<'_> {
+        fn var(&self, name: &str) -> Option<Value> {
+            self.0.iter().find(|(k, _)| k == name).map(|(_, v)| Value::int(*v)).or_else(|| self.1.get(name).cloned())
+        }
+    }
+    let text = text.trim();
+    let source = text.to_lowercase();
+    let formula = Formula::parse(&source).map_err(|e| e.message)?;
+    let vars = Vars(roll_variables(sheet), &sheet.ev);
+    let value = formula.eval(&vars).map_err(|e| match e.message.strip_prefix("unknown variable ") {
+        Some(name) => format!("No {name} to add: use {}", vars.0.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>().join(", ")),
+        None => e.message,
+    })?;
+    let dice = match value {
+        Value::Dice(d) if !d.terms.is_empty() => d,
+        _ => return Err("Nothing to roll: add dice (d20, 2d6)".into()),
+    };
+    // What the names stood for: `prof 3, dex 2`.
+    let used: Vec<String> = formula.vars().iter().filter_map(|n| Some(format!("{n} {}", vars.var(n)?))).collect();
+    let mut rolled = if dice.terms.len() == 1 && dice.terms.get(&20) == Some(&1) {
+        let next = std::mem::take(&mut sheet.roller.next);
+        let why = if next == Advantage::Normal { Vec::new() } else { vec![format!("{} (chosen)", next.label())] };
+        let r = roll::d20(&mut sheet.roller.rng, dice.flat, next);
+        let crit = r.natural_20().then_some(true).or(r.natural_1().then_some(false));
+        Rolled { title: text.to_string(), result: r.total.to_string(), detail: detail(&r, &why), extra: Vec::new(), crit }
+    } else {
+        let mut d = roll::damage(&mut sheet.roller.rng, &Value::Dice(dice), DamageRules::default());
+        // Unlike damage, a typed roll can come out below zero.
+        d.total = d.dice.iter().map(|d| d.value).sum::<i64>() + d.flat;
+        Rolled { title: text.to_string(), result: d.total.to_string(), detail: d.describe(), extra: Vec::new(), crit: None }
+    };
+    if !used.is_empty() {
+        rolled.detail.push_str(&format!(" · {}", used.join(", ")));
+    }
+    Ok(sheet.roller.push(rolled))
+}
+
 /// Whether rolling the spell gives anything (an attack or dice).
 pub fn spell_rolls(lib: &Library, spell: EntityId) -> bool {
     let s = dnt_rules::spells::spell_roll(lib, spell, 1, 9);
@@ -330,6 +397,29 @@ mod tests {
         let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
         let s = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
         (lib, s)
+    }
+
+    #[test]
+    fn custom_rolls() {
+        let (_lib, mut s) = sheet(&[]);
+        let prof = s.ev.int("prof").unwrap();
+        let str_mod = s.ev.int("mod.str").unwrap();
+        let names: Vec<String> = roll_variables(&s).into_iter().map(|(k, _)| k).collect();
+        assert_eq!(names, ["prof", "str", "dex", "con", "int", "wis", "cha", "level"], "no spell without a caster");
+        for _ in 0..50 {
+            let r = custom(&mut s, "2d6 + STR + prof").unwrap();
+            let total: i64 = r.result.parse().unwrap();
+            assert!((2 + str_mod + prof..=12 + str_mod + prof).contains(&total), "{r:?}");
+            assert!(r.detail.contains(&format!("prof {prof}")), "{}", r.detail);
+        }
+        assert!(custom(&mut s, "1d4 - 10").unwrap().result.starts_with('-'), "below zero");
+        s.roller.cycle();
+        let r = custom(&mut s, "d20 + dex").unwrap();
+        assert!(r.detail.contains("advantage (chosen)"), "{}", r.detail);
+        assert_eq!(s.roller.next, Advantage::Normal);
+        assert!(custom(&mut s, "prof + 2").is_err(), "no dice");
+        assert!(custom(&mut s, "d20 + luck").unwrap_err().starts_with("No `luck` to add: use prof, str"), "an unknown name");
+        assert!(custom(&mut s, "2d6 +").is_err());
     }
 
     #[test]

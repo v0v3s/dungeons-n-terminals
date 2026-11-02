@@ -12,7 +12,7 @@ use dnt_rules::{Evaluation, Value};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Clear, Padding, Paragraph};
+use ratatui::widgets::{Clear, Padding, Paragraph, Wrap};
 use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
@@ -282,7 +282,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             );
             frame.render_widget(Paragraph::new(lines).block(block), rect);
         }
-        Some(Popup::Breakdown(key)) => draw_breakdown(frame, area, sheet, &key, theme),
+        Some(Popup::Breakdown(key)) => draw_breakdown(frame, area, lib, sheet, &key, theme),
         Some(Popup::Input(prompt, text)) => {
             let rect = centered(area, 34, 5);
             frame.render_widget(Clear, rect);
@@ -347,6 +347,31 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             let inner = block.inner(rect);
             frame.render_widget(block, rect);
             draw_picker(frame, inner, &picker, theme);
+        }
+        Some(Popup::Roll(text, error)) => {
+            // The names it can use, with what they are now.
+            let names: Vec<String> = dnt_core::rolls::roll_variables(sheet)
+                .into_iter()
+                .map(|(k, v)| if k == "level" { format!("{k} {v}") } else { format!("{k} {v:+}") })
+                .collect();
+            let names = names.join(" · ");
+            let width = (names.width() as u16 + 8).max(56).min(area.width);
+            let mut lines = vec![
+                Line::from(vec![Span::styled("❯ ", Style::new().fg(theme.accent)), Span::raw(text.clone())]),
+                Line::raw(""),
+                Line::styled(names, theme.dim),
+            ];
+            if !error.is_empty() {
+                lines.push(Line::styled(error.clone(), Style::new().fg(Color::Red)));
+            }
+            let rect = centered(area, width, lines.len() as u16 + 3);
+            frame.render_widget(Clear, rect);
+            let block = pane(pane_title("Roll dice: d20 + prof + dex, 2d6 + str", true, theme), true, theme)
+                .padding(Padding::new(2, 2, 1, 0))
+                .title_bottom(Line::styled(" enter roll · esc cancel ", theme.dim).right_aligned());
+            let inner = block.inner(rect);
+            frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }).block(block), rect);
+            frame.set_cursor_position((inner.x + 2 + text.width() as u16, inner.y));
         }
         Some(Popup::Text(prompt, text)) => {
             // Wide enough for the title, which says what to type.
@@ -1735,7 +1760,7 @@ fn stat_label(sheet: &Sheet, key: &str) -> String {
     }
 }
 
-fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme: &Theme) {
+fn draw_breakdown(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, key: &str, theme: &Theme) {
     let attack = key.strip_prefix("attack.").and_then(|slug| sheet.session.build.attacks.iter().find(|a| a.slug == slug));
     let (title, lines) = match attack {
         Some(a) => {
@@ -1780,7 +1805,9 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
             if !sheet.session.ev.stats.contains_key(key) {
                 return;
             }
-            (stat_label(sheet, key), breakdown_lines(sheet, key, theme))
+            let mut lines = breakdown_lines(sheet, key, theme);
+            lines.extend(resource_feature_lines(lib, sheet, key, theme));
+            (stat_label(sheet, key), lines)
         }
     };
     let width = lines.iter().map(|l| l.width()).max().unwrap_or(30).clamp(36, 90) as u16 + 6;
@@ -1790,6 +1817,43 @@ fn draw_breakdown(frame: &mut Frame, area: Rect, sheet: &Sheet, key: &str, theme
         .padding(Padding::new(2, 2, 1, 0))
         .title_bottom(Line::styled(" esc ", theme.dim).right_aligned());
     frame.render_widget(Paragraph::new(lines).block(block), rect);
+}
+
+/// For a feature's resource that is one trait of a species or a
+/// background (Heroic Inspiration of a Human): where it is from, and what
+/// it does.
+fn resource_feature_lines(lib: &Library, sheet: &Sheet, key: &str, theme: &Theme) -> Vec<Line<'static>> {
+    let Some(rkey) = key.strip_prefix("resource.").and_then(|k| k.strip_suffix(".max")) else { return Vec::new() };
+    let build = &sheet.session.build;
+    let Some((r, origin)) = build.resources.iter().find(|(r, _)| r.key == rkey) else { return Vec::new() };
+    let Some((entity, true)) = dnt_core::sheet::resource_feature(lib, build, origin) else { return Vec::new() };
+    // Its own entry (the Heroic Inspiration rule), or what the species
+    // says about it.
+    let own = view::feature_entity(lib, entity, &r.name);
+    let doc = match own {
+        Some(own) => view::document(lib, own, &dnt_data::SourceFilter::default()),
+        None => view::feature_part(lib, entity, &r.name),
+    };
+    if doc.is_empty() {
+        return Vec::new();
+    }
+    let e = lib.entity(entity);
+    let mut lines = vec![Line::default()];
+    if let Some(own) = own {
+        let o = lib.entity(own);
+        lines.push(Line::from(vec![
+            Span::styled(o.name.clone(), Style::new().add_modifier(Modifier::BOLD)),
+            Span::styled(format!(" ({})", o.kind.label().to_lowercase()), theme.dim),
+        ]));
+    }
+    lines.push(Line::from(vec![
+        Span::styled("From ", theme.dim),
+        Span::styled(e.name.clone(), Style::new().fg(theme.accent)),
+        Span::styled(format!(" ({})", e.kind.label().to_lowercase()), theme.dim),
+    ]));
+    lines.push(Line::default());
+    lines.extend(render::render(&doc, 72, None, theme).lines);
+    lines
 }
 
 /// The value of a stat and how it is made up.

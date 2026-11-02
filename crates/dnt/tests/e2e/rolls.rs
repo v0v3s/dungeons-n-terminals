@@ -145,3 +145,26 @@ fn a_number_explains_how_it_adds_up() {
     t.send(ESC).wait_gone("Attack bonus");
     assert!(!t.shows("Rolled"), "nothing is rolled: {}", t.screen());
 }
+
+#[test]
+fn dice_typed_by_hand_add_the_characters_numbers() {
+    let mut t = Tui::scenario("roll.custom", Home::party());
+    open(&mut t, "Tester");
+    // The names it knows, with Tester's numbers: proficiency +2,
+    // Intelligence +1, and the wizard's spellcasting modifier.
+    t.send("#").wait("Roll dice").wait("prof +2").wait("int +1").wait("spell +1").wait("level 1");
+    t.typed("d20 + prof + int").send(ENTER);
+    wait_status(&mut t, "d20 + prof + int: ");
+    assert!((4..=23).contains(&rolled(&t, "d20 + prof + int")), "{}", status(&t));
+    assert!(status(&t).contains("int 1, prof 2"), "{}", status(&t));
+    // It opens with the last roll, to roll again; a name it does not know
+    // is said in the box, which stays open.
+    t.send("#").wait("❯ d20 + prof + int");
+    t.typed(" + luck").send(ENTER).wait("No `luck` to add");
+    for _ in 0.." + luck".len() {
+        t.send(BACKSPACE);
+    }
+    t.typed(" + 2d6").send(ENTER);
+    wait_status(&mut t, "d20 + prof + int + 2d6: ");
+    assert!((6..=35).contains(&rolled(&t, "d20 + prof + int + 2d6")), "{}", status(&t));
+}

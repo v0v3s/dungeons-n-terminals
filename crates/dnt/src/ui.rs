@@ -256,6 +256,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("space +", "use/restore"),
                 ("a x", "tracker"),
                 ("r R", "roll/save"),
+                ("#", "roll dice"),
                 ("v", "adv/dis"),
                 ("C", "conditions"),
                 ("enter", "breakdown"),

@@ -373,29 +373,47 @@ pub struct SpellRoll {
     pub save: Option<String>,
     /// Damage or healing dice at the level asked for.
     pub dice: Option<crate::value::Dice>,
-    /// `fire`, `necrotic`, or `healing`.
+    /// `fire`, `necrotic`, `damage` (of a type chosen), `healing`,
+    /// `temporary hit points`, or empty
+    /// for plain dice (Bane's 1d4).
     pub kind: String,
     /// The text adds the spellcasting ability modifier (Cure Wounds).
     pub add_modifier: bool,
 }
 
-/// `{@tag text}` for the given tags, in order: (tag, contents, the text
-/// right after it).
-fn tags_in(v: &Json, names: &[&str], out: &mut Vec<(String, String, String)>) {
+/// A `{@tag text}` found in a spell's text.
+struct Tag {
+    tag: String,
+    body: String,
+    /// The sentence up to the tag.
+    before: String,
+    /// The text right after it.
+    follow: String,
+}
+
+/// `{@tag text}` for the given tags, in order.
+fn tags_in(v: &Json, names: &[&str], out: &mut Vec<Tag>) {
     match v {
         Json::String(s) => {
             let mut rest = s.as_str();
+            let mut sentence = String::new();
             while let Some(start) = rest.find("{@") {
+                let text = &rest[..start];
+                match text.rfind(". ") {
+                    Some(i) => sentence = text[i + 2..].to_string(),
+                    None => sentence.push_str(text),
+                }
                 let after = &rest[start + 2..];
                 let Some(end) = after.find('}') else { break };
                 let inner = &after[..end];
                 if let Some((tag, body)) = inner.split_once(' ') {
                     if names.contains(&tag) {
                         let follow: String = after[end + 1..].chars().take(60).collect();
-                        out.push((tag.to_string(), body.to_string(), follow));
+                        out.push(Tag { tag: tag.to_string(), body: body.to_string(), before: sentence.clone(), follow });
                     }
+                    sentence.push_str(body.split('|').next().unwrap_or(body));
                 }
-                rest = &after[end..];
+                rest = &after[end + 1..];
             }
         }
         Json::Array(a) => a.iter().for_each(|x| tags_in(x, names, out)),
@@ -430,20 +448,29 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
     if dice.is_none() {
         let mut found = Vec::new();
         tags_in(d.get("entries").unwrap_or(&Json::Null), &["damage", "dice"], &mut found);
-        let base = found.iter().find(|(t, _, _)| t == "damage").or_else(|| found.iter().find(|(t, _, _)| t == "dice"));
-        if let Some((tag, text, follow)) = base {
+        let base = found.iter().find(|t| t.tag == "damage").or_else(|| found.iter().find(|t| t.tag == "dice"));
+        if let Some(Tag { tag, body, before, follow }) = base {
             let follow = follow.to_lowercase();
-            add_modifier = follow.trim_start().starts_with("plus your spellcasting ability modifier")
-                || follow.trim_start().starts_with("+ your spellcasting ability modifier");
+            let follow = follow.trim_start();
+            add_modifier =
+                follow.starts_with("plus your spellcasting ability modifier") || follow.starts_with("+ your spellcasting ability modifier");
+            // Untyped dice: healing only when the text says so (Bane's
+            // 1d4 is a penalty, not healing).
             if tag == "dice" && kind.is_empty() {
-                kind = "healing".into();
+                if follow.starts_with("damage") {
+                    kind = "damage".into();
+                } else if follow.starts_with("temporary hit points") {
+                    kind = "temporary hit points".into();
+                } else if before.to_lowercase().contains("regain") {
+                    kind = "healing".into();
+                }
             }
-            dice = crate::roll::parse_dice(text.split('|').next().unwrap_or(text));
+            dice = crate::roll::parse_dice(body.split('|').next().unwrap_or(body));
             // Higher slots: `{@scaledamage 8d6|3-9|1d6}` adds 1d6 per level.
             let mut steps = Vec::new();
             tags_in(d.get("entriesHigherLevel").unwrap_or(&Json::Null), &["scaledamage", "scaledice"], &mut steps);
-            if let (Some(base), Some((_, step, _))) = (dice.as_mut(), steps.first()) {
-                let per = step.split('|').nth(2).and_then(crate::roll::parse_dice);
+            if let (Some(base), Some(step)) = (dice.as_mut(), steps.first()) {
+                let per = step.body.split('|').nth(2).and_then(crate::roll::parse_dice);
                 let extra = (slot_level - level).max(0);
                 if let Some(per) = per {
                     for _ in 0..extra {
@@ -523,7 +550,8 @@ mod tests {
              "scalingLevelDice": {"label": "Fire damage", "scaling": {"1": "1d10", "5": "2d10", "11": "3d10"}}, "entries": ["{@damage 1d10}"]},
             {"name": "Fireball", "source": "T", "level": 3, "savingThrow": ["dexterity"], "damageInflict": ["fire"],
              "entries": ["takes {@damage 8d6} Fire damage"], "entriesHigherLevel": [{"type": "entries", "entries": ["{@scaledamage 8d6|3-9|1d6}"]}]},
-            {"name": "Cure Wounds", "source": "T", "level": 1, "entries": ["regains {@dice 2d8} plus your spellcasting ability modifier"], "entriesHigherLevel": ["{@scaledice 2d8|1-9|2d8}"]}
+            {"name": "Cure Wounds", "source": "T", "level": 1, "entries": ["regains {@dice 2d8} plus your spellcasting ability modifier"], "entriesHigherLevel": ["{@scaledice 2d8|1-9|2d8}"]},
+            {"name": "Bane", "source": "T", "level": 1, "savingThrow": ["charisma"], "entries": ["Each regains nothing. The target must subtract {@dice 1d4} from the attack roll or save."]}
         ]}));
         let id = |n: &str| lib.get(&dnt_data::Key::new(Kind::Spell, &[n, "T"])).unwrap();
         let fb = spell_roll(&lib, id("Fire Bolt"), 6, 0);
@@ -535,5 +563,7 @@ mod tests {
         let cure = spell_roll(&lib, id("Cure Wounds"), 1, 2);
         assert!(cure.add_modifier && !fb.add_modifier);
         assert_eq!((cure.dice.unwrap().to_string(), cure.kind), ("4d8".to_string(), "healing".to_string()));
+        let bane = spell_roll(&lib, id("Bane"), 1, 1);
+        assert_eq!((bane.dice.unwrap().to_string(), bane.kind), ("1d4".to_string(), String::new()));
     }
 }

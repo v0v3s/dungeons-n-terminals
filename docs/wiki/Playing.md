@@ -10,6 +10,12 @@ Tap an ability's check or save, a skill, initiative or an attack to roll it
 into the latest session note (*⋯ › Write rolls into the session note*,
 `N`).
 
+*Roll dice* (`#` in the terminal) rolls whatever you type, with the
+character's numbers by name: `d20 + prof + dex`, `2d6 + str`, `d8 + spell`.
+The names are `prof`, the abilities (`str` … `cha`), `spell` (the
+spellcasting modifier) and `level`; in the app, tap the d20 beside *next roll*
+on the overview, then the dice and the names to build the roll. A lone d20 takes the *next roll* choice.
+
 ## Hit points
 
 *Damage* takes temporary hit points first; damage that would kill outright

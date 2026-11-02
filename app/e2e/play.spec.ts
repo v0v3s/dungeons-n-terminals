@@ -58,23 +58,54 @@ test("an attack rolls to hit with its damage", { tag: "@roll.attack" }, async ({
 test("advantage or disadvantage is chosen for the next roll only", { tag: "@roll.advantage" }, async ({ page }) => {
   await openSheet(page);
   const mode = chip(page).locator("button.mode");
-  await expect(mode).toHaveText(/next roll: normal/);
+  await expect(mode).toHaveText("normal");
   await mode.click();
-  await expect(mode).toHaveText(/next roll: advantage/);
+  await expect(mode).toHaveText("advantage");
   await tile(page, "Init").click();
   await expect(roll(page)).toContainText("advantage (chosen)");
-  await expect(mode).toHaveText(/next roll: normal/);
+  await expect(mode).toHaveText("normal");
 
   await mode.click();
   await mode.click();
-  await expect(mode).toHaveText(/next roll: disadvantage/);
+  await expect(mode).toHaveText("disadvantage");
   await tile(page, "Init").click();
   await expect(roll(page)).toContainText("disadvantage (chosen)");
-  await expect(mode).toHaveText(/next roll: normal/);
+  await expect(mode).toHaveText("normal");
 
   await tile(page, "Init").click();
   await expect(roll(page)).toContainText("Initiative");
   await expect(roll(page)).not.toContainText("chosen");
+});
+
+test("dice typed by hand add the character's numbers", { tag: "@roll.custom" }, async ({ page }) => {
+  await openSheet(page);
+  await page.getByRole("button", { name: "Roll dice" }).click();
+  const box = dialog(page, "Roll dice");
+  const text = box.locator("input");
+  // Tester's numbers, by name: proficiency +2, Intelligence +1.
+  await expect(box.getByRole("button", { name: "prof +2" })).toBeVisible();
+  await expect(box.getByRole("button", { name: "spell +1" })).toBeVisible();
+  await box.getByRole("button", { name: "d20", exact: true }).click();
+  await box.getByRole("button", { name: "prof +2" }).click();
+  await box.getByRole("button", { name: "int +1" }).click();
+  await expect(text).toHaveValue("d20 + prof + int");
+  // A second d6 makes two.
+  await box.getByRole("button", { name: "d6", exact: true }).click();
+  await box.getByRole("button", { name: "d6", exact: true }).click();
+  await expect(text).toHaveValue("d20 + prof + int + 2d6");
+  await box.getByRole("button", { name: "Roll", exact: true }).click();
+  await expect(roll(page)).toContainText("d20 + prof + int + 2d6");
+  await expect(roll(page)).toContainText("int 1, prof 2");
+  // It opens with the last roll; a name it does not know is said in it.
+  await page.getByRole("button", { name: "Roll dice" }).click();
+  await expect(text).toHaveValue("d20 + prof + int + 2d6");
+  await text.fill("d20 + luck");
+  await box.getByRole("button", { name: "Roll", exact: true }).click();
+  await expect(box).toContainText("No `luck` to add");
+  await text.fill("d8 - 1");
+  await box.getByRole("button", { name: "Roll", exact: true }).click();
+  await expect(box).toHaveCount(0);
+  await expect(roll(page)).toContainText("d8 - 1");
 });
 
 test("rolls are written into the latest session note", { tag: "@roll.to-notes" }, async ({ page }) => {
@@ -119,7 +150,7 @@ test("conditions are turned on and off; exhaustion goes up and down", { tag: "@c
   await conditions.locator(".exh").getByRole("button", { name: "−" }).click();
   await expect(conditions.locator(".exh b")).toHaveText("0");
   await page.keyboard.press("Escape");
-  await expect(chip(page).locator("button.chip").first()).toHaveText("No conditions");
+  await expect(chip(page).locator("button.chip").first()).toHaveText("Conditions");
 });
 
 test("a feature's toggle is turned on and off, and the numbers follow", { tag: "@toggles.flip" }, async ({ page }) => {
@@ -151,6 +182,24 @@ test("a tracker of your own is added with its uses and when they come back", { t
   await expect(row.locator(".recharge")).toHaveText("dawn");
   await row.getByRole("button", { name: "Use" }).click();
   await expect(row.locator(".count")).toHaveText("2/3");
+});
+
+test("a species trait's tracker shows its own entry, from its species", { tag: "@trackers.feature" }, async ({ page }) => {
+  await openSheet(page);
+  await tracker(page, "Heroic Inspiration").locator("button.tname").click();
+  await choose(page, "Heroic Inspiration", "Show the feature");
+  // The entry, not the menu of the same name fading out.
+  const box = dialog(page, "Heroic Inspiration").and(page.locator(".wide"));
+  await expect(box).toContainText("from");
+  await expect(box.getByRole("button", { name: /Human/ })).toBeVisible();
+  // The rule itself, as in the compendium; not the species' traits.
+  await expect(box).toContainText("Rule");
+  await expect(box).toContainText("reroll any die");
+  await expect(box).not.toContainText("Resourceful");
+  await expect(box).not.toContainText("Skillful");
+  // The whole species is a tap away.
+  await box.getByRole("button", { name: /Human/ }).click();
+  await expect(dialog(page, "Human").and(page.locator(".wide"))).toContainText("Skillful");
 });
 
 test("removing a tracker of your own asks first", { tag: "@trackers.remove" }, async ({ page }) => {

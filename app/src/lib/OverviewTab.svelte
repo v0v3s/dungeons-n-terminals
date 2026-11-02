@@ -10,6 +10,8 @@
   let { o, ctx, onconditions }: { o: Overview; ctx: SheetCtx; onconditions: () => void } = $props();
 
   const pct = $derived(o.hp.max ? Math.round((o.hp.current / o.hp.max) * 100) : 0);
+  /// No conditions and no exhaustion: the chip just says Conditions.
+  const none = $derived(!o.conditions.length && !o.exhaustion);
   const hpColor = $derived(pct <= 25 ? "var(--red)" : pct <= 50 ? "var(--yellow)" : "var(--green)");
   /// Tile labels on a phone, where five fit a row.
   const SHORT: Record<string, string> = {
@@ -99,7 +101,7 @@
       const feature = t.feature;
       return ctx.menu(t.name, [
         explain,
-        ["Show the feature", () => ctx.show(feature)],
+        ["Show the feature", () => ctx.show(feature, t.part)],
         ["Change or remove its rules (and this tracker)", () => ctx.rules(feature)],
       ]);
     }
@@ -186,15 +188,14 @@
   </div>
 
   <div class="state">
-    <button class="chip" class:on={o.conditions.length || o.exhaustion} onclick={onconditions}>
-      {o.conditions.length || o.exhaustion ? [...o.conditions.map((c) => c.name), ...(o.exhaustion ? [`Exhaustion ${o.exhaustion}`] : [])].join(" · ") : "No conditions"}
+    <button class="chip" class:on={!none} aria-label={none ? "No conditions" : undefined} onclick={onconditions}>
+      {none ? "Conditions" : [...o.conditions.map((c) => c.name), ...(o.exhaustion ? [`Exhaustion ${o.exhaustion}`] : [])].join(" · ")}
     </button>
     {#if o.concentration}
       <button class="chip conc" onclick={() => ctx.act({ command: "end_concentration" })}>◎ {o.concentration} ✕</button>
     {/if}
-    <button class="chip mode" class:on={o.next_roll !== "normal"} onclick={() => ctx.cycle()}>
-      next roll: {o.next_roll}
-    </button>
+    <button class="chip mode" class:on={o.next_roll !== "normal"} aria-label="next roll: {o.next_roll}" onclick={() => ctx.cycle()}>{o.next_roll}</button>
+    <button class="chip dice" aria-label="Roll dice" title="Roll dice" onclick={() => ctx.dice()}><Icon name="d20" /></button>
   </div>
   {#each o.conditions as c (c.name)}<p class="dim small">{c.name}: {c.summary}</p>{/each}
   {#if o.exhaustion}<p class="dim small">Exhaustion: {o.exhaustion_summary}</p>{/if}
@@ -343,15 +344,21 @@
   .tile .short { display: none; }
   .tile:hover { border-color: var(--accent); }
 
-  .state { display: flex; gap: 1ch; flex-wrap: wrap; }
+  /* One row: the conditions and the concentration give way (they are
+     spelled out below it), the next roll and the dice do not. */
+  .state { display: flex; gap: 1ch; }
   .chip {
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 0.1em 1.5ch;
     color: var(--gray);
+    flex-shrink: 0;
+    white-space: nowrap;
   }
+  .state .chip:not(.mode, .dice) { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .chip.on { border-color: var(--magenta); color: var(--magenta); font-weight: 700; }
   .chip.mode.on { border-color: var(--cyan); color: var(--black); background: var(--cyan); }
+  .chip.dice { padding-inline: 1.2ch; }
   .conc { border-color: var(--magenta); color: var(--magenta); }
 
   .roll { margin-bottom: 0.4em; }
