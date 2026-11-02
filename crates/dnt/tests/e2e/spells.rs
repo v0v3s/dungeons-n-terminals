@@ -199,3 +199,17 @@ fn rolling_a_spell_uses_its_class_numbers() {
     let line = t.line("Acid Splash: ");
     assert!(line.contains("DC 11 (Dexterity save)") && line.contains("acid damage"), "{line}");
 }
+
+#[test]
+fn a_spell_with_plain_dice_does_not_say_healing() {
+    let mut t = Tui::scenario("spells.roll", Home::party());
+    spells_of(&mut t, "Hexa");
+    // Bane, from Magic Initiate: its 1d4 is taken off the targets' rolls.
+    t.send("G").send(ENTER).wait("Choose 1 Cleric spell");
+    t.typed("bane").send(" ").send(ENTER).wait("Added Bane");
+    to_spell(&mut t, "Bane");
+    t.send("r").wait("Bane: ");
+    let line = t.line("Bane: ");
+    assert!(line.contains("(Charisma save) · "), "{line}");
+    assert!(!line.contains("healing") && !line.contains("damage"), "{line}");
+}

@@ -101,6 +101,8 @@ pub enum Popup {
     KillOutright(i64),
     /// Confirm removing one of your own trackers: (key, name).
     RemoveTracker(String, String),
+    /// A roll typed by hand (`d20 + prof + dex`), and why the last try failed.
+    Roll(String, String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,6 +168,8 @@ pub struct Sheet {
     pub feature_cursor: usize,
     pub feature_scroll: usize,
     pub popup: Option<Popup>,
+    /// The last custom roll, to roll again.
+    pub last_roll: String,
 }
 
 impl std::ops::Deref for Sheet {
@@ -193,6 +197,7 @@ impl Sheet {
             feature_cursor: 0,
             feature_scroll: 0,
             popup: None,
+            last_roll: String::new(),
         }
     }
 
@@ -302,6 +307,7 @@ impl Characters {
                         | Popup::Fill(_)
                         | Popup::AddItem(_)
                         | Popup::Text(..)
+                        | Popup::Roll(..)
                         | Popup::SpellPick(..)
                         | Popup::Cast(..)
                         | Popup::Wear(..)
@@ -488,6 +494,29 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     }
                     _ if key.code == KeyCode::Esc => {}
                     _ => sheet.popup = Some(Popup::AddItem(picker)),
+                }
+                return Action::None;
+            }
+            Popup::Roll(mut text, _) => {
+                sheet.popup = None;
+                match key.code {
+                    KeyCode::Esc => {}
+                    KeyCode::Enter => match dnt_core::rolls::custom(sheet, &text) {
+                        Ok(r) => {
+                            sheet.last_roll = text;
+                            return Action::Rolled { line: r.line(), to_notes: sheet.session.roller.to_notes, save: false };
+                        }
+                        Err(e) => sheet.popup = Some(Popup::Roll(text, e)),
+                    },
+                    KeyCode::Backspace => {
+                        text.pop();
+                        sheet.popup = Some(Popup::Roll(text, String::new()));
+                    }
+                    KeyCode::Char(ch) if !ctrl => {
+                        text.push(ch);
+                        sheet.popup = Some(Popup::Roll(text, String::new()));
+                    }
+                    _ => sheet.popup = Some(Popup::Roll(text, String::new())),
                 }
                 return Action::None;
             }
@@ -733,6 +762,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             return Action::None;
         }
         KeyCode::Char('D') => return run(sheet, lib, overlays, Command::DeathSave),
+        KeyCode::Char('#') => {
+            sheet.popup = Some(Popup::Roll(sheet.last_roll.clone(), String::new()));
+            return Action::None;
+        }
         // The dead are not healed; h says they are not dead after all.
         KeyCode::Char('h') if sheet.session.character().state.dead => {
             return run(sheet, lib, overlays, Command::SetDead { dead: false });

@@ -5,6 +5,8 @@ export interface SheetCtx {
   /// Apply a command; true when it worked.
   act: (cmd: Command) => Promise<boolean>;
   roll: (what: Roll) => void;
+  /// Roll dice typed by hand (`d20 + prof + dex`).
+  dice: () => void;
   /// Choose from a list, then do something with the values.
   pick: (wanted: Wanted, then: (values: string[], options: Options) => void) => void;
   /// Choose from a list of actions (label, run).
@@ -13,8 +15,8 @@ export interface SheetCtx {
   confirm: (title: string, text: string, then: () => void, danger?: string) => void;
   /// Ask for a line of text (or a number).
   prompt: (title: string, then: (value: string) => void, opts?: { number?: boolean; value?: string; hint?: string }) => void;
-  /// Show a compendium entry.
-  show: (entity: number) => void;
+  /// Show a compendium entry, or one part of it (a species trait).
+  show: (entity: number, part?: string | null) => void;
   /// Write or change a feature's rules.
   rules: (entity: number) => void;
   /// How a stat is made up.

@@ -198,6 +198,7 @@ pub fn run() {
             library::delete_campaign,
             library::search,
             library::entry,
+            library::feature_entry,
             library::follow,
             homebrew::brew_actions,
             homebrew::brew_original,

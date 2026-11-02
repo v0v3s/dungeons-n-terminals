@@ -257,3 +257,19 @@ fn the_shield_is_taken_up_and_put_away() {
     assert!(t.line("In hand").contains("nothing  "), "{}", t.screen());
     assert_eq!(stat_box(&t, "Armor Class"), "12");
 }
+
+#[test]
+fn a_species_traits_tracker_shows_its_own_entry() {
+    let mut t = Tui::scenario("trackers.feature", Home::party());
+    open(&mut t, "Tester");
+    // Heroic Inspiration, after Arcane Recovery: its own entry, the rule,
+    // from Human; not Human's traits.
+    to(&mut t, FIRST_RESOURCE + 1);
+    t.send(ENTER).wait("From Human (species)").wait("reroll any die");
+    assert!(!t.shows("Skillful") && !t.shows("Resourceful"), "Human's traits: {}", t.screen());
+    t.send(ESC).wait_gone("From Human");
+    // A class feature's tracker shows just how its uses add up.
+    to(&mut t, FIRST_RESOURCE);
+    t.send(ENTER).wait("Arcane Recovery");
+    assert!(!t.shows("From "), "{}", t.screen());
+}

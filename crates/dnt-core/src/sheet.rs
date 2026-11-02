@@ -134,6 +134,9 @@ pub struct Tracker {
     pub stat: String,
     /// The feature whose rules keep it, for a feature's resource.
     pub feature: Option<EntityId>,
+    /// The part of that feature to show, when it is one trait of a
+    /// species or a background: the tracker's name (Heroic Inspiration).
+    pub part: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -184,6 +187,8 @@ pub struct Overview {
     pub rolls: Vec<Rolled>,
     /// The next roll's mode: `normal`, `advantage`, `disadvantage`.
     pub next_roll: String,
+    /// The names a custom roll can use, with their values.
+    pub roll_vars: Vec<(String, i64)>,
     pub trackers: Vec<Tracker>,
     pub toggles: Vec<Toggle>,
     pub held: Vec<String>,
@@ -253,6 +258,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             (Recharge::Dawn, _) => "dawn",
             (Recharge::Manual, _) => "manual",
         };
+        let feature = resource_feature(lib, build, origin);
         trackers.push(Tracker {
             id: format!("resource:{}", r.key),
             name: r.name.clone(),
@@ -260,8 +266,8 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             max: play::resource_max(ev, &r.key),
             recharge: recharge.into(),
             stat: format!("resource.{}.max", r.key),
-            // The rules are named after their feature (maybe with more after it).
-            feature: build.features.iter().map(|f| f.entity).find(|&e| origin.starts_with(lib.entity(e).name.as_str())),
+            feature: feature.map(|f| f.0),
+            part: feature.filter(|f| f.1).map(|_| r.name.clone()),
         });
     }
     for l in (1..=9).filter(|l| play::slot_max(ev, *l) > 0) {
@@ -273,6 +279,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             recharge: "long rest".into(),
             stat: format!("slots.{l}.max"),
             feature: None,
+            part: None,
         });
     }
     let pact = ev.int("pact.slots.max").unwrap_or(0);
@@ -286,6 +293,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             recharge: "short rest".into(),
             stat: "pact.slots.max".into(),
             feature: None,
+            part: None,
         });
     }
     let mut dice: Vec<i64> = ev.stats.keys().filter_map(|k| k.strip_prefix("hit_dice.d")?.strip_suffix(".max")?.parse().ok()).collect();
@@ -300,6 +308,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             recharge: "long rest".into(),
             stat: format!("hit_dice.d{f}.max"),
             feature: None,
+            part: None,
         });
     }
 
@@ -403,6 +412,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
         concentration: st.concentration.clone(),
         rolls: s.roller.log.iter().take(6).cloned().collect(),
         next_roll: format!("{:?}", s.roller.next).to_lowercase(),
+        roll_vars: crate::rolls::roll_variables(s),
         trackers,
         toggles: build
             .toggles
@@ -540,6 +550,15 @@ pub struct Feature {
 pub struct FeatureGroup {
     pub title: String,
     pub features: Vec<Feature>,
+}
+
+/// The feature whose rules keep a resource (from the resource's origin:
+/// the rules are named after their feature, maybe with more after it),
+/// and whether the resource is just one part of it: one trait of a species
+/// or a background.
+pub fn resource_feature(lib: &Library, build: &dnt_rules::builder::Build, origin: &str) -> Option<(EntityId, bool)> {
+    let f = build.features.iter().find(|f| origin.starts_with(lib.entity(f.entity).name.as_str()))?;
+    Some((f.entity, matches!(f.source, FeatureSource::Species | FeatureSource::Background)))
 }
 
 pub fn features(lib: &Library, overlays: &OverlaySet, s: &CharacterSession) -> Vec<FeatureGroup> {

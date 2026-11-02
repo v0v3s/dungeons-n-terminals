@@ -459,6 +459,11 @@ does = "Set advantage or disadvantage for the next roll."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "roll.custom"
+does = "Roll dice typed by hand with the character's numbers by name (prof, an ability, spell, level): in the terminal with #, in the app from the d20 beside the next roll on the overview, by tapping dice and names. It opens with the last one, to roll again."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "roll.hit-die"
 does = "Roll a hit die to heal: in the app, tap its bar under the hit points."
 targets = ["tui", "app"]
@@ -539,6 +544,11 @@ targets = ["tui", "app"]
 [[scenario]]
 id = "trackers.add"
 does = "Add a tracker of your own (name, uses, recharge)."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "trackers.feature"
+does = "A feature's tracker shows its feature: for one trait of a species or a background (a Human's Heroic Inspiration) the feature's own entry (the Heroic Inspiration rule), or just that trait when it has none, saying where it is from, with the way to the whole entry. In the terminal, enter on the tracker shows it under how its uses add up."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -657,7 +667,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.roll"
-does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice."
+does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice. Plain dice (Bane's 1d4) are just a number, not healing."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- inventory

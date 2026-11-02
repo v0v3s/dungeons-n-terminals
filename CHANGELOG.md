@@ -8,6 +8,32 @@ become the release page.
 
 ## Unreleased
 
+## v1.6.0 - 2026-11-02
+
+### Added
+
+- Roll dice typed by hand, with the character's numbers by name:
+  `d20 + prof + dex`, `2d6 + str`, `d8 + spell`, `d4 + level`. In the
+  terminal press `#` on the sheet; in the app tap the d20 beside the
+  next roll on the overview and build it from the dice and the names,
+  each showing its value. It opens with the last roll, to roll again. To
+  make room, the next roll chip just says normal, advantage or
+  disadvantage, and the conditions chip says Conditions when there are
+  none.
+
+### Fixed
+
+- Showing the feature of a species' or a background's tracker (a
+  Human's Heroic Inspiration) opens the feature's own entry, the one in
+  the compendium, saying which species it is from, instead of the whole
+  species; the species is a tap away. A trait with no entry of its own
+  shows just that trait. In the terminal, enter on the tracker shows it
+  too.
+- Rolling Bane (or any spell with plain dice, like Bless or Guidance)
+  no longer calls its die healing: it shows just the number. Spells say
+  healing only when they heal, and False Life's dice are temporary hit
+  points.
+
 ## v1.5.0 - 2026-11-01
 
 ### Changed

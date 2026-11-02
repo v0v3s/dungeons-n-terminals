@@ -157,6 +157,10 @@ pub enum Roll {
         #[serde(default)]
         caster: Option<String>,
     },
+    /// Typed by hand: `d20 + prof + dex`.
+    Custom {
+        text: String,
+    },
 }
 
 #[derive(Serialize)]
@@ -193,6 +197,7 @@ pub async fn roll(app: State<'_, App>, what: Roll) -> Res<Rolled> {
             let level = dnt_rules::spells::spell_level(lib, spell);
             rolls::spell(s, lib, spell, level, atk, dc)
         }
+        Roll::Custom { text } => rolls::custom(s, &text)?,
     };
     Ok(Rolled { line: r.line(), rolled: r, sheet: sheet_of(inner)? })
 }

@@ -196,10 +196,14 @@ export interface Entry {
   source: string;
   page: number | null;
   blocks: Block[];
+  /// For a feature of a bigger entry (a species trait): that entry.
+  from: { id: number; name: string; kind: string; group: Group } | null;
 }
 
 export const search = (category: number, query: string, order = 0) => invoke<Found>("search", { category, query, order });
 export const entry = (id: number) => invoke<Entry>("entry", { id });
+/// One feature of an entry (a species trait), or the whole entry.
+export const featureEntry = (id: number, part: string) => invoke<Entry>("feature_entry", { id, part });
 export const follow = (link: Link) => invoke<number | null>("follow", { tag: link.tag, args: link.args });
 
 // ---- characters ----
@@ -245,6 +249,8 @@ export interface Tracker {
   stat: string;
   /// The feature whose rules keep it, for a feature's resource.
   feature: number | null;
+  /// The part of the feature to show (one trait of a species).
+  part: string | null;
 }
 
 export interface AttackRow {
@@ -286,6 +292,8 @@ export interface Overview {
   concentration: string | null;
   rolls: Rolled[];
   next_roll: "normal" | "advantage" | "disadvantage";
+  /// The names a custom roll can use, with their values.
+  roll_vars: [string, number][];
   trackers: Tracker[];
   toggles: { key: string; name: string; on: boolean }[];
   held: string[];
@@ -437,7 +445,8 @@ export type Roll =
   | { type: "skill"; key: string }
   | { type: "initiative" }
   | { type: "attack"; slug: string }
-  | { type: "spell"; id: string; caster?: string | null };
+  | { type: "spell"; id: string; caster?: string | null }
+  | { type: "custom"; text: string };
 
 export type Wanted =
   | { type: "items" }

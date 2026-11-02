@@ -290,6 +290,7 @@ mod content {
             ("tab · shift+tab", "next · previous tab"),
             ("d · h · t", "take damage · heal (when dead: not dead) · temporary hit points"),
             ("D", "roll a death save (at 0 hit points)"),
+            ("#", "roll dice typed by hand: d20 + prof + dex (the names it knows are listed)"),
             ("s · L", "short rest · long rest"),
             ("u · U", "level up · undo the last level"),
             ("c", "make pending choices"),

@@ -14,6 +14,54 @@ pub fn document(lib: &Library, id: EntityId, filter: &SourceFilter) -> Vec<Block
     document_of(lib, id, &lib.entity(id).data, filter)
 }
 
+/// A feature of a bigger entry (a species trait, a background's feature)
+/// that is an entry of its own: the rule, action or option of that name
+/// (Heroic Inspiration of a Human).
+pub fn feature_entity(lib: &Library, id: EntityId, name: &str) -> Option<EntityId> {
+    let wanted = name.to_lowercase();
+    lib.entities()
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| *i != id && e.name.to_lowercase() == wanted)
+        .filter_map(|(i, e)| {
+            let rank = [Kind::VariantRule, Kind::Action, Kind::OptionalFeature].iter().position(|k| *k == e.kind)?;
+            Some((rank, i))
+        })
+        .min()
+        .map(|(_, i)| i)
+}
+
+/// A feature that is part of a bigger entry (a species trait, a
+/// background's feature), by name: the part of `id`'s text about it (the
+/// entry of that name, or the one that mentions it). Empty when the entry
+/// says nothing about it.
+pub fn feature_part(lib: &Library, id: EntityId, name: &str) -> Vec<Block> {
+    fn named<'a>(v: &'a Value, out: &mut Vec<&'a Value>) {
+        match v {
+            Value::Array(a) => a.iter().for_each(|x| named(x, out)),
+            Value::Object(o) => {
+                if o.get("name").is_some_and(Value::is_string) && o.contains_key("entries") {
+                    out.push(v);
+                }
+                if let Some(e) = o.get("entries") {
+                    named(e, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let e = lib.entity(id);
+    let wanted = name.to_lowercase();
+    let mut parts = Vec::new();
+    named(e.data.get("entries").unwrap_or(&Value::Null), &mut parts);
+    let title = |v: &Value| v.get("name").and_then(Value::as_str).unwrap_or_default().to_lowercase();
+    let part = parts
+        .iter()
+        .find(|v| title(v) == wanted)
+        .or_else(|| parts.iter().find(|v| v.get("entries").is_some_and(|x| x.to_string().to_lowercase().contains(&wanted))));
+    part.map(|p| doc::from_entries(&Value::Array(vec![(*p).clone()]))).unwrap_or_default()
+}
+
 /// The document for an entity rendered from `data` (e.g. the book version
 /// of an entity a campaign overrides).
 pub fn document_of(lib: &Library, id: EntityId, data: &Value, filter: &SourceFilter) -> Vec<Block> {
@@ -818,6 +866,26 @@ mod tests {
         assert_eq!(format_coins(1500), "15 gp");
         assert_eq!(format_coins(20), "2 sp");
         assert_eq!(format_coins(5), "5 cp");
+    }
+
+    #[test]
+    fn a_feature_part_of_an_entry() {
+        let mut lib = Library::new();
+        lib.load_json(&serde_json::json!({
+            "race": [{"name": "Human", "source": "T", "entries": ["Traits.",
+                {"type": "entries", "name": "Resourceful", "entries": ["You gain Heroic Inspiration on a Long Rest."]},
+                {"type": "entries", "name": "Skillful", "entries": ["A skill."]}]}],
+            "variantrule": [{"name": "Heroic Inspiration", "source": "T", "entries": ["Reroll a die."]}]
+        }));
+        let human = lib.get(&crate::Key::new(Kind::Race, &["Human", "T"])).unwrap();
+        let text = doc::plain_text(&feature_part(&lib, human, "Heroic Inspiration"));
+        assert!(text.contains("Resourceful") && !text.contains("Skillful"), "{text}");
+        let rule = feature_entity(&lib, human, "heroic inspiration").unwrap();
+        assert_eq!(lib.entity(rule).kind, Kind::VariantRule);
+        assert_eq!(feature_entity(&lib, human, "Skillful"), None);
+        let text = doc::plain_text(&feature_part(&lib, human, "skillful"));
+        assert!(text.contains("A skill") && !text.contains("Resourceful"), "{text}");
+        assert!(feature_part(&lib, human, "Lucky").is_empty());
     }
 
     #[test]

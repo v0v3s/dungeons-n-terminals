@@ -11,6 +11,7 @@
   import OverviewTab from "./OverviewTab.svelte";
   import Picker from "./Picker.svelte";
   import Prompt from "./Prompt.svelte";
+  import DiceRoll from "./DiceRoll.svelte";
   import RulesEditor from "./RulesEditor.svelte";
   import Icon from "./Icon.svelte";
   import type { IconName } from "./icons";
@@ -108,7 +109,7 @@
     | { kind: "menu"; title: string; actions: [string, () => void][] }
     | { kind: "pick"; options: api.Options; then: (v: string[], o: api.Options) => void }
     | { kind: "prompt"; title: string; then: (v: string) => void; number?: boolean; value?: string; hint?: string }
-    | { kind: "entry"; id: number }
+    | { kind: "entry"; id: number; part?: string | null }
     | { kind: "breakdown"; b: api.Breakdown }
     | { kind: "conditions"; list: [api.Condition, boolean][] }
     | { kind: "levelup"; step: api.Step }
@@ -116,8 +117,11 @@
     | { kind: "confirm"; title: string; text: string; then: () => void; danger?: string }
     | { kind: "file"; text: string; error: string }
     | { kind: "rules"; entity: number }
-    | { kind: "warnings" };
+    | { kind: "warnings" }
+    | { kind: "dice"; text: string; error: string };
   let dialog: Dialog | null = $state(null);
+  /// The last roll typed by hand, to roll again.
+  let lastDice = "";
 
   $effect(() => {
     actions = [
@@ -163,6 +167,7 @@
         say(String(e));
       }
     },
+    dice: () => (dialog = { kind: "dice", text: lastDice, error: "" }),
     async pick(wanted, then) {
       try {
         const options = await api.options(wanted);
@@ -174,7 +179,7 @@
     },
     menu: (title, actions) => (dialog = { kind: "menu", title, actions }),
     prompt: (title, then, opts = {}) => (dialog = { kind: "prompt", title, then, ...opts }),
-    show: (id) => (dialog = { kind: "entry", id }),
+    show: (id, part) => (dialog = { kind: "entry", id, part }),
     rules: (entity) => (dialog = { kind: "rules", entity }),
     async explain(key) {
       tips.done("sheet.hold");
@@ -543,6 +548,28 @@
       />
     {/key}
   </Modal>
+{:else if dialog?.kind === "dice"}
+  {@const d = dialog}
+  {#key closings}
+    <DiceRoll
+      vars={sheet.overview.roll_vars}
+      value={d.text}
+      error={d.error}
+      onclose={close}
+      onroll={async (text) => {
+        try {
+          const r = await api.roll({ type: "custom", text });
+          lastDice = text;
+          close();
+          sheet = r.sheet;
+          say(r.line, r.rolled);
+          log(r.line);
+        } catch (e) {
+          dialog = { kind: "dice", text, error: String(e) };
+        }
+      }}
+    />
+  {/key}
 {:else if dialog?.kind === "prompt"}
   {@const d = dialog}
   {#key closings}
@@ -560,7 +587,7 @@
     />
   {/key}
 {:else if dialog?.kind === "entry"}
-  <EntryModal id={dialog.id} onclose={close} />
+  <EntryModal id={dialog.id} part={dialog.part} onclose={close} />
 {:else if dialog?.kind === "breakdown"}
   {@const b = dialog.b}
   <Modal title={b.title} onclose={close}>

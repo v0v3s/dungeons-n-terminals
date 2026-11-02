@@ -335,6 +335,16 @@ pub struct Entry {
     source: String,
     page: Option<u64>,
     blocks: Vec<dnt_data::doc::Block>,
+    /// For a feature of a bigger entry (a species trait): that entry.
+    from: Option<From>,
+}
+
+#[derive(Serialize)]
+pub struct From {
+    id: EntityId,
+    name: String,
+    kind: &'static str,
+    group: &'static str,
 }
 
 impl Entry {
@@ -362,12 +372,39 @@ pub fn entry_of(inner: &Inner, id: EntityId) -> Res<Entry> {
         source: lib.source_info(&e.source).map_or(e.source.clone(), |s| s.name.clone()),
         page: e.data.get("page").and_then(|p| p.as_u64()),
         blocks: view::document(lib, id, &inner.ws.filter()),
+        from: None,
     })
 }
 
 #[tauri::command]
 pub async fn entry(app: State<'_, App>, id: EntityId) -> Res<Entry> {
     entry_of(&app.lock(), id)
+}
+
+/// One feature of an entry (Heroic Inspiration of the Human species): its
+/// own entry when it has one, or what the entry says about it, or the
+/// whole entry when it says nothing.
+#[tauri::command]
+pub async fn feature_entry(app: State<'_, App>, id: EntityId, part: String) -> Res<Entry> {
+    let inner = app.lock();
+    let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
+    let e = lib.entity(id);
+    let from = From { id, name: e.name.clone(), kind: e.kind.label(), group: group(e.kind) };
+    if let Some(own) = view::feature_entity(lib, id, &part) {
+        let mut entry = entry_of(&inner, own)?;
+        entry.from = Some(from);
+        return Ok(entry);
+    }
+    let mut entry = entry_of(&inner, id)?;
+    let blocks = view::feature_part(lib, id, &part);
+    if !blocks.is_empty() {
+        entry.name = part;
+        entry.kind = "Feature";
+        entry.page = None;
+        entry.blocks = blocks;
+        entry.from = Some(from);
+    }
+    Ok(entry)
 }
 
 /// The entry a link in an entry points to.
