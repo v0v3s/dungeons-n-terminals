@@ -599,6 +599,12 @@ does = "Update to the newer dnt: its file for this system is downloaded and chec
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "update.store"
+does = "An app store's build of the app (F-Droid's; built with DNT_STORE=1) leaves updating to the store: it never checks for or installs a newer dnt, has no permission to install apps, and Data › About says the store keeps it up to date."
+targets = ["app"]
+not = { tui = "the terminal app is not in app stores: it updates itself" }
+
+[[scenario]]
 id = "update.auto"
 does = "Once a day when it starts, dnt checks for a newer version by itself and says so (the terminal app on its status line, the app in a notice); the check can be turned off (dnt update --auto off; Data › About)."
 targets = ["tui", "app"]

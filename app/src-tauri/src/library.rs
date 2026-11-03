@@ -142,6 +142,7 @@ pub async fn reset_app(handle: tauri::AppHandle, app: State<'_, App>) -> Res<Sta
     // A test's own library and releases are for that test only.
     inner.rules_test = None;
     inner.update_test = None;
+    inner.store_test = false;
     inner.ws.reset()?;
     // The settings are gone: backups go to the default folder again.
     inner.ws.backups = crate::backups::shelf(&handle, &inner.ws.store, &inner.ws.config)?;

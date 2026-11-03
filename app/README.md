@@ -73,3 +73,33 @@ keyAlias=dnt
 password=…
 ```
 
+
+## App stores
+
+An app store updates the apps it installs, so its build of dnt has no
+updater: build it with `DNT_STORE=1` set (for `npx tauri android build`
+and the Rust build alike). Such a build never checks GitHub for a newer
+dnt, has no permission to install apps, and says in Data › About that the
+store keeps it up to date. The tests stand in for it with `e2e_store`
+(scenario `update.store`).
+
+What a store shows comes from the repository:
+
+- `fastlane/metadata/android/en-US/`: the name, the short and the full
+  description, the icon, the phone screenshots, and for each release a
+  short changelog, `changelogs/<versionCode>.txt`, which
+  `scripts/release-pr.sh` writes from the release's notes.
+- `src-tauri/tauri.conf.json`: the version and Android's number for it
+  (`versionCode`, 1006000 for 1.6.0, `scripts/version-code.sh`), kept in
+  step by `scripts/release-pr.sh` and checked by `scripts/check-version.sh`.
+
+**F-Droid** builds dnt from the release tags and signs it with its own
+key, so an install from F-Droid and one from GitHub cannot update each
+other (export or back up, then reinstall, to switch). The build recipe is
+[`packaging/fdroid/cz.v0v3s.dnt.yml`](../packaging/fdroid/cz.v0v3s.dnt.yml),
+a copy of the one in F-Droid's
+[fdroiddata](https://gitlab.com/fdroid/fdroiddata). F-Droid picks up new
+tags by itself; when the build changes (a new Rust, NDK or Gradle), change
+the recipe there too. To try it, install `fdroidserver` and run
+`fdroid lint` and `fdroid build cz.v0v3s.dnt` in a folder with the recipe
+in `metadata/`.

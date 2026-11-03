@@ -1,0 +1,3 @@
+- Roll dice typed by hand, with the character's numbers by name: d20 + prof + dex, 2d6 + str, d8 + spell, d4 + level.
+- Showing the feature of a species' or a background's tracker (a Human's Heroic Inspiration) opens the feature's own entry, the one in the compendium, saying which species it is from, instead of the whole species; the species is a tap away.
+- Rolling Bane (or any spell with plain dice, like Bless or Guidance) no longer calls its die healing: it shows just the number.

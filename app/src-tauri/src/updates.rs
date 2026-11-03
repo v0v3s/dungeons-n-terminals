@@ -1,6 +1,8 @@
 //! Updating the app: whether there is a newer dnt (by itself once a day,
 //! or when asked), and installing it: on Android, Android's installer on
 //! the downloaded APK (InstallPlugin.kt); on Windows, the installer run.
+//! An app store's build (`DNT_STORE=1`, see build.rs) has none of it: the
+//! store updates dnt.
 
 use dnt_core::update::{self, Target};
 use serde::{Deserialize, Serialize};
@@ -31,6 +33,8 @@ pub struct UpdateState {
     current: String,
     /// Whether it checks by itself, once a day.
     auto: bool,
+    /// An app store's build: the store updates it.
+    store: bool,
 }
 
 #[derive(Serialize)]
@@ -40,8 +44,18 @@ pub struct Newer {
     notes: String,
 }
 
+/// Said when a store's build is asked to update itself.
+const BY_THE_STORE: &str = "This dnt is kept up to date by the app store it came from";
+
+/// An app store's build (or the tests' stand-in for one).
+fn store(app: &App) -> bool {
+    cfg!(store) || app.lock().store_test
+}
+
 fn state_of(app: &App) -> UpdateState {
-    UpdateState { current: update::VERSION.to_string(), auto: app.lock().ws.config.update.auto }
+    // One lock at a time: a field's lock lasts to the end of the statement.
+    let auto = app.lock().ws.config.update.auto;
+    UpdateState { current: update::VERSION.to_string(), auto, store: store(app) }
 }
 
 #[tauri::command]
@@ -69,6 +83,9 @@ fn location(app: &App) -> String {
 /// said); else the day's automatic check (once a day, quietly).
 #[tauri::command]
 pub async fn update_check(app: State<'_, App>, asked: bool) -> Res<Option<Newer>> {
+    if store(&app) {
+        return if asked { Err(BY_THE_STORE.into()) } else { Ok(None) };
+    }
     if !asked {
         let mut inner = app.lock();
         // The tests never ask GitHub by themselves: only their releases.
@@ -102,6 +119,9 @@ struct Allowed {
 /// what happens next, to say.
 #[tauri::command]
 pub async fn update_install(handle: tauri::AppHandle, app: State<'_, App>) -> Res<String> {
+    if store(&app) {
+        return Err(BY_THE_STORE.into());
+    }
     let target = if cfg!(target_os = "android") {
         Target::Android
     } else if cfg!(windows) {
@@ -168,5 +188,13 @@ pub async fn e2e_update_source(handle: tauri::AppHandle, app: State<'_, App>, fi
         std::fs::write(dir.join(name), text).map_err(|e| e.to_string())?;
     }
     app.lock().update_test = Some(dir.display().to_string());
+    Ok(())
+}
+
+/// The tests: act as an app store's build, or not.
+#[tauri::command]
+pub async fn e2e_store(app: State<'_, App>, on: bool) -> Res<()> {
+    crate::e2e::enabled()?;
+    app.lock().store_test = on;
     Ok(())
 }
