@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.7.0 - 2026-11-03
+
 ### Added
 
 - The app can be built for app stores (F-Droid first, with
