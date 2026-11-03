@@ -326,6 +326,9 @@
   {:else}
   <Pane title="Updates" focused>
     <p>dnt {version}</p>
+    {#if updates?.store}
+      <p class="dim">The app store you installed dnt from keeps it up to date.</p>
+    {:else}
     <div class="row">
       <button class="action" onclick={() => checkForUpdate(true)}>Check for updates</button>
     </div>
@@ -342,6 +345,7 @@
       <input type="checkbox" checked={updates?.auto ?? true} onchange={(e) => setAuto(e.currentTarget.checked)} />
       Check for a newer dnt once a day
     </label>
+    {/if}
   </Pane>
 
   <Pane title="About">

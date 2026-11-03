@@ -33,6 +33,20 @@ test("updating downloads the newer dnt and checks it", { tag: "@update.install" 
   await expect(updates(page)).toContainText(`dnt 99.0.0 downloaded and checked (${FILE}); the tests do not install it`);
 });
 
+test("an app store's build leaves updating to the store", { tag: "@update.store" }, async ({ page }) => {
+  await invoke(page, "e2e_store", { on: true });
+  // Even with a newer dnt out, it neither checks nor says so.
+  await useTestRelease(page, "newer");
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+  await go(page, "Data", "About");
+  await expect(updates(page)).toContainText("The app store you installed dnt from keeps it up to date.");
+  await expect(updates(page).getByRole("button", { name: "Check for updates" })).toHaveCount(0);
+  await expect(updates(page).getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "is out" })).toHaveCount(0);
+  await expect(invoke(page, "update_install")).rejects.toThrow(/kept up to date by the app store/);
+});
+
 test("the daily check says a newer dnt is out, and can be turned off", { tag: "@update.auto" }, async ({ page }) => {
   await useTestRelease(page, "newer");
   await page.reload();

@@ -1,0 +1,14 @@
+<p>dnt is a companion for players of the fifth edition of the world's most famous roleplaying game, in the look of a terminal and made for touch. It has the rules of the System Reference Document 5.2.1 (the SRD, the free rules of the 2024 edition) built in, and reads your own books and homebrew from data you import.</p>
+
+<ul>
+<li><b>Characters</b>: a creation wizard, multiclassing and level-ups with every choice, and a sheet that explains each number: abilities, skills, attacks, resources, spell slots, spells with their damage, and equipment.</li>
+<li><b>Play</b>: roll checks, saves, attacks, damage and spells from the sheet, with advantage, critical hits, conditions and exhaustion, or type your own roll (d20 + prof + dex). Rest, take damage and track concentration.</li>
+<li><b>Compendium</b>: search spells, classes, species, feats, items and rules, with filters and links you can follow.</li>
+<li><b>Notes</b>: a campaign notebook in Markdown with links between notes and entries, and session notes your rolls can go into.</li>
+<li><b>Homebrew</b>: copy any entry into your campaign and change it, or make new items and spells; automate class features, feats and species with small rules.</li>
+<li><b>Yours</b>: everything stays on your device. Export and import characters, campaigns and backups as files.</li>
+</ul>
+
+<p>The same app runs on Windows, and dnt also runs in the terminal on Linux and Windows.</p>
+
+<p>This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast LLC, licensed under the Creative Commons Attribution 4.0 International License. dnt is not affiliated with Wizards of the Coast. Icons by Delapouite and Lorc from game-icons.net, under CC BY 3.0.</p>

@@ -45,6 +45,13 @@ android {
             }
         }
     }
+    // Updating itself (src/updates: handing the downloaded APK to Android's
+    // installer), but not in an app store's build (DNT_STORE=1), which the
+    // store updates.
+    if (System.getenv("DNT_STORE").let { it.isNullOrEmpty() || it == "0" }) {
+        sourceSets.getByName("debug").manifest.srcFile("src/updates/AndroidManifest.xml")
+        sourceSets.getByName("release").manifest.srcFile("src/updates/AndroidManifest.xml")
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"

@@ -72,6 +72,10 @@ jobs:
           npm run build
       - name: Clippy
         run: cargo clippy -p dnt-app --all-targets --locked -- -D warnings
+      - name: Clippy (an app store's build)
+        run: cargo clippy -p dnt-app --all-targets --locked -- -D warnings
+        env:
+          DNT_STORE: "1"
 
   # The app on Windows: its end-to-end tests (app/e2e), on the build with
   # the e2e feature. (Windows also resolves imports without regard to case,

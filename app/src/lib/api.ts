@@ -707,6 +707,8 @@ export interface UpdateState {
   current: string;
   /// Whether it checks by itself, once a day.
   auto: boolean;
+  /// An app store's build: the store updates it.
+  store: boolean;
 }
 export interface Newer {
   version: string;

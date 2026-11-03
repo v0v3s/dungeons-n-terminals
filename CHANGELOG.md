@@ -8,6 +8,21 @@ become the release page.
 
 ## Unreleased
 
+## v1.7.0 - 2026-11-03
+
+### Added
+
+- The app can be built for app stores (F-Droid first, with
+  `DNT_STORE=1`): such a build leaves updating to the store, so it has no
+  updater and no permission to install apps, and Data › About says so.
+  The store listing (descriptions, screenshots, and a short changelog
+  for each release) is in `fastlane/metadata`.
+
+### Fixed
+
+- The Android app says its real version (it said 1.0) and numbers its
+  releases for Android, so app stores can tell which is newer.
+
 ## v1.6.0 - 2026-11-02
 
 ### Added

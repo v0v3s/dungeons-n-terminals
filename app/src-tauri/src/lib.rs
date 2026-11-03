@@ -40,6 +40,8 @@ pub struct Inner {
     pub rules_test: Option<Vec<(String, String)>>,
     /// The tests' releases (a folder), read instead of GitHub's.
     pub update_test: Option<String>,
+    /// The tests' app store build (as `DNT_STORE=1` makes it).
+    pub store_test: bool,
 }
 
 impl Inner {
@@ -155,6 +157,7 @@ pub fn run() {
                     rules_files: None,
                     rules_test: None,
                     update_test: None,
+                    store_test: false,
                 });
                 state.ready.notify_all();
             });
@@ -188,6 +191,7 @@ pub fn run() {
             updates::update_check,
             updates::update_install,
             updates::e2e_update_source,
+            updates::e2e_store,
             library::clear_imported,
             library::reset_app,
             library::sources,

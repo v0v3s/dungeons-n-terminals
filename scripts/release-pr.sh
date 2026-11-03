@@ -14,5 +14,12 @@ version=$(scripts/next-version.sh "$title")
 [ -n "$version" ] || { echo "\"$title\" does not release (only feat:, fix:, perf: and breaking changes do)"; exit 0; }
 sed -i "/^\[workspace.package\]/,/^\[/s/^version = \".*\"/version = \"$version\"/" Cargo.toml
 cargo update --workspace --quiet
+# The app's version, and Android's number for it (major, minor and patch
+# as 1 006 000 for 1.6.0), which app stores read from here.
+code=$(scripts/version-code.sh "$version")
+sed -i -e "s/^  \"version\": \".*\"/  \"version\": \"$version\"/" \
+    -e "s/\"versionCode\": [0-9]*/\"versionCode\": $code/" app/src-tauri/tauri.conf.json
 scripts/release-notes.sh cut "$version" "$(date -u +%F)"
-echo "v$version: Cargo.toml, Cargo.lock and CHANGELOG.md are ready to commit"
+# What is new, for app stores (fastlane/metadata).
+scripts/release-notes.sh store "$version" > "fastlane/metadata/android/en-US/changelogs/$code.txt"
+echo "v$version: Cargo.toml, Cargo.lock, CHANGELOG.md, tauri.conf.json and the store changelog are ready to commit"

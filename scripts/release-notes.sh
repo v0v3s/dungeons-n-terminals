@@ -11,13 +11,17 @@
 #       Print the notes of vVERSION (for the release page), with the
 #       downloads.
 #
+#   scripts/release-notes.sh store VERSION
+#       Print the notes of vVERSION for app stores: the first sentence of
+#       each change, plain text, at most 500 characters.
+#
 #   scripts/release-notes.sh check
 #       Fail if the changelog has no Unreleased section, or a version
 #       twice (as a merge gone wrong leaves it).
 set -eu
 
 file=CHANGELOG.md
-cmd=${1:?usage: release-notes.sh cut VERSION DATE | notes VERSION | check}
+cmd=${1:?usage: release-notes.sh cut VERSION DATE | notes VERSION | store VERSION | check}
 if [ "$cmd" = check ]; then
     grep -q '^## Unreleased$' "$file" || { echo "$file has no '## Unreleased' section" >&2; exit 1; }
     twice=$(grep '^## v' "$file" | cut -d' ' -f2 | sort | uniq -d)
@@ -78,6 +82,21 @@ notes)
 
 The app reads data you import as a zip; `scripts/pack-data.sh` makes one with just what it needs.
 EOF
+    ;;
+store)
+    body=$(section "## v$version ")
+    [ -n "$body" ] || { echo "no section for v$version in $file" >&2; exit 1; }
+    # Each top-level change as one line, to its first full stop, without
+    # Markdown; as many as fit in 500 characters.
+    printf '%s\n' "$body" | awk '
+        /^- / { if (item != "") print item; item = substr($0, 3); next }
+        /^  [^ -]/ && item != "" { sub(/^ +/, ""); item = item " " $0; next }
+        { if (item != "") print item; item = "" }
+        END { if (item != "") print item }
+    ' | sed -e 's/[`*]//g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' -e 's/\([.!?]\) .*/\1/' | awk '
+        { line = "- " $0; if (length(out) + length(line) + 1 > 500) exit; out = out (out == "" ? "" : "\n") line }
+        END { print out }
+    '
     ;;
 *)
     echo "unknown command: $cmd" >&2
