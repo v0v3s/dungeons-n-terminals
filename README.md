@@ -127,6 +127,8 @@ Each release has the app next to the terminal binaries:
   the device and allow installing from that app (or
   `adb install -r dnt-app-android.apk`). It is signed with the project's
   own key, so newer releases install over older ones.
+  (`dnt-app-android-play.aab` is the build for Google Play; phones take
+  the APK.)
 
 The app starts with **Getting started**: *Import a zip…* takes a zip like
 the one `scripts/pack-data.sh` makes (put it on the phone first), then it
@@ -137,7 +139,8 @@ homebrew, which is off until you do. Campaigns, characters and notes live
 in the app's own storage; the app and the terminal do not share them.
 
 Building and running the app yourself is described in
-[`app/README.md`](app/README.md).
+[`app/README.md`](app/README.md). dnt collects no data:
+[`PRIVACY.md`](PRIVACY.md).
 
 ## Where things are
 
