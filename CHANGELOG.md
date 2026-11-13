@@ -8,6 +8,18 @@ become the release page.
 
 ## Unreleased
 
+## v1.8.0 - 2026-11-13
+
+### Added
+
+- Each release has the app for Google Play,
+  `dnt-app-android-play.aab`: an app store's build, as an Android App
+  Bundle. How to set it up in the Play Console is in
+  `packaging/google-play`.
+- A privacy policy, `PRIVACY.md`: dnt collects no data.
+- The store listing has a feature graphic, and its short description no
+  longer names the game's trademark.
+
 ## v1.7.0 - 2026-11-03
 
 ### Added

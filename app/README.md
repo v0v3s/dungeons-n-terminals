@@ -103,3 +103,11 @@ tags by itself; when the build changes (a new Rust, NDK or Gradle), change
 the recipe there too. To try it, install `fdroidserver` and run
 `fdroid lint` and `fdroid build cz.v0v3s.dnt` in a folder with the recipe
 in `metadata/`.
+
+**Google Play** takes an Android App Bundle: each release has
+`dnt-app-android-play.aab`, an app store's build signed with the release
+key, which is Play's upload key (Play signs what it installs with its
+own). Setting up the Play Console, and the answers to its forms:
+[`packaging/google-play/README.md`](../packaging/google-play/README.md).
+What dnt does with data, for the stores and everyone:
+[`PRIVACY.md`](../PRIVACY.md).

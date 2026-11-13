@@ -1,6 +1,7 @@
-# Build the apps: the Windows installer and the Android APK (signed with
-# the key in the repository secrets, see app/README.md). Run it by hand
-# (Actions → App → Run workflow) for builds to try; releases call it too.
+# Build the apps: the Windows installer, the Android APK and Google Play's
+# bundle (signed with the key in the repository secrets, see
+# app/README.md). Run it by hand (Actions → App → Run workflow) for
+# builds to try; releases call it too.
 name: App
 
 on:
@@ -49,13 +50,28 @@ jobs:
           name: dnt-app-windows
           path: dist/*
 
-  # The app for Android: an APK signed with the key in the secrets
+  # The app for Android, signed with the key in the secrets
   # ANDROID_KEYSTORE (base64 of the .jks), ANDROID_KEY_ALIAS and
-  # ANDROID_KEY_PASSWORD (see app/README.md). Skipped without them.
+  # ANDROID_KEY_PASSWORD (see app/README.md); skipped without them. Two of
+  # it: the APK of the GitHub releases, which updates itself, and Google
+  # Play's bundle (the same key is its upload key), an app store's build.
   app-android:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: apk
+            store: ""
+            out: apk/universal/release/app-universal-release.apk
+            asset: dnt-app-android.apk
+          - kind: aab
+            store: "1"
+            out: bundle/universalRelease/app-universal-release.aab
+            asset: dnt-app-android-play.aab
     runs-on: ubuntu-latest
     env:
       KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+      DNT_STORE: ${{ matrix.store }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -79,6 +95,8 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - uses: Swatinem/rust-cache@v2
         if: steps.key.outputs.skip != 'true'
+        with:
+          key: ${{ matrix.kind }}
       - uses: actions/setup-java@v6
         if: steps.key.outputs.skip != 'true'
         with:
@@ -97,11 +115,11 @@ jobs:
           # The runner comes with the Android SDK and NDKs.
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npm ci
-          npx tauri android build --apk --target aarch64 --target armv7 --target x86_64
+          npx tauri android build --${{ matrix.kind }} --target aarch64 --target armv7 --target x86_64
           mkdir ../dist
-          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk ../dist/dnt-app-android.apk
+          cp src-tauri/gen/android/app/build/outputs/${{ matrix.out }} ../dist/${{ matrix.asset }}
       - uses: actions/upload-artifact@v7
         if: steps.key.outputs.skip != 'true'
         with:
-          name: dnt-app-android
+          name: ${{ matrix.asset }}
           path: dist/*
