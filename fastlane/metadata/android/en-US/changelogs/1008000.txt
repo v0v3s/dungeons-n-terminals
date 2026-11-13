@@ -1,0 +1,3 @@
+- Each release has the app for Google Play, dnt-app-android-play.aab: an app store's build, as an Android App Bundle.
+- A privacy policy, PRIVACY.md: dnt collects no data.
+- The store listing has a feature graphic, and its short description no longer names the game's trademark.

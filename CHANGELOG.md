@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.8.0 - 2026-11-13
+
 ### Added
 
 - Each release has the app for Google Play,
