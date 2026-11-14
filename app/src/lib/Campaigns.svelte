@@ -223,6 +223,40 @@
   .card.active {
     border-color: var(--accent);
   }
+  /* A computer: the campaigns as cards side by side, as many as the window
+     has room for, each with its actions in sight. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .inner {
+      padding: 0.6rem 0 1rem;
+    }
+    h2 {
+      font-size: 1.6em;
+      color: var(--fg);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: var(--card);
+      border-color: var(--edge);
+      padding: 1.1rem 1.25rem;
+      gap: 0.7rem;
+    }
+    .head {
+      flex-wrap: wrap;
+      row-gap: 0.5rem;
+    }
+    .card .name {
+      font-size: 1.25em;
+      font-weight: 600;
+    }
+    .head :global(.inline) {
+      flex-basis: 100%;
+      order: 5;
+    }
+  }
   .head {
     display: flex;
     align-items: center;

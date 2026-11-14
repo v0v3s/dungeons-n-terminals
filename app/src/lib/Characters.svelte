@@ -281,6 +281,34 @@
   p {
     margin: 0 0 0.5em;
   }
+  /* A computer: the characters as cards side by side, as many as the
+     window has room for. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .roster {
+      padding: 0.6rem 0 1rem;
+    }
+    .roster h2 {
+      font-size: 1.6em;
+      color: var(--fg);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: var(--card);
+      border-color: var(--edge);
+      padding: 1rem 1.1rem;
+      align-items: start;
+    }
+    .card .name {
+      font-size: 1.15em;
+    }
+    .card .id {
+      white-space: normal;
+    }
+  }
   /* Half as wide again as its label: less of a reach. */
   .bar button {
     padding-inline: 6.75ch;

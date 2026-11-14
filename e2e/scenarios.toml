@@ -941,6 +941,42 @@ targets = ["windows"]
 not = { tui = "a terminal is as wide as its window, in its own layout (layout.fits)" }
 
 [[scenario]]
+id = "compendium.top-search"
+does = "On a computer the compendium's search runs across the top; under it the categories are chips (with their counts), and the search's facets (@ source, # kind, * damage, ^ level, \" text, ! not) are chips that add themselves to the search; while typing, the suggestions are chips that complete it."
+targets = ["windows"]
+not = { tui = "the terminal searches in its own prompt, Tab completing and changing the category" }
+
+[[scenario]]
+id = "compendium.entry-actions"
+does = "On a computer an entry's ⋯ actions (edit, clone into the campaign, export) are buttons by its name too."
+targets = ["windows"]
+not = { tui = "the terminal acts on the open entry with keys" }
+
+[[scenario]]
+id = "notes.visible-actions"
+does = "On a computer the notes' ⋯ actions are in sight: a new folder and today's session note, the chosen folder's rename, delete and move; the open note's rename and delete; and the notes that link to it in a column beside its text."
+targets = ["windows"]
+not = { tui = "the terminal's notes take : commands and keys" }
+
+[[scenario]]
+id = "campaigns.cards"
+does = "On a computer the campaigns are cards side by side, as many as fit, each with its actions in sight (books & homebrew, rename, export, delete, make active)."
+targets = ["windows"]
+not = { tui = "the terminal lists the campaigns, acting on the one under the cursor with keys" }
+
+[[scenario]]
+id = "characters.cards"
+does = "On a computer the characters are cards side by side, as many as the window has room for."
+targets = ["windows"]
+not = { tui = "the terminal lists the characters one under another" }
+
+[[scenario]]
+id = "layout.dialogs"
+does = "On a computer a dialog is a roomy card with its title across the top and a ✕ that closes it (Esc and a click outside too)."
+targets = ["windows"]
+not = { tui = "the terminal's dialogs are boxes closed with Esc" }
+
+[[scenario]]
 id = "layout.wide"
 does = "On a big screen (2560 and 3840 px wide) every section and the sheet span the window, the text and controls grow with it, more columns come in, and running text still wraps at a comfortable length."
 targets = ["windows"]
