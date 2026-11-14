@@ -516,6 +516,72 @@ targets = ["android"]
 not = { tui = "the terminal's sheet has its name and level in its own title line" }
 
 [[scenario]]
+id = "sheet.tab-row"
+does = "On a computer the sheet's tabs are a row of their names, the open one raised; Spells shows how many spells are still to choose."
+targets = ["windows"]
+not = { tui = "the terminal names its tabs in a line of its own, changed with Tab" }
+
+[[scenario]]
+id = "sheet.party-sidebar"
+does = "On a computer the party is beside the open sheet: another character opens with one click, the open one is marked, and ☰ hides the party."
+targets = ["windows"]
+not = { tui = "the terminal goes back to the character list (Esc) to open another" }
+
+[[scenario]]
+id = "sheet.overview-desktop"
+does = "On a computer the hit points run across the top of the overview: the number, one bar with the temporary hit points after the hit points, a line under it with the temporary hit points and the hit dice (roll one and heal, use, restore), Damage, Heal and Temp beside it; an attack's damage keeps to one line, a versatile weapon's two-handed damage on a line under it, the attack names with no empty gutter before them."
+targets = ["windows"]
+not = { tui = "the terminal's overview is laid out in its own panes, the two damages on one line" }
+
+[[scenario]]
+id = "sheet.explain-popup"
+does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: the total with its sign, a line for each part (a skill's ability modifier and proficiency, then what items and features add) with where it comes from, and for a number that rolls, Roll, Advantage and Disadvantage; Escape closes it."
+targets = ["windows"]
+not = { tui = "the terminal explains the number under the cursor with ? in a pane of its own" }
+
+[[scenario]]
+id = "sheet.actions-row"
+does = "On a computer everything the sheet's ⋯ menu does is one toolbar under the name, in groups: Play (short and long rest, rolls into the session note), Character (level up, undo the last level, the note, the file), Export (printable page, Markdown, for dnt), and delete apart at the end; one line on a wide window, each button's full name on hover."
+targets = ["windows"]
+not = { tui = "the terminal's sheet actions are keys, listed with ?" }
+
+[[scenario]]
+id = "sheet.toast"
+does = "On a computer what just happened (a change, a roll) shows in a toast in the corner that fades after a few seconds; it never takes a row of the sheet, and the sheet keeps room to scroll its last row clear of it."
+targets = ["windows"]
+not = { tui = "the terminal shows what happened in its status line" }
+
+[[scenario]]
+id = "attacks.actions-row"
+does = "On a computer each attack shows its menu's actions as buttons: hold it in the main hand, the off hand or both hands, and how its bonus and its damage add up."
+targets = ["windows"]
+not = { tui = "the terminal holds and explains an attack with keys on its row" }
+
+[[scenario]]
+id = "trackers.actions-row"
+does = "On a computer each tracker shows its menu's actions as buttons (how the uses add up, the feature it comes from, its rules, remove a tracker of your own), and the hit dice theirs (roll one and heal, use, restore, how they add up)."
+targets = ["windows"]
+not = { tui = "the terminal's trackers are changed with keys on their rows" }
+
+[[scenario]]
+id = "spells.actions-panel"
+does = "On a computer a click on a spell shows everything its menu does as buttons under it (read, cast, roll, prepare, favorite, remove); ⋯ and a right click still open the menu."
+targets = ["windows"]
+not = { tui = "the terminal acts on the spell under the cursor with keys" }
+
+[[scenario]]
+id = "inventory.actions-panel"
+does = "On a computer a click on an item shows everything its menu does as buttons under it (read, equip, wear, hold, attune, put in, unpack, container, quantity, remove); ⋯ and a right click still open the menu."
+targets = ["windows"]
+not = { tui = "the terminal acts on the item under the cursor with keys" }
+
+[[scenario]]
+id = "inventory.equip-pills"
+does = "On a computer an item's state has a column after its name (Item | State | Qty | Weight): Equip, or where the item is (Worn · its slot, Held · its hand); a click equips it or puts it away; nothing there for what cannot be worn or held."
+targets = ["windows"]
+not = { tui = "the terminal marks worn and held items with ◉ and ◈" }
+
+[[scenario]]
 id = "sheet.skills-tab"
 does = "Abilities (score, check, save) and skills have their own tab, after the overview; every number there rolls when tapped."
 targets = ["app"]
@@ -875,8 +941,14 @@ targets = ["windows"]
 not = { tui = "a terminal is as wide as its window, in its own layout (layout.fits)" }
 
 [[scenario]]
+id = "layout.wide"
+does = "On a big screen (2560 and 3840 px wide) every section and the sheet span the window, the text and controls grow with it, more columns come in, and running text still wraps at a comfortable length."
+targets = ["windows"]
+not = { tui = "a terminal's text is the size its terminal sets; its panes span the window (layout.fits)" }
+
+[[scenario]]
 id = "layout.sidebar"
-does = "On a computer, ☰ in the header hides and shows a section's sidebar (the notes' folders), and in a window narrower than 1200 px it starts hidden."
+does = "On a computer, ☰ in the header hides and shows a section's sidebar (the notes' folders, the party beside a sheet), and in a window narrower than 1200 px it starts hidden."
 targets = ["windows"]
 not = { tui = "the terminal shows its panes as its window allows, with no sidebar to hide" }
 

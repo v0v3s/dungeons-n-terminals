@@ -7,6 +7,8 @@
   import Prompt from "./Prompt.svelte";
   import Sheet from "./Sheet.svelte";
   import type { SheetTab } from "./sheetctx";
+  import { narrow, touch } from "./screen";
+  import { sidebar } from "./sidebar.svelte";
 
   let {
     status,
@@ -99,7 +101,24 @@
     }}
   />
 {:else if sheet}
-  <Sheet bind:sheet bind:tab bind:actions onclose={back} {onnote} />
+  {@const current = sheet.header.name}
+  <!-- On a computer the party beside the sheet (☰ hides it): one click to
+       another character. -->
+  <div class="withparty" class:party={!touch.current && !narrow.current && sidebar.open}>
+    {#if !touch.current && !narrow.current && sidebar.open}
+      <nav class="partylist" aria-label="Party">
+        <h2>Party</h2>
+        {#each roster as r (r.slug)}
+          <button class="member" class:current={r.name === current} aria-current={r.name === current ? "true" : undefined} onclick={() => r.name !== current && openOne(r.slug)}>
+            <span class="mname">{r.name}</span>
+            <span class="dim mid">{r.identity}</span>
+          </button>
+        {/each}
+        <button class="ghost" onclick={() => (naming = true)}>+ New character</button>
+      </nav>
+    {/if}
+    <Sheet bind:sheet bind:tab bind:actions onclose={back} {onnote} />
+  </div>
 {:else}
   <div class="roster">
     {#if !status.campaign}
@@ -134,6 +153,67 @@
 {/if}
 
 <style>
+  .withparty {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .withparty.party {
+    display: grid;
+    grid-template-columns: minmax(11rem, 15%) minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  .withparty > :global(*) {
+    min-height: 0;
+  }
+  .partylist {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    overflow-y: auto;
+    padding-right: 1rem;
+    border-right: 1px solid var(--edge);
+  }
+  .partylist h2 {
+    margin: 0.4rem 0.7rem 0.5rem;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--gray);
+  }
+  .member {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    padding: 0.55rem 0.7rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .member:hover {
+    background: var(--raised);
+  }
+  .member.current {
+    background: var(--raised);
+  }
+  .member.current .mname {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .mid {
+    font-size: 0.85em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .partylist .ghost {
+    margin-top: 0.6rem;
+  }
   .roster {
     flex: 1;
     min-height: 0;

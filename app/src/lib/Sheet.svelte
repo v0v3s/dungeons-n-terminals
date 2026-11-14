@@ -1,6 +1,7 @@
 <!-- A character sheet: the header, the tabs, and the dialogs they use. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
   import { saveAs } from "./files";
   import * as api from "./api";
   import Ask from "./Ask.svelte";
@@ -18,9 +19,8 @@
   import SpellsTab from "./SpellsTab.svelte";
   import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
   import { Swipe } from "./swipe.svelte";
-  import TabSelect from "./TabSelect.svelte";
   import SkillsTab from "./SkillsTab.svelte";
-  import { narrow, touch } from "./screen";
+  import { desktop, narrow, touch } from "./screen";
   import Tip from "./Tip.svelte";
   import { tips } from "./tips.svelte";
 
@@ -120,6 +120,63 @@
     | { kind: "warnings" }
     | { kind: "dice"; text: string; error: string };
   let dialog: Dialog | null = $state(null);
+  /// How a number adds up, in a pop-up beside it (a computer).
+  let pop: { b: api.Breakdown; key: string; x: number; y: number } | null = $state(null);
+
+  /// The roll a breakdown's number makes, when it is one that rolls.
+  function rollOf(key: string): api.Roll | null {
+    const [kind, a, b] = key.split(".");
+    if (kind === "mod") return { type: "ability", key: a };
+    if (kind === "save") return { type: "save", key: a };
+    if (kind === "skill") return { type: "skill", key: a };
+    if (key === "initiative") return { type: "initiative" };
+    if (kind === "attack" && b === "bonus") return { type: "attack", slug: a };
+    return null;
+  }
+
+  /// A modifier is shown with its sign (+3, −1); a score or a count is not.
+  const SIGNED = /^(skill|save|mod)\.|^initiative$|^prof$|^attack\..*\.bonus$/;
+  const sign = (n: number) => (n >= 0 ? `+${n}` : `−${-n}`);
+  const num = (s: string) => parseInt(s.replace("−", "-"), 10);
+  const signed = (key: string, v: string) => (SIGNED.test(key) && /^[-−+]?\d+$/.test(v) ? sign(num(v)) : v);
+
+  type Line = { kind: string; value: string; origin: string; applied: boolean };
+  /// A breakdown's lines. A skill or a save is one part in the rules (its
+  /// formula, "Intelligence + proficiency"): shown as its components, the
+  /// ability modifier and the proficiency, from the sheet's own numbers;
+  /// whatever else the rules add (items, features) follows as it is.
+  function lines(key: string, b: api.Breakdown): Line[] {
+    const as = (p: api.Part): Line => ({ kind: p.kind, value: p.value, origin: p.origin + (p.note ? ` (${p.note})` : ""), applied: p.applied });
+    const o = sheet.overview;
+    let ability: api.Ability | undefined;
+    let prof: api.Skill["proficiency"] = "none";
+    if (key.startsWith("skill.")) {
+      const s = o.skills.find((s) => `skill.${s.key}` === key);
+      ability = s && o.abilities.find((a) => a.key === s.ability);
+      prof = s?.proficiency ?? "none";
+    } else if (key.startsWith("save.")) {
+      ability = o.abilities.find((a) => `save.${a.key}` === key);
+      prof = ability?.proficient ? "proficient" : "none";
+    }
+    const [base, ...rest] = b.parts;
+    const total = base ? num(base.value) : NaN;
+    const mod = ability ? num(ability.modifier) : NaN;
+    if (!ability || base?.kind !== "base" || Number.isNaN(total) || Number.isNaN(mod)) return b.parts.map(as);
+    const out: Line[] = [{ kind: "ability", value: sign(mod), origin: `${ability.name} modifier (score ${ability.score})`, applied: true }];
+    if (total !== mod) {
+      const what = prof === "expertise" ? "Proficiency bonus, doubled (expertise)" : prof === "half" ? "Half the proficiency bonus" : "Proficiency bonus";
+      out.push({ kind: "proficiency", value: sign(total - mod), origin: what, applied: true });
+    }
+    return [...out, ...rest.map(as)];
+  }
+
+  /// Roll with advantage, disadvantage or neither: the next roll's mode set
+  /// first (as its chip cycles it), then the roll.
+  async function rollWith(what: api.Roll, mode: string) {
+    pop = null;
+    for (let i = 0; i < 3 && sheet.overview.next_roll !== mode; i++) await ctx.cycle();
+    await ctx.roll(what);
+  }
   /// The last roll typed by hand, to roll again.
   let lastDice = "";
 
@@ -181,10 +238,18 @@
     prompt: (title, then, opts = {}) => (dialog = { kind: "prompt", title, then, ...opts }),
     show: (id, part) => (dialog = { kind: "entry", id, part }),
     rules: (entity) => (dialog = { kind: "rules", entity }),
-    async explain(key) {
+    async explain(key, near) {
       tips.done("sheet.hold");
       const b = await api.breakdown(key);
-      if (b) dialog = { kind: "breakdown", b };
+      if (!b) return;
+      if (!desktop.current || !near) return void (dialog = { kind: "breakdown", b });
+      // Beside what it explains: to its right, or its left near the edge.
+      const r = near.getBoundingClientRect();
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const width = 26 * rem;
+      const x = r.right + 8 + width < innerWidth - 8 ? r.right + 8 : Math.max(8, r.left - width - 8);
+      const y = Math.max(8, Math.min(r.top, innerHeight - 20 * rem));
+      pop = { b, key, x, y };
     },
     async cycle() {
       sheet = await api.cycleAdvantage();
@@ -257,21 +322,18 @@
   }
 
   function more() {
-    ctx.menu(sheet.header.name, [
+    ctx.menu(sheet.header.name, sheetActions());
+  }
+
+  /// What can be done with the whole character: the ⋯ menu, and on a
+  /// computer a row of buttons as well.
+  function sheetActions(): [string, () => void][] {
+    return [
       ["Level up…", levelUp],
       ...(sheet.header.pending ? ([[`Make ${sheet.header.pending} missing choice(s)…`, nextPending]] as [string, () => void][]) : []),
       ["Short rest", () => rest(false)],
       ["Long rest", () => rest(true)],
-      [
-        "Remove the latest level",
-        () =>
-          (dialog = {
-            kind: "confirm",
-            title: "Undo a level",
-            text: "Remove the latest level and its choices?",
-            then: () => act({ command: "undo_level" }),
-          }),
-      ],
+      ["Remove the latest level", undoLevel],
       ["Open the character's note", openNote],
       ["Edit the character file…", editFile],
       [logRolls ? "Stop writing rolls into the session note" : "Write rolls into the session note", () => setLogRolls(!logRolls)],
@@ -280,7 +342,54 @@
       ["Export for dnt (to import elsewhere)…", exportForDnt],
       ["Delete the character…", remove],
       ...(touch.current ? ([["Show the tips again", () => tips.reset()]] as [string, () => void][]) : []),
-    ]);
+    ];
+  }
+
+  function undoLevel() {
+    dialog = {
+      kind: "confirm",
+      title: "Undo a level",
+      text: "Remove the latest level and its choices?",
+      then: () => act({ command: "undo_level" }),
+    };
+  }
+
+  /// The same, on a computer: one toolbar of groups, each button a short
+  /// name (its full name as its title), the deletion apart at the end.
+  type Tool = { label: string; title: string; run: () => void };
+  function toolGroups(): { name: string; tools: Tool[] }[] {
+    const t = (label: string, title: string, run: () => void): Tool => ({ label, title, run });
+    const n = sheet.header.pending;
+    return [
+      {
+        name: "Play",
+        tools: [
+          t("Short rest", "Short rest", () => rest(false)),
+          t("Long rest", "Long rest", () => rest(true)),
+          logRolls
+            ? t("Stop rolls to the session note", "Stop writing rolls into the session note", () => setLogRolls(false))
+            : t("Rolls to the session note", "Write rolls into the session note", () => setLogRolls(true)),
+        ],
+      },
+      {
+        name: "Character",
+        tools: [
+          t("Level up…", "Level up…", levelUp),
+          ...(n ? [t(`${n} missing ${n === 1 ? "choice" : "choices"}…`, `Make ${n} missing choice(s)…`, nextPending)] : []),
+          t("Undo the last level", "Remove the latest level", undoLevel),
+          t("Note", "Open the character's note", openNote),
+          t("File…", "Edit the character file…", editFile),
+        ],
+      },
+      {
+        name: "Export",
+        tools: [
+          t("Printable page…", "Export as a printable page…", () => exportAs("html")),
+          t("Markdown…", "Export as Markdown…", () => exportAs("markdown")),
+          t("For dnt…", "Export for dnt (to import elsewhere)…", exportForDnt),
+        ],
+      },
+    ];
   }
 
   function remove() {
@@ -426,6 +535,21 @@
     </div>
   {/if}
 
+  {#if desktop.current}
+    <!-- A computer: everything the ⋯ menu does, in sight. -->
+    <div class="charbar" role="toolbar" aria-label="Character actions">
+      {#each toolGroups() as g (g.name)}
+        <div class="tgroup" role="group" aria-label={g.name}>
+          <span class="glabel" aria-hidden="true">{g.name}</span>
+          {#each g.tools as tool (tool.title)}<button class="ghost" title={tool.title} onclick={tool.run}>{tool.label}</button>{/each}
+        </div>
+      {/each}
+      <div class="tgroup end">
+        <button class="ghost danger" title="Delete the character…" onclick={remove}>Delete the character…</button>
+      </div>
+    </div>
+  {/if}
+
   {#if narrow.current || touch.current}
     <!-- A phone or a tablet: every tab as an icon, in one row. -->
     <div class="icontabs" role="tablist">
@@ -434,8 +558,13 @@
       {/each}
     </div>
   {:else}
-    <div class="tabs">
-      <TabSelect label="Tab" options={SHEET_TABS.map((t) => [t, t])} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as Tab)} />
+    <!-- A computer: every tab by its name, in one row. -->
+    <div class="tabrow" role="tablist" aria-label="Sheet">
+      {#each SHEET_TABS as t (t)}
+        <button role="tab" aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
+          {t}{#if t === "Spells" && sheet.header.spells_to_choose}<span class="badge">{sheet.header.spells_to_choose}</span>{/if}
+        </button>
+      {/each}
     </div>
   {/if}
 
@@ -458,7 +587,11 @@
     </div>
   </div>
 
+  <!-- What just happened: on a computer a toast in the corner that fades,
+       elsewhere a line at the foot of the sheet. Read out politely. -->
+  <div class="toast" role="status" aria-live="polite">
   {#if message}
+   <div class="toastin" out:fade={{ duration: 400 }}>
     {#if rolled}
       <!-- A roll: big, its number first; a tap puts it away. -->
       <button class="status roll" onclick={() => ((message = ""), (rolled = null))}>
@@ -479,7 +612,9 @@
     {:else}
       <div class="status">{message}</div>
     {/if}
+   </div>
   {/if}
+  </div>
 </div>
 
 {#if dialog?.kind === "warnings"}
@@ -601,7 +736,40 @@
       </div>
     {/each}
   </Modal>
-{:else if dialog?.kind === "conditions"}
+{/if}
+
+<svelte:window onkeydown={(e) => pop && e.key === "Escape" && ((pop = null), e.preventDefault())} />
+
+{#if pop}
+  {@const p = pop}
+  {@const r = rollOf(p.key)}
+  <!-- How a number adds up, beside it: where each part comes from, and its
+       roll with or without advantage. -->
+  <div class="popback" role="presentation" onclick={() => (pop = null)}></div>
+  <div class="pop" role="dialog" aria-label={p.b.title} style:left="{p.x}px" style:top="{p.y}px">
+    <div class="phead">
+      <span class="ptitle">{p.b.title}</span>
+      <b class="pvalue">{signed(p.key, p.b.value)}</b>
+      <button class="pclose" aria-label="Close" onclick={() => (pop = null)}>✕</button>
+    </div>
+    {#each lines(p.key, p.b) as part, i (i)}
+      <div class="pline" class:off={!part.applied}>
+        <b class="mono">{part.value}</b>
+        <span>{part.origin}</span>
+        <span class="dim pkind">{part.kind}</span>
+      </div>
+    {/each}
+    {#if r}
+      <div class="pbtns">
+        <button class="primary" onclick={() => rollWith(r, "normal")}>Roll</button>
+        <button class="ghost" onclick={() => rollWith(r, "advantage")}>Advantage</button>
+        <button class="ghost" onclick={() => rollWith(r, "disadvantage")}>Disadvantage</button>
+      </div>
+    {/if}
+  </div>
+{/if}
+
+{#if dialog?.kind === "conditions"}
   {@const d = dialog}
   <Modal title="Conditions" onclose={close}>
     <div class="conds">
@@ -739,10 +907,207 @@
     padding: 0.1em 1ch;
     cursor: pointer;
   }
-  .tabs {
-    margin: 0.75em 0 0.25em;
-    max-width: 40ch;
+  /* A computer: the tabs by name, one row, the chosen one raised. */
+  .tabrow {
+    display: inline-flex;
+    align-self: flex-start;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0.9rem 0 0.6rem;
+    padding: 0.25rem;
+    background: var(--card);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
     flex-shrink: 0;
+  }
+  .tabrow button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.3rem;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: none;
+    color: var(--gray);
+    font: inherit;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .tabrow button:hover {
+    background: var(--raised);
+    color: var(--fg);
+  }
+  .tabrow button.active {
+    background: var(--dark);
+    color: var(--fg);
+  }
+  .badge {
+    background: var(--cyan);
+    color: var(--black);
+    border-radius: 0.6rem;
+    padding: 0 0.4rem;
+    font-size: 0.75em;
+    font-weight: 700;
+  }
+  @media (pointer: fine) and (min-width: 761px) {
+    h1 {
+      font-size: 1.6em;
+      color: var(--fg);
+    }
+    h1 .acc {
+      font-size: 0.7em;
+      vertical-align: 0.15em;
+    }
+    .id {
+      color: var(--gray);
+    }
+    .head {
+      align-items: center;
+    }
+    .flag {
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.8rem;
+      white-space: nowrap;
+    }
+    /* What happened (a roll, a change): a toast in the bottom right corner
+       that fades; the sheet keeps room under its last row to scroll it
+       clear of the toast. */
+    .toast {
+      position: fixed;
+      right: 1.5rem;
+      bottom: 1.5rem;
+      z-index: 30;
+      width: min(24rem, calc(100vw - 3rem));
+    }
+    .status {
+      position: static;
+      margin: 0;
+      background: var(--card);
+      border-color: var(--accent);
+      box-shadow: 0 0.8rem 2rem rgb(0 0 0 / 0.5);
+      animation: toastin 0.2s ease-out;
+    }
+    .sheet > .body {
+      padding-bottom: 8rem;
+    }
+  }
+  @keyframes toastin {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  .toast,
+  .toastin {
+    display: contents;
+  }
+  @media (pointer: fine) and (min-width: 761px) {
+    .toast,
+    .toastin {
+      display: block;
+    }
+  }
+  /* The sheet's actions on a computer: one toolbar, groups apart, a group
+     wrapping as a whole. */
+  .charbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 1.1rem;
+    margin-top: 0.7rem;
+    flex-shrink: 0;
+  }
+  .tgroup {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+  .tgroup + .tgroup {
+    padding-left: 1.1rem;
+    border-left: 1px solid var(--edge);
+  }
+  .tgroup.end {
+    margin-left: auto;
+  }
+  .glabel {
+    font-size: 0.78em;
+    font-weight: 600;
+    color: var(--dim);
+    margin-right: 0.2rem;
+  }
+  .charbar .ghost {
+    min-height: 1.95rem;
+    padding: 0 0.6rem;
+    font-size: 0.85em;
+  }
+  .charbar .danger {
+    color: var(--red);
+  }
+  .popback {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+  .pop {
+    position: fixed;
+    z-index: 41;
+    width: 26rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding: 0.9rem 1.1rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.5);
+  }
+  .phead {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+  .ptitle {
+    font-weight: 600;
+  }
+  .pvalue {
+    font-family: var(--mono);
+    font-size: 1.3em;
+    color: var(--accent);
+  }
+  .pclose {
+    margin-left: auto;
+    background: none;
+    border: 0;
+    color: var(--gray);
+    cursor: pointer;
+    font: inherit;
+  }
+  .pline {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-top: 1px solid var(--edge);
+  }
+  .pline b {
+    text-align: right;
+    color: var(--fg);
+  }
+  .pline.off {
+    opacity: 0.55;
+  }
+  .pkind {
+    font-size: 0.8em;
+  }
+  .pbtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.8rem;
   }
   .body {
     position: relative;

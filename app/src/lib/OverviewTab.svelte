@@ -6,10 +6,24 @@
   import Pane from "./Pane.svelte";
   import Icon from "./Icon.svelte";
   import { pool, type SheetCtx } from "./sheetctx";
+  import { desktop } from "./screen";
 
   let { o, ctx, onconditions }: { o: Overview; ctx: SheetCtx; onconditions: () => void } = $props();
 
   const pct = $derived(o.hp.max ? Math.round((o.hp.current / o.hp.max) * 100) : 0);
+  /// On a computer the bar holds the temporary hit points too, after the
+  /// hit points: each a share of both.
+  const whole = $derived(o.hp.max + o.hp.temp);
+  const hpShare = $derived(whole ? (o.hp.current / whole) * 100 : 0);
+  const tempShare = $derived(whole ? (o.hp.temp / whole) * 100 : 0);
+
+  /// An attack's damage and a versatile weapon's two-handed damage apart
+  /// (the core puts the latter in parentheses; on a computer it goes on a
+  /// line of its own).
+  function damageParts(a: { damage: string }): { main: string; alt: string } {
+    const m = a.damage.match(/^(.*\S)\s*\((.+)\)$/);
+    return m ? { main: m[1], alt: m[2] } : { main: a.damage, alt: "" };
+  }
   /// No conditions and no exhaustion: the chip just says Conditions.
   const none = $derived(!o.conditions.length && !o.exhaustion);
   const hpColor = $derived(pct <= 25 ? "var(--red)" : pct <= 50 ? "var(--yellow)" : "var(--green)");
@@ -88,40 +102,61 @@
   /// What can be done with a tracker: your own can be removed; a
   /// feature's is kept by its rules, which can be changed or removed.
   function trackerMenu(t: Tracker) {
-    const explain: [string, () => void] = ["How the uses are made up", () => ctx.explain(t.stat)];
-    const key = t.id.startsWith("resource:") ? t.id.slice("resource:".length) : "";
     if (t.id.startsWith("hit_die:")) {
       return ctx.menu(t.name, [["Roll one and heal", () => rollHitDie(t.id)], ["How the dice are made up", () => ctx.explain(t.stat)]]);
     }
+    const more = trackerActions(t);
+    if (!more.length) return ctx.explain(t.stat);
+    ctx.menu(t.name, [["How the uses are made up", () => ctx.explain(t.stat)], ...more]);
+  }
+
+  /// A tracker's own actions beyond its uses (on a computer, buttons by it).
+  function trackerActions(t: Tracker): [string, () => void][] {
+    const key = t.id.startsWith("resource:") ? t.id.slice("resource:".length) : "";
     if (key.startsWith("custom_")) {
       const remove = () => ctx.confirm(`Remove ${t.name}`, "The tracker and its count are gone.", () => ctx.act({ command: "remove_tracker", key }), "Remove");
-      return ctx.menu(t.name, [["Remove the tracker…", remove], explain]);
+      return [["Remove the tracker…", remove]];
     }
     if (t.feature !== null) {
       const feature = t.feature;
-      return ctx.menu(t.name, [
-        explain,
+      return [
         ["Show the feature", () => ctx.show(feature, t.part)],
         ["Change or remove its rules (and this tracker)", () => ctx.rules(feature)],
-      ]);
+      ];
     }
-    ctx.explain(t.stat);
+    return [];
   }
+
+  /// A tracker's actions by name on its one line (the full name its title).
+  const SHORT_ACTION: Record<string, string> = {
+    "Show the feature": "The feature",
+    "Change or remove its rules (and this tracker)": "Its rules…",
+    "Remove the tracker…": "Remove…",
+  };
+
+  /// Explain beside the control it was asked from.
+  const explainHere = (key: string) => (e: Event) => ctx.explain(key, e.currentTarget as Element);
 
   /// Holding a number (or a right click) shows how it is made up; a tap
   /// rolls it.
   const hold = (key: string) => (e: Event) => {
     e.preventDefault();
-    ctx.explain(key);
+    ctx.explain(key, e.currentTarget as Element);
   };
+
+  /// How an attack can be held (its inventory line), if it is an item.
+  function holds(line: number | null): [string, string, () => void][] {
+    if (line === null) return [];
+    return [
+      ["Hold in the main hand", "Main hand", () => ctx.act({ command: "hold", line, hand: "main" })],
+      ["Hold in the off hand", "Off hand", () => ctx.act({ command: "hold", line, hand: "off" })],
+      ["Hold with both hands", "Both hands", () => ctx.act({ command: "hold", line, hand: "both" })],
+    ];
+  }
 
   function attackMenu(slug: string, name: string, line: number | null) {
     const actions: [string, () => void][] = [["Roll the attack", () => ctx.roll({ type: "attack", slug })]];
-    if (line !== null) {
-      actions.push(["Hold in the main hand", () => ctx.act({ command: "hold", line, hand: "main" })]);
-      actions.push(["Hold in the off hand", () => ctx.act({ command: "hold", line, hand: "off" })]);
-      actions.push(["Hold with both hands", () => ctx.act({ command: "hold", line, hand: "both" })]);
-    }
+    for (const [label, , run] of holds(line)) actions.push([label, run]);
     actions.push(["How the bonus is made up", () => ctx.explain(`attack.${slug}.bonus`)]);
     actions.push(["How the damage is made up", () => ctx.explain(`attack.${slug}.damage`)]);
     ctx.menu(name, actions);
@@ -130,29 +165,36 @@
 </script>
 
 <div class="overview">
- <div class="mid">
-  <!-- Hit points first: what changes most in play. -->
+  <!-- Hit points first: what changes most in play (on a computer across the
+       whole sheet, over both columns). -->
   <Pane title="Hit points" class="hp" fold="sheet.hp" summary="{o.hp.current}/{o.hp.max}{o.hp.temp ? ` +${o.hp.temp}` : ''}">
     <div class="hprow">
-      <div class="bar"><div class="fill" style:width="{pct}%" style:background={hpColor}></div></div>
+      <div class="bar hpbar" style:--hp="{hpShare}%" style:--tmp="{tempShare}%"><div class="fill" style:width="{pct}%" style:background={hpColor}></div><div class="tempfill"></div></div>
       <div class="hpnum"><span class="hearticon" class:down={o.hp.current === 0}><Icon name="heart" /></span> <b>{o.hp.current}</b><span class="muted">/{o.hp.max}</span>{#if o.hp.temp}<span class="temp">+{o.hp.temp} temp</span>{/if}</div>
     </div>
-    <!-- The hit dice, right under: tap the bar to roll one and heal. -->
-    {#each hitDice as t (t.id)}
-      <!-- As long as the hit points' bar, its count at the end; the die and
-           −/+ (spend or restore one without rolling) under it. -->
-      <div class="tracker hitdie">
-        <button class="bar hdbar" aria-label="Roll d{t.id.slice(8)} + Con, heal" disabled={t.left <= 0} onclick={() => rollHitDie(t.id)}>
-          <div class="fill" style:width="{t.max ? Math.round((t.left / t.max) * 100) : 0}%"></div>
-        </button>
-        <span class="count">{t.left}/{t.max}</span>
-        <button class="tname" onclick={() => trackerMenu(t)}>Hit dice <b>d{t.id.slice(8)}</b></button>
-        <span class="steps">
-          <button class="step" aria-label="Use" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: 1 })}>−</button>
-          <button class="step" aria-label="Restore" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: -1 })}>+</button>
-        </span>
-      </div>
-    {/each}
+    <!-- The hit dice, right under: tap the bar to roll one and heal. On a
+         computer one line under the hit points' bar: the temporary hit
+         points, then each die with its buttons, every item kept whole. -->
+    <div class="hpline">
+      <span class="tempitem">Temp HP <b class="mono" class:tempn={o.hp.temp > 0}>{o.hp.temp}</b> · lost first</span>
+      {#each hitDice as t (t.id)}
+        <!-- As long as the hit points' bar, its count at the end; the die and
+             −/+ (spend or restore one without rolling) under it. -->
+        <div class="tracker hitdie">
+          <button class="bar hdbar" aria-label="Roll d{t.id.slice(8)} + Con, heal" disabled={t.left <= 0} onclick={() => rollHitDie(t.id)}>
+            <div class="fill" style:width="{t.max ? Math.round((t.left / t.max) * 100) : 0}%"></div>
+            <span class="hdtext">Roll one and heal</span>
+          </button>
+          <span class="count">{t.left}/{t.max}</span>
+          <button class="tname" onclick={() => trackerMenu(t)}>Hit dice <b>d{t.id.slice(8)}</b></button>
+          <span class="steps">
+            <button class="step" aria-label="Use" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: 1 })}>−</button>
+            <button class="step" aria-label="Restore" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: -1 })}>+</button>
+          </span>
+          {#if desktop.current}<button class="info" aria-label="How the hit dice are made up" title="How the hit dice are made up" onclick={explainHere(t.stat)}>ⓘ</button>{/if}
+        </div>
+      {/each}
+    </div>
     {#if o.hp.dead}
       <div class="death dead">
         <span class="bad"><Icon name="dead" size="1.4em" /> Dead</span>
@@ -175,15 +217,20 @@
     </div>
   </Pane>
 
+ <div class="mid">
   <div class="tiles">
     {#each o.tiles as t (t.key)}
-      <button
-        class="tile"
-        onclick={() => (t.key === "initiative" ? ctx.roll({ type: "initiative" }) : ctx.explain(t.key))}
-        oncontextmenu={hold(t.key)}
-      >
-        <b>{t.value}</b><span class="dim long">{t.label}</span><span class="dim short">{SHORT[t.label] ?? t.label}</span>
-      </button>
+      <div class="tilewrap">
+        <button
+          class="tile"
+          onclick={(e) => (t.key === "initiative" ? ctx.roll({ type: "initiative" }) : ctx.explain(t.key, e.currentTarget))}
+          oncontextmenu={hold(t.key)}
+        >
+          <b>{t.value}</b><span class="dim long">{t.label}</span><span class="dim short">{SHORT[t.label] ?? t.label}</span>
+        </button>
+        <!-- Initiative rolls when tapped: how it adds up, in sight. -->
+        {#if desktop.current && t.key === "initiative"}<button class="info tileinfo" aria-label="How Initiative adds up" title="How it adds up" onclick={explainHere(t.key)}>ⓘ</button>{/if}
+      </div>
     {/each}
   </div>
 
@@ -223,12 +270,13 @@
   <Pane title="Attacks" class="attacks" fold="sheet.attacks" summary={o.held.length ? o.held.join(" · ") : `${o.attacks.length} attack${o.attacks.length === 1 ? "" : "s"}`}>
     <div class="held"><span class="dim">In hand</span> {o.held.length ? o.held.join(" · ") : "nothing"}</div>
     {#each o.attacks as a (a.slug)}
+      {@const d = damageParts(a)}
       <div class="attack">
         <button class="arow" onclick={() => ctx.roll({ type: "attack", slug: a.slug })}>
           <span class="hand">{a.hand}</span>
           <span class="aname" class:inhand={a.hand}>{a.name}</span>
           <b class="hit rollbox" class:bad={!a.proficient}>{a.hit}</b>
-          <span class="dmg">{a.damage}</span>
+          <span class="dmg">{d.main}{#if d.alt}<span class="alt"><span class="paren"> (</span>{d.alt}<span class="paren">)</span></span>{/if}</span>
         </button>
         <button class="more" aria-label="More" onclick={() => attackMenu(a.slug, a.name, a.line)}>⋯</button>
         <div class="anotes">
@@ -237,6 +285,14 @@
           {#each a.problems as n (n)}<span class="bad">{n}</span>{/each}
           {#if a.properties.length}<span class="dim">{a.properties.join(", ")}</span>{/if}
         </div>
+        {#if desktop.current}
+          <!-- What the ⋯ menu does, in sight. -->
+          <div class="aacts" role="group" aria-label="{a.name}: actions">
+            {#each holds(a.line) as [label, text, run] (label)}<button class="ghost mini" aria-label={label} onclick={run}>{text}</button>{/each}
+            <button class="info" aria-label="How the bonus is made up" onclick={explainHere(`attack.${a.slug}.bonus`)}>ⓘ to hit</button>
+            <button class="info" aria-label="How the damage is made up" onclick={explainHere(`attack.${a.slug}.damage`)}>ⓘ damage</button>
+          </div>
+        {/if}
       </div>
     {/each}
     {#if o.riders.length}
@@ -263,6 +319,13 @@
           <button class="step" aria-label="Use" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: 1 })}>−</button>
           <button class="step" aria-label="Restore" onclick={() => ctx.act({ command: "spend", pool: pool(t.id), amount: -1 })}>+</button>
           <span class="dim recharge">{t.recharge}</span>
+          {#if desktop.current}
+            <!-- What its menu does, in sight. -->
+            <span class="tacts" role="group" aria-label="{t.name}: actions">
+              <button class="info" aria-label="How the count adds up" title="How the count adds up" onclick={explainHere(t.stat)}>ⓘ</button>
+              {#each trackerActions(t) as [label, run] (label)}<button class="info" title={label} onclick={run}>{SHORT_ACTION[label] ?? label}</button>{/each}
+            </span>
+          {/if}
         </div>
       {/each}
       <button class="ghost addtracker" onclick={addTracker}>+ Tracker</button>
@@ -284,6 +347,10 @@
     padding-top: 0.6em;
   }
   .side, .mid { display: flex; flex-direction: column; gap: 1.4em; min-width: 0; }
+  /* The hit points over the middle column, the side beside both. */
+  .overview > :global(.hp) { grid-column: 1; }
+  .mid { grid-column: 1; }
+  .side { grid-column: 2; grid-row: 1 / span 2; }
   .mid > p { margin: -1em 0 0; }
 
   :where(button:not(.ghost):not(.primary)) {
@@ -415,9 +482,133 @@
   .hdbar .fill { background: var(--blue); }
   .hdbar:disabled { cursor: default; opacity: 0.6; }
 
+  .tempfill { display: none; }
+  /* The hit dice and temporary hit points line is a computer's only. */
+  .hpline { display: contents; }
+  .tempitem, .hdtext { display: none; }
+  .tilewrap { position: relative; display: flex; min-width: 0; }
+  .tilewrap .tile { flex: 1; min-width: 0; }
+  .info {
+    font: inherit;
+    font-size: 0.85em;
+    color: var(--cyan);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    padding: 0.1rem 0.4rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .info:hover { border-color: var(--cyan); }
+  .mini { min-height: 1.9rem !important; padding: 0 0.6rem !important; font-size: 0.85em; }
+
+  /* A computer: the hit points across the top (the number, the bar with
+     the hit dice under it, the buttons), the numbers as cards, the attacks
+     as a table; everything a share of the window. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .overview { grid-template-columns: minmax(0, 1fr) minmax(16rem, 30%); gap: 1.2rem; padding-top: 0.2rem; }
+    .side, .mid { gap: 1.2rem; }
+    .overview > :global(.hp) { grid-column: 1 / -1; }
+    .side { grid-row: 2; }
+    .mid > p { margin: -0.8rem 0 0; }
+    .overview :global(.hp .body) {
+      display: grid;
+      grid-template-columns: auto minmax(10rem, 1fr) auto;
+      column-gap: 1.5rem;
+      row-gap: 0.85rem;
+      align-items: center;
+    }
+    .hprow { display: contents; }
+    .hpnum { grid-column: 1; grid-row: 1 / span 2; font-size: 1.5em; white-space: nowrap; }
+    .hpnum b { font-family: var(--mono); font-size: 1.4em; }
+    .temp { font-size: 0.7em; }
+    .hpbar { grid-column: 2; grid-row: 1; display: flex; gap: 2px; height: 0.75rem; border-radius: 0.4rem; background: var(--raised); }
+    .hpbar .fill { width: var(--hp) !important; border-radius: 0.4rem 0 0 0.4rem; }
+    .hpbar .tempfill { display: block; width: var(--tmp); background: var(--cyan); border-radius: 0 0.4rem 0.4rem 0; }
+    .hpline {
+      grid-column: 2;
+      grid-row: 2;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: 1.6rem;
+      row-gap: 0.4rem;
+      color: var(--gray);
+      font-size: 0.92em;
+    }
+    .tempitem { display: inline; white-space: nowrap; }
+    .tempitem b { color: var(--fg); }
+    .tempitem b.tempn { color: var(--cyan); }
+    .tracker.hitdie { display: flex; align-items: center; gap: 0.5rem; margin: 0; white-space: nowrap; min-height: 0; }
+    .tracker.hitdie .tname { order: 1; color: var(--gray); }
+    .tracker.hitdie .count { order: 2; font-weight: 700; color: var(--fg); }
+    .tracker.hitdie .hdbar { order: 3; }
+    .tracker.hitdie .steps { order: 4; }
+    .tracker.hitdie .info { order: 5; }
+    .hdbar {
+      width: auto;
+      height: 1.9rem;
+      padding: 0 0.6rem;
+      background: var(--raised);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--fg);
+      font: inherit;
+      font-size: 0.9em;
+    }
+    .hdbar .fill { display: none; }
+    .hdtext { display: inline; }
+    .steps .step { width: 1.9rem; height: 1.9rem; }
+    .tileinfo { position: absolute; top: 0.3rem; right: 0.3rem; padding: 0 0.3rem; }
+    .aacts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
+    .tacts { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; align-items: center; gap: 0.15rem; margin: -0.1rem 0 0.35rem; font-size: 0.85em; white-space: nowrap; }
+    .tacts .info { padding: 0 0.35rem; }
+    .death { grid-column: 1 / -1; margin-top: 0; }
+    .buttons { grid-column: 3; grid-row: 1 / span 2; margin-top: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .buttons button { flex: none; }
+
+    .tiles { grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.75rem; }
+    .tile { background: var(--card); border-color: var(--edge); padding: 0.7rem 0.5rem; }
+    .tile b { font-family: var(--mono); font-size: 1.6em; }
+    .tile span { font-size: 0.85em; color: var(--gray); }
+
+    .chip { padding: 0.2rem 0.9rem; }
+    .rolled { background: var(--card); border-color: var(--edge); padding: 0.5rem 1.1rem; }
+    .rolled b { font-family: var(--mono); }
+
+    .attack { padding: 0.5rem 0; border-top-color: var(--edge); }
+    /* No empty gutter: the hand marker only when an attack is in hand. */
+    .arow { grid-template-columns: auto minmax(8rem, 1fr) 4.5rem minmax(12rem, 1.2fr); column-gap: 0; }
+    .arow > * { margin-right: 1rem; }
+    .hand { grid-column: 1; }
+    .hand:empty { margin-right: 0; }
+    .aname { grid-column: 2; }
+    .hit { grid-column: 3; }
+    .dmg { grid-column: 4; }
+    .hit { justify-self: start; font-family: var(--mono); }
+    .dmg { font-family: var(--mono); white-space: nowrap; }
+    .alt { display: block; font-family: var(--font); font-size: 0.85em; color: var(--dim); }
+    .alt .paren { display: none; }
+    .alt::before { content: "Two-handed: "; }
+    .anotes { padding-left: 0; color: var(--gray); }
+    .tracker { grid-template-columns: minmax(0, 1fr) auto 3.5rem 2rem 2rem; }
+    .step { height: 1.9rem; border-radius: 0.4rem; }
+    .count { font-family: var(--mono); }
+  }
+  /* A wide window: a third column, the latest rolls beside the attacks. */
+  @media (pointer: fine) and (min-width: 1800px) {
+    .overview { grid-template-columns: minmax(0, 1fr) minmax(18rem, 24%); }
+    .mid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-auto-flow: row dense; align-items: start; }
+    .mid > :global(*) { grid-column: 1 / -1; }
+    .mid > :global(.attacks) { grid-column: 1; }
+    .mid > .rolled { grid-column: 2; }
+    .mid:not(:has(> .rolled)) > :global(.attacks) { grid-column: 1 / -1; }
+  }
+
   /* Tablets and narrow windows: the middle on top, then two columns. */
   @media (max-width: 1100px) {
     .overview { grid-template-columns: minmax(0, 1fr); }
+    .overview > :global(.hp), .mid, .side { grid-column: 1; grid-row: auto; }
   }
   /* Phones: one column, big targets. */
   @media (max-width: 760px) {

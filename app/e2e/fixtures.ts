@@ -218,23 +218,23 @@ export const touchScreen = (page: Page) => page.evaluate(() => matchMedia("(poin
 
 /// The sheet shows its tabs as icons: on a phone or a tablet, and in a
 /// narrow window.
-async function iconTabs(page: Page) {
-  // The sheet's tabs, either kind, once the sheet is there.
-  await page.locator(".sheet .icontabs, .sheet .tabs select").first().waitFor();
-  return page.locator(".sheet .icontabs").isVisible();
+/// The open sheet's row of tabs: icons (a phone, a tablet, a narrow
+/// window) or names (a computer), once the sheet is there.
+async function tabRow(page: Page) {
+  const row = page.locator(".sheet .icontabs, .sheet .tabrow").first();
+  await row.waitFor();
+  return row;
 }
 
-/// Change the open sheet's tab (Notes opens the character's note): its
-/// icon where the tabs are icons, its select elsewhere.
+/// Change the open sheet's tab (Notes opens the character's note).
 export async function sheetTab(page: Page, tab: SheetTab) {
-  if (await iconTabs(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
-  else await page.locator(".sheet .tabs select").selectOption(tab);
+  // A tab with a badge (Spells 10) is named by its text: its name first.
+  await (await tabRow(page)).getByRole("tab", { name: new RegExp(`^${tab}\\b`) }).click();
 }
 
-/// The open sheet's tab, as its icons or its select show it.
+/// The open sheet's tab, as its row shows it.
 export async function expectTab(page: Page, tab: SheetTab) {
-  if (await iconTabs(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
-  else await expect(page.locator(".sheet .tabs select")).toHaveValue(tab);
+  await expect((await tabRow(page)).locator('[aria-selected="true"]')).toHaveAccessibleName(new RegExp(`^${tab}\\b`));
 }
 
 /// The sheet's own ⋯ menu: in the app bar on a phone, by the name elsewhere.

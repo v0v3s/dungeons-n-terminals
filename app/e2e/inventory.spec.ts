@@ -31,14 +31,18 @@ test("a pack unpacks into its container", { tag: "@inventory.unpack" }, async ({
 test("a container folds its contents away", { tag: "@inventory.fold" }, async ({ page }) => {
   await openSheet(page, "Inventory");
   await unpack(page);
-  // Its arrow takes the place of the equip box: names stay in line, and no
-  // line keeps an empty column for arrows it lacks.
+  // Names stay in line, arrow or not. On a phone the arrow takes the place
+  // of the equip box at the start of a row; on a computer the box (its
+  // state: Equip, Worn, Held) comes after the name.
   const left = async (name: string) => (await line(page, name).boundingBox())!.x;
   const first = (await page.locator("button.line .name").first().textContent())!;
   expect(await left("Backpack")).toBeCloseTo(await left(first), 0);
-  const box = (await page.locator("button.equip").first().boundingBox())!;
-  const row = (await page.locator(".lrow", { has: page.locator("button.equip") }).first().boundingBox())!;
-  expect(box.x - row.x).toBeLessThan(box.width);
+  const equipRow = page.locator(".lrow", { has: page.locator("button.equip") }).first();
+  const box = (await equipRow.locator("button.equip").boundingBox())!;
+  const row = (await equipRow.boundingBox())!;
+  const name = (await equipRow.locator("button.line .name").boundingBox())!;
+  if (await page.evaluate(() => matchMedia("(pointer: fine) and (min-width: 761px)").matches)) expect(box.x).toBeGreaterThan(name.x + name.width);
+  else expect(box.x - row.x).toBeLessThan(box.width);
   await expect(line(page, "Backpack").locator(".name")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Fold" }).click();
   await expect(line(page, "Ink Pen")).toHaveCount(0);
@@ -204,18 +208,19 @@ test("attuning to an item adds its bonuses; ending it takes them away", { tag: "
 
 test("one more, one fewer", { tag: "@inventory.quantity" }, async ({ page }) => {
   await openSheet(page, "Inventory");
-  const knives = line(page, "Dagger");
+  // The row as it reads (on a computer the quantity has a column of its own).
+  const knives = page.locator(".lrow").filter({ has: line(page, "Dagger") });
   await expect(knives).toContainText("×2");
-  await knives.click();
+  await line(page, "Dagger").click();
   await choose(page, "Dagger", "One more");
   await expect(knives).toContainText("×3");
-  await knives.click();
+  await line(page, "Dagger").click();
   await choose(page, "Dagger", "One fewer");
-  await knives.click();
+  await line(page, "Dagger").click();
   await choose(page, "Dagger", "One fewer");
   await expect(knives).not.toContainText("×");
   // One left: no fewer to take.
-  await knives.click();
+  await line(page, "Dagger").click();
   await expect(dialog(page, "Dagger").getByRole("button", { name: "One fewer" })).toHaveCount(0);
 });
 
