@@ -35,6 +35,14 @@ become the release page.
   Held · its hand, Worn · its slot); the hit dice sit on one line under
   the hit points with their buttons; what just happened shows in a toast
   in the corner that fades, never over the sheet.
+- The compendium on Windows: the search across the top, the categories
+  and the search's facets as chips under it (a facet's chip adds it to the
+  search, a suggestion's completes it), an entry's actions (edit, clone,
+  export) as buttons by its name.
+- Notes, campaigns and characters on Windows: every ⋯ action in sight (a
+  folder's and a note's, a campaign's), the notes that link to a note in a
+  column beside it, the campaigns and the characters as cards side by
+  side; dialogs as roomy cards with a ✕ to close them.
 
 ## v1.8.0 - 2026-11-13
 

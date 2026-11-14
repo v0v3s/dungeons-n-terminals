@@ -4,6 +4,7 @@
   import { onMount, tick } from "svelte";
   import * as api from "./api";
   import { sidebar } from "./sidebar.svelte";
+  import { desktop } from "./screen";
   import EntryModal from "./EntryModal.svelte";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
@@ -203,6 +204,12 @@
   }
 
   function treeMenu() {
+    dialog = { kind: "menu", title: selected ? short(selected) : "Notes", actions: treeActions() };
+  }
+
+  /// What the tree's ⋯ does: a new folder, today's session note, and with a
+  /// folder chosen its own actions (on a computer, buttons in sight too).
+  function treeActions(): [string, () => void][] {
     const f = selected;
     const folderActions: [string, () => void][] = f
       ? [
@@ -217,11 +224,7 @@
           ["Back to the top level", () => (selected = "")],
         ]
       : [];
-    dialog = {
-      kind: "menu",
-      title: f ? short(f) : "Notes",
-      actions: [[f ? `New folder in ${f}` : "New folder", newFolder], ["Today's session note", session], ...folderActions],
-    };
+    return [[f ? `New folder in ${f}` : "New folder", newFolder], ["Today's session note", session], ...folderActions];
   }
 
   function renameFolder(f: string) {
@@ -274,11 +277,12 @@
 
   function noteMenu() {
     if (!note) return;
-    const n = note;
-    dialog = {
-      kind: "menu",
-      title: n.title,
-      actions: [
+    dialog = { kind: "menu", title: note.title, actions: noteActions(note) };
+  }
+
+  /// What a note's ⋯ does (on a computer, buttons in sight too).
+  function noteActions(n: NonNullable<typeof note>): [string, () => void][] {
+    return [
         [
           "Rename",
           () =>
@@ -316,8 +320,7 @@
               },
             }),
         ],
-      ],
-    };
+    ];
   }
 
   async function follow(target: string) {
@@ -379,6 +382,12 @@
         <button class="ghost" onclick={capture}>Quick note</button>
         <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
       </div>
+      {#if desktop.current}
+        <!-- What ⋯ does, in sight: for the chosen folder, or the top level. -->
+        <div class="treeacts" role="group" aria-label={selected ? `${short(selected)}: actions` : "Notes: actions"}>
+          {#each treeActions() as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>{/each}
+        </div>
+      {/if}
       <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
       <div class="rows">
         {#if found}
@@ -410,11 +419,19 @@
           <button class="ghost" class:on={!editing} onclick={async () => (await save(), (editing = false))}>Read</button>
           <button class="ghost" class:on={editing} onclick={() => (editing = true)}>Edit</button>
           {#if dirty}<button class="primary" onclick={save}>Save</button>{/if}
+          {#if desktop.current}
+            <span class="noteacts" role="group" aria-label="{note.title}: actions">
+              {#each noteActions(note) as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>{/each}
+            </span>
+          {/if}
           <button class="ghost" onclick={noteMenu} aria-label="More">⋯</button>
         </div>
         {#if editing}
           <textarea bind:value={text} oninput={() => (dirty = true)} onblur={save} spellcheck="false"></textarea>
         {:else}
+          <!-- The text and its query blocks; on a computer the notes that
+               link here in a column beside them. -->
+          <div class="readwrap">
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <div class="read" onclick={onread}>{@html render(text)}</div>
           {#each note.queries as q, i (i)}
@@ -424,6 +441,7 @@
               {#each q.results as [path, title] (path)}<button onclick={() => open(path)}>{title}</button>{/each}
             </div>
           {/each}
+          </div>
           {#if note.backlinks.length}
             <div class="backlinks">
               <span class="dim">Linked from</span>
@@ -722,6 +740,88 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .readwrap {
+    display: contents;
+  }
+  /* A computer: the folders a share of the window, the note the rest;
+     the folder's and the note's actions in sight; the notes that link here
+     in a column beside the text, which keeps its reading line. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .notes {
+      grid-template-columns: minmax(16rem, 22%) minmax(0, 1fr);
+      gap: 0 1rem;
+    }
+    .notes :global(.note > .body) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(0, 1fr);
+      column-gap: 1.5rem;
+    }
+    .ntools,
+    textarea {
+      grid-column: 1 / -1;
+    }
+    .readwrap {
+      display: block;
+      grid-column: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .read {
+      max-width: none;
+      overflow: visible;
+    }
+    .read :global(p),
+    .read :global(li) {
+      max-width: 75ch;
+    }
+    .backlinks {
+      grid-column: 2;
+      grid-row: 2;
+      align-self: start;
+      width: 15rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.4rem;
+      margin: 0;
+      padding: 0 0 0 1rem;
+      border-top: 0;
+      border-left: 1px solid var(--edge);
+    }
+    .treeacts,
+    .noteacts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .treeacts {
+      margin-bottom: 0.6rem;
+      gap: 0.1rem 0.2rem;
+    }
+    /* The folder's actions: a compact line of links, not a stack of boxes. */
+    .treeacts .ghost {
+      min-height: 1.6rem !important;
+      padding: 0 0.4rem !important;
+      border-color: transparent;
+      background: none;
+      color: var(--cyan);
+    }
+    .treeacts .ghost:hover {
+      border-color: var(--cyan);
+    }
+    .treeacts .danger {
+      color: var(--red);
+    }
+    .treeacts .ghost,
+    .noteacts .ghost {
+      min-height: 1.95rem;
+      padding: 0 0.6rem;
+      font-size: 0.85em;
+    }
+    .danger {
+      color: var(--red);
+    }
   }
   @media (pointer: coarse) {
     .row {

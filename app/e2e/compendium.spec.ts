@@ -60,6 +60,14 @@ async function categoryValue(page: Page, label: string) {
 
 async function category(page: Page, label: string) {
   await toList(page);
+  // A computer: the categories are chips under the search.
+  const chips = page.getByRole("group", { name: "Categories" });
+  if (await chips.isVisible()) {
+    const chip = chips.getByRole("button", { name: new RegExp(`^${label} \\d`) });
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    return;
+  }
   const value = await categoryValue(page, label);
   await page.locator(".categories select").selectOption(value);
   await expect(page.locator(".categories select")).toHaveValue(value);

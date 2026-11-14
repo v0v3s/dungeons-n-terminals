@@ -65,10 +65,15 @@
       <h2 class="title">{title}</h2>
     </div>
   {:else}
-    <h2 class="title">{title}</h2>
+    <div class="mhead">
+      <h2 class="title">{title}</h2>
+    </div>
   {/if}
   <div class="body">{@render children()}</div>
   {#if footer && !touch.current}<div class="footer">{footer}</div>{/if}
+  <!-- A computer: a way to close it in sight (Esc and the scrim too), in the
+       top corner; last, so the dialog's own buttons come first. -->
+  {#if !touch.current}<button class="x" aria-label="Close the dialog" title="Close (Esc)" onclick={onclose}>✕</button>{/if}
 </div>
 
 <style>
@@ -125,6 +130,78 @@
     padding: 0 1ch;
     background: var(--bg);
     color: var(--dim);
+  }
+  .mhead {
+    display: contents;
+  }
+  .x {
+    display: none;
+  }
+  /* A computer: a roomy card, its title and ✕ across the top, the footer's
+     hint under the content. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .modal {
+      width: min(42rem, calc(100vw - 3rem));
+      max-height: calc(100vh - 4rem);
+      background: var(--card);
+      border-color: var(--edge);
+      border-radius: 0.9rem;
+      padding: 0 0 1.1rem;
+      box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.55);
+    }
+    .modal.wide {
+      width: min(72rem, calc(100vw - 3rem));
+    }
+    .mhead {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 1rem 1.4rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--edge);
+    }
+    .title {
+      position: static;
+      flex: 1;
+      padding: 0;
+      background: none;
+      font-size: 1.25em;
+      color: var(--fg);
+    }
+    .mhead {
+      padding-right: 3.6rem;
+    }
+    .x {
+      position: absolute;
+      top: 0.85rem;
+      right: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.2rem;
+      height: 2.2rem;
+      border: 0;
+      border-radius: 0.5rem;
+      background: none;
+      color: var(--gray);
+      font: inherit;
+      cursor: pointer;
+    }
+    .x:hover {
+      background: var(--raised);
+      color: var(--fg);
+    }
+    .body {
+      padding: 0 1.4rem;
+    }
+    .footer {
+      position: static;
+      align-self: flex-end;
+      margin: 0.9rem 1.4rem 0;
+      padding: 0;
+      background: none;
+      font-size: 0.85em;
+    }
   }
   /* Touch: a sheet from the bottom. */
   .modal.sheet {
