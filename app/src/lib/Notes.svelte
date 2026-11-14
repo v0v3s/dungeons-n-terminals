@@ -4,6 +4,7 @@
   import { onMount, tick } from "svelte";
   import * as api from "./api";
   import { sidebar } from "./sidebar.svelte";
+  import { desktop } from "./screen";
   import EntryModal from "./EntryModal.svelte";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
@@ -202,26 +203,49 @@
     };
   }
 
+  /// A tree action's label in the toolbar: short (its full one is its
+  /// accessible name and title, and contains this).
+  function shortAction(label: string): string {
+    if (label.startsWith("New folder")) return "New folder";
+    if (label === "Today's session note") return "Session note";
+    if (label.startsWith("Rename")) return "Rename";
+    if (label.startsWith("Delete")) return "Delete…";
+    if (label.startsWith("Move") && label.endsWith(" up")) return "↑";
+    if (label.startsWith("Move") && label.endsWith(" down")) return "↓";
+    if (label === "Back to the top level") return "✕";
+    return label;
+  }
+
   function treeMenu() {
+    dialog = { kind: "menu", title: selected ? short(selected) : "Notes", actions: treeActions() };
+  }
+
+  /// What the tree's ⋯ does: a new folder, today's session note, and with a
+  /// folder chosen its own actions (on a computer, buttons in sight too).
+  /// What makes something new: in the chosen folder, or at the top level.
+  function newActions(): [string, () => void][] {
+    return [[selected ? `New folder in ${selected}` : "New folder", newFolder], ["Today's session note", session]];
+  }
+
+  /// What is done to the chosen folder itself.
+  function folderActions(): [string, () => void][] {
     const f = selected;
-    const folderActions: [string, () => void][] = f
-      ? [
-          [`Rename ${short(f)}`, () => renameFolder(f)],
-          [`Delete ${short(f)}…`, () => deleteFolder(f)],
-          ...(f.includes("/")
-            ? []
-            : ([
-                [`Move ${f} up`, () => moveFolder(f, -1)],
-                [`Move ${f} down`, () => moveFolder(f, 1)],
-              ] as [string, () => void][])),
-          ["Back to the top level", () => (selected = "")],
-        ]
-      : [];
-    dialog = {
-      kind: "menu",
-      title: f ? short(f) : "Notes",
-      actions: [[f ? `New folder in ${f}` : "New folder", newFolder], ["Today's session note", session], ...folderActions],
-    };
+    if (!f) return [];
+    return [
+      [`Rename ${short(f)}`, () => renameFolder(f)],
+      [`Delete ${short(f)}…`, () => deleteFolder(f)],
+      ...(f.includes("/")
+        ? []
+        : ([
+            [`Move ${f} up`, () => moveFolder(f, -1)],
+            [`Move ${f} down`, () => moveFolder(f, 1)],
+          ] as [string, () => void][])),
+      ["Back to the top level", () => (selected = "")],
+    ];
+  }
+
+  function treeActions(): [string, () => void][] {
+    return [...newActions(), ...folderActions()];
   }
 
   function renameFolder(f: string) {
@@ -274,11 +298,12 @@
 
   function noteMenu() {
     if (!note) return;
-    const n = note;
-    dialog = {
-      kind: "menu",
-      title: n.title,
-      actions: [
+    dialog = { kind: "menu", title: note.title, actions: noteActions(note) };
+  }
+
+  /// What a note's ⋯ does (on a computer, buttons in sight too).
+  function noteActions(n: NonNullable<typeof note>): [string, () => void][] {
+    return [
         [
           "Rename",
           () =>
@@ -316,8 +341,7 @@
               },
             }),
         ],
-      ],
-    };
+    ];
   }
 
   async function follow(target: string) {
@@ -374,9 +398,17 @@
     <Pane title="Notes · {status.campaign}" class="tree">
       <div class="tools">
         <button class="ghost new" onclick={() => newNote()} title={selected ? `A note in ${selected}, from its template` : "A note at the top level"}
-          >+ Note{#if selected}<span class="dim"> · {short(selected)}</span>{/if}</button
+          >+ Note{#if selected}<span class="dim">&nbsp;· {short(selected)}</span>{/if}</button
         >
         <button class="ghost" onclick={capture}>Quick note</button>
+        {#if desktop.current}
+          <!-- What ⋯ does, in sight: making something new here; what is done
+               to the chosen folder is on its row. Short labels; the full one
+               is the name. -->
+          <span class="treeacts" role="group" aria-label="Notes: actions">
+            {#each newActions() as [label, run] (label)}<button class="ghost" aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
+          </span>
+        {/if}
         <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
       </div>
       <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
@@ -388,16 +420,29 @@
           {#if !found.length}<p class="dim">Nothing matches.</p>{/if}
         {:else}
           {#each rows as r (r.path)}
-            <button
-              class="row"
-              class:dir={r.is_dir}
-              class:current={note?.path === r.path || (r.is_dir && selected === r.path)}
-              style:padding-left="{r.depth * 2 + 0.5}ch"
-              onclick={() => (r.is_dir ? tapFolder(r.path) : open(r.path))}
-            >
-              <span class="acc">{r.is_dir ? (expanded.includes(r.path) ? "▾" : "▸") : "·"}</span>
-              {r.name}
-            </button>
+            {#snippet line()}
+              <button
+                class="row"
+                class:dir={r.is_dir}
+                class:current={note?.path === r.path || (r.is_dir && selected === r.path)}
+                style:padding-left="{r.depth * 2 + 0.5}ch"
+                onclick={() => (r.is_dir ? tapFolder(r.path) : open(r.path))}
+              >
+                <span class="acc">{r.is_dir ? (expanded.includes(r.path) ? "▾" : "▸") : "·"}</span>
+                {r.name}
+              </button>
+            {/snippet}
+            {#if desktop.current && r.is_dir && selected === r.path}
+              <!-- The chosen folder: what is done to it, on its row. -->
+              <div class="chosen">
+                {@render line()}
+                <span class="rowacts" role="group" aria-label="{short(r.path)}: actions">
+                  {#each folderActions() as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
+                </span>
+              </div>
+            {:else}
+              {@render line()}
+            {/if}
           {/each}
         {/if}
       </div>
@@ -410,11 +455,19 @@
           <button class="ghost" class:on={!editing} onclick={async () => (await save(), (editing = false))}>Read</button>
           <button class="ghost" class:on={editing} onclick={() => (editing = true)}>Edit</button>
           {#if dirty}<button class="primary" onclick={save}>Save</button>{/if}
+          {#if desktop.current}
+            <span class="noteacts" role="group" aria-label="{note.title}: actions">
+              {#each noteActions(note) as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>{/each}
+            </span>
+          {/if}
           <button class="ghost" onclick={noteMenu} aria-label="More">⋯</button>
         </div>
         {#if editing}
           <textarea bind:value={text} oninput={() => (dirty = true)} onblur={save} spellcheck="false"></textarea>
         {:else}
+          <!-- The text and its query blocks; on a computer the notes that
+               link here in a column beside them. -->
+          <div class="readwrap">
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
           <div class="read" onclick={onread}>{@html render(text)}</div>
           {#each note.queries as q, i (i)}
@@ -424,6 +477,7 @@
               {#each q.results as [path, title] (path)}<button onclick={() => open(path)}>{title}</button>{/each}
             </div>
           {/each}
+          </div>
           {#if note.backlinks.length}
             <div class="backlinks">
               <span class="dim">Linked from</span>
@@ -722,6 +776,120 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .readwrap {
+    display: contents;
+  }
+  /* A computer: the folders a share of the window, the note the rest;
+     the folder's and the note's actions in sight; the notes that link here
+     in a column beside the text, which keeps its reading line. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .notes {
+      grid-template-columns: minmax(16rem, 22%) minmax(0, 1fr);
+      gap: 0 1rem;
+    }
+    .notes :global(.note > .body) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(0, 1fr);
+      column-gap: 1.5rem;
+    }
+    .ntools,
+    textarea {
+      grid-column: 1 / -1;
+    }
+    .readwrap {
+      display: block;
+      grid-column: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .read {
+      max-width: none;
+      overflow: visible;
+    }
+    .read :global(p),
+    .read :global(li) {
+      max-width: 75ch;
+    }
+    .backlinks {
+      grid-column: 2;
+      grid-row: 2;
+      align-self: start;
+      width: 15rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.4rem;
+      margin: 0;
+      padding: 0 0 0 1rem;
+      border-top: 0;
+      border-left: 1px solid var(--edge);
+    }
+    /* The tree's toolbar: + Note, Quick note, the chosen folder's actions
+       and ⋯, all one size, wrapping as one row. */
+    .treeacts {
+      display: contents;
+    }
+    .tools {
+      gap: 0.3rem;
+      align-items: center;
+    }
+    .tools .ghost {
+      min-height: 1.95rem;
+      padding: 0 0.6rem;
+      font-size: 0.85em;
+    }
+    /* The chosen folder's row: its name, then what is done to it (wrapping
+       under the name when the sidebar is narrow). */
+    .chosen {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem;
+      background: var(--selected);
+      border-radius: 6px;
+      padding-right: 0.25rem;
+    }
+    .chosen .row {
+      width: auto;
+      flex: 1 1 auto;
+      background: none;
+    }
+    .rowacts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-left: auto;
+      padding: 0.15rem 0;
+    }
+    .rowacts .ghost {
+      min-height: 1.6rem;
+      min-width: 1.6rem;
+      padding: 0 0.45rem;
+      font-size: 0.78em;
+    }
+    /* The note's toolbar: Read and Edit a toggle, the rest the same size. */
+    .noteacts {
+      display: contents;
+    }
+    .ntools {
+      gap: 0.3rem;
+      align-items: center;
+    }
+    .ntools .ghost,
+    .ntools .primary {
+      min-height: 1.95rem;
+      padding: 0 0.7rem;
+      font-size: 0.85em;
+    }
+    .ntools .ghost.on {
+      background: var(--dark);
+      border-color: var(--dark);
+      color: var(--fg);
+    }
+    .danger {
+      color: var(--red);
+    }
   }
   @media (pointer: coarse) {
     .row {

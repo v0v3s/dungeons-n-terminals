@@ -11,6 +11,7 @@
   import SourcesEditor from "./SourcesEditor.svelte";
   import BrewEditor from "./BrewEditor.svelte";
   import Menu from "./Menu.svelte";
+  import { desktop } from "./screen";
   import Modal from "./Modal.svelte";
   import Prompt from "./Prompt.svelte";
   import { Swipe } from "./swipe.svelte";
@@ -535,6 +536,34 @@
         </div>
       {/if}
     </div>
+  {:else if desktop.current}
+    <!-- A computer: the search across the top, then the categories and the
+         search's facets as chips (a chip adds its facet to the search), the
+         suggestions while typing. -->
+    <div class="topsearch">
+      <div class="searchwide" class:on={searching}>{@render searchbox()}</div>
+      {@render sourcesButton()}
+    </div>
+    <div class="chiprow" role="group" aria-label="Categories">
+      {#each found?.categories ?? [] as [label, count], i (label)}
+        <button class="chip" aria-pressed={i === category} onclick={() => setCategory(i)}>{label} <span class="dim">{count}</span></button>
+      {/each}
+    </div>
+    <div class="chiprow facets" role="group" aria-label="Search by">
+      {#if found?.suggestions.length}
+        <button class="chip key" onmousedown={(e) => e.preventDefault()} onclick={() => complete()} title="Complete with the first (Tab)">tab</button>
+        {#each found.suggestions as [value, n] (value)}
+          <button class="chip" onmousedown={(e) => e.preventDefault()} onclick={() => complete(value)}>{value} <span class="dim">{n}</span></button>
+        {/each}
+      {:else}
+        <button class="chip key" onmousedown={(e) => e.preventDefault()} onclick={() => insert("@")}><span style:color="var(--blue)">@</span> source</button>
+        {#each found?.hints ?? [] as [p, what] (p)}
+          <button class="chip key" onmousedown={(e) => e.preventDefault()} onclick={() => insert(p)}><span style:color={FACET[p]}>{p}</span> {what}</button>
+        {/each}
+        <button class="chip key" onmousedown={(e) => e.preventDefault()} onclick={() => insert('"')}><span style:color="var(--yellow)">"</span> text</button>
+        <button class="chip key" onmousedown={(e) => e.preventDefault()} onclick={() => insert("!")}><span style:color="var(--accent)">!</span> not</button>
+      {/if}
+    </div>
   {:else}
     <div class="bar">
       {@render categoryBar()}
@@ -550,7 +579,7 @@
       aside={found?.orders.length ? orderSelect : undefined}
       class="browse"
     >
-      {#if !touch}
+      {#if !touch && !desktop.current}
         {@render searchbox()}
         <div class="hint">{@render hints()}</div>
         <div class="rule"></div>
@@ -1071,5 +1100,82 @@
   }
   .narrow.open .split {
     padding-top: 10px;
+  }
+  /* A computer: the search across the top, chips under it; the results
+     and the entry side by side, each a share of the window; the entry's
+     text keeps its reading line inside a pane that fills its column. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .topsearch {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+    .searchwide {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      height: 2.9rem;
+      padding: 0 0.9rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .searchwide.on {
+      border-color: var(--accent);
+    }
+    .searchwide :global(.prompt) {
+      flex: 1;
+      font-size: 1.1em;
+    }
+    .chiprow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-bottom: 0.45rem;
+    }
+    .chiprow .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      height: 1.95rem;
+      padding: 0 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      background: none;
+      color: var(--gray);
+      font: inherit;
+      font-size: 0.88em;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .chiprow .chip:hover {
+      background: var(--raised);
+    }
+    .chiprow .chip[aria-pressed="true"] {
+      background: var(--dark);
+      border-color: var(--dark);
+      color: var(--fg);
+    }
+    .chiprow .key {
+      flex: none;
+      font-family: var(--mono);
+      font-size: 0.82em;
+    }
+    .facets {
+      margin-bottom: 0.8rem;
+    }
+    .split {
+      grid-template-columns: minmax(18rem, 32%) minmax(0, 1fr);
+      gap: 1rem;
+    }
+    .doc {
+      max-width: none;
+    }
+    .title h1 {
+      font-size: 1.6em;
+    }
   }
 </style>
