@@ -19,7 +19,7 @@
   import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
   import { Swipe } from "./swipe.svelte";
   import SkillsTab from "./SkillsTab.svelte";
-  import { narrow, touch } from "./screen";
+  import { desktop, narrow, touch } from "./screen";
   import Tip from "./Tip.svelte";
   import { tips } from "./tips.svelte";
 
@@ -119,6 +119,27 @@
     | { kind: "warnings" }
     | { kind: "dice"; text: string; error: string };
   let dialog: Dialog | null = $state(null);
+  /// How a number adds up, in a pop-up beside it (a computer).
+  let pop: { b: api.Breakdown; key: string; x: number; y: number } | null = $state(null);
+
+  /// The roll a breakdown's number makes, when it is one that rolls.
+  function rollOf(key: string): api.Roll | null {
+    const [kind, a, b] = key.split(".");
+    if (kind === "mod") return { type: "ability", key: a };
+    if (kind === "save") return { type: "save", key: a };
+    if (kind === "skill") return { type: "skill", key: a };
+    if (key === "initiative") return { type: "initiative" };
+    if (kind === "attack" && b === "bonus") return { type: "attack", slug: a };
+    return null;
+  }
+
+  /// Roll with advantage, disadvantage or neither: the next roll's mode set
+  /// first (as its chip cycles it), then the roll.
+  async function rollWith(what: api.Roll, mode: string) {
+    pop = null;
+    for (let i = 0; i < 3 && sheet.overview.next_roll !== mode; i++) await ctx.cycle();
+    await ctx.roll(what);
+  }
   /// The last roll typed by hand, to roll again.
   let lastDice = "";
 
@@ -180,10 +201,18 @@
     prompt: (title, then, opts = {}) => (dialog = { kind: "prompt", title, then, ...opts }),
     show: (id, part) => (dialog = { kind: "entry", id, part }),
     rules: (entity) => (dialog = { kind: "rules", entity }),
-    async explain(key) {
+    async explain(key, near) {
       tips.done("sheet.hold");
       const b = await api.breakdown(key);
-      if (b) dialog = { kind: "breakdown", b };
+      if (!b) return;
+      if (!desktop.current || !near) return void (dialog = { kind: "breakdown", b });
+      // Beside what it explains: to its right, or its left near the edge.
+      const r = near.getBoundingClientRect();
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const width = 26 * rem;
+      const x = r.right + 8 + width < innerWidth - 8 ? r.right + 8 : Math.max(8, r.left - width - 8);
+      const y = Math.max(8, Math.min(r.top, innerHeight - 20 * rem));
+      pop = { b, key, x, y };
     },
     async cycle() {
       sheet = await api.cycleAdvantage();
@@ -256,7 +285,13 @@
   }
 
   function more() {
-    ctx.menu(sheet.header.name, [
+    ctx.menu(sheet.header.name, sheetActions());
+  }
+
+  /// What can be done with the whole character: the ⋯ menu, and on a
+  /// computer a row of buttons as well.
+  function sheetActions(): [string, () => void][] {
+    return [
       ["Level up…", levelUp],
       ...(sheet.header.pending ? ([[`Make ${sheet.header.pending} missing choice(s)…`, nextPending]] as [string, () => void][]) : []),
       ["Short rest", () => rest(false)],
@@ -279,7 +314,7 @@
       ["Export for dnt (to import elsewhere)…", exportForDnt],
       ["Delete the character…", remove],
       ...(touch.current ? ([["Show the tips again", () => tips.reset()]] as [string, () => void][]) : []),
-    ]);
+    ];
   }
 
   function remove() {
@@ -422,6 +457,15 @@
       {#if !sheet.header.level}<button class="flag" onclick={levelUp}>Take the first level</button>{/if}
       {#if sheet.header.pending}<button class="flag" onclick={nextPending}>{sheet.header.pending} {sheet.header.pending === 1 ? "choice" : "choices"}<span class="wide">&nbsp;to make</span></button>{/if}
       {#if sheet.header.spells_to_choose}<button class="flag" onclick={chooseSpells}>{sheet.header.spells_to_choose} {sheet.header.spells_to_choose === 1 ? "spell" : "spells"}<span class="wide">&nbsp;to choose</span></button>{/if}
+    </div>
+  {/if}
+
+  {#if desktop.current}
+    <!-- A computer: everything the ⋯ menu does, in sight. -->
+    <div class="charbar" role="toolbar" aria-label="Character">
+      {#each sheetActions() as [label, run] (label)}
+        <button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>
+      {/each}
     </div>
   {/if}
 
@@ -605,7 +649,41 @@
       </div>
     {/each}
   </Modal>
-{:else if dialog?.kind === "conditions"}
+{/if}
+
+<svelte:window onkeydown={(e) => pop && e.key === "Escape" && ((pop = null), e.preventDefault())} />
+
+{#if pop}
+  {@const p = pop}
+  {@const r = rollOf(p.key)}
+  <!-- How a number adds up, beside it: where each part comes from, and its
+       roll with or without advantage. -->
+  <div class="popback" role="presentation" onclick={() => (pop = null)}></div>
+  <div class="pop" role="dialog" aria-label={p.b.title} style:left="{p.x}px" style:top="{p.y}px">
+    <div class="phead">
+      <span class="ptitle">{p.b.title}</span>
+      <b class="pvalue">{p.b.value}</b>
+      <button class="pclose" aria-label="Close" onclick={() => (pop = null)}>✕</button>
+    </div>
+    {#each p.b.parts as part, i (i)}
+      <div class="part" class:off={!part.applied}>
+        <span class="acc">{part.applied ? "✓" : "·"}</span>
+        <span class="dim">{part.kind}</span>
+        <b>{part.value}</b>
+        <span>{part.origin}{part.note ? ` (${part.note})` : ""}</span>
+      </div>
+    {/each}
+    {#if r}
+      <div class="pbtns">
+        <button class="primary" onclick={() => rollWith(r, "normal")}>Roll</button>
+        <button class="ghost" onclick={() => rollWith(r, "advantage")}>Advantage</button>
+        <button class="ghost" onclick={() => rollWith(r, "disadvantage")}>Disadvantage</button>
+      </div>
+    {/if}
+  </div>
+{/if}
+
+{#if dialog?.kind === "conditions"}
   {@const d = dialog}
   <Modal title="Conditions" onclose={close}>
     <div class="conds">
@@ -807,6 +885,83 @@
       padding: 0.35rem 0.8rem;
       white-space: nowrap;
     }
+    /* What happened (a roll, a change) under the tabs, in the page's flow:
+       it never covers the sheet. */
+    .tabrow,
+    .charbar {
+      order: 1;
+    }
+    .status,
+    .sheet > :global(.tip) {
+      order: 2;
+    }
+    .body {
+      order: 3;
+    }
+    .status {
+      position: static;
+      margin: 0 0 0.6rem;
+    }
+  }
+  .charbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    flex-shrink: 0;
+  }
+  .charbar .ghost {
+    min-height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 0.88em;
+  }
+  .charbar .danger {
+    color: var(--red);
+  }
+  .popback {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+  .pop {
+    position: fixed;
+    z-index: 41;
+    width: 26rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding: 0.9rem 1.1rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.5);
+  }
+  .phead {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+  .ptitle {
+    font-weight: 600;
+  }
+  .pvalue {
+    font-family: var(--mono);
+    font-size: 1.3em;
+    color: var(--accent);
+  }
+  .pclose {
+    margin-left: auto;
+    background: none;
+    border: 0;
+    color: var(--gray);
+    cursor: pointer;
+    font: inherit;
+  }
+  .pbtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.8rem;
   }
   .body {
     position: relative;

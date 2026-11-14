@@ -19,8 +19,9 @@ export interface SheetCtx {
   show: (entity: number, part?: string | null) => void;
   /// Write or change a feature's rules.
   rules: (entity: number) => void;
-  /// How a stat is made up.
-  explain: (key: string) => void;
+  /// How a stat is made up: on a computer in a pop-up beside `near` (the
+  /// control it was asked from), elsewhere in a dialog.
+  explain: (key: string, near?: Element | null) => void;
   /// Normal → advantage → disadvantage for the next roll.
   cycle: () => void;
   /// Say something in the status line.

@@ -24,6 +24,16 @@ become the release page.
   beside it (another character in one click; ☰ hides it), the hit points
   across the top with the temporary ones in the bar, and an attack's
   damage on one line with a versatile weapon's two-handed damage under it.
+- On Windows every option of the sheet is in sight: the ⋯ menu as a row
+  of buttons, each attack's and tracker's actions by it, a spell's or an
+  item's under it once clicked (⋯ and a right click still open the menus).
+- On Windows ⓘ by a number shows how it adds up, and where each part
+  comes from, in a pop-up beside it, with Roll, Advantage and
+  Disadvantage.
+- On Windows the box by an item says Equip, Held · its hand or Worn · its
+  slot; the hit dice sit on one line under the hit points with their
+  buttons, and the latest message shows under the tabs, never over the
+  sheet.
 
 ## v1.8.0 - 2026-11-13
 

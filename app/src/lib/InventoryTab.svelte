@@ -6,6 +6,7 @@
   import BrewEditor from "./BrewEditor.svelte";
   import Pane from "./Pane.svelte";
   import type { SheetCtx } from "./sheetctx";
+  import { desktop } from "./screen";
 
   let { inv, ctx }: { inv: Inventory; ctx: SheetCtx } = $props();
 
@@ -75,6 +76,25 @@
   }
 
   function menu(l: Line) {
+    ctx.menu(l.name, itemActions(l));
+  }
+
+  /// The item chosen on a computer: its actions in sight under it.
+  let chosen = $state<number | null>(null);
+  /// A tap opens the menu; on a computer a click shows the actions instead.
+  const open = (l: Line) => (desktop.current ? (chosen = l.index) : menu(l));
+
+  /// Where an equipped item is, for its pill: worn in a slot, or held.
+  function equipped(l: Line): string {
+    if (l.held) return inv.main_hand?.[0] === l.index ? "Held · main hand" : inv.off_hand?.[0] === l.index ? "Held · off hand" : "Held";
+    if (l.worn) {
+      const slot = inv.worn.find((w) => w.items.some(([i]) => i === l.index));
+      return slot ? `Worn · ${slot.label.toLowerCase()}` : "Worn";
+    }
+    return "Equip";
+  }
+
+  function itemActions(l: Line): [string, () => void][] {
     const line = l.index;
     const actions: [string, () => void][] = [];
     if (l.entity !== null) actions.push(["Read it", () => ctx.show(l.entity!)]);
@@ -103,7 +123,7 @@
     actions.push(["One more", () => ctx.act({ command: "change_quantity", line, delta: 1 })]);
     if (l.quantity > 1) actions.push(["One fewer", () => ctx.act({ command: "change_quantity", line, delta: -1 })]);
     actions.push(["Remove", () => ctx.act({ command: "remove_line", line })]);
-    ctx.menu(l.name, actions);
+    return actions;
   }
 
   const mark = (l: Line) => (l.attuned ? "★" : l.needs_attunement ? "☆" : "");
@@ -130,18 +150,26 @@
             role="checkbox"
             aria-checked={l.worn || l.held}
             aria-label="Equipped: {l.name}"
-            onclick={() => ctx.act({ command: "equip", line: l.index })}>{l.worn ? "◉" : l.held ? "◈" : ""}</button
+            class:on={l.worn || l.held}
+            onclick={() => ctx.act({ command: "equip", line: l.index })}>{#if desktop.current}{equipped(l)}{:else}{l.worn ? "◉" : l.held ? "◈" : ""}{/if}</button
           >
         {:else if !hasContents(i)}
           <span class="equip none"></span>
         {/if}
-        <button class="line" onclick={() => menu(l)}>
+        <button class="line" class:chosen={chosen === l.index} aria-expanded={desktop.current ? chosen === l.index : undefined} onclick={() => open(l)} oncontextmenu={(e) => (e.preventDefault(), menu(l))}>
           <span class="name" class:container={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}</span>
           <span class="kind dim">{l.kind}{#if l.fill} <span class:over={l.over} class="fill">{l.fill}</span>{/if}{l.weightless ? " weightless" : ""}</span>
           <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
           <span class="lb dim">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
         </button>
+        {#if desktop.current}<button class="more" aria-label="More" title="The menu" onclick={() => menu(l)}>⋯</button>{/if}
       </div>
+      {#if desktop.current && chosen === l.index}
+        <!-- Everything the item's menu does, in sight. -->
+        <div class="acts" role="dialog" aria-label={l.name} style:padding-left="calc({l.depth * 2}ch + 8.2rem)">
+          {#each itemActions(l) as [label, run] (label)}<button class="ghost" class:bad={label === "Remove"} onclick={run}>{label}</button>{/each}
+        </div>
+      {/if}
     {/each}
     <div class="totals">
       <span class="box"><span><b class:over={inv.carried > inv.capacity}>{inv.carried.toFixed(1)}</b> <span class="muted">/ {inv.capacity} lb</span></span><span class="dim">carried</span></span>
@@ -328,6 +356,65 @@
   @media (max-width: 1000px) {
     .inventory {
       grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* A computer: the equip box says what it does (Equip, Worn · slot,
+     Held · hand), and a click shows an item's actions under it (⋯ and a
+     right click still open its menu). Arrows and boxes share one width so
+     names stay in line. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .equip,
+    .foldbtn {
+      width: 7.6rem;
+      margin-right: 0.6rem;
+    }
+    .equip {
+      height: 1.9rem;
+      justify-content: center;
+      border-radius: 0.95rem !important;
+      font: inherit;
+      font-size: 0.82em;
+      font-weight: 500;
+      color: var(--gray);
+      white-space: nowrap;
+    }
+    .equip.on {
+      background: rgb(158 206 106 / 0.14);
+      border-color: var(--green) !important;
+      color: var(--green);
+    }
+    .equip.none {
+      visibility: hidden;
+    }
+    .foldbtn {
+      text-align: right;
+      padding-right: 0.8rem;
+    }
+    .line.chosen .name {
+      color: var(--accent);
+    }
+    .more {
+      flex: 0 0 auto;
+      background: none;
+      border: 0;
+      color: var(--gray);
+      cursor: pointer;
+      font: inherit;
+      padding: 0 0.5rem;
+    }
+    .acts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.2rem 0 0.6rem;
+    }
+    .acts .ghost {
+      min-height: 2rem;
+      padding: 0 0.75rem;
+      font-size: 0.9em;
+    }
+    .acts .bad {
+      color: var(--red);
     }
   }
   @media (max-width: 760px) {

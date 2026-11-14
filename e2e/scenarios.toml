@@ -529,9 +529,51 @@ not = { tui = "the terminal goes back to the character list (Esc) to open anothe
 
 [[scenario]]
 id = "sheet.overview-desktop"
-does = "On a computer the hit points run across the top of the overview: the number, a bar with the temporary hit points after the hit points, the hit dice under it, Damage, Heal and Temp beside it; an attack's damage keeps to one line, a versatile weapon's two-handed damage on a line under it."
+does = "On a computer the hit points run across the top of the overview: the number, one bar with the temporary hit points after the hit points, a line under it with the temporary hit points and the hit dice (roll one and heal, use, restore), Damage, Heal and Temp beside it; an attack's damage keeps to one line, a versatile weapon's two-handed damage on a line under it, the attack names with no empty gutter before them."
 targets = ["windows"]
 not = { tui = "the terminal's overview is laid out in its own panes, the two damages on one line" }
+
+[[scenario]]
+id = "sheet.explain-popup"
+does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: each part and where it comes from, and for a number that rolls, Roll, Advantage and Disadvantage; Escape closes it."
+targets = ["windows"]
+not = { tui = "the terminal explains the number under the cursor with ? in a pane of its own" }
+
+[[scenario]]
+id = "sheet.actions-row"
+does = "On a computer everything the sheet's ⋯ menu does is a row of buttons under the name: level up, short and long rest, undo a level, the note, the file, rolls into the session note, the exports, delete."
+targets = ["windows"]
+not = { tui = "the terminal's sheet actions are keys, listed with ?" }
+
+[[scenario]]
+id = "attacks.actions-row"
+does = "On a computer each attack shows its menu's actions as buttons: hold it in the main hand, the off hand or both hands, and how its bonus and its damage add up."
+targets = ["windows"]
+not = { tui = "the terminal holds and explains an attack with keys on its row" }
+
+[[scenario]]
+id = "trackers.actions-row"
+does = "On a computer each tracker shows its menu's actions as buttons (how the uses add up, the feature it comes from, its rules, remove a tracker of your own), and the hit dice theirs (roll one and heal, use, restore, how they add up)."
+targets = ["windows"]
+not = { tui = "the terminal's trackers are changed with keys on their rows" }
+
+[[scenario]]
+id = "spells.actions-panel"
+does = "On a computer a click on a spell shows everything its menu does as buttons under it (read, cast, roll, prepare, favorite, remove); ⋯ and a right click still open the menu."
+targets = ["windows"]
+not = { tui = "the terminal acts on the spell under the cursor with keys" }
+
+[[scenario]]
+id = "inventory.actions-panel"
+does = "On a computer a click on an item shows everything its menu does as buttons under it (read, equip, wear, hold, attune, put in, unpack, container, quantity, remove); ⋯ and a right click still open the menu."
+targets = ["windows"]
+not = { tui = "the terminal acts on the item under the cursor with keys" }
+
+[[scenario]]
+id = "inventory.equip-pills"
+does = "On a computer the box by an item says what it does: Equip, or where the item is (Worn · its slot, Held · its hand); a click equips it or puts it away."
+targets = ["windows"]
+not = { tui = "the terminal marks worn and held items with ◉ and ◈" }
 
 [[scenario]]
 id = "sheet.skills-tab"
