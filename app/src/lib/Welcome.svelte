@@ -3,6 +3,7 @@
      it in place; the done ones are ticked. -->
 <script lang="ts">
   import { openZip } from "./files";
+  import { openLink, WIKI_DATA } from "./links";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import Pane from "./Pane.svelte";
@@ -56,9 +57,17 @@
 
   const mark = (n: number) => (n < step ? "✓" : n === step ? "▸" : "·");
 
-  /// The wiki's page on making your own data. The app has no way to open a
-  /// browser, so its address is shown, and copied with a button.
-  const WIKI = "https://github.com/v0v3s/dungeons-n-terminals/wiki/Files-and-data";
+  /// The wiki's page on making your own data: opened in the browser, or its
+  /// address copied, for reading it on another device.
+  const WIKI = WIKI_DATA;
+  async function openWiki(e: MouseEvent) {
+    e.preventDefault();
+    try {
+      await openLink(WIKI);
+    } catch (e) {
+      error = String(e);
+    }
+  }
   let copied = $state(false);
   async function copyWiki() {
     try {
@@ -92,8 +101,7 @@
       </p>
       <div><button class={step === 1 ? "primary" : "ghost"} onclick={importZip}>Import a zip…</button></div>
       <div class="wiki">
-        <span>How to make your own data (wiki):</span>
-        <span class="url">{WIKI.replace("https://", "")}</span>
+        <a class="url" href={WIKI} onclick={openWiki}>How to make your own data (wiki)</a>
         <button class="ghost" onclick={copyWiki}>{copied ? "Copied ✓" : "Copy link"}</button>
       </div>
     </Pane>

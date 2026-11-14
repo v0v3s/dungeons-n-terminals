@@ -1,7 +1,7 @@
 // The app on a computer: Data's side menu, getting started, character
 // creation; the wiki link on every target.
 import type { Page } from "@playwright/test";
-import { expect, go, invoke, test, windowSize } from "./fixtures";
+import { expect, go, invoke, opened, test, windowSize } from "./fixtures";
 
 const WIKI = "https://github.com/v0v3s/dungeons-n-terminals/wiki/Files-and-data";
 const menu = (page: Page) => page.getByRole("navigation", { name: "Data" });
@@ -43,9 +43,10 @@ test.describe("getting started", () => {
   test.use({ seed: "empty" });
 
   test("it points to the wiki's page on making your own data", { tag: "@welcome.wiki-link" }, async ({ page }) => {
-    await expect(page.getByText("How to make your own data (wiki):")).toBeVisible();
-    await expect(page.getByText(WIKI.replace("https://", ""))).toBeVisible();
-    // The copy, caught: nothing leaves the app.
+    // The link opens the page in the browser (caught: no browser opens).
+    await page.getByRole("link", { name: "How to make your own data (wiki)" }).click();
+    expect(await opened(page)).toEqual([WIKI]);
+    // Or its address is copied, for reading it elsewhere (caught too).
     await page.evaluate(() => {
       (window as any).copied = null;
       navigator.clipboard.writeText = async (t: string) => void ((window as any).copied = t);
