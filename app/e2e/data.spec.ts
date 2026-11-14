@@ -131,9 +131,17 @@ test("a mistake in the rules is named on the Data screen", { tag: "@features.rul
 
 test("the data's parts are tabs; Problems only while there are some", { tag: "@data.tabs" }, async ({ page }) => {
   await go(page, "Data");
+  // The parts: a menu on the left on a computer, a select elsewhere.
+  const menu = page.getByRole("navigation", { name: "Data" });
   const tabs = page.getByRole("combobox", { name: "Data" });
-  await expect(tabs).toHaveValue("Import");
-  await expect(tabs.locator("option")).toHaveText(["Import", "Rules", "Backups", "About"]);
+  const onMenu = await menu.isVisible();
+  if (onMenu) {
+    await expect(menu.locator('[aria-current="page"]')).toHaveText("Import");
+    await expect(menu.getByRole("button")).toHaveText(["Import", "Rules", "Backups", "About & updates"]);
+  } else {
+    await expect(tabs).toHaveValue("Import");
+    await expect(tabs.locator("option")).toHaveText(["Import", "Rules", "Backups", "About"]);
+  }
   // One part at a time.
   await expect(page.getByRole("button", { name: "Import…" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Back up now" })).toHaveCount(0);
@@ -145,6 +153,7 @@ test("the data's parts are tabs; Problems only while there are some", { tag: "@d
   await page.reload();
   await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
   await go(page, "Data", "Problems");
-  await expect(tabs.locator("option", { hasText: "Problems (1)" })).toHaveCount(1);
+  if (onMenu) await expect(menu.getByRole("button", { name: /^Problems/ })).toHaveText(/Problems\s*1/);
+  else await expect(tabs.locator("option", { hasText: "Problems (1)" })).toHaveCount(1);
   await expect(page.locator(".err")).toContainText("not in the library: feat:Nonesuch|TST");
 });

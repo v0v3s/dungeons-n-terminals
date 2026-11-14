@@ -288,6 +288,57 @@
   .nav .next {
     margin-left: auto;
   }
+  /* A computer: the steps on the left, the choices as a grid of cards, the
+     highlighted one read on the right; Back, Cancel and Next a footer. */
+  @media (pointer: fine) and (min-width: 1001px) {
+    .creation {
+      grid-template-columns: minmax(14rem, 17%) minmax(0, 1.5fr) minmax(18rem, 1fr);
+      gap: 0 1.2rem;
+    }
+    .creation :global(.question ul) {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: 0.6rem;
+      align-content: start;
+    }
+    .creation :global(.question ul > li > button) {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+      width: 100%;
+      text-align: left;
+      height: 100%;
+      padding: 0.7rem 0.9rem;
+      border: 1px solid var(--edge);
+      border-radius: var(--radius);
+      background: var(--bg);
+    }
+    .creation :global(.question ul > li > button:hover) {
+      border-color: var(--gray);
+    }
+    .creation :global(.question ul > li > button.cursor) {
+      border-color: var(--accent);
+    }
+    /* A card: its name, then what it gives, in full. */
+    .creation :global(.question ul > li > button .label) {
+      font-weight: 600;
+    }
+    .creation :global(.question ul > li > button .hint) {
+      max-width: none;
+      margin: 0;
+      text-align: left;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+      font-size: 0.88em;
+    }
+    .nav {
+      margin: 1rem -1.1rem -1rem;
+      padding: 0.8rem 1.1rem;
+      border-top: 1px solid var(--edge);
+    }
+  }
   .err {
     color: var(--red);
   }

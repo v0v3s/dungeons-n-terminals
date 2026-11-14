@@ -52,9 +52,33 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "data.tabs"
-does = "The data's parts are tabs: Import, Rules, Backups, Problems (with how many, only while there are some) and About; the menu lists them under Data."
+does = "The data's parts are tabs: Import, Rules, Backups, Problems (with how many, only while there are some) and About; the menu lists them under Data. On a computer they are a menu on the left."
 targets = ["app"]
 not = { tui = "the terminal app has no Data screen: importing, backups and the rules are commands (dnt import, dnt backup, dnt rules), the rules library also L on Campaigns" }
+
+[[scenario]]
+id = "data.side-menu"
+does = "On a computer the data's parts are a menu on the left (Import, Rules, Backups, Problems with how many, About & updates with a mark when a newer dnt is out); ☰ hides it, and the tab select takes its place."
+targets = ["windows"]
+not = { tui = "the terminal app has no Data screen: its parts are commands" }
+
+[[scenario]]
+id = "welcome.wiki-link"
+does = "Getting started points to the wiki's page on making your own data, its address shown and copied with a button."
+targets = ["app"]
+not = { tui = "the terminal app's README and schemas/ describe the data format; it has no getting-started screen to link from" }
+
+[[scenario]]
+id = "welcome.desktop"
+does = "On a computer getting started uses the window: the welcome on the left, the steps on the right."
+targets = ["windows"]
+not = { tui = "the terminal's welcome is its own screen of text" }
+
+[[scenario]]
+id = "creation.desktop"
+does = "On a computer a new character's choices are a grid of cards between the steps (on the left) and the highlighted choice read in full (on the right), Back and Cancel at the foot."
+targets = ["windows"]
+not = { tui = "the terminal's character creation is a list with its preview pane" }
 
 [[scenario]]
 id = "data.forget-source"

@@ -205,7 +205,7 @@
   });
 
   /// The section has a sidebar for ☰ to hide and show.
-  const hasSidebar = $derived(!welcome && ((section === "notes" && !!status?.campaign) || (section === "characters" && sheetOpen)));
+  const hasSidebar = $derived(!welcome && ((section === "notes" && !!status?.campaign) || (section === "characters" && sheetOpen) || section === "data"));
 
   /// The compendium, the cursor in its search (the header's search, Ctrl+K).
   async function search() {

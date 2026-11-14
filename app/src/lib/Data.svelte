@@ -14,6 +14,8 @@
   import { checkForUpdate, installUpdate, update } from "./update.svelte";
   import Pane from "./Pane.svelte";
   import TabSelect from "./TabSelect.svelte";
+  import { desktop } from "./screen";
+  import { sidebar } from "./sidebar.svelte";
   import { dataTabs, type DataTab } from "./datatabs";
   import type { IconName } from "./icons";
 
@@ -28,6 +30,8 @@
   }: { status: api.Status | null; onchange: (s: api.Status) => void; onreset?: () => void; tab?: DataTab } = $props();
 
   const tabs = $derived(dataTabs(status));
+  /// The side menu in place of the tab select (a computer, ☰ not hiding it).
+  const side = $derived(desktop.current && sidebar.open);
   // The problems solved: back to the first tab.
   $effect(() => {
     if (!tabs.some(([t]) => t === tab)) tab = "Import";
@@ -195,9 +199,22 @@
   }
 </script>
 
-<div class="data">
+<div class="data" class:withnav={side}>
+  {#if side}
+    <!-- A computer: the parts of Data as a menu on the left (☰ hides it):
+         Problems with how many, About with a new dnt to update to. -->
+    <nav class="datanav" aria-label="Data">
+      {#each tabs as [t] (t)}
+        <button class:on={tab === t} aria-current={tab === t ? "page" : undefined} onclick={() => (tab = t)}>
+          <span>{t === "About" ? "About & updates" : t}</span>
+          {#if t === "Problems"}<span class="count bad">{status?.problems.length}</span>{/if}
+          {#if t === "About" && update.newer}<span class="count new" title="dnt {update.newer.version} is out">1</span>{/if}
+        </button>
+      {/each}
+    </nav>
+  {/if}
   <div class="inner">
-  <TabSelect label="Data" options={tabs} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as DataTab)} />
+  {#if !side}<TabSelect label="Data" options={tabs} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as DataTab)} />{/if}
   <!-- What the last action did, whichever tab it came from. -->
   {#if done}<p class="ok">✓ {done}</p>{/if}
   {#if error}<p class="err">{error}</p>{/if}
@@ -542,6 +559,78 @@
     flex-direction: column;
     gap: 2em;
     padding: 0.8em 2ch 1em 0;
+  }
+  /* A computer: the menu on the left, the part filling the rest; text keeps
+     its reading line in panes that fill the width. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .data.withnav {
+      display: grid;
+      grid-template-columns: minmax(12rem, 16%) minmax(0, 1fr);
+      gap: 1.5rem;
+      overflow: hidden;
+      margin-right: 0;
+    }
+    .withnav .inner {
+      overflow-y: auto;
+      min-height: 0;
+    }
+    .inner {
+      gap: 1.1rem;
+      padding: 0.6rem 0.4rem 1rem 0;
+    }
+    .inner p {
+      max-width: 75ch;
+    }
+    .datanav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      padding: 0.6rem 1rem 0 0;
+      border-right: 1px solid var(--edge);
+    }
+    .datanav button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      height: 2.6rem;
+      padding: 0 0.8rem;
+      border: 0;
+      border-radius: 0.55rem;
+      background: none;
+      color: var(--gray);
+      font: inherit;
+      font-weight: 500;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .datanav button:hover {
+      background: var(--raised);
+      color: var(--fg);
+    }
+    .datanav button.on {
+      background: var(--raised);
+      color: var(--accent);
+    }
+    .count {
+      margin-left: auto;
+      min-width: 1.4rem;
+      padding: 0 0.4rem;
+      border-radius: 0.7rem;
+      font-size: 0.78em;
+      font-weight: 700;
+      text-align: center;
+      background: var(--dark);
+      color: var(--fg);
+    }
+    .count.bad {
+      background: var(--red);
+      color: var(--black);
+    }
+    .count.new {
+      background: var(--accent);
+      color: var(--black);
+    }
   }
   /* Panes keep their height; the area scrolls instead. */
   .inner > :global(.pane) {

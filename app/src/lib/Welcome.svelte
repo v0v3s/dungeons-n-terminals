@@ -55,6 +55,20 @@
   }
 
   const mark = (n: number) => (n < step ? "✓" : n === step ? "▸" : "·");
+
+  /// The wiki's page on making your own data. The app has no way to open a
+  /// browser, so its address is shown, and copied with a button.
+  const WIKI = "https://github.com/v0v3s/dungeons-n-terminals/wiki/Files-and-data";
+  let copied = $state(false);
+  async function copyWiki() {
+    try {
+      await navigator.clipboard.writeText(WIKI);
+      copied = true;
+      setTimeout(() => (copied = false), 3000);
+    } catch (e) {
+      error = String(e);
+    }
+  }
 </script>
 
 <div class="welcome">
@@ -77,6 +91,11 @@
         project's <code>scripts/pack-data.sh</code> makes a small zip of just what dnt reads.
       </p>
       <div><button class={step === 1 ? "primary" : "ghost"} onclick={importZip}>Import a zip…</button></div>
+      <div class="wiki">
+        <span>How to make your own data (wiki):</span>
+        <span class="url">{WIKI.replace("https://", "")}</span>
+        <button class="ghost" onclick={copyWiki}>{copied ? "Copied ✓" : "Copy link"}</button>
+      </div>
     </Pane>
 
     <Pane title="{mark(2)} 2 · Create a campaign" focused={step === 2} class={step !== 2 ? "done" : ""}>
@@ -199,6 +218,54 @@
   }
   .err {
     color: var(--red);
+  }
+  .wiki {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em 1ch;
+    margin-top: 0.9em;
+  }
+  .url {
+    color: var(--link);
+    word-break: break-all;
+  }
+  /* A computer: the welcome on the left, the steps on the right, the whole
+     window used. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .inner {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      align-items: start;
+      gap: 1.2rem 3rem;
+      max-width: none;
+      padding: 2.5rem 2.5rem 2rem;
+    }
+    .hello {
+      grid-column: 1;
+      grid-row: 1 / span 4;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.2rem;
+      padding-top: 1rem;
+    }
+    .hello img {
+      height: 5.5rem;
+    }
+    h1 {
+      font-size: 2.2em;
+      color: var(--fg);
+    }
+    .hello p {
+      font-size: 1.15em;
+      max-width: 34ch;
+    }
+    .inner > :global(.pane) {
+      grid-column: 2;
+    }
+    .inner > .err {
+      grid-column: 2;
+    }
   }
   @media (pointer: coarse) {
     .inner button {
