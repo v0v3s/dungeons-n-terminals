@@ -954,7 +954,7 @@ not = { tui = "the terminal acts on the open entry with keys" }
 
 [[scenario]]
 id = "notes.visible-actions"
-does = "On a computer the notes' ⋯ actions are in sight: a new folder and today's session note, the chosen folder's rename, delete and move; the open note's rename and delete; and the notes that link to it in a column beside its text."
+does = "On a computer the notes' ⋯ actions are in sight: a new folder and today's session note in the toolbar, the chosen folder's rename, delete and move on its row in the tree; the open note's rename and delete; and the notes that link to it in a column beside its text."
 targets = ["windows"]
 not = { tui = "the terminal's notes take : commands and keys" }
 

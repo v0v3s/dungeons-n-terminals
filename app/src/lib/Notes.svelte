@@ -212,7 +212,7 @@
     if (label.startsWith("Delete")) return "Delete…";
     if (label.startsWith("Move") && label.endsWith(" up")) return "↑";
     if (label.startsWith("Move") && label.endsWith(" down")) return "↓";
-    if (label === "Back to the top level") return "Top level";
+    if (label === "Back to the top level") return "✕";
     return label;
   }
 
@@ -222,22 +222,30 @@
 
   /// What the tree's ⋯ does: a new folder, today's session note, and with a
   /// folder chosen its own actions (on a computer, buttons in sight too).
-  function treeActions(): [string, () => void][] {
+  /// What makes something new: in the chosen folder, or at the top level.
+  function newActions(): [string, () => void][] {
+    return [[selected ? `New folder in ${selected}` : "New folder", newFolder], ["Today's session note", session]];
+  }
+
+  /// What is done to the chosen folder itself.
+  function folderActions(): [string, () => void][] {
     const f = selected;
-    const folderActions: [string, () => void][] = f
-      ? [
-          [`Rename ${short(f)}`, () => renameFolder(f)],
-          [`Delete ${short(f)}…`, () => deleteFolder(f)],
-          ...(f.includes("/")
-            ? []
-            : ([
-                [`Move ${f} up`, () => moveFolder(f, -1)],
-                [`Move ${f} down`, () => moveFolder(f, 1)],
-              ] as [string, () => void][])),
-          ["Back to the top level", () => (selected = "")],
-        ]
-      : [];
-    return [[f ? `New folder in ${f}` : "New folder", newFolder], ["Today's session note", session], ...folderActions];
+    if (!f) return [];
+    return [
+      [`Rename ${short(f)}`, () => renameFolder(f)],
+      [`Delete ${short(f)}…`, () => deleteFolder(f)],
+      ...(f.includes("/")
+        ? []
+        : ([
+            [`Move ${f} up`, () => moveFolder(f, -1)],
+            [`Move ${f} down`, () => moveFolder(f, 1)],
+          ] as [string, () => void][])),
+      ["Back to the top level", () => (selected = "")],
+    ];
+  }
+
+  function treeActions(): [string, () => void][] {
+    return [...newActions(), ...folderActions()];
   }
 
   function renameFolder(f: string) {
@@ -390,14 +398,15 @@
     <Pane title="Notes · {status.campaign}" class="tree">
       <div class="tools">
         <button class="ghost new" onclick={() => newNote()} title={selected ? `A note in ${selected}, from its template` : "A note at the top level"}
-          >+ Note{#if selected}<span class="dim"> · {short(selected)}</span>{/if}</button
+          >+ Note{#if selected}<span class="dim">&nbsp;· {short(selected)}</span>{/if}</button
         >
         <button class="ghost" onclick={capture}>Quick note</button>
         {#if desktop.current}
-          <!-- What ⋯ does, in sight, in the same row: for the chosen folder,
-               or the top level. Short labels; the full one is the name. -->
-          <span class="treeacts" role="group" aria-label={selected ? `${short(selected)}: actions` : "Notes: actions"}>
-            {#each treeActions() as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
+          <!-- What ⋯ does, in sight: making something new here; what is done
+               to the chosen folder is on its row. Short labels; the full one
+               is the name. -->
+          <span class="treeacts" role="group" aria-label="Notes: actions">
+            {#each newActions() as [label, run] (label)}<button class="ghost" aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
           </span>
         {/if}
         <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
@@ -411,16 +420,29 @@
           {#if !found.length}<p class="dim">Nothing matches.</p>{/if}
         {:else}
           {#each rows as r (r.path)}
-            <button
-              class="row"
-              class:dir={r.is_dir}
-              class:current={note?.path === r.path || (r.is_dir && selected === r.path)}
-              style:padding-left="{r.depth * 2 + 0.5}ch"
-              onclick={() => (r.is_dir ? tapFolder(r.path) : open(r.path))}
-            >
-              <span class="acc">{r.is_dir ? (expanded.includes(r.path) ? "▾" : "▸") : "·"}</span>
-              {r.name}
-            </button>
+            {#snippet line()}
+              <button
+                class="row"
+                class:dir={r.is_dir}
+                class:current={note?.path === r.path || (r.is_dir && selected === r.path)}
+                style:padding-left="{r.depth * 2 + 0.5}ch"
+                onclick={() => (r.is_dir ? tapFolder(r.path) : open(r.path))}
+              >
+                <span class="acc">{r.is_dir ? (expanded.includes(r.path) ? "▾" : "▸") : "·"}</span>
+                {r.name}
+              </button>
+            {/snippet}
+            {#if desktop.current && r.is_dir && selected === r.path}
+              <!-- The chosen folder: what is done to it, on its row. -->
+              <div class="chosen">
+                {@render line()}
+                <span class="rowacts" role="group" aria-label="{short(r.path)}: actions">
+                  {#each folderActions() as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
+                </span>
+              </div>
+            {:else}
+              {@render line()}
+            {/if}
           {/each}
         {/if}
       </div>
@@ -816,6 +838,35 @@
       min-height: 1.95rem;
       padding: 0 0.6rem;
       font-size: 0.85em;
+    }
+    /* The chosen folder's row: its name, then what is done to it (wrapping
+       under the name when the sidebar is narrow). */
+    .chosen {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem;
+      background: var(--selected);
+      border-radius: 6px;
+      padding-right: 0.25rem;
+    }
+    .chosen .row {
+      width: auto;
+      flex: 1 1 auto;
+      background: none;
+    }
+    .rowacts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-left: auto;
+      padding: 0.15rem 0;
+    }
+    .rowacts .ghost {
+      min-height: 1.6rem;
+      min-width: 1.6rem;
+      padding: 0 0.45rem;
+      font-size: 0.78em;
     }
     /* The note's toolbar: Read and Edit a toggle, the rest the same size. */
     .noteacts {

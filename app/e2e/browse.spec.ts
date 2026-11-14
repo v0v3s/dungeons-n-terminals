@@ -46,11 +46,16 @@ test("the notes' actions are in sight, the links to a note beside it", { tag: ["
   const top = page.getByRole("group", { name: "Notes: actions" });
   await expect(top.getByRole("button", { name: "New folder" })).toBeVisible();
   await expect(top.getByRole("button", { name: "Today's session note" })).toBeVisible();
-  // A folder chosen: its own actions.
+  // A folder chosen: its own actions, on its row in the tree.
   await page.locator("button.row.dir", { hasText: "NPCs" }).click();
   const folder = page.getByRole("group", { name: "NPCs: actions" });
   for (const name of ["Rename NPCs", "Delete NPCs…", "Move NPCs up", "Move NPCs down"]) await expect(folder.getByRole("button", { name })).toBeVisible();
-  // One toolbar: + Note, Quick note, the folder's actions and ⋯, one size.
+  await expect(page.locator(".rows .chosen")).toContainText("NPCs");
+  await expect(page.locator(".rows .chosen").getByRole("group", { name: "NPCs: actions" })).toBeVisible();
+  // The toolbar: + Note (in NPCs), Quick note, new folder, session note and ⋯, one size, one row.
+  await expect(page.locator(".tree .tools button.new")).toHaveText("+ Note · NPCs");
+  const rows = await page.locator(".tree .tools button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size);
+  expect(rows).toBeLessThanOrEqual(2);
   const heights = await page.locator(".tree .tools button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().height))).size);
   expect(heights).toBe(1);
   // A note open: its actions, and what links to it beside the text.
