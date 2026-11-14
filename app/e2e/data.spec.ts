@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { CAMPAIGN, choose, dataTab, dialog, expect, fakeFilePicker, go, invoke, test } from "./fixtures";
+import { CAMPAIGN, choose, dataTab, dialog, expect, fakeFilePicker, go, invoke, opened, test } from "./fixtures";
 
 /// A pane of the Data screen, by its title.
 const pane = (page: Page, title: string) =>
@@ -47,6 +47,13 @@ test.describe("with the data", () => {
     await expect(about).toContainText(version);
     await expect(about).toContainText("MIT");
     await expect(about).toContainText("github.com/v0v3s/dungeons-n-terminals");
+  });
+
+  test("about's Source code opens the repository in the browser", { tag: "@about.source-code" }, async ({ page }) => {
+    await go(page, "Data", "About");
+    await pane(page, "About").getByRole("button", { name: "Source code" }).click();
+    // Caught: no browser opens.
+    expect(await opened(page)).toEqual(["https://github.com/v0v3s/dungeons-n-terminals"]);
   });
 });
 

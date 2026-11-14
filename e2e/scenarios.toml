@@ -64,7 +64,7 @@ not = { tui = "the terminal app has no Data screen: its parts are commands" }
 
 [[scenario]]
 id = "welcome.wiki-link"
-does = "Getting started points to the wiki's page on making your own data, its address shown and copied with a button."
+does = "Getting started links to the wiki's page on making your own data: it opens in the browser, or its address is copied with a button."
 targets = ["app"]
 not = { tui = "the terminal app's README and schemas/ describe the data format; it has no getting-started screen to link from" }
 
@@ -105,6 +105,12 @@ targets = ["tui", "app"]
 id = "data.about"
 does = "See the version, the licence, the repository, that the SRD 5.2.1 is built in, and its attribution."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "about.source-code"
+does = "About's Source code opens the project's repository in the browser."
+targets = ["app"]
+not = { tui = "a terminal cannot open a browser for you; About and the README show the repository's address" }
 
 # ---------------------------------------------------------------- backups and exports
 [[scenario]]

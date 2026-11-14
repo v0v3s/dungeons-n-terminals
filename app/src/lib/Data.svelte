@@ -5,6 +5,7 @@
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
   import { openFile, pickFolder } from "./files";
+  import { openLink, PROJECT } from "./links";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import { ICONS } from "./icons";
@@ -87,6 +88,15 @@
   /// What an import of a character, campaign or entries did.
   let done = $state("");
   let error = $state("");
+  /// The project's source, in the browser.
+  async function openSource() {
+    error = "";
+    try {
+      await openLink(PROJECT);
+    } catch (e) {
+      error = String(e);
+    }
+  }
   /// A picked file that asks first: a clash, missing books, or a backup.
   let asking: { path: string; plan: api.ImportPlan } | null = $state(null);
 
@@ -368,6 +378,7 @@
   <Pane title="About">
     <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It has the SRD 5.2.1 built in, and reads the books you import.</p>
     <p>dnt {version} · MIT license · <span class="url">github.com/v0v3s/dungeons-n-terminals</span></p>
+    <div><button class="ghost" onclick={openSource}>Source code</button></div>
     <p class="dim">
       Icons by {iconAuthors.join(" and ")} from <span class="url">game-icons.net</span>, under CC BY 3.0
       (<span class="url">creativecommons.org/licenses/by/3.0</span>).

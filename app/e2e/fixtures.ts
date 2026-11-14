@@ -129,6 +129,8 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
       // A test that does not answer the file dialogs cancels them: the
       // system's own would stop the run (fakeFilePicker answers them).
       await context.addInitScript(() => ((window as any).dntE2eFiles = { open: null, save: null }));
+      // Links out are caught, not opened in a browser (opened() reads them).
+      await context.addInitScript(() => ((window as any).dntE2eLinks = []));
       // The frontend is up when it can call the app.
       await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
       await use(page);
@@ -329,3 +331,6 @@ export async function fakeFilePicker(page: Page) {
   }, dataZip().toString("base64"));
   await page.evaluate(() => ((window as any).dntE2eFiles = { open: "e2e:stash", save: "e2e:" }));
 }
+
+/// The links the app opened in the browser, caught (see lib/links.ts).
+export const opened = (page: Page): Promise<string[]> => page.evaluate(() => (window as any).dntE2eLinks);

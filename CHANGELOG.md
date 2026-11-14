@@ -45,9 +45,11 @@ become the release page.
   side; dialogs as roomy cards with a ✕ to close them.
 - Data on Windows: its parts as a menu on the left (Problems with how many,
   About & updates marked when a newer dnt is out); ☰ hides it.
-- Getting started points to the wiki's page on making your own data, with
-  its address and a button to copy it; on Windows the welcome and the
-  steps side by side.
+- Getting started links to the wiki's page on making your own data: it
+  opens in the browser, or a button copies its address; on Windows the
+  welcome and the steps side by side.
+- About has a Source code button that opens the project's repository in
+  the browser. The app can open the project's own pages and nothing else.
 - A new character on Windows: the choices as a grid of cards between the
   steps and the highlighted choice; the sources and homebrew dialogs with
   their buttons as a footer.
