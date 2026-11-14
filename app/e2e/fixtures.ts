@@ -139,15 +139,21 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
     { scope: "worker", timeout: 120_000 },
   ],
   page: async ({ app, seed: what }, use, info) => {
+    // On a computer every test starts in the app's own window size (its
+    // tauri.conf.json), whatever the screen: a CI machine's small screen
+    // squeezes the real window, and the layout follows the width.
+    if (TARGET === "windows") await windowSize(app, DEFAULT_WINDOW);
     await seed(app, what);
     await use(app);
     if (info.status !== info.expectedStatus) {
       await info.attach("screen", { body: await app.screenshot(), contentType: "image/png" });
     }
-    // A test that sized the window leaves it as the window is.
     if (TARGET === "windows") await windowSize(app, null);
   },
 });
+
+/// The app's window as it opens (app/src-tauri/tauri.conf.json).
+export const DEFAULT_WINDOW = { width: 1280, height: 820 };
 
 /// The DevTools session that sizes the window's page, while one does.
 let sizing: CDPSession | null = null;
