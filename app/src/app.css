@@ -62,7 +62,13 @@
     --font: Inter, "Segoe UI", system-ui, sans-serif;
     /* Borders a control can be seen by (3:1). */
     --border: #5f6898;
-    --radius: 10px;
+    /* A card's own edge, quieter than a control's. */
+    --edge: #2f3549;
+    /* Everything grows with the window: 14px at 1280 wide, more on a
+       bigger screen (sizes are in em and rem, so they follow). */
+    --size: clamp(14px, calc(7px + 0.55vw), 24px);
+    --radius: 0.7rem;
+    --gap: 0.85rem;
   }
 }
 
@@ -156,9 +162,9 @@ input {
 @media (pointer: fine) {
   .primary,
   .ghost {
-    border-radius: 8px;
-    min-height: 34px;
-    padding: 0 14px;
+    border-radius: 0.55rem;
+    min-height: 2.45rem;
+    padding: 0 1rem;
     font-weight: 500;
     white-space: nowrap;
   }

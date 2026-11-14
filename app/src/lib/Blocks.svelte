@@ -62,6 +62,14 @@
   p {
     margin: 0 0 1em;
   }
+  /* On a computer, running text keeps a comfortable line however wide its
+     pane is (the pane still fills the window). */
+  @media (pointer: fine) and (min-width: 761px) {
+    p,
+    li {
+      max-width: 75ch;
+    }
+  }
   .h1 {
     margin: 1em 0 0.25em;
     font-size: 1em;

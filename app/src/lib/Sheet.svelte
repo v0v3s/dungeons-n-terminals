@@ -18,7 +18,6 @@
   import SpellsTab from "./SpellsTab.svelte";
   import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
   import { Swipe } from "./swipe.svelte";
-  import TabSelect from "./TabSelect.svelte";
   import SkillsTab from "./SkillsTab.svelte";
   import { narrow, touch } from "./screen";
   import Tip from "./Tip.svelte";
@@ -434,8 +433,13 @@
       {/each}
     </div>
   {:else}
-    <div class="tabs">
-      <TabSelect label="Tab" options={SHEET_TABS.map((t) => [t, t])} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as Tab)} />
+    <!-- A computer: every tab by its name, in one row. -->
+    <div class="tabrow" role="tablist" aria-label="Sheet">
+      {#each SHEET_TABS as t (t)}
+        <button role="tab" aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
+          {t}{#if t === "Spells" && sheet.header.spells_to_choose}<span class="badge">{sheet.header.spells_to_choose}</span>{/if}
+        </button>
+      {/each}
     </div>
   {/if}
 
@@ -739,10 +743,70 @@
     padding: 0.1em 1ch;
     cursor: pointer;
   }
-  .tabs {
-    margin: 0.75em 0 0.25em;
-    max-width: 40ch;
+  /* A computer: the tabs by name, one row, the chosen one raised. */
+  .tabrow {
+    display: inline-flex;
+    align-self: flex-start;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0.9rem 0 0.6rem;
+    padding: 0.25rem;
+    background: var(--card);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
     flex-shrink: 0;
+  }
+  .tabrow button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.3rem;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: none;
+    color: var(--gray);
+    font: inherit;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .tabrow button:hover {
+    background: var(--raised);
+    color: var(--fg);
+  }
+  .tabrow button.active {
+    background: var(--dark);
+    color: var(--fg);
+  }
+  .badge {
+    background: var(--cyan);
+    color: var(--black);
+    border-radius: 0.6rem;
+    padding: 0 0.4rem;
+    font-size: 0.75em;
+    font-weight: 700;
+  }
+  @media (pointer: fine) and (min-width: 761px) {
+    h1 {
+      font-size: 1.6em;
+      color: var(--fg);
+    }
+    h1 .acc {
+      font-size: 0.7em;
+      vertical-align: 0.15em;
+    }
+    .id {
+      color: var(--gray);
+    }
+    .head {
+      align-items: center;
+    }
+    .flag {
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.8rem;
+      white-space: nowrap;
+    }
   }
   .body {
     position: relative;

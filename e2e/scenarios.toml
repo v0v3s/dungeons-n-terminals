@@ -516,6 +516,24 @@ targets = ["android"]
 not = { tui = "the terminal's sheet has its name and level in its own title line" }
 
 [[scenario]]
+id = "sheet.tab-row"
+does = "On a computer the sheet's tabs are a row of their names, the open one raised; Spells shows how many spells are still to choose."
+targets = ["windows"]
+not = { tui = "the terminal names its tabs in a line of its own, changed with Tab" }
+
+[[scenario]]
+id = "sheet.party-sidebar"
+does = "On a computer the party is beside the open sheet: another character opens with one click, the open one is marked, and ☰ hides the party."
+targets = ["windows"]
+not = { tui = "the terminal goes back to the character list (Esc) to open another" }
+
+[[scenario]]
+id = "sheet.overview-desktop"
+does = "On a computer the hit points run across the top of the overview: the number, a bar with the temporary hit points after the hit points, the hit dice under it, Damage, Heal and Temp beside it; an attack's damage keeps to one line, a versatile weapon's two-handed damage on a line under it."
+targets = ["windows"]
+not = { tui = "the terminal's overview is laid out in its own panes, the two damages on one line" }
+
+[[scenario]]
 id = "sheet.skills-tab"
 does = "Abilities (score, check, save) and skills have their own tab, after the overview; every number there rolls when tapped."
 targets = ["app"]
@@ -875,8 +893,14 @@ targets = ["windows"]
 not = { tui = "a terminal is as wide as its window, in its own layout (layout.fits)" }
 
 [[scenario]]
+id = "layout.wide"
+does = "On a big screen (2560 and 3840 px wide) every section and the sheet span the window, the text and controls grow with it, more columns come in, and running text still wraps at a comfortable length."
+targets = ["windows"]
+not = { tui = "a terminal's text is the size its terminal sets; its panes span the window (layout.fits)" }
+
+[[scenario]]
 id = "layout.sidebar"
-does = "On a computer, ☰ in the header hides and shows a section's sidebar (the notes' folders), and in a window narrower than 1200 px it starts hidden."
+does = "On a computer, ☰ in the header hides and shows a section's sidebar (the notes' folders, the party beside a sheet), and in a window narrower than 1200 px it starts hidden."
 targets = ["windows"]
 not = { tui = "the terminal shows its panes as its window allows, with no sidebar to hide" }
 

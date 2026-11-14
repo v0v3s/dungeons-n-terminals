@@ -17,6 +17,13 @@ become the release page.
 - ☰ hides and shows a section's sidebar (the notes' folders); it starts
   hidden in a window narrower than 1200 px.
 - Dim text is lighter, easier to read on every screen.
+- On Windows the app grows with its window: bigger text and controls on
+  a bigger screen, and more columns side by side (the skills, the
+  features); running text still wraps at a comfortable length.
+- The character sheet on Windows: its tabs by name in a row, the party
+  beside it (another character in one click; ☰ hides it), the hit points
+  across the top with the temporary ones in the bar, and an attack's
+  damage on one line with a versatile weapon's two-handed damage under it.
 
 ## v1.8.0 - 2026-11-13
 

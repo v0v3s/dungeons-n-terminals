@@ -5,8 +5,12 @@
   import type { Overview } from "./api";
   import Pane from "./Pane.svelte";
   import type { SheetCtx } from "./sheetctx";
+  import { touch } from "./screen";
 
   let { o, ctx }: { o: Overview; ctx: SheetCtx } = $props();
+
+  /// How to see how a number adds up: hold it, or right-click it.
+  const how = $derived(touch.current ? "hold" : "right-click");
 
   const MARK = { none: "○", half: "◐", proficient: "●", expertise: "◉" };
 
@@ -17,7 +21,7 @@
 </script>
 
 <div class="skills-tab">
-  <Pane title="Abilities" class="abilities" fold="sheet.abilities" footer="hold a number: how it adds up">
+  <Pane title="Abilities" class="abilities" fold="sheet.abilities" footer="{how} a number: how it adds up">
     <div class="grid abil">
       <span class="dim c">score</span><span class="dim">ability</span><span class="dim c">check</span><span class="dim c">save</span>
       {#each o.abilities as a (a.key)}
@@ -37,7 +41,7 @@
     {/each}
   </Pane>
 
-  <Pane title="Skills" class="skills" fold="sheet.skills" footer="hold one: how it adds up">
+  <Pane title="Skills" class="skills" fold="sheet.skills" footer="{how} one: how it adds up">
     {#each o.skills as s (s.key)}
       <button class="skill" onclick={() => ctx.roll({ type: "skill", key: s.key })} oncontextmenu={hold(`skill.${s.key}`)}>
         <span class="mark" class:on={s.proficiency !== "none"}>{MARK[s.proficiency]}</span>
@@ -112,6 +116,48 @@
   }
   .mark.on {
     color: var(--accent);
+  }
+  /* A computer: the abilities beside the skills, which flow into as many
+     columns as the window has room for (alphabetical, top to bottom). */
+  @media (pointer: fine) and (min-width: 761px) {
+    .skills-tab {
+      grid-template-columns: minmax(18rem, 1fr) minmax(0, 2fr);
+      gap: 1.2rem;
+      padding-top: 0.2rem;
+    }
+    .grid.abil {
+      grid-template-columns: 3rem minmax(0, 1fr) 4.5rem 5rem;
+      gap: 0.45rem 1rem;
+    }
+    .score {
+      font-family: var(--mono);
+    }
+    .num {
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+    .skills-tab :global(.skills .body) {
+      display: block;
+      columns: 15rem;
+      column-gap: 2rem;
+    }
+    .skill {
+      break-inside: avoid;
+      grid-template-columns: 1.2rem minmax(0, 1fr) 4rem;
+      padding: 0.3rem 0.4rem;
+      border-radius: 0.4rem;
+    }
+    .skill:hover {
+      background: var(--raised);
+    }
+    .skill b {
+      font-family: var(--mono);
+    }
+    .sname {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   @media (max-width: 760px) {
     .skills-tab {

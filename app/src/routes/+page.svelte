@@ -205,7 +205,7 @@
   });
 
   /// The section has a sidebar for ☰ to hide and show.
-  const hasSidebar = $derived(!welcome && section === "notes" && !!status?.campaign);
+  const hasSidebar = $derived(!welcome && ((section === "notes" && !!status?.campaign) || (section === "characters" && sheetOpen)));
 
   /// The compendium, the cursor in its search (the header's search, Ctrl+K).
   async function search() {
@@ -314,10 +314,10 @@
   .top {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 56px;
+    gap: 0.4rem;
+    height: 4rem;
     flex-shrink: 0;
-    padding: 0 16px;
+    padding: 0 1.15rem;
     background: var(--bar);
     border-bottom: 1px solid var(--dark);
     white-space: nowrap;
@@ -325,12 +325,12 @@
   .top button {
     font: inherit;
     font-weight: 500;
-    border-radius: 8px;
+    border-radius: 0.55rem;
     cursor: pointer;
   }
   .icon {
-    width: 36px;
-    height: 36px;
+    width: 2.6rem;
+    height: 2.6rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -345,15 +345,15 @@
     height: 1.4em;
     width: auto;
     flex-shrink: 0;
-    margin: 0 10px 0 4px;
+    margin: 0 0.7rem 0 0.3rem;
   }
   nav {
     display: flex;
-    gap: 2px;
+    gap: 0.15rem;
   }
   nav button {
-    height: 36px;
-    padding: 0 14px;
+    height: 2.6rem;
+    padding: 0 1rem;
     background: none;
     border: 0;
     color: var(--gray);
@@ -370,11 +370,11 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 36px;
-    width: min(300px, 28vw);
+    gap: 0.55rem;
+    height: 2.6rem;
+    width: min(21rem, 28vw);
     min-width: 0;
-    padding: 0 12px;
+    padding: 0 0.85rem;
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--dim);
@@ -392,16 +392,16 @@
   }
   .kbd {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 0.75em;
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 0.3rem;
     padding: 1px 5px;
     color: var(--gray);
   }
   .campaign {
-    height: 36px;
-    margin-left: 8px;
-    padding: 0 14px;
+    height: 2.6rem;
+    margin-left: 0.55rem;
+    padding: 0 1rem;
     background: var(--raised);
     border: 1px solid var(--border);
     color: var(--fg);

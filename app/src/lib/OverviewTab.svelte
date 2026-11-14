@@ -10,6 +10,19 @@
   let { o, ctx, onconditions }: { o: Overview; ctx: SheetCtx; onconditions: () => void } = $props();
 
   const pct = $derived(o.hp.max ? Math.round((o.hp.current / o.hp.max) * 100) : 0);
+  /// On a computer the bar holds the temporary hit points too, after the
+  /// hit points: each a share of both.
+  const whole = $derived(o.hp.max + o.hp.temp);
+  const hpShare = $derived(whole ? (o.hp.current / whole) * 100 : 0);
+  const tempShare = $derived(whole ? (o.hp.temp / whole) * 100 : 0);
+
+  /// An attack's damage and a versatile weapon's two-handed damage apart
+  /// (the core puts the latter in parentheses; on a computer it goes on a
+  /// line of its own).
+  function damageParts(a: { damage: string }): { main: string; alt: string } {
+    const m = a.damage.match(/^(.*\S)\s*\((.+)\)$/);
+    return m ? { main: m[1], alt: m[2] } : { main: a.damage, alt: "" };
+  }
   /// No conditions and no exhaustion: the chip just says Conditions.
   const none = $derived(!o.conditions.length && !o.exhaustion);
   const hpColor = $derived(pct <= 25 ? "var(--red)" : pct <= 50 ? "var(--yellow)" : "var(--green)");
@@ -130,11 +143,11 @@
 </script>
 
 <div class="overview">
- <div class="mid">
-  <!-- Hit points first: what changes most in play. -->
+  <!-- Hit points first: what changes most in play (on a computer across the
+       whole sheet, over both columns). -->
   <Pane title="Hit points" class="hp" fold="sheet.hp" summary="{o.hp.current}/{o.hp.max}{o.hp.temp ? ` +${o.hp.temp}` : ''}">
     <div class="hprow">
-      <div class="bar"><div class="fill" style:width="{pct}%" style:background={hpColor}></div></div>
+      <div class="bar hpbar" style:--hp="{hpShare}%" style:--tmp="{tempShare}%"><div class="fill" style:width="{pct}%" style:background={hpColor}></div><div class="tempfill"></div></div>
       <div class="hpnum"><span class="hearticon" class:down={o.hp.current === 0}><Icon name="heart" /></span> <b>{o.hp.current}</b><span class="muted">/{o.hp.max}</span>{#if o.hp.temp}<span class="temp">+{o.hp.temp} temp</span>{/if}</div>
     </div>
     <!-- The hit dice, right under: tap the bar to roll one and heal. -->
@@ -175,6 +188,7 @@
     </div>
   </Pane>
 
+ <div class="mid">
   <div class="tiles">
     {#each o.tiles as t (t.key)}
       <button
@@ -223,12 +237,13 @@
   <Pane title="Attacks" class="attacks" fold="sheet.attacks" summary={o.held.length ? o.held.join(" · ") : `${o.attacks.length} attack${o.attacks.length === 1 ? "" : "s"}`}>
     <div class="held"><span class="dim">In hand</span> {o.held.length ? o.held.join(" · ") : "nothing"}</div>
     {#each o.attacks as a (a.slug)}
+      {@const d = damageParts(a)}
       <div class="attack">
         <button class="arow" onclick={() => ctx.roll({ type: "attack", slug: a.slug })}>
           <span class="hand">{a.hand}</span>
           <span class="aname" class:inhand={a.hand}>{a.name}</span>
           <b class="hit rollbox" class:bad={!a.proficient}>{a.hit}</b>
-          <span class="dmg">{a.damage}</span>
+          <span class="dmg">{d.main}{#if d.alt}<span class="alt"><span class="paren"> (</span>{d.alt}<span class="paren">)</span></span>{/if}</span>
         </button>
         <button class="more" aria-label="More" onclick={() => attackMenu(a.slug, a.name, a.line)}>⋯</button>
         <div class="anotes">
@@ -284,6 +299,10 @@
     padding-top: 0.6em;
   }
   .side, .mid { display: flex; flex-direction: column; gap: 1.4em; min-width: 0; }
+  /* The hit points over the middle column, the side beside both. */
+  .overview > :global(.hp) { grid-column: 1; }
+  .mid { grid-column: 1; }
+  .side { grid-column: 2; grid-row: 1 / span 2; }
   .mid > p { margin: -1em 0 0; }
 
   :where(button:not(.ghost):not(.primary)) {
@@ -415,9 +434,71 @@
   .hdbar .fill { background: var(--blue); }
   .hdbar:disabled { cursor: default; opacity: 0.6; }
 
+  .tempfill { display: none; }
+
+  /* A computer: the hit points across the top (the number, the bar with
+     the hit dice under it, the buttons), the numbers as cards, the attacks
+     as a table; everything a share of the window. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .overview { grid-template-columns: minmax(0, 1fr) minmax(16rem, 30%); gap: 1.2rem; padding-top: 0.2rem; }
+    .side, .mid { gap: 1.2rem; }
+    .overview > :global(.hp) { grid-column: 1 / -1; }
+    .side { grid-row: 2; }
+    .mid > p { margin: -0.8rem 0 0; }
+    .overview :global(.hp .body) {
+      display: grid;
+      grid-template-columns: auto minmax(10rem, 1fr) auto;
+      column-gap: 1.5rem;
+      row-gap: 0.75rem;
+      align-items: center;
+    }
+    .hprow { display: contents; }
+    .hpnum { grid-column: 1; grid-row: 1 / span 2; font-size: 1.5em; white-space: nowrap; }
+    .hpnum b { font-family: var(--mono); font-size: 1.4em; }
+    .temp { font-size: 0.7em; }
+    .hpbar { grid-column: 2; grid-row: 1; display: flex; gap: 2px; height: 0.75rem; border-radius: 0.4rem; background: var(--raised); }
+    .hpbar .fill { width: var(--hp) !important; border-radius: 0.4rem 0 0 0.4rem; }
+    .hpbar .tempfill { display: block; width: var(--tmp); background: var(--cyan); border-radius: 0 0.4rem 0.4rem 0; }
+    .tracker.hitdie { grid-column: 2; margin-top: 0; }
+    .death { grid-column: 1 / -1; margin-top: 0; }
+    .buttons { grid-column: 3; grid-row: 1 / span 2; margin-top: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .buttons button { flex: none; }
+
+    .tiles { grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.75rem; }
+    .tile { background: var(--card); border-color: var(--edge); padding: 0.7rem 0.5rem; }
+    .tile b { font-family: var(--mono); font-size: 1.6em; }
+    .tile span { font-size: 0.85em; color: var(--gray); }
+
+    .chip { padding: 0.2rem 0.9rem; }
+    .rolled { background: var(--card); border-color: var(--edge); padding: 0.5rem 1.1rem; }
+    .rolled b { font-family: var(--mono); }
+
+    .attack { padding: 0.5rem 0; border-top-color: var(--edge); }
+    .arow { grid-template-columns: 2.5rem minmax(8rem, 1fr) 4.5rem minmax(12rem, 1.2fr); column-gap: 1rem; }
+    .hit { justify-self: start; font-family: var(--mono); }
+    .dmg { font-family: var(--mono); white-space: nowrap; }
+    .alt { display: block; font-family: var(--font); font-size: 0.85em; color: var(--dim); }
+    .alt .paren { display: none; }
+    .alt::before { content: "Two-handed: "; }
+    .anotes { padding-left: 3.5rem; color: var(--gray); }
+    .tracker { grid-template-columns: minmax(0, 1fr) auto 3.5rem 2rem 2rem; }
+    .step { height: 1.9rem; border-radius: 0.4rem; }
+    .count { font-family: var(--mono); }
+  }
+  /* A wide window: a third column, the latest rolls beside the attacks. */
+  @media (pointer: fine) and (min-width: 1800px) {
+    .overview { grid-template-columns: minmax(0, 1fr) minmax(18rem, 24%); }
+    .mid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-auto-flow: row dense; align-items: start; }
+    .mid > :global(*) { grid-column: 1 / -1; }
+    .mid > :global(.attacks) { grid-column: 1; }
+    .mid > .rolled { grid-column: 2; }
+    .mid:not(:has(> .rolled)) > :global(.attacks) { grid-column: 1 / -1; }
+  }
+
   /* Tablets and narrow windows: the middle on top, then two columns. */
   @media (max-width: 1100px) {
     .overview { grid-template-columns: minmax(0, 1fr); }
+    .overview > :global(.hp), .mid, .side { grid-column: 1; grid-row: auto; }
   }
   /* Phones: one column, big targets. */
   @media (max-width: 760px) {
