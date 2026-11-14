@@ -50,6 +50,9 @@ test("the notes' actions are in sight, the links to a note beside it", { tag: ["
   await page.locator("button.row.dir", { hasText: "NPCs" }).click();
   const folder = page.getByRole("group", { name: "NPCs: actions" });
   for (const name of ["Rename NPCs", "Delete NPCs…", "Move NPCs up", "Move NPCs down"]) await expect(folder.getByRole("button", { name })).toBeVisible();
+  // One toolbar: + Note, Quick note, the folder's actions and ⋯, one size.
+  const heights = await page.locator(".tree .tools button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().height))).size);
+  expect(heights).toBe(1);
   // A note open: its actions, and what links to it beside the text.
   await page.locator("button.row:not(.dir)", { hasText: "Old Miller" }).click();
   const acts = page.getByRole("group", { name: "Old Miller: actions" });
@@ -59,6 +62,9 @@ test("the notes' actions are in sight, the links to a note beside it", { tag: ["
   const text = (await page.locator(".note .read").boundingBox())!;
   const beside = (await linked.boundingBox())!;
   expect(beside.x).toBeGreaterThan(text.x + text.width - 1);
+  // The note's toolbar: one size too.
+  const sizes = await page.locator(".note .ntools button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().height))).size);
+  expect(sizes).toBe(1);
   await acts.getByRole("button", { name: "Rename" }).click();
   await expect(page.getByRole("dialog", { name: "Rename" })).toBeVisible();
 });
@@ -86,6 +92,16 @@ test("the characters are cards side by side", { tag: ["@characters.cards", "@win
   await expect(cards).toHaveCount(4);
   const tops = await cards.evaluateAll((cs) => new Set(cs.map((c) => Math.round(c.getBoundingClientRect().top))).size);
   expect(tops).toBe(1);
+  // They fill the row, however few, on any window.
+  for (const width of [1280, 2560, 3840]) {
+    await windowSize(page, { width, height: 1000 });
+    const fill = await page.locator(".cards").evaluate((g) => {
+      const box = g.getBoundingClientRect();
+      const right = Math.max(...[...g.children].map((c) => c.getBoundingClientRect().right));
+      return (right - box.left) / box.width;
+    });
+    expect(fill, `at ${width}px`).toBeGreaterThan(0.97);
+  }
 });
 
 test("a dialog is a card with a ✕ that closes it", { tag: ["@layout.dialogs", "@windows"] }, async ({ page }) => {
@@ -107,6 +123,7 @@ test("on a big screen the characters and campaigns take more columns", { tag: ["
   await windowSize(page, { width: 2560, height: 1440 });
   await go(page, "Compendium");
   await go(page, "Characters");
+  await expect(page.locator("button.card")).toHaveCount(4);
   expect(await columns("button.card")).toBeGreaterThanOrEqual(narrow);
   // The compendium: the search spans the window above its two columns.
   await go(page, "Compendium");

@@ -203,6 +203,19 @@
     };
   }
 
+  /// A tree action's label in the toolbar: short (its full one is its
+  /// accessible name and title, and contains this).
+  function shortAction(label: string): string {
+    if (label.startsWith("New folder")) return "New folder";
+    if (label === "Today's session note") return "Session note";
+    if (label.startsWith("Rename")) return "Rename";
+    if (label.startsWith("Delete")) return "Delete…";
+    if (label.startsWith("Move") && label.endsWith(" up")) return "↑";
+    if (label.startsWith("Move") && label.endsWith(" down")) return "↓";
+    if (label === "Back to the top level") return "Top level";
+    return label;
+  }
+
   function treeMenu() {
     dialog = { kind: "menu", title: selected ? short(selected) : "Notes", actions: treeActions() };
   }
@@ -380,14 +393,15 @@
           >+ Note{#if selected}<span class="dim"> · {short(selected)}</span>{/if}</button
         >
         <button class="ghost" onclick={capture}>Quick note</button>
+        {#if desktop.current}
+          <!-- What ⋯ does, in sight, in the same row: for the chosen folder,
+               or the top level. Short labels; the full one is the name. -->
+          <span class="treeacts" role="group" aria-label={selected ? `${short(selected)}: actions` : "Notes: actions"}>
+            {#each treeActions() as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
+          </span>
+        {/if}
         <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
       </div>
-      {#if desktop.current}
-        <!-- What ⋯ does, in sight: for the chosen folder, or the top level. -->
-        <div class="treeacts" role="group" aria-label={selected ? `${short(selected)}: actions` : "Notes: actions"}>
-          {#each treeActions() as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>{/each}
-        </div>
-      {/if}
       <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
       <div class="rows">
         {#if found}
@@ -789,35 +803,38 @@
       border-top: 0;
       border-left: 1px solid var(--edge);
     }
-    .treeacts,
-    .noteacts {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
+    /* The tree's toolbar: + Note, Quick note, the chosen folder's actions
+       and ⋯, all one size, wrapping as one row. */
     .treeacts {
-      margin-bottom: 0.6rem;
-      gap: 0.1rem 0.2rem;
+      display: contents;
     }
-    /* The folder's actions: a compact line of links, not a stack of boxes. */
-    .treeacts .ghost {
-      min-height: 1.6rem !important;
-      padding: 0 0.4rem !important;
-      border-color: transparent;
-      background: none;
-      color: var(--cyan);
+    .tools {
+      gap: 0.3rem;
+      align-items: center;
     }
-    .treeacts .ghost:hover {
-      border-color: var(--cyan);
-    }
-    .treeacts .danger {
-      color: var(--red);
-    }
-    .treeacts .ghost,
-    .noteacts .ghost {
+    .tools .ghost {
       min-height: 1.95rem;
       padding: 0 0.6rem;
       font-size: 0.85em;
+    }
+    /* The note's toolbar: Read and Edit a toggle, the rest the same size. */
+    .noteacts {
+      display: contents;
+    }
+    .ntools {
+      gap: 0.3rem;
+      align-items: center;
+    }
+    .ntools .ghost,
+    .ntools .primary {
+      min-height: 1.95rem;
+      padding: 0 0.7rem;
+      font-size: 0.85em;
+    }
+    .ntools .ghost.on {
+      background: var(--dark);
+      border-color: var(--dark);
+      color: var(--fg);
     }
     .danger {
       color: var(--red);
