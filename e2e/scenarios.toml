@@ -535,15 +535,21 @@ not = { tui = "the terminal's overview is laid out in its own panes, the two dam
 
 [[scenario]]
 id = "sheet.explain-popup"
-does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: each part and where it comes from, and for a number that rolls, Roll, Advantage and Disadvantage; Escape closes it."
+does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: the total with its sign, a line for each part (a skill's ability modifier and proficiency, then what items and features add) with where it comes from, and for a number that rolls, Roll, Advantage and Disadvantage; Escape closes it."
 targets = ["windows"]
 not = { tui = "the terminal explains the number under the cursor with ? in a pane of its own" }
 
 [[scenario]]
 id = "sheet.actions-row"
-does = "On a computer everything the sheet's ⋯ menu does is a row of buttons under the name: level up, short and long rest, undo a level, the note, the file, rolls into the session note, the exports, delete."
+does = "On a computer everything the sheet's ⋯ menu does is one toolbar under the name, in groups: Play (short and long rest, rolls into the session note), Character (level up, undo the last level, the note, the file), Export (printable page, Markdown, for dnt), and delete apart at the end; one line on a wide window, each button's full name on hover."
 targets = ["windows"]
 not = { tui = "the terminal's sheet actions are keys, listed with ?" }
+
+[[scenario]]
+id = "sheet.toast"
+does = "On a computer what just happened (a change, a roll) shows in a toast in the corner that fades after a few seconds; it never takes a row of the sheet, and the sheet keeps room to scroll its last row clear of it."
+targets = ["windows"]
+not = { tui = "the terminal shows what happened in its status line" }
 
 [[scenario]]
 id = "attacks.actions-row"
@@ -571,7 +577,7 @@ not = { tui = "the terminal acts on the item under the cursor with keys" }
 
 [[scenario]]
 id = "inventory.equip-pills"
-does = "On a computer the box by an item says what it does: Equip, or where the item is (Worn · its slot, Held · its hand); a click equips it or puts it away."
+does = "On a computer an item's state has a column after its name (Item | State | Qty | Weight): Equip, or where the item is (Worn · its slot, Held · its hand); a click equips it or puts it away; nothing there for what cannot be worn or held."
 targets = ["windows"]
 not = { tui = "the terminal marks worn and held items with ◉ and ◈" }
 

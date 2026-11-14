@@ -129,6 +129,17 @@
   const mark = (l: Line) => (l.attuned ? "★" : l.needs_attunement ? "☆" : "");
 </script>
 
+{#snippet equip(l: Line)}
+  <button
+    class="equip"
+    role="checkbox"
+    aria-checked={l.worn || l.held}
+    aria-label="Equipped: {l.name}"
+    class:on={l.worn || l.held}
+    onclick={() => ctx.act({ command: "equip", line: l.index })}>{#if desktop.current}{equipped(l)}{:else}{l.worn ? "◉" : l.held ? "◈" : ""}{/if}</button
+  >
+{/snippet}
+
 <div class="inventory">
   <Pane title="Inventory" class="items" fold="sheet.inventory" summary="{inv.lines.length} item{inv.lines.length === 1 ? '' : 's'} · {inv.carried.toFixed(1)} lb">
     <div class="buttons">
@@ -140,33 +151,36 @@
     {#each shown as l (l.index)}
       {@const i = inv.lines.indexOf(l)}
       <div class="lrow" style:padding-left="{l.depth * 2}ch">
-        <!-- A container's fold arrow; equip it (wear or hold) or not, right here. -->
+        <!-- A container's fold arrow; equip it (wear or hold) or not, right
+             here. On a computer the columns are Item | State | Qty | Weight
+             | ⋯: the arrow keeps its place before every name, the state
+             (Equip, Worn · slot, Held · hand) comes after it. -->
         {#if hasContents(i)}
           <button class="foldbtn" aria-label={folded.has(foldKey(l)) ? "Unfold" : "Fold"} onclick={() => toggleFold(l)}>{folded.has(foldKey(l)) ? "▸" : "▾"}</button>
+        {:else if desktop.current}
+          <span class="foldspace"></span>
         {/if}
-        {#if l.equippable}
-          <button
-            class="equip"
-            role="checkbox"
-            aria-checked={l.worn || l.held}
-            aria-label="Equipped: {l.name}"
-            class:on={l.worn || l.held}
-            onclick={() => ctx.act({ command: "equip", line: l.index })}>{#if desktop.current}{equipped(l)}{:else}{l.worn ? "◉" : l.held ? "◈" : ""}{/if}</button
-          >
-        {:else if !hasContents(i)}
-          <span class="equip none"></span>
+        {#if !desktop.current}
+          {#if l.equippable}{@render equip(l)}{:else if !hasContents(i)}<span class="equip none"></span>{/if}
         {/if}
         <button class="line" class:chosen={chosen === l.index} aria-expanded={desktop.current ? chosen === l.index : undefined} onclick={() => open(l)} oncontextmenu={(e) => (e.preventDefault(), menu(l))}>
           <span class="name" class:container={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}</span>
           <span class="kind dim">{l.kind}{#if l.fill} <span class:over={l.over} class="fill">{l.fill}</span>{/if}{l.weightless ? " weightless" : ""}</span>
-          <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
-          <span class="lb dim">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
+          {#if !desktop.current}
+            <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
+            <span class="lb dim">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
+          {/if}
         </button>
-        {#if desktop.current}<button class="more" aria-label="More" title="The menu" onclick={() => menu(l)}>⋯</button>{/if}
+        {#if desktop.current}
+          <span class="state">{#if l.equippable}{@render equip(l)}{/if}</span>
+          <span class="qty dcol">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
+          <span class="lb dim dcol">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
+          <button class="more" aria-label="More" title="The menu" onclick={() => menu(l)}>⋯</button>
+        {/if}
       </div>
       {#if desktop.current && chosen === l.index}
         <!-- Everything the item's menu does, in sight. -->
-        <div class="acts" role="dialog" aria-label={l.name} style:padding-left="calc({l.depth * 2}ch + 8.2rem)">
+        <div class="acts" role="dialog" aria-label={l.name} style:padding-left="calc({l.depth * 2}ch + 2rem)">
           {#each itemActions(l) as [label, run] (label)}<button class="ghost" class:bad={label === "Remove"} onclick={run}>{label}</button>{/each}
         </div>
       {/if}
@@ -363,12 +377,37 @@
      right click still open its menu). Arrows and boxes share one width so
      names stay in line. */
   @media (pointer: fine) and (min-width: 761px) {
-    .equip,
-    .foldbtn {
-      width: 7.6rem;
-      margin-right: 0.6rem;
+    .foldbtn,
+    .foldspace {
+      flex: 0 0 1.6rem;
+      width: 1.6rem;
+      margin-right: 0.3rem;
+    }
+    .lrow .line {
+      flex: 1;
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .state {
+      flex: 0 0 9.5rem;
+      display: flex;
+      align-items: center;
+      padding-left: 0.6rem;
+    }
+    .dcol {
+      align-self: center;
+      text-align: right;
+    }
+    .qty.dcol {
+      flex: 0 0 2.6rem;
+    }
+    .lb.dcol {
+      flex: 0 0 4.6rem;
     }
     .equip {
+      width: auto;
+      padding: 0 0.8rem !important;
+      margin: 0;
       height: 1.9rem;
       justify-content: center;
       border-radius: 0.95rem !important;
@@ -382,13 +421,6 @@
       background: rgb(158 206 106 / 0.14);
       border-color: var(--green) !important;
       color: var(--green);
-    }
-    .equip.none {
-      visibility: hidden;
-    }
-    .foldbtn {
-      text-align: right;
-      padding-right: 0.8rem;
     }
     .line.chosen .name {
       color: var(--accent);

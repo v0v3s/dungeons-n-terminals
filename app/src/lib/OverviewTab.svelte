@@ -127,6 +127,13 @@
     return [];
   }
 
+  /// A tracker's actions by name on its one line (the full name its title).
+  const SHORT_ACTION: Record<string, string> = {
+    "Show the feature": "The feature",
+    "Change or remove its rules (and this tracker)": "Its rules…",
+    "Remove the tracker…": "Remove…",
+  };
+
   /// Explain beside the control it was asked from.
   const explainHere = (key: string) => (e: Event) => ctx.explain(key, e.currentTarget as Element);
 
@@ -316,7 +323,7 @@
             <!-- What its menu does, in sight. -->
             <span class="tacts" role="group" aria-label="{t.name}: actions">
               <button class="info" aria-label="How the count adds up" title="How the count adds up" onclick={explainHere(t.stat)}>ⓘ</button>
-              {#each trackerActions(t) as [label, run] (label)}<button class="ghost mini" onclick={run}>{label.replace(" (and this tracker)", "")}</button>{/each}
+              {#each trackerActions(t) as [label, run] (label)}<button class="info" title={label} onclick={run}>{SHORT_ACTION[label] ?? label}</button>{/each}
             </span>
           {/if}
         </div>
@@ -554,7 +561,8 @@
     .steps .step { width: 1.9rem; height: 1.9rem; }
     .tileinfo { position: absolute; top: 0.3rem; right: 0.3rem; padding: 0 0.3rem; }
     .aacts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
-    .tacts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.15rem 0 0.4rem; }
+    .tacts { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; align-items: center; gap: 0.15rem; margin: -0.1rem 0 0.35rem; font-size: 0.85em; white-space: nowrap; }
+    .tacts .info { padding: 0 0.35rem; }
     .death { grid-column: 1 / -1; margin-top: 0; }
     .buttons { grid-column: 3; grid-row: 1 / span 2; margin-top: 0; flex-wrap: wrap; justify-content: flex-end; }
     .buttons button { flex: none; }

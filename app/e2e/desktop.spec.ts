@@ -126,14 +126,17 @@ test("ⓘ shows how a number adds up beside it, with its roll", { tag: ["@sheet.
   await info.click();
   const pop = page.locator(".pop");
   await expect(pop).toBeVisible();
-  await expect(pop).toContainText("Intelligence");
+  // The total with its sign; a line for each part, with where it comes from:
+  // Tester's Arcana is Intelligence +1 and a proficiency bonus +2.
+  await expect(pop.locator(".pvalue")).toHaveText("+3");
+  await expect(pop.locator(".pline")).toHaveCount(2);
+  await expect(pop.locator(".pline").nth(0)).toContainText(/\+1\s*Intelligence modifier/);
+  await expect(pop.locator(".pline").nth(1)).toContainText(/\+2\s*Proficiency bonus/);
   // Beside what it explains, not over the middle of the window.
   const at = (await info.boundingBox())!;
   const box = (await pop.boundingBox())!;
   expect(Math.abs(box.y - at.y)).toBeLessThan(at.height * 3);
   expect(box.x > at.x + at.width - 1 || box.x + box.width < at.x + 1).toBe(true);
-  // Where each part comes from.
-  await expect(pop.locator(".part").first()).not.toBeEmpty();
   await pop.getByRole("button", { name: "Advantage", exact: true }).click();
   await expect(pop).toBeHidden();
   await expect(status(page)).toContainText(/Arcana/);
@@ -144,18 +147,46 @@ test("ⓘ shows how a number adds up beside it, with its roll", { tag: ["@sheet.
   await expect(pop).toBeHidden();
 });
 
-test("the sheet's ⋯ menu is a row of buttons too", { tag: ["@sheet.actions-row", "@windows"] }, async ({ page }) => {
+test("the sheet's ⋯ menu is one toolbar of groups too", { tag: ["@sheet.actions-row", "@windows"] }, async ({ page }) => {
   await windowSize(page, { width: 1280, height: 820 });
   await openSheet(page);
-  const row = page.getByRole("toolbar", { name: "Character" });
-  for (const name of ["Level up…", "Short rest", "Long rest", "Remove the latest level", "Open the character's note", "Edit the character file…", "Export as a printable page…", "Export as Markdown…", "Export for dnt (to import elsewhere)…", "Delete the character…"]) {
-    await expect(row.getByRole("button", { name, exact: true })).toBeVisible();
-  }
-  await row.getByRole("button", { name: "Long rest", exact: true }).click();
+  const bar = page.getByRole("toolbar", { name: "Character actions" });
+  const group = (name: string) => bar.getByRole("group", { name, exact: true });
+  const groups: [string, string[]][] = [
+    ["Play", ["Short rest", "Long rest", "Rolls to the session note"]],
+    ["Character", ["Level up…", "Undo the last level", "Note", "File…"]],
+    ["Export", ["Printable page…", "Markdown…", "For dnt…"]],
+  ];
+  for (const [g, names] of groups) for (const name of names) await expect(group(g).getByRole("button", { name, exact: true })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Delete the character…" })).toBeVisible();
+  // Each button's full name on hover.
+  await expect(group("Export").getByRole("button", { name: "Markdown…" })).toHaveAttribute("title", "Export as Markdown…");
+  // A group wraps as a whole, never in two; on a wide window all on one line.
+  const lines = (where: typeof bar) => where.locator("button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size);
+  for (const [g] of groups) expect(await lines(group(g))).toBe(1);
+  await windowSize(page, { width: 2560, height: 1440 });
+  await expect.poll(() => lines(bar)).toBe(1);
+  await windowSize(page, { width: 1280, height: 820 });
+  await group("Play").getByRole("button", { name: "Long rest", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("long rest");
   await page.keyboard.press("Escape");
-  await row.getByRole("button", { name: "Write rolls into the session note" }).click();
-  await expect(row.getByRole("button", { name: "Stop writing rolls into the session note" })).toBeVisible();
+  await group("Play").getByRole("button", { name: "Rolls to the session note" }).click();
+  await expect(group("Play").getByRole("button", { name: "Stop rolls to the session note" })).toBeVisible();
+});
+
+test("what happened shows in a toast that fades, never over the sheet", { tag: ["@sheet.toast", "@windows"] }, async ({ page }) => {
+  await windowSize(page, { width: 1280, height: 820 });
+  await openSheet(page);
+  await page.locator(".pane.hp").getByRole("button", { name: "Temp", exact: true }).click();
+  await answer(page, "Temporary hit points", "5");
+  const toast = page.getByRole("status").filter({ hasText: "Temporary hit points" });
+  await expect(toast).toBeVisible();
+  // In a corner, out of the page's flow: the sheet keeps room to scroll its
+  // last row clear of it.
+  expect(await toast.evaluate((t) => getComputedStyle(t).position)).toBe("fixed");
+  const body = page.locator(".sheet > .body");
+  expect(await body.evaluate((b) => parseFloat(getComputedStyle(b).paddingBottom))).toBeGreaterThan((await toast.boundingBox())!.height);
+  await expect(page.locator(".status")).toHaveCount(0, { timeout: 8000 });
 });
 
 const staff = (page: Page) => page.locator(".attack").filter({ has: page.locator(".aname", { hasText: /^\s*Quarterstaff\s*$/ }) });
@@ -192,7 +223,7 @@ test("trackers and the hit dice have their actions in sight", { tag: ["@trackers
   await page.keyboard.press("Escape");
   // A feature's tracker: the feature it comes from, in one click.
   const acts = page.getByRole("group", { name: "Arcane Recovery: actions" });
-  await acts.getByRole("button", { name: "Show the feature" }).click();
+  await acts.getByRole("button", { name: "The feature" }).click();
   await expect(page.getByRole("dialog", { name: /Arcane Recovery/ })).toBeVisible();
 });
 
@@ -221,7 +252,7 @@ test("a click on an item shows its actions under it", { tag: ["@inventory.action
   await expect(acts).toBeVisible();
   for (const name of ["Wear it in…", "Hold in the main hand", "Put it in…", "Remove"]) await expect(acts.getByRole("button", { name, exact: true })).toBeVisible();
   await acts.getByRole("button", { name: "One more" }).click();
-  await expect(page.locator("button.line", { hasText: "Dagger" }).locator(".qty")).toHaveText("×3");
+  await expect(page.locator(".lrow").filter({ has: page.locator("button.line", { hasText: "Dagger" }) }).locator(".qty")).toHaveText("×3");
 });
 
 test("the box by an item says Equip, Held or Worn", { tag: ["@inventory.equip-pills", "@windows"] }, async ({ page }) => {

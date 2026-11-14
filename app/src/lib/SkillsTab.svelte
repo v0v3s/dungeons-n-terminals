@@ -138,8 +138,16 @@
       gap: 0.45rem 1rem;
     }
     .grid.abil.desk {
-      grid-template-columns: 2.2rem minmax(6.5rem, 1fr) 3.8rem 1.5rem 4.6rem 1.5rem;
+      grid-template-columns: 2.8rem minmax(6.5rem, 1fr) 3.8rem 1.5rem 4.6rem 1.5rem;
       column-gap: 0.35rem;
+    }
+    /* The column heads small, each in its own column with room apart. */
+    .grid.abil.desk > span.dim {
+      font-size: 0.8em;
+      white-space: nowrap;
+    }
+    .grid.abil.desk > span.dim:nth-child(2) {
+      padding-left: 0.5rem;
     }
     .aname {
       text-decoration: underline dotted var(--dim);

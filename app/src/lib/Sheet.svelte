@@ -1,6 +1,7 @@
 <!-- A character sheet: the header, the tabs, and the dialogs they use. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
   import { saveAs } from "./files";
   import * as api from "./api";
   import Ask from "./Ask.svelte";
@@ -131,6 +132,42 @@
     if (key === "initiative") return { type: "initiative" };
     if (kind === "attack" && b === "bonus") return { type: "attack", slug: a };
     return null;
+  }
+
+  /// A modifier is shown with its sign (+3, −1); a score or a count is not.
+  const SIGNED = /^(skill|save|mod)\.|^initiative$|^prof$|^attack\..*\.bonus$/;
+  const sign = (n: number) => (n >= 0 ? `+${n}` : `−${-n}`);
+  const num = (s: string) => parseInt(s.replace("−", "-"), 10);
+  const signed = (key: string, v: string) => (SIGNED.test(key) && /^[-−+]?\d+$/.test(v) ? sign(num(v)) : v);
+
+  type Line = { kind: string; value: string; origin: string; applied: boolean };
+  /// A breakdown's lines. A skill or a save is one part in the rules (its
+  /// formula, "Intelligence + proficiency"): shown as its components, the
+  /// ability modifier and the proficiency, from the sheet's own numbers;
+  /// whatever else the rules add (items, features) follows as it is.
+  function lines(key: string, b: api.Breakdown): Line[] {
+    const as = (p: api.Part): Line => ({ kind: p.kind, value: p.value, origin: p.origin + (p.note ? ` (${p.note})` : ""), applied: p.applied });
+    const o = sheet.overview;
+    let ability: api.Ability | undefined;
+    let prof: api.Skill["proficiency"] = "none";
+    if (key.startsWith("skill.")) {
+      const s = o.skills.find((s) => `skill.${s.key}` === key);
+      ability = s && o.abilities.find((a) => a.key === s.ability);
+      prof = s?.proficiency ?? "none";
+    } else if (key.startsWith("save.")) {
+      ability = o.abilities.find((a) => `save.${a.key}` === key);
+      prof = ability?.proficient ? "proficient" : "none";
+    }
+    const [base, ...rest] = b.parts;
+    const total = base ? num(base.value) : NaN;
+    const mod = ability ? num(ability.modifier) : NaN;
+    if (!ability || base?.kind !== "base" || Number.isNaN(total) || Number.isNaN(mod)) return b.parts.map(as);
+    const out: Line[] = [{ kind: "ability", value: sign(mod), origin: `${ability.name} modifier (score ${ability.score})`, applied: true }];
+    if (total !== mod) {
+      const what = prof === "expertise" ? "Proficiency bonus, doubled (expertise)" : prof === "half" ? "Half the proficiency bonus" : "Proficiency bonus";
+      out.push({ kind: "proficiency", value: sign(total - mod), origin: what, applied: true });
+    }
+    return [...out, ...rest.map(as)];
   }
 
   /// Roll with advantage, disadvantage or neither: the next roll's mode set
@@ -296,16 +333,7 @@
       ...(sheet.header.pending ? ([[`Make ${sheet.header.pending} missing choice(s)…`, nextPending]] as [string, () => void][]) : []),
       ["Short rest", () => rest(false)],
       ["Long rest", () => rest(true)],
-      [
-        "Remove the latest level",
-        () =>
-          (dialog = {
-            kind: "confirm",
-            title: "Undo a level",
-            text: "Remove the latest level and its choices?",
-            then: () => act({ command: "undo_level" }),
-          }),
-      ],
+      ["Remove the latest level", undoLevel],
       ["Open the character's note", openNote],
       ["Edit the character file…", editFile],
       [logRolls ? "Stop writing rolls into the session note" : "Write rolls into the session note", () => setLogRolls(!logRolls)],
@@ -314,6 +342,53 @@
       ["Export for dnt (to import elsewhere)…", exportForDnt],
       ["Delete the character…", remove],
       ...(touch.current ? ([["Show the tips again", () => tips.reset()]] as [string, () => void][]) : []),
+    ];
+  }
+
+  function undoLevel() {
+    dialog = {
+      kind: "confirm",
+      title: "Undo a level",
+      text: "Remove the latest level and its choices?",
+      then: () => act({ command: "undo_level" }),
+    };
+  }
+
+  /// The same, on a computer: one toolbar of groups, each button a short
+  /// name (its full name as its title), the deletion apart at the end.
+  type Tool = { label: string; title: string; run: () => void };
+  function toolGroups(): { name: string; tools: Tool[] }[] {
+    const t = (label: string, title: string, run: () => void): Tool => ({ label, title, run });
+    const n = sheet.header.pending;
+    return [
+      {
+        name: "Play",
+        tools: [
+          t("Short rest", "Short rest", () => rest(false)),
+          t("Long rest", "Long rest", () => rest(true)),
+          logRolls
+            ? t("Stop rolls to the session note", "Stop writing rolls into the session note", () => setLogRolls(false))
+            : t("Rolls to the session note", "Write rolls into the session note", () => setLogRolls(true)),
+        ],
+      },
+      {
+        name: "Character",
+        tools: [
+          t("Level up…", "Level up…", levelUp),
+          ...(n ? [t(`${n} missing ${n === 1 ? "choice" : "choices"}…`, `Make ${n} missing choice(s)…`, nextPending)] : []),
+          t("Undo the last level", "Remove the latest level", undoLevel),
+          t("Note", "Open the character's note", openNote),
+          t("File…", "Edit the character file…", editFile),
+        ],
+      },
+      {
+        name: "Export",
+        tools: [
+          t("Printable page…", "Export as a printable page…", () => exportAs("html")),
+          t("Markdown…", "Export as Markdown…", () => exportAs("markdown")),
+          t("For dnt…", "Export for dnt (to import elsewhere)…", exportForDnt),
+        ],
+      },
     ];
   }
 
@@ -462,10 +537,16 @@
 
   {#if desktop.current}
     <!-- A computer: everything the ⋯ menu does, in sight. -->
-    <div class="charbar" role="toolbar" aria-label="Character">
-      {#each sheetActions() as [label, run] (label)}
-        <button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>
+    <div class="charbar" role="toolbar" aria-label="Character actions">
+      {#each toolGroups() as g (g.name)}
+        <div class="tgroup" role="group" aria-label={g.name}>
+          <span class="glabel" aria-hidden="true">{g.name}</span>
+          {#each g.tools as tool (tool.title)}<button class="ghost" title={tool.title} onclick={tool.run}>{tool.label}</button>{/each}
+        </div>
       {/each}
+      <div class="tgroup end">
+        <button class="ghost danger" title="Delete the character…" onclick={remove}>Delete the character…</button>
+      </div>
     </div>
   {/if}
 
@@ -506,7 +587,11 @@
     </div>
   </div>
 
+  <!-- What just happened: on a computer a toast in the corner that fades,
+       elsewhere a line at the foot of the sheet. Read out politely. -->
+  <div class="toast" role="status" aria-live="polite">
   {#if message}
+   <div class="toastin" out:fade={{ duration: 400 }}>
     {#if rolled}
       <!-- A roll: big, its number first; a tap puts it away. -->
       <button class="status roll" onclick={() => ((message = ""), (rolled = null))}>
@@ -527,7 +612,9 @@
     {:else}
       <div class="status">{message}</div>
     {/if}
+   </div>
   {/if}
+  </div>
 </div>
 
 {#if dialog?.kind === "warnings"}
@@ -662,15 +749,14 @@
   <div class="pop" role="dialog" aria-label={p.b.title} style:left="{p.x}px" style:top="{p.y}px">
     <div class="phead">
       <span class="ptitle">{p.b.title}</span>
-      <b class="pvalue">{p.b.value}</b>
+      <b class="pvalue">{signed(p.key, p.b.value)}</b>
       <button class="pclose" aria-label="Close" onclick={() => (pop = null)}>✕</button>
     </div>
-    {#each p.b.parts as part, i (i)}
-      <div class="part" class:off={!part.applied}>
-        <span class="acc">{part.applied ? "✓" : "·"}</span>
-        <span class="dim">{part.kind}</span>
-        <b>{part.value}</b>
-        <span>{part.origin}{part.note ? ` (${part.note})` : ""}</span>
+    {#each lines(p.key, p.b) as part, i (i)}
+      <div class="pline" class:off={!part.applied}>
+        <b class="mono">{part.value}</b>
+        <span>{part.origin}</span>
+        <span class="dim pkind">{part.kind}</span>
       </div>
     {/each}
     {#if r}
@@ -885,35 +971,77 @@
       padding: 0.35rem 0.8rem;
       white-space: nowrap;
     }
-    /* What happened (a roll, a change) under the tabs, in the page's flow:
-       it never covers the sheet. */
-    .tabrow,
-    .charbar {
-      order: 1;
-    }
-    .status,
-    .sheet > :global(.tip) {
-      order: 2;
-    }
-    .body {
-      order: 3;
+    /* What happened (a roll, a change): a toast in the bottom right corner
+       that fades; the sheet keeps room under its last row to scroll it
+       clear of the toast. */
+    .toast {
+      position: fixed;
+      right: 1.5rem;
+      bottom: 1.5rem;
+      z-index: 30;
+      width: min(24rem, calc(100vw - 3rem));
     }
     .status {
       position: static;
-      margin: 0 0 0.6rem;
+      margin: 0;
+      background: var(--card);
+      border-color: var(--accent);
+      box-shadow: 0 0.8rem 2rem rgb(0 0 0 / 0.5);
+      animation: toastin 0.2s ease-out;
+    }
+    .sheet > .body {
+      padding-bottom: 8rem;
     }
   }
+  @keyframes toastin {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  .toast,
+  .toastin {
+    display: contents;
+  }
+  @media (pointer: fine) and (min-width: 761px) {
+    .toast,
+    .toastin {
+      display: block;
+    }
+  }
+  /* The sheet's actions on a computer: one toolbar, groups apart, a group
+     wrapping as a whole. */
   .charbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    align-items: center;
+    gap: 0.4rem 1.1rem;
     margin-top: 0.7rem;
     flex-shrink: 0;
   }
+  .tgroup {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+  }
+  .tgroup + .tgroup {
+    padding-left: 1.1rem;
+    border-left: 1px solid var(--edge);
+  }
+  .tgroup.end {
+    margin-left: auto;
+  }
+  .glabel {
+    font-size: 0.78em;
+    font-weight: 600;
+    color: var(--dim);
+    margin-right: 0.2rem;
+  }
   .charbar .ghost {
-    min-height: 2rem;
-    padding: 0 0.75rem;
-    font-size: 0.88em;
+    min-height: 1.95rem;
+    padding: 0 0.6rem;
+    font-size: 0.85em;
   }
   .charbar .danger {
     color: var(--red);
@@ -956,6 +1084,24 @@
     color: var(--gray);
     cursor: pointer;
     font: inherit;
+  }
+  .pline {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-top: 1px solid var(--edge);
+  }
+  .pline b {
+    text-align: right;
+    color: var(--fg);
+  }
+  .pline.off {
+    opacity: 0.55;
+  }
+  .pkind {
+    font-size: 0.8em;
   }
   .pbtns {
     display: flex;
