@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { CAMPAIGN, expect, expectTab, go, openSheet, sheetTab, test } from "./fixtures";
+import { CAMPAIGN, expect, expectTab, go, openSheet, sheetTab, test, windowSize } from "./fixtures";
 
 test("the sections are reached from the menu or the header", { tag: "@nav.sections" }, async ({ page }) => {
   await go(page, "Characters");
@@ -107,4 +107,66 @@ test("the menu reaches inside a section: a category, the open character's tab, a
   await page.getByRole("button", { name: "What is in Data" }).click();
   await inside("data").filter({ has: page.getByText("Backups", { exact: true }) }).click();
   await expect(page.getByRole("combobox", { name: "Data" })).toHaveValue("Backups");
+});
+
+test("the header's search, or Ctrl+K, puts the cursor in the compendium's search", { tag: ["@nav.search", "@windows"] }, async ({ page }) => {
+  const search = page.locator(".compendium .prompt input");
+  await go(page, "Characters");
+  await page.getByRole("button", { name: /Search the compendium/ }).click();
+  await expect(search).toBeFocused();
+  // From anywhere, with the keys.
+  await go(page, "Notes");
+  await page.keyboard.press("Control+k");
+  await expect(search).toBeFocused();
+  // Again with a search typed: it is selected, to type over.
+  await search.fill("fire");
+  await page.locator(".compendium").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("Control+k");
+  await expect(search).toBeFocused();
+  await expect.poll(() => search.evaluate((i: HTMLInputElement) => [i.selectionStart, i.selectionEnd])).toEqual([0, 4]);
+});
+
+test("a narrow window has the app bar and its menu, and every section fits it", { tag: ["@layout.narrow-window", "@windows"] }, async ({ page }) => {
+  await windowSize(page, { width: 360, height: 480 });
+  await expect(page.getByRole("navigation", { name: "Sections" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Menu", exact: true })).toBeVisible();
+  for (const section of ["Compendium", "Characters", "Notes", "Campaigns", "Data"] as const) {
+    await go(page, section);
+    await fits(page, `${section} at 360px`);
+  }
+  await openSheet(page, "Overview");
+  await fits(page, "the sheet at 360px");
+});
+
+test("☰ hides and shows the notes' folders, hidden at first in a narrow window", { tag: ["@layout.sidebar", "@windows"] }, async ({ page }) => {
+  const folders = page.getByPlaceholder("search notes");
+  await windowSize(page, { width: 1280, height: 820 });
+  await go(page, "Notes");
+  await expect(folders).toBeVisible();
+  await page.getByRole("button", { name: "Hide the sidebar" }).click();
+  await expect(folders).toBeHidden();
+  await page.getByRole("button", { name: "Show the sidebar" }).click();
+  await expect(folders).toBeVisible();
+  // A window with no room for it beside a page: hidden until asked for.
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+  await windowSize(page, { width: 1100, height: 760 });
+  await go(page, "Notes");
+  await expect(folders).toBeHidden();
+  await page.getByRole("button", { name: "Show the sidebar" }).click();
+  await expect(folders).toBeVisible();
+});
+
+test("Tab outlines the control the keyboard is on", { tag: ["@layout.focus", "@windows"] }, async ({ page }) => {
+  await go(page, "Campaigns");
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("Tab");
+  const outline = await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement;
+    const s = getComputedStyle(el);
+    return { tag: el.tagName, style: s.outlineStyle, width: parseFloat(s.outlineWidth) };
+  });
+  expect(outline.tag).toBe("BUTTON");
+  expect(outline.style).not.toBe("none");
+  expect(outline.width).toBeGreaterThanOrEqual(2);
 });

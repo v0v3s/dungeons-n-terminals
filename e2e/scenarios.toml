@@ -10,7 +10,8 @@
 #   does     what the user does and sees
 #   targets  where it is tested: "tui" (the terminal app, Linux and
 #            Windows), "app" (the Tauri app, Android and Windows),
-#            "android" (the app on a phone only: touch)
+#            "android" (the app on a phone only: touch), "windows" (the
+#            app on a computer only: a mouse and a keyboard)
 #   not      why a frontend without it does not have it: { tui = "…" } or
 #            { app = "…" }; every scenario says "tui" and "app" one way or
 #            the other
@@ -845,6 +846,12 @@ targets = ["android"]
 not = { tui = "no menu: the number keys change the section, Tab the category or the tab" }
 
 [[scenario]]
+id = "nav.search"
+does = "On a computer, the header's search (or Ctrl+K anywhere) goes to the compendium with the cursor in its search."
+targets = ["windows"]
+not = { tui = "the terminal goes to the compendium with its number key and searches as soon as you type" }
+
+[[scenario]]
 id = "nav.help"
 does = "See the keys of every screen."
 targets = ["tui"]
@@ -860,3 +867,21 @@ not = { tui = "a terminal is as wide as its window, in its own layout (layout.fi
 id = "layout.fits"
 does = "Every screen fits its window: nothing runs off the side or wraps a button's label."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "layout.narrow-window"
+does = "A computer's window made narrow, down to the smallest it goes (360 px): the header gives way to the app bar and its menu, and every section still fits, nothing off the side."
+targets = ["windows"]
+not = { tui = "a terminal is as wide as its window, in its own layout (layout.fits)" }
+
+[[scenario]]
+id = "layout.sidebar"
+does = "On a computer, ☰ in the header hides and shows a section's sidebar (the notes' folders), and in a window narrower than 1200 px it starts hidden."
+targets = ["windows"]
+not = { tui = "the terminal shows its panes as its window allows, with no sidebar to hide" }
+
+[[scenario]]
+id = "layout.focus"
+does = "On a computer, Tab moves through the controls, and the one the keyboard is on is outlined."
+targets = ["windows"]
+not = { tui = "the terminal shows where the keys go by its highlighted row and cursor" }

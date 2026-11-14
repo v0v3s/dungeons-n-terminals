@@ -1,9 +1,17 @@
 /* The dnt terminal look: the TUI's theme (crates/dnt/src/theme.rs) in the
    palette its screenshots use. Monospace everywhere, rounded box panes with
-   their titles in the border, keycaps for keys. */
+   their titles in the border, keycaps for keys.
+
+   On a computer (a mouse, pointer: fine) the same palette in a desktop
+   frame: Inter for what the app says, the monospace for numbers, dice and
+   code (.mono), roomier controls with a visible focus. */
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/700.css";
 @import "@fontsource/jetbrains-mono/400-italic.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
 
 :root {
   --bg: #1a1b26;
@@ -17,8 +25,8 @@
   --cyan: #7dcfff;
   --gray: #a9b1d6;
   --dark: #414868;
-  /* Dim text: a touch lighter than the borders so it reads on a phone. */
-  --dim: #565f89;
+  /* Dim text, light enough to read (4.5:1 on the page and on a card). */
+  --dim: #8189b3;
 
   --accent: var(--yellow);
   --border: var(--dark);
@@ -29,11 +37,16 @@
   /* The mobile app bar, a shade under the page. */
   --bar: #16161e;
 
-  --font: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font: var(--mono);
   --size: 14px;
   --line: 1.5;
   --radius: 7px;
   --gap: 12px;
+  /* A card on the page, a control on a card. */
+  --card: #1f2335;
+  --raised: #292e42;
+  --hover: #343a55;
 }
 
 @media (pointer: coarse) {
@@ -42,6 +55,25 @@
     --line: 1.6;
     --gap: 8px;
   }
+}
+
+@media (pointer: fine) {
+  :root {
+    --font: Inter, "Segoe UI", system-ui, sans-serif;
+    /* Borders a control can be seen by (3:1). */
+    --border: #5f6898;
+    --radius: 10px;
+  }
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+/* Where the keyboard is, on every control. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 * {
@@ -118,6 +150,27 @@ input {
   .ghost {
     min-height: 44px;
     padding: 0 18px;
+  }
+}
+/* On a computer: rounded, a label that never wraps. */
+@media (pointer: fine) {
+  .primary,
+  .ghost {
+    border-radius: 8px;
+    min-height: 34px;
+    padding: 0 14px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .ghost {
+    background: var(--raised);
+    color: var(--fg);
+  }
+  .ghost:hover:not(:disabled) {
+    background: var(--hover);
+  }
+  .primary:hover:not(:disabled) {
+    background: #ecc48a;
   }
 }
 

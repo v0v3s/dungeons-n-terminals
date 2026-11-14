@@ -7,7 +7,8 @@ taps, on every target it is released for.
 |---|---|---|
 | `tui` | the terminal app in a pseudo-terminal, read back through a terminal emulator | `crates/dnt/tests/e2e`, on Linux and Windows (CI) |
 | `app` | the Tauri app through its WebView's DevTools protocol ([Playwright](https://playwright.dev)) | `app/e2e`, on an Android phone (USB) and on Windows (CI) |
-| `android` | as `app`, phone only (touch) | `app/e2e` |
+| `android` | as `app`, phone only (touch) | `app/e2e`, tagged `@android` too |
+| `windows` | as `app`, computer only (mouse and keyboard) | `app/e2e`, tagged `@windows` too |
 
 ## The rule
 

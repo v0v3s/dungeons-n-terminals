@@ -8,6 +8,16 @@ become the release page.
 
 ## Unreleased
 
+### Changed
+
+- The app on Windows has a desktop look: a header with the sections,
+  a search (also Ctrl+K) and the campaign; Inter for what the app says,
+  the monospace kept for numbers; controls that show where the keyboard
+  is. A narrow window gets the app bar and menu of the phone instead.
+- ☰ hides and shows a section's sidebar (the notes' folders); it starts
+  hidden in a window narrower than 1200 px.
+- Dim text is lighter, easier to read on every screen.
+
 ## v1.8.0 - 2026-11-13
 
 ### Added
