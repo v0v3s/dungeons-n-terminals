@@ -46,6 +46,7 @@ case "$target" in
     fi
     adb -s "$serial" install -r src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
     adb -s "$serial" shell am force-stop cz.v0v3s.dnt
+    set -- --grep-invert @windows "$@"
     ;;
   windows)
     if [ "$build" = 1 ]; then

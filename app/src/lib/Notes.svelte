@@ -3,6 +3,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import * as api from "./api";
+  import { sidebar } from "./sidebar.svelte";
   import EntryModal from "./EntryModal.svelte";
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
@@ -366,7 +367,7 @@
   });
 </script>
 
-<div class="notes" class:narrow class:open={!!note}>
+<div class="notes" class:narrow class:open={!!note} class:folded={!narrow && !sidebar.open}>
   {#if !status.campaign}
     <Pane title="Notes" focused><p>Create or activate a campaign first (Campaigns).</p></Pane>
   {:else}
@@ -701,8 +702,13 @@
     border-radius: var(--radius);
     padding: 0.3em 2ch;
   }
-  .narrow {
+  .narrow,
+  .folded {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* The folders hidden with the header's ☰. */
+  .folded > :global(.tree) {
+    display: none;
   }
   .narrow :global(.note),
   .narrow.open :global(.tree) {

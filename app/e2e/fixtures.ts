@@ -2,7 +2,7 @@
 // windows). Each test starts from a known state, made through the app's own
 // commands: the app reset, the test data imported (e2e/data), the campaign
 // and the test party (e2e/characters.json), unless it asks for less.
-import { test as base, chromium, expect, type Locator, type Page } from "@playwright/test";
+import { test as base, chromium, expect, type CDPSession, type Locator, type Page } from "@playwright/test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -144,8 +144,27 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
     if (info.status !== info.expectedStatus) {
       await info.attach("screen", { body: await app.screenshot(), contentType: "image/png" });
     }
+    // A test that sized the window leaves it as the window is.
+    if (TARGET === "windows") await windowSize(app, null);
   },
 });
+
+/// The DevTools session that sizes the window's page, while one does.
+let sizing: CDPSession | null = null;
+
+/// Make the window's page this size (a computer: as if the window were
+/// resized), or as the window is again (null). Through a session of its own,
+/// not Playwright's viewport, which Playwright would put back on every reload.
+export async function windowSize(page: Page, size: { width: number; height: number } | null) {
+  if (size) {
+    sizing ??= await page.context().newCDPSession(page);
+    await sizing.send("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 0, mobile: false });
+  } else if (sizing) {
+    await sizing.send("Emulation.clearDeviceMetricsOverride");
+    await sizing.detach();
+    sizing = null;
+  }
+}
 
 export { expect };
 
@@ -191,16 +210,24 @@ export type SheetTab = "Overview" | "Skills" | "Spells" | "Inventory" | "Feature
 /// A touch screen (a phone or a tablet): the sheet's tabs are icons.
 export const touchScreen = (page: Page) => page.evaluate(() => matchMedia("(pointer: coarse)").matches);
 
+/// The sheet shows its tabs as icons: on a phone or a tablet, and in a
+/// narrow window.
+async function iconTabs(page: Page) {
+  // The sheet's tabs, either kind, once the sheet is there.
+  await page.locator(".sheet .icontabs, .sheet .tabs select").first().waitFor();
+  return page.locator(".sheet .icontabs").isVisible();
+}
+
 /// Change the open sheet's tab (Notes opens the character's note): its
-/// icon on a phone or a tablet, its select elsewhere.
+/// icon where the tabs are icons, its select elsewhere.
 export async function sheetTab(page: Page, tab: SheetTab) {
-  if (await touchScreen(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
+  if (await iconTabs(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
   else await page.locator(".sheet .tabs select").selectOption(tab);
 }
 
 /// The open sheet's tab, as its icons or its select show it.
 export async function expectTab(page: Page, tab: SheetTab) {
-  if (await touchScreen(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
+  if (await iconTabs(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
   else await expect(page.locator(".sheet .tabs select")).toHaveValue(tab);
 }
 

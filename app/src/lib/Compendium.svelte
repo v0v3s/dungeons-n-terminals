@@ -262,6 +262,13 @@
   }
 
   /// Android's back (and the app bar's): one step back, if there is one.
+  /// Put the cursor in the search, its text selected (Ctrl+K).
+  export function focusSearch() {
+    input?.focus();
+    // After the search it had comes back (a compendium shown again).
+    requestAnimationFrame(() => input?.select());
+  }
+
   export function stepBack(): boolean {
     if (!back.length && !open) return false;
     goBack();
