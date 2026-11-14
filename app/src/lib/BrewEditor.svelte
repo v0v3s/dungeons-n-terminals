@@ -246,6 +246,21 @@
     max-height: 55vh;
     overflow-y: auto;
   }
+  /* A computer: the fields in two columns, the buttons a footer across the
+     dialog with Done at the end. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+      column-gap: 1.5rem;
+      align-content: start;
+    }
+    .tools {
+      margin: 1.1rem 0 0.2rem !important;
+      padding: 0.9rem 0 0 !important;
+      border-top: 1px solid var(--edge);
+    }
+  }
   .field {
     flex-shrink: 0;
     display: grid;

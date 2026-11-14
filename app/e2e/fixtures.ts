@@ -194,6 +194,9 @@ export async function go(page: Page, section: "Compendium" | "Characters" | "Not
 
 /// A tab of the open Data screen.
 export async function dataTab(page: Page, tab: DataTab) {
+  // A computer: its menu on the left; elsewhere (or with ☰ hiding it) a select.
+  const menu = page.getByRole("navigation", { name: "Data" });
+  if (await menu.isVisible()) return menu.getByRole("button", { name: new RegExp(`^${tab}`) }).click();
   await page.getByRole("combobox", { name: "Data" }).selectOption(tab);
 }
 

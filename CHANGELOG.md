@@ -43,6 +43,14 @@ become the release page.
   folder's and a note's, a campaign's), the notes that link to a note in a
   column beside it, the campaigns and the characters as cards side by
   side; dialogs as roomy cards with a ✕ to close them.
+- Data on Windows: its parts as a menu on the left (Problems with how many,
+  About & updates marked when a newer dnt is out); ☰ hides it.
+- Getting started points to the wiki's page on making your own data, with
+  its address and a button to copy it; on Windows the welcome and the
+  steps side by side.
+- A new character on Windows: the choices as a grid of cards between the
+  steps and the highlighted choice; the sources and homebrew dialogs with
+  their buttons as a footer.
 
 ## v1.8.0 - 2026-11-13
 
