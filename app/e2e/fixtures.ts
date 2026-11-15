@@ -334,3 +334,79 @@ export async function fakeFilePicker(page: Page) {
 
 /// The links the app opened in the browser, caught (see lib/links.ts).
 export const opened = (page: Page): Promise<string[]> => page.evaluate(() => (window as any).dntE2eLinks);
+
+/// What does not fit on the screen: the page wider than the window,
+/// buttons off its side (but for those in a row that scrolls sideways, like
+/// the tabs), buttons whose label wraps onto a second line, and text that
+/// runs out of its box.
+function misfits(page: Page) {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const width = document.documentElement.clientWidth;
+    const wide = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+    if (wide > width) out.push(`the page is ${wide}px wide in a ${width}px window`);
+    for (const button of document.querySelectorAll("button")) {
+      const box = button.getBoundingClientRect();
+      if (!box.width || !box.height || getComputedStyle(button).visibility === "hidden") continue;
+      const scrolls = (e: Element | null): boolean =>
+        !!e && (["auto", "scroll"].includes(getComputedStyle(e).overflowX) || scrolls(e.parentElement));
+      if (box.right > width + 1 && !scrolls(button.parentElement)) out.push(`button "${button.textContent?.trim()}" runs off the side (right ${Math.round(box.right)}px)`);
+      // A label that wrapped has its characters on more than one line
+      // (a button of several texts, a card or a row, may wrap them).
+      const texts = [...button.childNodes].length && document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      let labels = 0;
+      for (let n = texts && texts.nextNode(); n; n = texts && texts.nextNode()) if (n.textContent?.trim()) labels++;
+      if (labels > 1) continue;
+      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const tops = new Set<number>();
+        for (const r of range.getClientRects()) if (r.width > 0) tops.add(Math.round(r.top / 4));
+        if (tops.size > 1) {
+          out.push(`button "${button.textContent?.trim().replace(/\s+/g, " ")}" wraps its label`);
+          break;
+        }
+      }
+    }
+    // Text out of its box: a line that runs past the side of what holds it
+    // (up to the first box that scrolls or clips it, or an ellipsis).
+    const clips = (s: CSSStyleDeclaration) => s.overflowX !== "visible" || s.textOverflow === "ellipsis";
+    const seen = new Set<Element>();
+    const texts = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = texts.nextNode(); node; node = texts.nextNode()) {
+      const text = node.textContent?.trim();
+      const parent = node.parentElement;
+      if (!text || !parent || parent.closest("script, style, svg, select, textarea, [aria-hidden=true]")) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const lines = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+      if (!lines.length) continue;
+      const right = Math.max(...lines.map((r) => r.right));
+      const left = Math.min(...lines.map((r) => r.left));
+      for (let box: Element | null = parent; box && box !== document.body; box = box.parentElement) {
+        const s = getComputedStyle(box);
+        if (s.visibility === "hidden" || s.display === "none") break;
+        if (clips(s)) break;
+        if (s.display.startsWith("inline") && s.display !== "inline-block" && s.display !== "inline-flex" && s.display !== "inline-grid") continue;
+        const r = box.getBoundingClientRect();
+        if (!r.width) continue;
+        if ((right > r.right + 1 || left < r.left - 1) && !seen.has(box)) {
+          seen.add(box);
+          const name = `${box.tagName.toLowerCase()}${box.classList.length ? "." + [...box.classList].filter((c) => !c.startsWith("svelte-")).join(".") : ""}`;
+          out.push(`text "${text.slice(0, 40)}" runs out of its ${name} by ${Math.round(Math.max(right - r.right, r.left - left))}px`);
+        }
+        if (s.position === "absolute" || s.position === "fixed") break;
+      }
+    }
+    return out;
+  });
+}
+
+/// Check the screen as it is now, saying where.
+export async function fits(page: Page, where: string) {
+  // Let transitions and lazy content settle.
+  await page.waitForTimeout(400);
+  expect.soft(await misfits(page), where).toEqual([]);
+}
