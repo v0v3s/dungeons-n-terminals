@@ -528,7 +528,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let command = match prompt {
                             TextPrompt::CustomItem => {
                                 let inside = sheet.session.character().inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
-                                Command::AddCustomItem { name: text, inside, into: None }
+                                Command::AddCustomItem { name: text, inside, into: None, description: None, weight: None, quantity: None }
                             }
                             TextPrompt::Container => Command::SetContainer { line: sheet.inventory_cursor, settings: text },
                             TextPrompt::Currency => Command::ChangeCoins { change: text },

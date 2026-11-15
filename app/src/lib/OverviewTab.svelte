@@ -5,7 +5,8 @@
   import { killsOutright, type Overview, type Tracker } from "./api";
   import Pane from "./Pane.svelte";
   import Icon from "./Icon.svelte";
-  import { pool, type SheetCtx } from "./sheetctx";
+  import { clickRoll, pool, type SheetCtx } from "./sheetctx";
+  import RollMode from "./RollMode.svelte";
   import { desktop } from "./screen";
 
   let { o, ctx, onconditions }: { o: Overview; ctx: SheetCtx; onconditions: () => void } = $props();
@@ -144,19 +145,22 @@
     ctx.explain(key, e.currentTarget as Element);
   };
 
-  /// How an attack can be held (its inventory line), if it is an item.
-  function holds(line: number | null): [string, string, () => void][] {
+  /// How an attack can be held (its inventory line), if it is an item:
+  /// both hands only for a Versatile or Two-Handed weapon.
+  function holds(a: { line: number | null; both_hands: boolean }): [string, string, () => void][] {
+    const line = a.line;
     if (line === null) return [];
     return [
       ["Hold in the main hand", "Main hand", () => ctx.act({ command: "hold", line, hand: "main" })],
       ["Hold in the off hand", "Off hand", () => ctx.act({ command: "hold", line, hand: "off" })],
-      ["Hold with both hands", "Both hands", () => ctx.act({ command: "hold", line, hand: "both" })],
+      ...(a.both_hands ? ([["Hold with both hands", "Both hands", () => ctx.act({ command: "hold", line, hand: "both" })]] as [string, string, () => void][]) : []),
     ];
   }
 
-  function attackMenu(slug: string, name: string, line: number | null) {
+  function attackMenu(a: { slug: string; name: string; line: number | null; both_hands: boolean }) {
+    const { slug, name } = a;
     const actions: [string, () => void][] = [["Roll the attack", () => ctx.roll({ type: "attack", slug })]];
-    for (const [label, , run] of holds(line)) actions.push([label, run]);
+    for (const [label, , run] of holds(a)) actions.push([label, run]);
     actions.push(["How the bonus is made up", () => ctx.explain(`attack.${slug}.bonus`)]);
     actions.push(["How the damage is made up", () => ctx.explain(`attack.${slug}.damage`)]);
     ctx.menu(name, actions);
@@ -223,7 +227,7 @@
       <div class="tilewrap">
         <button
           class="tile"
-          onclick={(e) => (t.key === "initiative" ? ctx.roll({ type: "initiative" }) : ctx.explain(t.key, e.currentTarget))}
+          onclick={(e) => (t.key === "initiative" ? clickRoll(ctx, e, { type: "initiative" }) : ctx.explain(t.key, e.currentTarget))}
           oncontextmenu={hold(t.key)}
         >
           <b>{t.value}</b><span class="dim long">{t.label}</span><span class="dim short">{SHORT[t.label] ?? t.label}</span>
@@ -241,20 +245,21 @@
     {#if o.concentration}
       <button class="chip conc" onclick={() => ctx.act({ command: "end_concentration" })}>◎ {o.concentration} ✕</button>
     {/if}
-    <button class="chip mode" class:on={o.next_roll !== "normal"} aria-label="next roll: {o.next_roll}" onclick={() => ctx.cycle()}>{o.next_roll}</button>
+    {#if !desktop.current}<button class="chip mode" class:on={o.next_roll !== "normal"} aria-label="next roll: {o.next_roll}" onclick={() => ctx.cycle()}>{o.next_roll}</button>{/if}
     <button class="chip dice" aria-label="Roll dice" title="Roll dice" onclick={() => ctx.dice()}><Icon name="d20" /></button>
   </div>
+  {#if desktop.current}<RollMode mode={o.next_roll} {ctx} />{/if}
   {#each o.conditions as c (c.name)}<p class="dim small">{c.name}: {c.summary}</p>{/each}
   {#if o.exhaustion}<p class="dim small">Exhaustion: {o.exhaustion_summary}</p>{/if}
 
   {#if o.rolls.length}
-    <!-- The latest rolls, folded away: the status line shows each roll. -->
+    <!-- The latest rolls, folded away under the numbers: the status line
+         (a toast on a computer) shows each roll. -->
     <details class="rolled">
       <summary>
         <Icon name="d20" />
-        <span class="dim">Rolled</span>
+        <span class="dim">Rolls ({o.rolls.length})</span>
         <span class="last">{o.rolls[0].title} <b class:crit={o.rolls[0].crit === true} class:fumble={o.rolls[0].crit === false}>{o.rolls[0].result}</b></span>
-        <span class="dim count">{o.rolls.length}</span>
       </summary>
       {#each o.rolls.slice(0, 10) as r, i (i)}
         <div class="roll" class:old={i > 0}>
@@ -272,13 +277,13 @@
     {#each o.attacks as a (a.slug)}
       {@const d = damageParts(a)}
       <div class="attack">
-        <button class="arow" onclick={() => ctx.roll({ type: "attack", slug: a.slug })}>
+        <button class="arow" onclick={(e) => clickRoll(ctx, e, { type: "attack", slug: a.slug })}>
           <span class="hand">{a.hand}</span>
           <span class="aname" class:inhand={a.hand}>{a.name}</span>
           <b class="hit rollbox" class:bad={!a.proficient}>{a.hit}</b>
           <span class="dmg">{d.main}{#if d.alt}<span class="alt"><span class="paren"> (</span>{d.alt}<span class="paren">)</span></span>{/if}</span>
         </button>
-        <button class="more" aria-label="More" onclick={() => attackMenu(a.slug, a.name, a.line)}>⋯</button>
+        <button class="more" aria-label="More" onclick={() => attackMenu(a)}>⋯</button>
         <div class="anotes">
           <span class="dim">{a.range}</span>
           {#each a.notes as n (n)}<span class="note">{n}</span>{/each}
@@ -288,7 +293,7 @@
         {#if desktop.current}
           <!-- What the ⋯ menu does, in sight. -->
           <div class="aacts" role="group" aria-label="{a.name}: actions">
-            {#each holds(a.line) as [label, text, run] (label)}<button class="ghost mini" aria-label={label} onclick={run}>{text}</button>{/each}
+            {#each holds(a) as [label, text, run] (label)}<button class="ghost mini" aria-label={label} onclick={run}>{text}</button>{/each}
             <button class="info" aria-label="How the bonus is made up" onclick={explainHere(`attack.${a.slug}.bonus`)}>ⓘ to hit</button>
             <button class="info" aria-label="How the damage is made up" onclick={explainHere(`attack.${a.slug}.damage`)}>ⓘ damage</button>
           </div>
@@ -595,14 +600,9 @@
     .step { height: 1.9rem; border-radius: 0.4rem; }
     .count { font-family: var(--mono); }
   }
-  /* A wide window: a third column, the latest rolls beside the attacks. */
+  /* A wide window: the tracking narrower beside the rest. */
   @media (pointer: fine) and (min-width: 1800px) {
     .overview { grid-template-columns: minmax(0, 1fr) minmax(18rem, 24%); }
-    .mid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-auto-flow: row dense; align-items: start; }
-    .mid > :global(*) { grid-column: 1 / -1; }
-    .mid > :global(.attacks) { grid-column: 1; }
-    .mid > .rolled { grid-column: 2; }
-    .mid:not(:has(> .rolled)) > :global(.attacks) { grid-column: 1 / -1; }
   }
 
   /* Tablets and narrow windows: the middle on top, then two columns. */

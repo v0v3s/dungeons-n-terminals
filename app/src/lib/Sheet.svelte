@@ -17,7 +17,7 @@
   import Icon from "./Icon.svelte";
   import type { IconName } from "./icons";
   import SpellsTab from "./SpellsTab.svelte";
-  import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
+  import { SHEET_TABS, type RollMode, type SheetCtx, type SheetTab } from "./sheetctx";
   import { Swipe } from "./swipe.svelte";
   import SkillsTab from "./SkillsTab.svelte";
   import { desktop, narrow, touch } from "./screen";
@@ -123,17 +123,6 @@
   /// How a number adds up, in a pop-up beside it (a computer).
   let pop: { b: api.Breakdown; key: string; x: number; y: number } | null = $state(null);
 
-  /// The roll a breakdown's number makes, when it is one that rolls.
-  function rollOf(key: string): api.Roll | null {
-    const [kind, a, b] = key.split(".");
-    if (kind === "mod") return { type: "ability", key: a };
-    if (kind === "save") return { type: "save", key: a };
-    if (kind === "skill") return { type: "skill", key: a };
-    if (key === "initiative") return { type: "initiative" };
-    if (kind === "attack" && b === "bonus") return { type: "attack", slug: a };
-    return null;
-  }
-
   /// A modifier is shown with its sign (+3, −1); a score or a count is not.
   const SIGNED = /^(skill|save|mod)\.|^initiative$|^prof$|^attack\..*\.bonus$/;
   const sign = (n: number) => (n >= 0 ? `+${n}` : `−${-n}`);
@@ -170,12 +159,9 @@
     return [...out, ...rest.map(as)];
   }
 
-  /// Roll with advantage, disadvantage or neither: the next roll's mode set
-  /// first (as its chip cycles it), then the roll.
-  async function rollWith(what: api.Roll, mode: string) {
-    pop = null;
-    for (let i = 0; i < 3 && sheet.overview.next_roll !== mode; i++) await ctx.cycle();
-    await ctx.roll(what);
+  /// The next roll's mode: cycled to (normal → advantage → disadvantage).
+  async function setRollMode(mode: RollMode) {
+    for (let i = 0; i < 3 && sheet.overview.next_roll !== mode; i++) sheet = await api.cycleAdvantage();
   }
   /// The last roll typed by hand, to roll again.
   let lastDice = "";
@@ -253,6 +239,11 @@
     },
     async cycle() {
       sheet = await api.cycleAdvantage();
+    },
+    setRollMode,
+    async rollWith(what, mode) {
+      await setRollMode(mode);
+      await ctx.roll(what);
     },
     say,
     async refresh() {
@@ -355,7 +346,8 @@
   }
 
   /// The same, on a computer: one toolbar of groups, each button a short
-  /// name (its full name as its title), the deletion apart at the end.
+  /// name (its full name as its title), the deletion apart at the end. The
+  /// exports are in the ⋯ menu only.
   type Tool = { label: string; title: string; run: () => void };
   function toolGroups(): { name: string; tools: Tool[] }[] {
     const t = (label: string, title: string, run: () => void): Tool => ({ label, title, run });
@@ -379,14 +371,6 @@
           t("Undo the last level", "Remove the latest level", undoLevel),
           t("Note", "Open the character's note", openNote),
           t("File…", "Edit the character file…", editFile),
-        ],
-      },
-      {
-        name: "Export",
-        tools: [
-          t("Printable page…", "Export as a printable page…", () => exportAs("html")),
-          t("Markdown…", "Export as Markdown…", () => exportAs("markdown")),
-          t("For dnt…", "Export for dnt (to import elsewhere)…", exportForDnt),
         ],
       },
     ];
@@ -562,7 +546,7 @@
     <div class="tabrow" role="tablist" aria-label="Sheet">
       {#each SHEET_TABS as t (t)}
         <button role="tab" aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
-          {t}{#if t === "Spells" && sheet.header.spells_to_choose}<span class="badge">{sheet.header.spells_to_choose}</span>{/if}
+          <Icon name={TAB_ICONS[t]} size="1.2em" />{t}{#if t === "Spells" && sheet.header.spells_to_choose}<span class="badge">{sheet.header.spells_to_choose}</span>{/if}
         </button>
       {/each}
     </div>
@@ -742,9 +726,8 @@
 
 {#if pop}
   {@const p = pop}
-  {@const r = rollOf(p.key)}
-  <!-- How a number adds up, beside it: where each part comes from, and its
-       roll with or without advantage. -->
+  <!-- How a number adds up, beside it: where each part comes from (only
+       that: the number itself rolls). -->
   <div class="popback" role="presentation" onclick={() => (pop = null)}></div>
   <div class="pop" role="dialog" aria-label={p.b.title} style:left="{p.x}px" style:top="{p.y}px">
     <div class="phead">
@@ -759,13 +742,6 @@
         <span class="dim pkind">{part.kind}</span>
       </div>
     {/each}
-    {#if r}
-      <div class="pbtns">
-        <button class="primary" onclick={() => rollWith(r, "normal")}>Roll</button>
-        <button class="ghost" onclick={() => rollWith(r, "advantage")}>Advantage</button>
-        <button class="ghost" onclick={() => rollWith(r, "disadvantage")}>Disadvantage</button>
-      </div>
-    {/if}
   </div>
 {/if}
 
@@ -907,11 +883,10 @@
     padding: 0.1em 1ch;
     cursor: pointer;
   }
-  /* A computer: the tabs by name, one row, the chosen one raised. */
+  /* A computer: the tabs by icon and name, one row as wide as the sheet,
+     the chosen one raised. */
   .tabrow {
-    display: inline-flex;
-    align-self: flex-start;
-    flex-wrap: wrap;
+    display: flex;
     gap: 0.25rem;
     margin: 0.9rem 0 0.6rem;
     padding: 0.25rem;
@@ -921,9 +896,12 @@
     flex-shrink: 0;
   }
   .tabrow button {
+    flex: 1 1 0;
+    min-width: 0;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    justify-content: center;
+    gap: 0.5rem;
     height: 2.3rem;
     padding: 0 1rem;
     border: 0;
@@ -1102,12 +1080,6 @@
   }
   .pkind {
     font-size: 0.8em;
-  }
-  .pbtns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.8rem;
   }
   .body {
     position: relative;

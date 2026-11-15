@@ -264,6 +264,8 @@ export interface AttackRow {
   notes: string[];
   problems: string[];
   properties: string[];
+  /// Can be held in both hands (Versatile or Two-Handed).
+  both_hands: boolean;
   line: number | null;
 }
 
@@ -357,6 +359,8 @@ export interface Line {
   entity: number | null;
   quantity: number;
   weight: number;
+  /// A quick item's description.
+  description: string | null;
   kind: string;
   worn: boolean;
   held: boolean;

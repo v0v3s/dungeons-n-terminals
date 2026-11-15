@@ -161,6 +161,8 @@ pub struct AttackRow {
     /// Problems (no proficiency, needs attunement), shown in red.
     pub problems: Vec<String>,
     pub properties: Vec<String>,
+    /// Can be held in both hands: a Versatile or a Two-Handed weapon.
+    pub both_hands: bool,
     /// The inventory line of the weapon (not for an unarmed strike).
     pub line: Option<usize>,
 }
@@ -365,6 +367,7 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
                 notes,
                 problems: a.notes.clone(),
                 properties: a.properties.clone(),
+                both_hands: a.has_versatile || a.two_handed,
                 // Its own line (by name: an Arcane Focus (Quarterstaff) is
                 // a Quarterstaff too), held first; else any line of that
                 // weapon, held first.
@@ -806,6 +809,8 @@ pub struct Line {
     /// Pounds for the whole line.
     pub weight: f64,
     /// Worn in a slot (its name), or held (the hand), or its armor kind.
+    /// A custom item's description.
+    pub description: Option<String>,
     pub kind: String,
     pub worn: bool,
     pub held: bool,
@@ -881,6 +886,7 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                 entity,
                 quantity: line.quantity,
                 weight: equipment::weight(lib, line) * line.quantity as f64,
+                description: line.description.clone(),
                 kind,
                 worn: line.equipped,
                 held: line.hand.is_some(),

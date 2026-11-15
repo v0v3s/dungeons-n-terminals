@@ -262,6 +262,8 @@ pub struct Attack {
     pub range: String,
     pub damage_type: String,
     pub has_versatile: bool,
+    /// Needs both hands (the Two-Handed property).
+    pub two_handed: bool,
     /// Property names (`Finesse`, `Light`).
     pub properties: Vec<String>,
     /// The weapon's mastery property, if the character has mastered it.
@@ -546,6 +548,7 @@ fn weapon_attack(
         range,
         damage_type: w.damage_type.clone().unwrap_or_default(),
         has_versatile: w.versatile.is_some(),
+        two_handed: w.has("2H"),
         monk_weapon: monk,
         offhand,
         great_weapon: None,
@@ -593,6 +596,7 @@ fn unarmed(model: &mut Model) -> Attack {
         range: "5 ft.".into(),
         damage_type: "bludgeoning".into(),
         has_versatile: false,
+        two_handed: false,
         properties: Vec::new(),
         mastery: None,
         monk_weapon: false,

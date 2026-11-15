@@ -24,10 +24,25 @@ export interface SheetCtx {
   explain: (key: string, near?: Element | null) => void;
   /// Normal → advantage → disadvantage for the next roll.
   cycle: () => void;
+  /// Set the next roll's mode.
+  setRollMode: (mode: RollMode) => Promise<void>;
+  /// Roll with this mode (the next roll's mode set first).
+  rollWith: (what: Roll, mode: RollMode) => Promise<void>;
   /// Say something in the status line.
   say: (message: string) => void;
   /// Read the sheet again (after something changed it from outside).
   refresh: () => Promise<void>;
+}
+
+/// The next roll: normal, with advantage or with disadvantage.
+export type RollMode = "normal" | "advantage" | "disadvantage";
+
+/// A click on a number that rolls: Shift+click with advantage, Ctrl+click
+/// with disadvantage, a plain click as the next roll's mode says.
+export function clickRoll(ctx: SheetCtx, e: MouseEvent, what: Roll) {
+  const mode: RollMode | null = e.shiftKey ? "advantage" : e.ctrlKey || e.metaKey ? "disadvantage" : null;
+  if (mode) ctx.rollWith(what, mode);
+  else ctx.roll(what);
 }
 
 /// A pool for the `spend` command from a tracker id.
