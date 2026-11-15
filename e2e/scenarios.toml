@@ -19,7 +19,7 @@
 # ---------------------------------------------------------------- setup
 [[scenario]]
 id = "setup.srd-built-in"
-does = "On the first start the SRD 5.2.1 is there, nothing to import: it asks for a campaign, and the compendium has the SRD's entries."
+does = "On the first start the SRD 5.2.1 is there, nothing to import: it asks for a campaign (no books to choose: it uses every official one), and the compendium has the SRD's entries."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -76,9 +76,15 @@ not = { tui = "the terminal's welcome is its own screen of text" }
 
 [[scenario]]
 id = "creation.desktop"
-does = "On a computer a new character's choices are a grid of cards between the steps (on the left) and the highlighted choice read in full (on the right), Back and Cancel at the foot."
+does = "On a computer a new character's choices are one column of rows (alphabetical, top to bottom; an equipment package by its letter, Option A, its contents in the preview) between the steps (on the left) and the selected choice read in full (on the right, the widest), Back and Cancel at the foot."
 targets = ["windows"]
 not = { tui = "the terminal's character creation is a list with its preview pane" }
+
+[[scenario]]
+id = "creation.select-confirm"
+does = "On a computer a click selects a choice and the preview keeps it (the pointer only highlights); the arrows move the selection; Choose <name> in the footer (or Enter) confirms and goes on."
+targets = ["windows"]
+not = { tui = "the terminal's lists move with the arrows and choose with Enter already; it has no pointer" }
 
 [[scenario]]
 id = "data.forget-source"
@@ -490,6 +496,12 @@ does = "Set advantage or disadvantage for the next roll."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "roll.mode-control"
+does = "On a computer the next roll is a control in sight on the overview and the skills (Roll: Normal, Advantage, Disadvantage), and Shift+click rolls a number with advantage, Ctrl+click with disadvantage, as a hint beside it says."
+targets = ["windows"]
+not = { tui = "the terminal sets the next roll with a key, shown in its status line" }
+
+[[scenario]]
 id = "roll.custom"
 does = "Roll dice typed by hand with the character's numbers by name (prof, an ability, spell, level): in the terminal with #, in the app from the d20 beside the next roll on the overview, by tapping dice and names. It opens with the last one, to roll again."
 targets = ["tui", "app"]
@@ -547,7 +559,7 @@ not = { tui = "the terminal's sheet has its name and level in its own title line
 
 [[scenario]]
 id = "sheet.tab-row"
-does = "On a computer the sheet's tabs are a row of their names, the open one raised; Spells shows how many spells are still to choose."
+does = "On a computer the sheet's tabs are a row as wide as the sheet, each its icon and name, the open one raised; Spells shows how many spells are still to choose."
 targets = ["windows"]
 not = { tui = "the terminal names its tabs in a line of its own, changed with Tab" }
 
@@ -565,13 +577,19 @@ not = { tui = "the terminal's overview is laid out in its own panes, the two dam
 
 [[scenario]]
 id = "sheet.explain-popup"
-does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: the total with its sign, a line for each part (a skill's ability modifier and proficiency, then what items and features add) with where it comes from, and for a number that rolls, Roll, Advantage and Disadvantage; Escape closes it."
+does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: the total with its sign, a line for each part (a skill's ability modifier and proficiency, then what items and features add) with where it comes from; only that, no rolling (the number itself rolls); Escape closes it."
 targets = ["windows"]
 not = { tui = "the terminal explains the number under the cursor with ? in a pane of its own" }
 
 [[scenario]]
+id = "sheet.rolls-folded"
+does = "On a computer the latest rolls are folded under the overview's numbers (Rolls (n) ▸), never a column of their own."
+targets = ["windows"]
+not = { tui = "the terminal shows the latest rolls in its status line and roll log" }
+
+[[scenario]]
 id = "sheet.actions-row"
-does = "On a computer everything the sheet's ⋯ menu does is one toolbar under the name, in groups: Play (short and long rest, rolls into the session note), Character (level up, undo the last level, the note, the file), Export (printable page, Markdown, for dnt), and delete apart at the end; one line on a wide window, each button's full name on hover."
+does = "On a computer everything the sheet's ⋯ menu does is one toolbar under the name, in groups: Play (short and long rest, rolls into the session note), Character (level up, undo the last level, the note, the file), and delete apart at the end, all on one line; the exports (printable page, Markdown, for dnt) are in the ⋯ menu only; each button's full name on hover."
 targets = ["windows"]
 not = { tui = "the terminal's sheet actions are keys, listed with ?" }
 
@@ -583,7 +601,7 @@ not = { tui = "the terminal shows what happened in its status line" }
 
 [[scenario]]
 id = "attacks.actions-row"
-does = "On a computer each attack shows its menu's actions as buttons: hold it in the main hand, the off hand or both hands, and how its bonus and its damage add up."
+does = "On a computer each attack shows its menu's actions as buttons: hold it in the main hand, the off hand or (a Versatile or Two-Handed weapon) both hands, and how its bonus and its damage add up."
 targets = ["windows"]
 not = { tui = "the terminal holds and explains an attack with keys on its row" }
 
@@ -659,6 +677,12 @@ does = "Hold a weapon from the attacks: main hand, off hand or both hands."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "attacks.both-hands-only-if-it-can"
+does = "Both hands is offered only for a weapon that can be held so (Versatile or Two-Handed): not for a Dagger."
+targets = ["app"]
+not = { tui = "the terminal offers no list of grips to leave it out of: its b key holds the weapon in both hands" }
+
+[[scenario]]
 id = "attacks.shield"
 does = "Take up or put away the shield from the overview."
 targets = ["tui"]
@@ -728,6 +752,12 @@ targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- spells
 [[scenario]]
+id = "features.desktop-columns"
+does = "On a computer the feature groups flow in columns of their own (a long group does not push the next column's down), and the Weapon Mastery swap buttons keep apart from row to row."
+targets = ["windows"]
+not = { tui = "the terminal lists the features in one column" }
+
+[[scenario]]
 id = "spells.choose"
 does = "Choose the spells the character may have (cantrips, a grant's choice)."
 targets = ["tui", "app"]
@@ -781,8 +811,14 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "inventory.add-custom"
-does = "Add a custom item, just a name."
+does = "Add a custom item (an item only this character has) by its name."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.quick-item"
+does = "The app's custom item is a quick item (+ Quick item): its dialog asks the name, a description shown under it, how many and the weight of each."
+targets = ["app"]
+not = { tui = "the terminal adds a custom item by a name typed at its prompt; its description and weight are written in the character file" }
 
 [[scenario]]
 id = "inventory.add-into"
@@ -834,6 +870,12 @@ targets = ["tui", "app"]
 id = "inventory.container"
 does = "Change a container's settings, or make an item a container."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "inventory.container-kind"
+does = "In the app a container's kind is chosen from a list (as the item says, up to a weight, no limit, contents weigh nothing up to a weight or with no limit, not a container), with the weight asked only where it counts."
+targets = ["app"]
+not = { tui = "the terminal types the settings (30, no limit, weightless, off) in one prompt" }
 
 [[scenario]]
 id = "inventory.monk-weapon"
@@ -896,6 +938,24 @@ targets = ["tui", "app"]
 id = "notes.edit"
 does = "Edit a note and save it."
 targets = ["tui", "app"]
+
+[[scenario]]
+id = "notes.save-reads"
+does = "Saving a note in the app switches back to reading it."
+targets = ["app"]
+not = { tui = "the terminal's note is one vim editor, with no separate reading view to go back to" }
+
+[[scenario]]
+id = "notes.tasks"
+does = "A note's tasks (- [ ] and - [x]) read as checkboxes; ticking one (or its text) changes the note and saves it."
+targets = ["app"]
+not = { tui = "the terminal's note is one vim editor: a task is ticked by typing x in its brackets" }
+
+[[scenario]]
+id = "notes.list-enter"
+does = "In the note editor Enter at the end of a list item starts the next (- , 2. , - [ ] ); Enter on an empty item ends the list."
+targets = ["app"]
+not = { tui = "the terminal's note editor is vim (edtui), whose Enter and o keep to its own keys" }
 
 [[scenario]]
 id = "notes.links"
@@ -984,7 +1044,7 @@ not = { tui = "the terminal acts on the open entry with keys" }
 
 [[scenario]]
 id = "notes.visible-actions"
-does = "On a computer the notes' ⋯ actions are in sight: a new folder and today's session note in the toolbar, the chosen folder's rename, delete and move on its row in the tree; the open note's rename and delete; and the notes that link to it in a column beside its text."
+does = "On a computer the notes' ⋯ actions are in sight: a new folder and today's session note in the toolbar (+ Note, Quick note, New folder, Session note, ⋯), which is at the top of the note's side above the note's own actions, the chosen folder's rename, delete and move on its row in the tree; the open note's rename and delete; and the notes that link to it in a column beside its text."
 targets = ["windows"]
 not = { tui = "the terminal's notes take : commands and keys" }
 
@@ -1002,7 +1062,7 @@ not = { tui = "the terminal lists the characters one under another" }
 
 [[scenario]]
 id = "layout.dialogs"
-does = "On a computer a dialog is a roomy card with its title across the top and a ✕ that closes it (Esc and a click outside too)."
+does = "On a computer a dialog is a roomy card with its title across the top and a ✕ that closes it (Esc and a click outside too); it opens and closes with a short fade and scale (none with reduced motion), and an entry read from the sheet opens once it is read, inside the window at any size."
 targets = ["windows"]
 not = { tui = "the terminal's dialogs are boxes closed with Esc" }
 
