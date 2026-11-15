@@ -146,6 +146,9 @@ jobs:
         run: |
           # The runner comes with the Android SDK and NDKs.
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          # Debug (signed with the debug key), its Rust optimized: the
+          # unoptimized app starts too slowly on the emulator.
+          export CARGO_PROFILE_DEV_OPT_LEVEL=2
           npm ci
           npx tauri android build --apk --debug --target x86_64 --features e2e
           ls src-tauri/gen/android/app/build/outputs/apk/*/*/
