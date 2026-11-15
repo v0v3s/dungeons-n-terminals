@@ -3,9 +3,12 @@
 #
 #   scripts/e2e-app.sh [--target android|windows] [--no-build] [playwright args…]
 #
-#   --target   android (default): a phone over adb (USB debugging on);
-#              windows: the desktop app, on Windows
+#   --target   android (default): a phone (USB debugging on) or an
+#              emulator over adb; windows: the desktop app, on Windows
 #   --no-build use the last e2e build as it is
+#
+# DNT_E2E_APK installs another APK on Android (CI: a debug build for the
+# emulator, app (android) in .github/workflows/ci.yml).
 #
 # The tests use the repository's test data (e2e/data, e2e/homebrew) and
 # party (e2e/characters.json), and RESET the app before each test. On a
@@ -44,7 +47,7 @@ case "$target" in
     if [ "$build" = 1 ]; then
       (. scripts/android-env.sh && npx tauri android build --apk --target aarch64 --features e2e)
     fi
-    adb -s "$serial" install -r src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+    adb -s "$serial" install -r "${DNT_E2E_APK:-src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk}"
     adb -s "$serial" shell am force-stop cz.v0v3s.dnt
     set -- --grep-invert @windows "$@"
     ;;

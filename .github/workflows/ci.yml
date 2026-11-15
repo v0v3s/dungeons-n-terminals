@@ -107,3 +107,88 @@ jobs:
           path: |
             app/e2e/report
             app/e2e/results
+
+  # The app on Android: its end-to-end tests (app/e2e) on an emulator, a
+  # phone in portrait. The APK is a debug build (signed with the debug key,
+  # its WebView debuggable) with the e2e feature, for x86_64 only.
+  app-android:
+    name: app (android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      API_LEVEL: 34
+    steps:
+      - uses: actions/checkout@v7
+      # The emulator needs hardware acceleration.
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android-e2e
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build
+        working-directory: app
+        run: |
+          # The runner comes with the Android SDK and NDKs.
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npm ci
+          npx tauri android build --apk --debug --target x86_64 --features e2e
+          ls src-tauri/gen/android/app/build/outputs/apk/*/*/
+      # The emulator, booted once and kept as a snapshot.
+      - name: Emulator cache
+        uses: actions/cache@v6
+        id: avd
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.API_LEVEL }}-google_apis-x86_64-pixel_6
+      - name: Emulator snapshot
+        if: steps.avd.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "The emulator's snapshot, for the cache."
+      - name: End-to-end tests
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        env:
+          DNT_DEVICE: emulator-5554
+          DNT_E2E_APK: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: app
+          script: sh scripts/e2e-app.sh --target android --no-build
+      - name: Report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-android-e2e
+          path: |
+            app/e2e/report
+            app/e2e/results
