@@ -22,15 +22,8 @@
   let error = $state("");
   let imported = $state("");
   let name = $state("");
-  let presets: [string, string[]][] = $state([]);
-  /// The books of the new campaign: a preset's name, or "" for all official.
-  let preset = $state("");
 
   const step = $derived(!status.loaded ? 1 : !status.campaigns.length ? 2 : 3);
-
-  $effect(() => {
-    if (status.loaded && !presets.length) api.sources().then((s) => (presets = s.presets));
-  });
 
   async function importZip() {
     error = "";
@@ -45,11 +38,12 @@
     }
   }
 
+  /// The first campaign uses every official book (on a first start, the
+  /// SRD); its books are chosen later, from the compendium's @ button.
   async function create() {
     error = "";
-    const sources = presets.find(([n]) => n === preset)?.[1] ?? [];
     try {
-      onchange(await working("Creating the campaign…", () => api.createCampaign(name, [...sources])));
+      onchange(await working("Creating the campaign…", () => api.createCampaign(name, [])));
     } catch (e) {
       error = String(e);
     }
@@ -116,13 +110,6 @@
           }}
         >
           <label class="line"><span>❯</span><input bind:value={name} placeholder="the campaign's name" spellcheck="false" /></label>
-          <label class="books">
-            <span class="dim">Books</span>
-            <select bind:value={preset}>
-              <option value="">All official</option>
-              {#each presets as [n] (n)}<option value={n}>{n}</option>{/each}
-            </select>
-          </label>
           <p class="dim">The books and homebrew can be changed at any time, from the compendium's @ button.</p>
           <div><button class="primary" type="submit" disabled={!name.trim()}>Create the campaign</button></div>
         </form>
@@ -209,16 +196,6 @@
     border: 0;
     outline: none;
   }
-  .books {
-    display: flex;
-    gap: 1.5ch;
-    align-items: center;
-    margin-bottom: 0.6em;
-  }
-  select {
-    flex: 1;
-    min-width: 0;
-  }
   .go {
     display: flex;
     flex-wrap: wrap;
@@ -282,9 +259,6 @@
     }
     .go {
       flex-direction: column;
-    }
-    select {
-      min-height: 44px;
     }
   }
 </style>

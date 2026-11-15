@@ -28,6 +28,9 @@ test.describe("a new app", () => {
     await expect(step(page, "✓ 1 · The rules")).toContainText("System Reference Document 5.2.1 are built in");
     await expect(step(page, "▸ 2 · Create a campaign").getByPlaceholder("the campaign's name")).toBeVisible();
     await expect(page.getByRole("button", { name: "Create the campaign" })).toBeDisabled();
+    // Only the SRD so far: no books to choose; the campaign uses every
+    // official one.
+    await expect(step(page, "Create a campaign").getByRole("combobox")).toHaveCount(0);
     await createAndBrowse(page, `${CAMPAIGN} Westmarch`);
     await finds(page, "fireball", "Fireball");
   });
