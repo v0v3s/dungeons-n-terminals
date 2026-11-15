@@ -2,6 +2,9 @@ import type { Page } from "@playwright/test";
 import { answer, choose, dialog, expect, go, invoke, test } from "./fixtures";
 
 const row = (page: Page, name: string) => page.locator("button.row", { hasText: name });
+/// The notes' toolbar (+ Note, Quick note, …, ⋯): over the folders on a
+/// phone, at the top of the note's side on a computer.
+const bar = (page: Page) => page.getByRole("toolbar", { name: "Notes" });
 
 test("deleting a note and a folder asks first; declining keeps them", { tag: "@notes.delete" }, async ({ page }) => {
   await invoke(page, "note_create", { folder: "", title: "Doomed" });
@@ -10,18 +13,18 @@ test("deleting a note and a folder asks first; declining keeps them", { tag: "@n
   await go(page, "Notes");
 
   await row(page, "Doomed").click();
-  await page.locator(".note").getByRole("button", { name: "More" }).click();
+  await page.locator(".ntools").getByRole("button", { name: "More" }).click();
   await choose(page, "Doomed", "Delete…");
   await expect(dialog(page, "Delete Doomed")).toContainText("gone for good");
   await choose(page, "Delete Doomed", "Cancel");
   expect(await invoke<[string, string][]>(page, "note_search", { query: "Doomed" })).toHaveLength(1);
-  await page.locator(".note").getByRole("button", { name: "More" }).click();
+  await page.locator(".ntools").getByRole("button", { name: "More" }).click();
   await choose(page, "Doomed", "Delete…");
   await choose(page, "Delete Doomed", "Delete");
   await expect(row(page, "Doomed")).toHaveCount(0);
 
   await row(page, "Attic").click();
-  await page.locator(".tree").getByRole("button", { name: "More" }).click();
+  await bar(page).getByRole("button", { name: "More" }).click();
   await choose(page, "Attic", "Delete Attic…");
   await choose(page, "Delete Attic", "Delete");
   await expect(row(page, "Attic")).toHaveCount(0);
@@ -36,7 +39,7 @@ test("a top-level folder moves up and down", { tag: "@notes.folder-order" }, asy
   const before = await order();
   expect(before.indexOf("Beta")).toBeGreaterThan(before.indexOf("Alpha"));
   await row(page, "Beta").click();
-  await page.locator(".tree").getByRole("button", { name: "More" }).click();
+  await bar(page).getByRole("button", { name: "More" }).click();
   await choose(page, "Beta", "Move Beta up");
   await expect.poll(async () => (await order()).indexOf("Beta") < (await order()).indexOf("Alpha")).toBe(true);
 });
@@ -47,14 +50,14 @@ test("a note and a folder are renamed", { tag: "@notes.rename" }, async ({ page 
   await page.reload();
   await go(page, "Notes");
   await row(page, "Beta").click();
-  await page.locator(".tree").getByRole("button", { name: "More" }).click();
+  await bar(page).getByRole("button", { name: "More" }).click();
   await choose(page, "Beta", "Rename Beta");
   await answer(page, "Rename Beta", "Gamma");
   await expect(row(page, "Gamma")).toBeVisible();
   await expect(row(page, "Beta")).toHaveCount(0);
 
   await row(page, "Draft").click();
-  await page.locator(".note").getByRole("button", { name: "More" }).click();
+  await page.locator(".ntools").getByRole("button", { name: "More" }).click();
   await choose(page, "Draft", "Rename");
   await answer(page, "Rename", "Final");
   // The open note's pane is titled with its path (on a phone it hides the tree).
@@ -109,20 +112,20 @@ test("the notes tree: folders open and close, a note opens", { tag: "@notes.brow
 
 test("a note is made from its folder's template, and a folder is made", { tag: "@notes.new" }, async ({ page }) => {
   await go(page, "Notes");
-  await page.locator(".tree").getByRole("button", { name: "More" }).click();
+  await bar(page).getByRole("button", { name: "More" }).click();
   await choose(page, "Notes", "New folder");
   await answer(page, "New folder", "Downtime");
   await expect(folderRow(page, "Downtime")).toBeVisible();
 
   // The new folder is chosen: a note goes in it, from the generic template.
-  await page.locator(".tree").getByRole("button", { name: /\+ Note/ }).click();
+  await bar(page).getByRole("button", { name: /\+ Note/ }).click();
   await answer(page, "New note in Downtime", "Crafting");
   await expect(note(page)).toContainText("Downtime/Crafting.md");
   await expect(note(page).locator("textarea")).toHaveValue(/# Crafting/);
 
   await toTree(page);
   await folderRow(page, "NPCs").click();
-  await page.locator(".tree").getByRole("button", { name: /\+ Note/ }).click();
+  await bar(page).getByRole("button", { name: /\+ Note/ }).click();
   await answer(page, "New note in NPCs", "Old Miller");
   await expect(note(page)).toContainText("NPCs/Old Miller.md");
   const text = note(page).locator("textarea");
@@ -135,7 +138,7 @@ test("a note is made from its folder's template, and a folder is made", { tag: "
 
 test("today's session note is made from the template", { tag: "@notes.session" }, async ({ page }) => {
   await go(page, "Notes");
-  await page.locator(".tree").getByRole("button", { name: "More" }).click();
+  await bar(page).getByRole("button", { name: "More" }).click();
   await choose(page, "Notes", "Today's session note");
   await expect(note(page)).toContainText(/Sessions\/\d{4}-\d{2}-\d{2}\.md/);
   const path = (await note(page).textContent())!.match(/Sessions\/(\d{4}-\d{2}-\d{2})\.md/)![1];
@@ -150,7 +153,7 @@ test("today's session note is made from the template", { tag: "@notes.session" }
   // A note in Sessions is a session note too: the next one of the day.
   // Sessions chosen (a tap on the chosen folder chooses its parent): the
   // button says where its note goes.
-  const plus = page.locator(".tree").getByRole("button", { name: /\+ Note/ });
+  const plus = bar(page).getByRole("button", { name: /\+ Note/ });
   await expect(async () => {
     if (!(await plus.textContent())?.includes("Sessions")) await folderRow(page, "Sessions").click();
     await expect(plus).toContainText("Sessions", { timeout: 1000 });
@@ -168,7 +171,7 @@ test("a quick note lands in the Inbox with the time", { tag: "@notes.capture" },
   await expect(note(page).locator(".read")).toContainText(/\d{4}-\d{2}-\d{2} \d{2}:\d{2} The miller lies about the key/);
 });
 
-test("a note is edited and saved", { tag: "@notes.edit" }, async ({ page }) => {
+test("a note is edited and saved, then read", { tag: ["@notes.edit", "@notes.save-reads"] }, async ({ page }) => {
   await go(page, "Notes");
   await file(page, "Inbox").click();
   await note(page).getByRole("button", { name: "Edit" }).click();
@@ -178,7 +181,8 @@ test("a note is edited and saved", { tag: "@notes.edit" }, async ({ page }) => {
   await expect(note(page)).toContainText("Inbox.md ●");
   await note(page).getByRole("button", { name: "Save" }).click();
   await expect(note(page)).not.toContainText("●");
-  await note(page).getByRole("button", { name: "Read" }).click();
+  // Saved: back to reading it.
+  await expect(text).toHaveCount(0);
   await expect(note(page).locator(".read")).toContainText("The bridge to the mill is out.");
   // Saved: the file has it.
   const saved = await invoke<{ text: string }>(page, "note_read", { path: "Inbox.md" });
@@ -283,4 +287,51 @@ test("notes are searched by words, #tag, key:value and @Folder", { tag: "@notes.
   await search.fill("baron");
   await results.first().click();
   await expect(note(page)).toContainText("NPCs/Dead Baron.md");
+});
+
+test("a note's tasks are checkboxes: ticking one changes the note", { tag: "@notes.tasks" }, async ({ page }) => {
+  await seedNotes(page, { "Quests/Lost Ring.md": ["# Lost Ring", "", "<!-- a comment", "over lines -->", "- [ ] Ask the miller", "- [x] Find the mill", "- A plain item", ""].join("\n") });
+  await go(page, "Notes");
+  await file(page, "Lost Ring").click();
+  const read = note(page).locator(".read");
+  const ask = read.getByRole("checkbox", { name: "Ask the miller" });
+  const find = read.getByRole("checkbox", { name: "Find the mill" });
+  await expect(ask).not.toBeChecked();
+  await expect(find).toBeChecked();
+  await expect(read.getByRole("checkbox")).toHaveCount(2);
+  await ask.click();
+  await expect(ask).toBeChecked();
+  await expect.poll(async () => (await invoke<{ text: string }>(page, "note_read", { path: "Quests/Lost Ring.md" })).text).toContain("- [x] Ask the miller");
+  // By its text too, and back.
+  await read.getByText("Find the mill").click();
+  await expect(find).not.toBeChecked();
+  const saved = (await invoke<{ text: string }>(page, "note_read", { path: "Quests/Lost Ring.md" })).text;
+  expect(saved).toContain("- [ ] Find the mill");
+  expect(saved).toContain(["<!-- a comment", "over lines -->"].join("\n"));
+  await expect(note(page)).not.toContainText("●");
+});
+
+test("Enter goes on with a list, and on an empty item ends it", { tag: "@notes.list-enter" }, async ({ page }) => {
+  await seedNotes(page, { "Lists.md": "# Lists\n" });
+  await go(page, "Notes");
+  await file(page, "Lists").click();
+  await note(page).getByRole("button", { name: "Edit" }).click();
+  const text = note(page).locator("textarea");
+  await text.click();
+  await text.press("Control+End");
+  await text.pressSequentially("- bread");
+  await text.press("Enter");
+  await text.pressSequentially("milk");
+  await text.press("Enter");
+  // An empty item: Enter ends the list.
+  await text.press("Enter");
+  await text.pressSequentially("1. one");
+  await text.press("Enter");
+  await text.pressSequentially("two");
+  await text.press("Enter");
+  await text.press("Enter");
+  await text.pressSequentially("- [x] packed");
+  await text.press("Enter");
+  await text.pressSequentially("unpacked");
+  await expect.poll(async () => (await text.inputValue()).trimEnd()).toBe(["# Lists", "- bread", "- milk", "1. one", "2. two", "- [x] packed", "- [ ] unpacked"].join("\n"));
 });
