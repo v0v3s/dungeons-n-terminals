@@ -359,6 +359,8 @@ function misfits(page: Page) {
       let labels = 0;
       for (let n = texts && texts.nextNode(); n; n = texts && texts.nextNode()) if (n.textContent?.trim()) labels++;
       if (labels > 1) continue;
+      // A list's row (a choice in a picker) may wrap its text too.
+      if (button.parentElement?.tagName === "LI") continue;
       const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         if (!node.textContent?.trim()) continue;

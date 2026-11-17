@@ -186,11 +186,14 @@
   }
   .methods {
     display: flex;
+    flex-wrap: wrap;
     gap: 1ch;
     margin-bottom: 0.75em;
   }
+  /* A method's name on one line; the three wrap when there is no room. */
   .method {
-    flex: 1;
+    flex: 1 1 auto;
+    white-space: nowrap;
     background: none;
     border: 1px solid var(--border);
     border-radius: var(--radius);

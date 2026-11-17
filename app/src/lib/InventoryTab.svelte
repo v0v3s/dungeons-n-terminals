@@ -258,6 +258,7 @@
   }
   .buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 1ch;
     margin-bottom: 0.75em;
   }
