@@ -254,6 +254,12 @@ does = "Read an entry: its fields, text, tables and lists."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "compendium.tables"
+does = "A wide table (a class's) keeps each header and cell on one line, and scrolls sideways in its box, its bar in sight; wherever an entry is read (the compendium, the creation preview, an entry's dialog)."
+targets = ["app"]
+not = { tui = "the terminal draws a table as text lines that run past the pane, scrolled with the pane" }
+
+[[scenario]]
 id = "compendium.follow-link"
 does = "Follow a link in an entry, then go back."
 targets = ["tui", "app"]
