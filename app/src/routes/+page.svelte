@@ -304,7 +304,7 @@
           bind:reading={noteOpen}
           {status}
           narrow={narrow.current}
-          backTo={returnTo === "characters" ? characterOpen : null}
+          backTo={returnTo === "characters" ? (characterOpen?.split(" · ")[0] ?? null) : null}
           onbackto={backToCharacter}
         />{/key}
     {:else if section === "campaigns"}

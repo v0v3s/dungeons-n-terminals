@@ -407,7 +407,7 @@ test("a character's note has a way back to them, on the tab they were on", { tag
   await openSheet(page, "Skills");
   await sheetTab(page, "Notes");
   await expect(page.locator(".note")).toContainText("Tester.md");
-  const back = page.getByRole("toolbar", { name: "Notes" }).getByRole("button", { name: "‹ Tester" });
+  const back = page.getByRole("toolbar", { name: "Notes" }).getByRole("button", { name: "‹ Tester", exact: true });
   await expect(back).toBeVisible();
   await back.click();
   await expect(page.locator(".sheet h1")).toContainText("Tester");

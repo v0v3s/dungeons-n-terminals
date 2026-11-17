@@ -589,7 +589,8 @@
         <span class="nums" class:many={rolled.extra.length > 0}>
           {#each [rolled.result, ...rolled.extra] as line, i (i)}
             {@const p = numbered(line)}
-            <span class="n" class:dmg={i > 0}>
+            <!-- Red for damage dealt only ("fire damage", not "damage reduction"). -->
+            <span class="n" class:dmg={i > 0 && /damage$/.test(p?.label ?? "")} class:more={i > 0}>
               <b class:word={!p} class:crit={i === 0 && rolled.crit === true} class:fumble={i === 0 && rolled.crit === false}>{p ? p.num : line}</b>
               {#if p?.label}<span class="label">{p.label}</span>{/if}
               <!-- The result's own dice under it, each damage's under that. -->
@@ -926,6 +927,11 @@
     background: var(--raised);
     color: var(--fg);
   }
+  /* The tab opening out is over its neighbours (and their badges). */
+  .tabrow button:hover,
+  .tabrow button:focus-visible {
+    z-index: 7;
+  }
   .tabrow button.active {
     background: var(--dark);
     color: var(--fg);
@@ -939,7 +945,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    height: 100%;
+    /* A little taller than the row: over a neighbour's badge too. */
+    height: calc(100% + 0.7rem);
     padding: 0 0.9rem;
     border-radius: 0.5rem;
     background: var(--hover);

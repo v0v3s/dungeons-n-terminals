@@ -90,6 +90,8 @@ test("dice that are not damage are named for what they do; damage still says dam
   await page.getByRole("button", { name: "Roll Guidance" }).click();
   await expect(roll).toContainText("ability check bonus");
   await expect(roll).not.toContainText("damage");
+  // Not shown as damage either (damage's red).
+  await expect(roll.locator(".n.dmg")).toHaveCount(0);
   await roll.click();
   await expect(roll).toHaveCount(0);
   await page.getByRole("button", { name: "Roll Resistance" }).click();
@@ -99,6 +101,7 @@ test("dice that are not damage are named for what they do; damage still says dam
   // A damage spell still says damage.
   await page.getByRole("button", { name: "Roll Guiding Bolt" }).click();
   await expect(roll).toContainText("radiant damage");
+  await expect(roll.locator(".n.dmg")).toHaveCount(1);
 });
 
 test("the spells to choose: a class's, and a feat's choice", { tag: "@spells.choose" }, async ({ page }) => {
