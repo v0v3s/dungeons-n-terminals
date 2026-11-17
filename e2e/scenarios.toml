@@ -806,7 +806,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.roll"
-does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice. Plain dice (Bane's 1d4) are just a number, not healing."
+does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice. Dice that are not damage are named for what they do, in the list and the roll: Guidance's 1d4 an ability check bonus, Resistance's damage reduction, Bane's an attack and save penalty (never damage or healing); a damage spell still says damage."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- inventory

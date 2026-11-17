@@ -1265,10 +1265,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 };
                 let dice = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() });
                 if let Some(d) = &dice {
-                    right.push_str(&format!(
-                        "{d} {} · ",
-                        if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }
-                    ));
+                    right.push_str(&format!("{d} {} · ", r.label()));
                 }
                 right.push_str(&if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
                 if spells::concentration(lib, e) {

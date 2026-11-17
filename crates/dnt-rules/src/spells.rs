@@ -373,10 +373,14 @@ pub struct SpellRoll {
     pub save: Option<String>,
     /// Damage or healing dice at the level asked for.
     pub dice: Option<crate::value::Dice>,
-    /// `fire`, `necrotic`, `damage` (of a type chosen), `healing`,
-    /// `temporary hit points`, or empty
-    /// for plain dice (Bane's 1d4).
+    /// What the dice are: damage types (`fire`, `necrotic`, or `damage` of a
+    /// type chosen), `healing`, `temporary hit points`, or for dice that are
+    /// neither what the text does with them (`ability check bonus`,
+    /// `attack and save bonus`, `attack and save penalty`, `damage
+    /// reduction`), or empty for plain dice.
     pub kind: String,
+    /// The dice are damage dealt (a damage type, or the text says damage).
+    pub damage: bool,
     /// The text adds the spellcasting ability modifier (Cure Wounds).
     pub add_modifier: bool,
 }
@@ -454,15 +458,25 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
             let follow = follow.trim_start();
             add_modifier =
                 follow.starts_with("plus your spellcasting ability modifier") || follow.starts_with("+ your spellcasting ability modifier");
-            // Untyped dice: healing only when the text says so (Bane's
-            // 1d4 is a penalty, not healing).
-            if tag == "dice" && kind.is_empty() {
+            // Untyped dice: damage or healing only when the text says so;
+            // else what the text does with them (Bane's 1d4 is a penalty,
+            // Guidance's a bonus to a check, Resistance's less damage taken).
+            if tag == "damage" && kind.is_empty() {
+                kind = "damage".into();
+            } else if tag == "dice" && kind.is_empty() {
                 if follow.starts_with("damage") {
                     kind = "damage".into();
                 } else if follow.starts_with("temporary hit points") {
                     kind = "temporary hit points".into();
                 } else if before.to_lowercase().contains("regain") {
                     kind = "healing".into();
+                } else {
+                    kind = dice_purpose(before, follow).to_string();
+                    // "takes Force damage equal to {@dice 1d8}".
+                    let b = before.to_lowercase();
+                    if kind.is_empty() && (b.contains("damage equal to") || (b.contains("take") && b.contains("damage"))) {
+                        kind = "damage".into();
+                    }
                 }
             }
             dice = crate::roll::parse_dice(body.split('|').next().unwrap_or(body));
@@ -480,7 +494,54 @@ pub fn spell_roll(lib: &Library, spell: EntityId, character_level: i64, slot_lev
             }
         }
     }
-    SpellRoll { attack, save, dice, kind, add_modifier }
+    let damage = !damage_types.is_empty() || kind == "damage";
+    SpellRoll { attack, save, dice, kind, damage, add_modifier }
+}
+
+/// What a spell's untyped dice are for, from the sentence around them
+/// (`before` up to the dice, `follow` after them, lowercase): a bonus or a
+/// penalty to checks or to attacks and saves, less damage taken, or ""
+/// when the text does not say.
+fn dice_purpose(before: &str, follow: &str) -> &'static str {
+    let before = before.to_lowercase();
+    let before = before.trim_end();
+    let last = before.rsplit(' ').next().unwrap_or("");
+    let to = |what: &str| follow.contains(what);
+    let target = if to("damage roll") {
+        "damage"
+    } else if to("ability check") {
+        "ability check"
+    } else if to("attack roll") || to("saving throw") || to("save") {
+        "attack and save"
+    } else {
+        ""
+    };
+    match (last, target) {
+        (_, "") => {}
+        ("add" | "adds" | "adding" | "plus", "damage") => return "damage bonus",
+        ("add" | "adds" | "adding" | "plus", "ability check") => return "ability check bonus",
+        ("add" | "adds" | "adding" | "plus", _) => return "attack and save bonus",
+        ("subtract" | "subtracts" | "subtracting" | "minus", "damage") => return "damage penalty",
+        ("subtract" | "subtracts" | "subtracting" | "minus", "ability check") => return "ability check penalty",
+        ("subtract" | "subtracts" | "subtracting" | "minus", _) => return "attack and save penalty",
+        _ => {}
+    }
+    if before.contains("reduce") && before.contains("damage") {
+        "damage reduction"
+    } else {
+        ""
+    }
+}
+
+impl SpellRoll {
+    /// A short name for what the dice are, for a list of spells: the
+    /// damage type (the first of several), healing, … or "roll".
+    pub fn label(&self) -> &str {
+        match self.kind.split(" or ").next().unwrap_or("") {
+            "" => "roll",
+            k => k,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -562,8 +623,43 @@ mod tests {
         assert_eq!(fireball.dice.unwrap().to_string(), "10d6");
         let cure = spell_roll(&lib, id("Cure Wounds"), 1, 2);
         assert!(cure.add_modifier && !fb.add_modifier);
-        assert_eq!((cure.dice.unwrap().to_string(), cure.kind), ("4d8".to_string(), "healing".to_string()));
+        assert_eq!((cure.dice.unwrap().to_string(), cure.kind.as_str(), cure.damage), ("4d8".to_string(), "healing", false));
         let bane = spell_roll(&lib, id("Bane"), 1, 1);
-        assert_eq!((bane.dice.unwrap().to_string(), bane.kind), ("1d4".to_string(), String::new()));
+        assert_eq!(
+            (bane.dice.unwrap().to_string(), bane.kind.as_str(), bane.damage),
+            ("1d4".to_string(), "attack and save penalty", false)
+        );
+        assert!(fb.damage && fireball.damage);
+    }
+
+    /// Dice that are not damage are named for what they do; damage only
+    /// when the spell deals it.
+    #[test]
+    fn what_spell_dice_are() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"spell": [
+            {"name": "Guidance", "source": "T", "level": 0, "entries": ["You touch a willing creature and choose a skill. Until the spell ends, the creature adds {@dice 1d4} to any ability check using the chosen skill."]},
+            {"name": "Resistance", "source": "T", "level": 0, "entries": ["When the creature takes damage of the chosen type before the spell ends, the creature reduces the total damage taken by {@dice 1d4}. A creature can benefit from this spell only once per turn."]},
+            {"name": "Bless", "source": "T", "level": 1, "entries": ["Whenever a target makes an attack roll or a saving throw before the spell ends, the target adds {@dice 1d4} to the attack roll or save."]},
+            {"name": "Healing Word", "source": "T", "level": 1, "entries": ["A creature of your choice that you can see within range regains Hit Points equal to {@dice 2d4} plus your spellcasting ability modifier."]},
+            {"name": "Spiritual Weapon", "source": "T", "level": 2, "spellAttack": ["M"], "entries": ["On a hit, the target takes Force damage equal to {@dice 1d8} plus your spellcasting ability modifier."]},
+            {"name": "Magic Missile", "source": "T", "level": 1, "entries": ["A dart deals {@damage 1d4+1} Force damage to its target."]},
+            {"name": "Ray of Enfeeblement", "source": "T", "level": 2, "savingThrow": ["constitution"], "entries": ["During that time, it also subtracts {@dice 1d8} from all its damage rolls."]},
+            {"name": "Mystery", "source": "T", "level": 1, "entries": ["Roll {@dice 1d6} and consult the table."]}
+        ]}));
+        let id = |n: &str| lib.get(&dnt_data::Key::new(Kind::Spell, &[n, "T"])).unwrap();
+        let what = |n: &str| {
+            let r = spell_roll(&lib, id(n), 1, 1);
+            (r.kind.clone(), r.damage, r.label().to_string())
+        };
+        assert_eq!(what("Guidance"), ("ability check bonus".into(), false, "ability check bonus".into()));
+        assert_eq!(what("Resistance"), ("damage reduction".into(), false, "damage reduction".into()));
+        assert_eq!(what("Bless"), ("attack and save bonus".into(), false, "attack and save bonus".into()));
+        assert_eq!(what("Healing Word"), ("healing".into(), false, "healing".into()));
+        assert_eq!(what("Spiritual Weapon"), ("damage".into(), true, "damage".into()));
+        assert_eq!(what("Magic Missile"), ("damage".into(), true, "damage".into()));
+        assert_eq!(what("Ray of Enfeeblement"), ("damage penalty".into(), false, "damage penalty".into()));
+        // Dice the text does not explain: a roll, never damage.
+        assert_eq!(what("Mystery"), (String::new(), false, "roll".into()));
     }
 }

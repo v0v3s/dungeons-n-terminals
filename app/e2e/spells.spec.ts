@@ -73,6 +73,34 @@ test("a spell's plain dice are a number, not healing", { tag: "@spells.roll" }, 
   await expect(page.locator(".status.roll")).not.toContainText("healing");
 });
 
+test("dice that are not damage are named for what they do; damage still says damage", { tag: "@spells.roll" }, async ({ page }) => {
+  await openSheet(page, "Spells", "Hexa");
+  await page.locator("button.choice", { hasText: "choose 2 Cleric cantrip" }).click();
+  await pick(page, ["Guidance", "Resistance"]);
+  await page.locator("button.choice", { hasText: "choose 1 Cleric spell" }).click();
+  await pick(page, ["Guiding Bolt"]);
+  // In the list: what each spell's dice are.
+  const row = (name: string) => page.locator(".srow", { has: spell(page, name) }).first();
+  await expect(row("Guidance")).toContainText("1d4 ability check bonus");
+  await expect(row("Guidance")).not.toContainText("damage");
+  await expect(row("Resistance")).toContainText("1d4 damage reduction");
+  await expect(row("Guiding Bolt")).toContainText("4d6 radiant");
+  // Rolled: Guidance's 1d4 is a bonus to a check, not damage.
+  const roll = page.locator(".status.roll");
+  await page.getByRole("button", { name: "Roll Guidance" }).click();
+  await expect(roll).toContainText("ability check bonus");
+  await expect(roll).not.toContainText("damage");
+  await roll.click();
+  await expect(roll).toHaveCount(0);
+  await page.getByRole("button", { name: "Roll Resistance" }).click();
+  await expect(roll).toContainText("damage reduction");
+  await roll.click();
+  await expect(roll).toHaveCount(0);
+  // A damage spell still says damage.
+  await page.getByRole("button", { name: "Roll Guiding Bolt" }).click();
+  await expect(roll).toContainText("radiant damage");
+});
+
 test("the spells to choose: a class's, and a feat's choice", { tag: "@spells.choose" }, async ({ page }) => {
   await openSheet(page, "Overview", "Hexa");
   // Where the flag says "spells to choose" in full, "spells" and "to" are

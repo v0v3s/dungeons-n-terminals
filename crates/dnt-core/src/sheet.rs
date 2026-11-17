@@ -677,7 +677,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 let (_, dc) = crate::rolls::spell_numbers(s, caster.as_deref());
                 let modifier = dc - 8 - ev.int("prof").unwrap_or(2);
                 if let Some(d) = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() }) {
-                    detail.push(format!("{d} {}", if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }));
+                    detail.push(format!("{d} {}", r.label()));
                 }
                 if spells::concentration(lib, e) {
                     detail.push("C".into());

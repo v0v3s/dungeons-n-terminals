@@ -201,6 +201,34 @@ fn rolling_a_spell_uses_its_class_numbers() {
 }
 
 #[test]
+fn dice_that_are_not_damage_are_named_for_what_they_do() {
+    let mut t = Tui::scenario("spells.roll", Home::party());
+    spells_of(&mut t, "Hexa");
+    // Magic Initiate: Guidance and Resistance, and Guiding Bolt.
+    t.send("G").send("k").send(ENTER).wait("Choose 2 Cleric cantrip");
+    t.typed("guidance").send(" ").send(&ctrl('u')).typed("resistance").send(" ").send(ENTER);
+    t.wait("Added Guidance, Resistance");
+    t.send("G").send(ENTER).wait("Choose 1 Cleric spell");
+    t.typed("guiding").send(" ").send(ENTER).wait("Added Guiding Bolt");
+    // In the list: what the dice are.
+    let guidance = t.line("◆ Guidance");
+    assert!(guidance.contains("1d4 ability check bonus") && !guidance.contains("damage"), "{guidance}");
+    let resistance = t.line("◆ Resistance");
+    assert!(resistance.contains("1d4 damage reduction"), "{resistance}");
+    assert!(t.line("◆ Guiding Bolt").contains("4d6 radiant"), "{}", t.screen());
+    // Rolled: Guidance's 1d4 is a bonus to a check, not damage.
+    to_spell(&mut t, "Guidance");
+    t.send("r").wait("Guidance: ");
+    let line = t.line("Guidance: ");
+    assert!(line.contains("ability check bonus") && !line.contains("damage"), "{line}");
+    // A damage spell still says damage.
+    to_spell(&mut t, "Guiding Bolt");
+    t.send("r").wait("Guiding Bolt: ");
+    let line = t.line("Guiding Bolt: ");
+    assert!(line.contains("radiant damage"), "{line}");
+}
+
+#[test]
 fn a_spell_with_plain_dice_does_not_say_healing() {
     let mut t = Tui::scenario("spells.roll", Home::party());
     spells_of(&mut t, "Hexa");
@@ -211,5 +239,5 @@ fn a_spell_with_plain_dice_does_not_say_healing() {
     t.send("r").wait("Bane: ");
     let line = t.line("Bane: ");
     assert!(line.contains("(Charisma save) · "), "{line}");
-    assert!(!line.contains("healing") && !line.contains("damage"), "{line}");
+    assert!(!line.contains("healing") && !line.contains(" damage"), "{line}");
 }

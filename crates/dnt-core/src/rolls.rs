@@ -269,7 +269,7 @@ pub fn spell(sheet: &mut CharacterSession, lib: &Library, spell: EntityId, slot_
         // "… plus your spellcasting ability modifier": the DC is 8 + proficiency + it.
         let dice = if s.add_modifier { dice.plus_flat(dc - 8 - sheet.ev.int("prof").unwrap_or(2)) } else { dice.clone() };
         let d = roll::damage(&mut sheet.roller.rng, &dnt_rules::Value::Dice(dice), DamageRules { critical, ..Default::default() });
-        let damage = !matches!(s.kind.as_str(), "" | "healing" | "temporary hit points");
+        let damage = s.damage;
         let what = if s.kind == "damage" {
             " damage".to_string()
         } else if damage {
