@@ -60,14 +60,25 @@ become the release page.
   every official one (they are chosen later, from the compendium).
 - Text never runs out of its box: a long word breaks, a label kept to
   one line ends in "…" with its full text as the tooltip.
-- The sheet on Windows: its tabs with their icons across the sheet; the
-  exports in ⋯ only, so the toolbar is one line; the latest rolls folded
+- The sheet on Windows: the exports in ⋯ only, so the toolbar is one line; the latest rolls folded
   under the numbers (Rolls (n)), never a column.
 - Rolling on Windows: the next roll is a control in sight (Roll: Normal,
   Advantage, Disadvantage) on the overview and skills, and Shift+click
   rolls with advantage, Ctrl+click with disadvantage; ⓘ only shows how a
   number adds up.
 - Both hands is offered only for a Versatile or Two-Handed weapon.
+- A spell's dice say what they are: damage only when it deals damage;
+  otherwise healing, temporary hit points, or what the spell does with
+  them (Guidance's 1d4 an ability check bonus, Resistance's damage
+  reduction, Bane's an attack and save penalty), in the app and the
+  terminal.
+- Tables (a class's) keep each cell on one line and scroll sideways in
+  their box, in the compendium, the creation preview and entry dialogs.
+- The sheet's tabs on Windows are icons; the open tab shows its name, and
+  another's opens out on hover or with the keyboard.
+- A character's note on Windows has a ‹ <name> button back to their sheet.
+- On a phone, tapping a dice chip in Roll dice no longer brings the
+  keyboard up.
 - Dialogs open and close with a short fade (still with reduced motion);
   an entry read from the sheet opens once it is read.
 - Inventory: + Custom is + Quick item, asking a name, a description
