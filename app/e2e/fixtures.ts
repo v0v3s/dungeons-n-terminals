@@ -122,7 +122,9 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
   app: [
     async ({}, use) => {
       const endpoint = TARGET === "windows" ? await windows.connect() : await android.connect();
-      const browser = await chromium.connectOverCDP(endpoint);
+      // An Android WebView has no browser contexts to manage: Playwright's
+      // defaults for the context (downloads, emulation) are left alone.
+      const browser = await chromium.connectOverCDP(endpoint, { noDefaults: TARGET === "android" });
       // The WebView's page may come a moment after its DevTools port.
       const context = browser.contexts()[0];
       const page = context.pages()[0] ?? (await context.waitForEvent("page"));
