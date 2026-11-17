@@ -565,7 +565,7 @@ not = { tui = "the terminal's sheet has its name and level in its own title line
 
 [[scenario]]
 id = "sheet.tab-row"
-does = "On a computer the sheet's tabs are a row as wide as the sheet, each its icon and name, the open one raised; Spells shows how many spells are still to choose."
+does = "On a computer the sheet's tabs are a row of icons on the left, the open one raised with its name; the pointer over a tab (or the keyboard on it) opens its name out from the middle of its icon, nothing moving; Spells shows how many spells are still to choose on its icon."
 targets = ["windows"]
 not = { tui = "the terminal names its tabs in a line of its own, changed with Tab" }
 

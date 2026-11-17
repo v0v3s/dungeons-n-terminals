@@ -542,11 +542,16 @@
       {/each}
     </div>
   {:else}
-    <!-- A computer: every tab by its name, in one row. -->
+    <!-- A computer: the tabs as icons, the open one with its name; the
+         pointer over a tab (or the keyboard on it) opens its name out from
+         the icon. -->
     <div class="tabrow" role="tablist" aria-label="Sheet">
       {#each SHEET_TABS as t (t)}
-        <button role="tab" aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
-          <Icon name={TAB_ICONS[t]} size="1.2em" />{t}{#if t === "Spells" && sheet.header.spells_to_choose}<span class="badge">{sheet.header.spells_to_choose}</span>{/if}
+        {@const n = t === "Spells" ? sheet.header.spells_to_choose : 0}
+        <button role="tab" aria-label={n ? `${t}, ${n} to choose` : t} aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
+          <Icon name={TAB_ICONS[t]} size="1.25em" />
+          {#if tab === t}<span class="tname">{t}</span>{:else}<span class="flyout" aria-hidden="true"><Icon name={TAB_ICONS[t]} size="1.25em" />{t}</span>{/if}
+          {#if n}<span class="badge">{n}</span>{/if}
         </button>
       {/each}
     </div>
@@ -885,10 +890,14 @@
   }
   /* A computer: the tabs by icon and name, one row as wide as the sheet,
      the chosen one raised. */
+  /* The tabs on a computer: a row of icons on the left, the open tab
+     with its name; another's name opens out from the middle of its icon
+     over the row (no tab moves). */
   .tabrow {
-    display: flex;
-    gap: 0.25rem;
-    margin: 0.9rem 0 0.6rem;
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 0.2rem;
+    margin: 0.7rem 0 0.35rem;
     padding: 0.25rem;
     background: var(--card);
     border: 1px solid var(--edge);
@@ -896,14 +905,14 @@
     flex-shrink: 0;
   }
   .tabrow button {
-    flex: 1 1 0;
-    min-width: 0;
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    min-width: 2.9rem;
     height: 2.3rem;
-    padding: 0 1rem;
+    padding: 0 0.8rem;
     border: 0;
     border-radius: 0.5rem;
     background: none;
@@ -920,7 +929,41 @@
   .tabrow button.active {
     background: var(--dark);
     color: var(--fg);
+    padding: 0 1rem;
   }
+  .flyout {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 100%;
+    padding: 0 0.9rem;
+    border-radius: 0.5rem;
+    background: var(--hover);
+    color: var(--fg);
+    box-shadow: 0 0.3rem 1rem rgb(0 0 0 / 0.35);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    clip-path: inset(0 50% 0 50% round 0.5rem);
+    transition:
+      clip-path 0.18s ease-out,
+      opacity 0.18s ease-out;
+  }
+  .tabrow button:hover .flyout,
+  .tabrow button:focus-visible .flyout {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 0.5rem);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flyout {
+      transition: none;
+    }
+  }
+  /* The spells to choose, on the icon's corner. */
   .badge {
     background: var(--cyan);
     color: var(--black);
@@ -928,6 +971,14 @@
     padding: 0 0.4rem;
     font-size: 0.75em;
     font-weight: 700;
+  }
+  .tabrow .badge {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.2rem;
+    z-index: 6;
+    font-size: 0.68em;
+    line-height: 1.5;
   }
   @media (pointer: fine) and (min-width: 761px) {
     h1 {

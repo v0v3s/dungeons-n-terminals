@@ -5,25 +5,52 @@ import { answer, expect, expectTab, fits, go, openSheet, pick, sheetMore, sheetT
 
 const party = (page: Page) => page.getByRole("navigation", { name: "Party" });
 
-test("the sheet's tabs are a row of icons and names as wide as the sheet; Spells shows the spells to choose", { tag: ["@sheet.tab-row", "@windows"] }, async ({ page }) => {
-  await windowSize(page, { width: 1280, height: 820 });
-  await openSheet(page);
-  const row = page.locator(".sheet .tabrow");
-  await expect(row.getByRole("tab")).toHaveCount(6);
-  // Each with the icon a phone's tabs have; the row spans the sheet, the
-  // tabs about as wide as each other.
-  await expect(row.getByRole("tab").locator("svg.icon")).toHaveCount(6);
-  const sheet = (await page.locator(".sheet > .head").boundingBox())!;
-  const wide = (await row.boundingBox())!;
-  expect(wide.width).toBeGreaterThan(sheet.width * 0.95);
-  const widths = await row.getByRole("tab").evaluateAll((ts) => ts.map((t) => t.getBoundingClientRect().width));
-  expect(Math.min(...widths)).toBeGreaterThan(Math.max(...widths) * 0.6);
-  await expect(row.getByRole("tab", { selected: true })).toHaveText("Overview");
-  // Tester, a Wizard at level 1, has spells to choose.
-  await expect(row.getByRole("tab", { name: /^Spells/ })).toHaveText(/^Spells\s*\d+$/);
-  await sheetTab(page, "Skills");
-  await expectTab(page, "Skills");
-  await expect(row.getByRole("tab", { selected: true })).toHaveText("Skills");
+test("the sheet's tabs are icons, the open one named; a tab's name opens out on hover or focus", { tag: ["@sheet.tab-row", "@windows"] }, async ({ page }) => {
+  for (const size of [
+    { width: 1280, height: 820 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await windowSize(page, size);
+    await openSheet(page);
+    const row = page.locator(".sheet .tabrow");
+    const tabs = row.getByRole("tab");
+    await expect(tabs).toHaveCount(6);
+    await expect(tabs.locator("svg.icon").first()).toBeVisible();
+    // Left-aligned, not stretched across the sheet.
+    const sheet = (await page.locator(".sheet > .head").boundingBox())!;
+    const box = (await row.boundingBox())!;
+    expect(box.width, `at ${size.width}px`).toBeLessThan(sheet.width * 0.6);
+    expect(Math.abs(box.x - sheet.x), `at ${size.width}px`).toBeLessThan(4);
+    // The open tab shows its name; the others only their icon.
+    await expect(row.getByRole("tab", { selected: true })).toHaveAccessibleName("Overview");
+    await expect(row.getByRole("tab", { selected: true }).locator(".tname")).toBeVisible();
+    const skills = row.getByRole("tab", { name: "Skills" });
+    const name = skills.locator(".flyout");
+    const shown = () => name.evaluate((n) => Number(getComputedStyle(n).opacity));
+    expect(await shown()).toBe(0);
+    // The pointer over it: its name opens out, centred on its icon; no tab moves.
+    const before = await tabs.evaluateAll((ts) => ts.map((t) => Math.round(t.getBoundingClientRect().left)));
+    await skills.hover();
+    await expect.poll(shown).toBe(1);
+    await expect(name).toContainText("Skills");
+    const tab = (await skills.boundingBox())!;
+    const out = (await name.boundingBox())!;
+    expect(Math.abs(out.x + out.width / 2 - (tab.x + tab.width / 2))).toBeLessThan(3);
+    expect(await tabs.evaluateAll((ts) => ts.map((t) => Math.round(t.getBoundingClientRect().left)))).toEqual(before);
+    // The keyboard on a tab does the same.
+    await page.mouse.move(1, 1);
+    await expect.poll(shown).toBe(0);
+    await skills.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect.poll(shown).toBe(1);
+    // Tester, a Wizard at level 1, has spells to choose: the count on the icon.
+    await expect(row.getByRole("tab", { name: /^Spells/ })).toHaveAccessibleName(/^Spells, \d+ to choose$/);
+    await expect(row.getByRole("tab", { name: /^Spells/ }).locator(".badge")).toBeVisible();
+    await sheetTab(page, "Skills");
+    await expectTab(page, "Skills");
+    await expect(row.getByRole("tab", { selected: true }).locator(".tname")).toHaveText("Skills");
+  }
 });
 
 test("the party is beside the sheet: another character in one click, ☰ hides it", { tag: ["@sheet.party-sidebar", "@windows"] }, async ({ page }) => {
