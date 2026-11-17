@@ -16,7 +16,17 @@
     narrow = false,
     openPath = $bindable(null),
     reading = $bindable(null),
-  }: { status: api.Status; narrow?: boolean; openPath?: string | null; reading?: string | null } = $props();
+    backTo = null,
+    onbackto,
+  }: {
+    status: api.Status;
+    narrow?: boolean;
+    openPath?: string | null;
+    reading?: string | null;
+    /// The character the note was opened from: a way back to them.
+    backTo?: string | null;
+    onbackto?: () => void;
+  } = $props();
 
   let rows: api.NoteRow[] = $state([]);
   let expanded: string[] = $state([]);
@@ -435,6 +445,9 @@
        the note's side, above the note's own actions; on a phone over the
        folders. -->
   <div class="tools" role="toolbar" aria-label="Notes">
+    <!-- Opened from a character: back to their sheet (a phone's app bar has
+         its own Back). -->
+    {#if backTo && desktop.current}<button class="ghost backto" title="Back to {backTo}'s sheet" onclick={() => onbackto?.()}>‹ {backTo}</button>{/if}
     <button class="ghost new" onclick={() => newNote()} title={selected ? `A note in ${selected}, from its template` : "A note at the top level"}
       >+ Note{#if selected}<span class="dim">&nbsp;· {short(selected)}</span>{/if}</button
     >
@@ -879,6 +892,10 @@
     .ntools,
     textarea {
       grid-column: 1 / -1;
+    }
+    .backto {
+      color: var(--accent);
+      margin-right: 0.4rem;
     }
     /* Making something new, apart from the note's own actions under it. */
     .tools {

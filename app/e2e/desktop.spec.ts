@@ -401,3 +401,19 @@ test("the features flow in columns of their own, and the swap buttons keep apart
   expect(swaps.length).toBeGreaterThanOrEqual(2);
   for (let i = 1; i < swaps.length; i++) expect(swaps[i].top - swaps[i - 1].bottom).toBeGreaterThanOrEqual(2);
 });
+
+test("a character's note has a way back to them, on the tab they were on", { tag: ["@notes.back-to-character", "@windows"] }, async ({ page }) => {
+  await windowSize(page, { width: 1280, height: 820 });
+  await openSheet(page, "Skills");
+  await sheetTab(page, "Notes");
+  await expect(page.locator(".note")).toContainText("Tester.md");
+  const back = page.getByRole("toolbar", { name: "Notes" }).getByRole("button", { name: "‹ Tester" });
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page.locator(".sheet h1")).toContainText("Tester");
+  await expectTab(page, "Skills");
+  // Notes opened from the header: no character to go back to.
+  await go(page, "Notes");
+  await expect(page.getByRole("toolbar", { name: "Notes" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^‹ / })).toHaveCount(0);
+});

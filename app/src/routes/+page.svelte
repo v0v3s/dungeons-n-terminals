@@ -165,6 +165,14 @@
     (section === "compendium" && narrow.current && !!reading) || (section === "characters" && !!characterOpen) || (section === "notes" && ((narrow.current && !!noteOpen) || !!returnTo)),
   );
 
+  /// Back from a note to the character it was opened from (its sheet on
+  /// the tab it was on), as Android's back button does.
+  async function backToCharacter() {
+    await notes?.save();
+    if (returnTo) section = returnTo;
+    returnTo = null;
+  }
+
   function openNote(path: string) {
     notePath = path;
     returnTo = section === "characters" ? "characters" : null;
@@ -290,7 +298,15 @@
     {:else if section === "characters"}
       {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} bind:tab={sheetTab} bind:actions={sheetActions} {status} onnote={openNote} />{/key}
     {:else if section === "notes"}
-      {#key status.campaign}<Notes bind:this={notes} bind:openPath={notePath} bind:reading={noteOpen} {status} narrow={narrow.current} />{/key}
+      {#key status.campaign}<Notes
+          bind:this={notes}
+          bind:openPath={notePath}
+          bind:reading={noteOpen}
+          {status}
+          narrow={narrow.current}
+          backTo={returnTo === "characters" ? characterOpen : null}
+          onbackto={backToCharacter}
+        />{/key}
     {:else if section === "campaigns"}
       <Campaigns {status} onchange={(s) => (status = s)} />
     {:else}

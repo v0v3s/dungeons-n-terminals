@@ -1049,6 +1049,12 @@ targets = ["windows"]
 not = { tui = "the terminal acts on the open entry with keys" }
 
 [[scenario]]
+id = "notes.back-to-character"
+does = "On a computer a character's note (from the sheet's Notes tab or menu) has a ‹ <name> button that goes back to their sheet, on the tab it was on; on a phone the app bar's Back does the same."
+targets = ["windows"]
+not = { tui = "the terminal's character note opens in the Notes section, and Esc goes back" }
+
+[[scenario]]
 id = "notes.visible-actions"
 does = "On a computer the notes' ⋯ actions are in sight: a new folder and today's session note in the toolbar (+ Note, Quick note, New folder, Session note, ⋯), which is at the top of the note's side above the note's own actions, the chosen folder's rename, delete and move on its row in the tree; the open note's rename and delete; and the notes that link to it in a column beside its text."
 targets = ["windows"]
