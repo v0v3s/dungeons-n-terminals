@@ -565,7 +565,7 @@ not = { tui = "the terminal's sheet has its name and level in its own title line
 
 [[scenario]]
 id = "sheet.tab-row"
-does = "On a computer the sheet's tabs are a row of icons on the left, the open one raised with its name; the pointer over a tab (or the keyboard on it) opens its name out from the middle of its icon, nothing moving; Spells shows how many spells are still to choose on its icon."
+does = "On a computer the sheet's tabs are a row of icons on the left, the open one raised with its name; the pointer over a tab (or the keyboard on it) shows its name the same way, the tab growing in the row and the tabs after it moving along; Spells shows how many spells are still to choose on its icon."
 targets = ["windows"]
 not = { tui = "the terminal names its tabs in a line of its own, changed with Tab" }
 
@@ -802,6 +802,22 @@ targets = ["tui", "app"]
 [[scenario]]
 id = "spells.remove"
 does = "Remove a spell."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.multi-pick"
+does = "In the app several spells are chosen at once (a class's, a feature's choice, the spells to choose), grouped by level (Cantrips, Level 1, …), by name, each heading with how many can be chosen there (shared between levels when it is); only what can be chosen now (the levels the class takes, the groups with room: no Cantrips when no cantrip is to choose); the spells already had shown ticked, one given up freeing a pick; a click on a row reads it beside the list (under it on a phone); Confirm adds and removes them; the arrows move, Space ticks, Enter confirms."
+targets = ["app"]
+not = { tui = "the terminal's pickers already tick several (Space, n/m chosen, Enter) and its spell pane reads the spell under the cursor" }
+
+[[scenario]]
+id = "spells.add-any"
+does = "Add a spell from all spells, not only the class's list, for what the rules do not list: in the app an All spells switch in the picker (off at first), in the terminal A."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.granted"
+does = "A feature that grants a spell adds it, listed under that feature, without counting against the limits: as the data's granted spells, or as its text says (Pact of the Chain's Find Familiar, Paladin's Smite's Divine Smite); the feature gone (a level undone), its spell goes too."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -1083,6 +1099,12 @@ id = "layout.wide"
 does = "On a big screen (2560 and 3840 px wide) every section and the sheet span the window, the text and controls grow with it, more columns come in, and running text still wraps at a comfortable length."
 targets = ["windows"]
 not = { tui = "a terminal's text is the size its terminal sets; its panes span the window (layout.fits)" }
+
+[[scenario]]
+id = "layout.even-gutters"
+does = "On a computer with the sidebar hidden, every section's content is as far from the window's left as from its right."
+targets = ["windows"]
+not = { tui = "the terminal's panes span its window" }
 
 [[scenario]]
 id = "layout.sidebar"

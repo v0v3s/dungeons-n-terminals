@@ -882,6 +882,10 @@
       grid-template-columns: minmax(16rem, 22%) minmax(0, 1fr);
       gap: 0 1rem;
     }
+    /* The folders hidden: the note has the whole width. */
+    .notes.folded {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .notes :global(.note > .body) {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;

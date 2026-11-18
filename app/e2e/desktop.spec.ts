@@ -5,7 +5,7 @@ import { answer, expect, expectTab, fits, go, openSheet, pick, sheetMore, sheetT
 
 const party = (page: Page) => page.getByRole("navigation", { name: "Party" });
 
-test("the sheet's tabs are icons, the open one named; a tab's name opens out on hover or focus", { tag: ["@sheet.tab-row", "@windows"] }, async ({ page }) => {
+test("the sheet's tabs are icons, the open one named; hover or focus grows a tab the same way, in the row", { tag: ["@sheet.tab-row", "@windows"] }, async ({ page }) => {
   for (const size of [
     { width: 1280, height: 820 },
     { width: 2560, height: 1440 },
@@ -20,36 +20,80 @@ test("the sheet's tabs are icons, the open one named; a tab's name opens out on 
     const sheet = (await page.locator(".sheet > .head").boundingBox())!;
     const box = (await row.boundingBox())!;
     expect(box.width, `at ${size.width}px`).toBeLessThan(sheet.width * 0.6);
-    expect(Math.abs(box.x - sheet.x), `at ${size.width}px`).toBeLessThan(4);
     // The open tab shows its name; the others only their icon.
     await expect(row.getByRole("tab", { selected: true })).toHaveAccessibleName("Overview");
-    await expect(row.getByRole("tab", { selected: true }).locator(".tname")).toBeVisible();
+    const named = (name: string) => row.getByRole("tab", { name }).locator(".tname").evaluate((n) => Math.round(n.getBoundingClientRect().width));
+    expect(await named("Overview")).toBeGreaterThan(20);
+    expect(await named("Skills")).toBe(0);
     const skills = row.getByRole("tab", { name: "Skills" });
-    const name = skills.locator(".flyout");
-    const shown = () => name.evaluate((n) => Number(getComputedStyle(n).opacity));
-    expect(await shown()).toBe(0);
-    // The pointer over it: its name opens out, centred on its icon; no tab moves.
-    const before = await tabs.evaluateAll((ts) => ts.map((t) => Math.round(t.getBoundingClientRect().left)));
+    const spells = row.getByRole("tab", { name: /^Spells/ });
+    const width = async () => Math.round((await skills.boundingBox())!.width);
+    const at = async () => Math.round((await spells.boundingBox())!.x);
+    const rest = { width: await width(), next: await at(), top: (await row.boundingBox())!.y };
+    // The pointer over Skills: it grows in the row (no overlay), the tabs
+    // after it move right, the row stays one line.
     await skills.hover();
-    await expect.poll(shown).toBe(1);
-    await expect(name).toContainText("Skills");
-    const tab = (await skills.boundingBox())!;
-    const out = (await name.boundingBox())!;
-    expect(Math.abs(out.x + out.width / 2 - (tab.x + tab.width / 2))).toBeLessThan(3);
-    expect(await tabs.evaluateAll((ts) => ts.map((t) => Math.round(t.getBoundingClientRect().left)))).toEqual(before);
-    // The keyboard on a tab does the same.
+    await expect.poll(width).toBeGreaterThan(rest.width + 20);
+    await page.waitForTimeout(300);
+    const hovered = await width();
+    expect(await at()).toBeGreaterThan(rest.next + 20);
+    expect(await row.locator(".flyout").count()).toBe(0);
+    expect(Math.abs((await row.boundingBox())!.y - rest.top)).toBeLessThan(1);
+    expect(new Set(await tabs.evaluateAll((ts) => ts.map((t) => Math.round(t.getBoundingClientRect().top)))).size).toBe(1);
+    // Exactly as wide as Skills is when it is the open tab.
     await page.mouse.move(1, 1);
-    await expect.poll(shown).toBe(0);
+    await expect.poll(width).toBe(rest.width);
+    await sheetTab(page, "Skills");
+    await page.mouse.move(1, 1);
+    await page.waitForTimeout(300);
+    expect(Math.abs((await width()) - hovered)).toBeLessThanOrEqual(1);
+    await sheetTab(page, "Overview");
+    await page.mouse.move(1, 1);
+    await expect.poll(width).toBe(rest.width);
+    // The keyboard on a tab does the same.
     await skills.focus();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
-    await expect.poll(shown).toBe(1);
+    await page.waitForTimeout(300);
+    expect(Math.abs((await width()) - hovered)).toBeLessThanOrEqual(1);
     // Tester, a Wizard at level 1, has spells to choose: the count on the icon.
-    await expect(row.getByRole("tab", { name: /^Spells/ })).toHaveAccessibleName(/^Spells, \d+ to choose$/);
-    await expect(row.getByRole("tab", { name: /^Spells/ }).locator(".badge")).toBeVisible();
-    await sheetTab(page, "Skills");
-    await expectTab(page, "Skills");
-    await expect(row.getByRole("tab", { selected: true }).locator(".tname")).toHaveText("Skills");
+    await expect(spells).toHaveAccessibleName(/^Spells, \d+ to choose$/);
+    await expect(spells.locator(".badge")).toBeVisible();
+  }
+});
+
+test("with the sidebar hidden, the content is as far from the window's left as from its right", { tag: ["@layout.even-gutters", "@windows"] }, async ({ page }) => {
+  test.setTimeout(120_000);
+  /// How far the cards are from each side of the window.
+  const gutters = () =>
+    page.evaluate(() => {
+      const w = document.documentElement.clientWidth;
+      const cards = [...document.querySelectorAll("main .pane, main section.card, main button.card")].filter((c) => c.getBoundingClientRect().width > 0);
+      return {
+        left: Math.round(Math.min(...cards.map((c) => c.getBoundingClientRect().left))),
+        right: Math.round(w - Math.max(...cards.map((c) => c.getBoundingClientRect().right))),
+      };
+    });
+  const hide = async () => {
+    const button = page.getByRole("button", { name: "Hide the sidebar" });
+    if (await button.isVisible()) await button.click();
+  };
+  for (const width of [1100, 1280, 2560]) {
+    await windowSize(page, { width, height: 900 });
+    await openSheet(page);
+    await hide();
+    await page.waitForTimeout(200);
+    let g = await gutters();
+    expect(Math.abs(g.left - g.right), `the sheet at ${width}px: ${JSON.stringify(g)}`).toBeLessThanOrEqual(2);
+    for (const section of ["Characters", "Notes", "Data", "Compendium", "Campaigns"] as const) {
+      await go(page, section);
+      await hide();
+      await page.waitForTimeout(200);
+      g = await gutters();
+      expect(Math.abs(g.left - g.right), `${section} at ${width}px: ${JSON.stringify(g)}`).toBeLessThanOrEqual(2);
+    }
+    const show = page.getByRole("button", { name: "Show the sidebar" });
+    if (await show.isVisible()) await show.click();
   }
 });
 

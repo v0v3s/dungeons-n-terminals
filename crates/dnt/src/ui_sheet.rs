@@ -1386,6 +1386,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
             Line::styled("◦ cantrip   ● prepared/known   ○ in spellbook   ◆ from a feature", theme.dim),
             Line::default(),
             Line::from(vec![Span::styled(" a ", theme.keycap), Span::styled(" add a spell to the class under the cursor", theme.dim)]),
+            Line::from(vec![Span::styled(" A ", theme.keycap), Span::styled(" add from all spells, not only the class's", theme.dim)]),
             Line::from(vec![
                 Span::styled(" enter ", theme.keycap),
                 Span::styled(" cast (choose a slot) · pick spells for a feature", theme.dim),

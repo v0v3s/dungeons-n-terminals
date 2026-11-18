@@ -167,6 +167,20 @@
   .withparty > :global(*) {
     min-height: 0;
   }
+  /* A computer with the party hidden: the sheet as far from the window's
+     left as its scrollbar's room keeps it from the right. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .withparty:not(.party) > :global(.sheet) {
+      padding-left: var(--scrollbar);
+    }
+    .withparty:not(.party) > :global(.sheet > :not(.body)) {
+      margin-right: var(--scrollbar);
+    }
+    .withparty:not(.party) > :global(.sheet > .body) {
+      scrollbar-gutter: stable;
+      padding-right: 0;
+    }
+  }
   .partylist {
     display: flex;
     flex-direction: column;

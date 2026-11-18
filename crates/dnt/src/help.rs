@@ -339,6 +339,7 @@ mod content {
         keys: &[
             ("j k · g G", "move"),
             ("a", "add spells for the class under the cursor"),
+            ("A", "add from all spells, not only the class's list"),
             ("enter", "cast (choose a slot) · choose spells for a feature"),
             ("r", "roll the spell's attack and damage"),
             ("p", "prepare or unprepare (spellbook)"),

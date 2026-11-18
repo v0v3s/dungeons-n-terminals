@@ -11,6 +11,7 @@
   import Modal from "./Modal.svelte";
   import OverviewTab from "./OverviewTab.svelte";
   import Picker from "./Picker.svelte";
+  import SpellPicker from "./SpellPicker.svelte";
   import Prompt from "./Prompt.svelte";
   import DiceRoll from "./DiceRoll.svelte";
   import RulesEditor from "./RulesEditor.svelte";
@@ -118,7 +119,8 @@
     | { kind: "file"; text: string; error: string }
     | { kind: "rules"; entity: number }
     | { kind: "warnings" }
-    | { kind: "dice"; text: string; error: string };
+    | { kind: "dice"; text: string; error: string }
+    | { kind: "spells"; wanted: api.Wanted; options: api.Options; then: (values: string[], options: api.Options) => void };
   let dialog: Dialog | null = $state(null);
   /// How a number adds up, in a pop-up beside it (a computer).
   let pop: { b: api.Breakdown; key: string; x: number; y: number } | null = $state(null);
@@ -214,6 +216,9 @@
     async pick(wanted, then) {
       try {
         const options = await api.options(wanted);
+        // Spells: several at once, read beside the list (a class's list can
+        // widen to all spells, so an empty one is no end).
+        if (wanted.type === "class_spells" || wanted.type === "grant_spells") return void (dialog = { kind: "spells", wanted, options, then });
         if (!options.choices.length) return say("Nothing to choose from");
         dialog = { kind: "pick", options, then };
       } catch (e) {
@@ -543,14 +548,14 @@
     </div>
   {:else}
     <!-- A computer: the tabs as icons, the open one with its name; the
-         pointer over a tab (or the keyboard on it) opens its name out from
-         the icon. -->
+         pointer over a tab (or the keyboard on it) opens its name the same
+         way, the tab growing in the row. -->
     <div class="tabrow" role="tablist" aria-label="Sheet">
       {#each SHEET_TABS as t (t)}
         {@const n = t === "Spells" ? sheet.header.spells_to_choose : 0}
         <button role="tab" aria-label={n ? `${t}, ${n} to choose` : t} aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
           <Icon name={TAB_ICONS[t]} size="1.25em" />
-          {#if tab === t}<span class="tname">{t}</span>{:else}<span class="flyout" aria-hidden="true"><Icon name={TAB_ICONS[t]} size="1.25em" />{t}</span>{/if}
+          <span class="tname" aria-hidden="true"><span>{t}</span></span>
           {#if n}<span class="badge">{n}</span>{/if}
         </button>
       {/each}
@@ -673,6 +678,27 @@
       />
     {/key}
   </Modal>
+{:else if dialog?.kind === "spells"}
+  {@const d = dialog}
+  {#key closings}
+    <SpellPicker
+      wanted={d.wanted}
+      options={d.options}
+      onclose={close}
+      onconfirm={async (ids, options, removes) => {
+        const then = d.then;
+        close();
+        // Given up first (freeing their place), then the new ones. A spell
+        // in a Wizard's spellbook that is prepared takes two removals.
+        for (const r of removes) {
+          const from = options.target;
+          if (!(await act({ command: "remove_spell", from, id: r.id }))) continue;
+          if (r.how === "in your spellbook" && sheet.spells.some((s) => s.type === "spell" && s.id === r.id && s.class_id)) await act({ command: "remove_spell", from, id: r.id });
+        }
+        if (ids.length) then(ids, options);
+      }}
+    />
+  {/key}
 {:else if dialog?.kind === "dice"}
   {@const d = dialog}
   {#key closings}
@@ -891,9 +917,10 @@
   }
   /* A computer: the tabs by icon and name, one row as wide as the sheet,
      the chosen one raised. */
-  /* The tabs on a computer: a row of icons on the left, the open tab
-     with its name; another's name opens out from the middle of its icon
-     over the row (no tab moves). */
+  /* The tabs on a computer: a row of icons on the left. The open tab
+     shows its name; the pointer over another (or the keyboard on it) shows
+     its name the same way, the tab growing from its icon and the tabs
+     after it moving along. */
   .tabrow {
     display: inline-flex;
     align-self: flex-start;
@@ -904,14 +931,13 @@
     border: 1px solid var(--edge);
     border-radius: var(--radius);
     flex-shrink: 0;
+    white-space: nowrap;
   }
   .tabrow button {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    min-width: 2.9rem;
     height: 2.3rem;
     padding: 0 0.8rem;
     border: 0;
@@ -923,50 +949,44 @@
     white-space: nowrap;
     cursor: pointer;
   }
-  .tabrow button:hover {
-    background: var(--raised);
-    color: var(--fg);
-  }
-  /* The tab opening out is over its neighbours (and their badges). */
   .tabrow button:hover,
   .tabrow button:focus-visible {
-    z-index: 7;
+    background: var(--raised);
+    color: var(--fg);
   }
   .tabrow button.active {
     background: var(--dark);
     color: var(--fg);
-    padding: 0 1rem;
   }
-  .flyout {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    z-index: 5;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    /* A little taller than the row: over a neighbour's badge too. */
-    height: calc(100% + 0.7rem);
-    padding: 0 0.9rem;
-    border-radius: 0.5rem;
-    background: var(--hover);
-    color: var(--fg);
-    box-shadow: 0 0.3rem 1rem rgb(0 0 0 / 0.35);
-    pointer-events: none;
-    transform: translate(-50%, -50%);
+  /* The name: no width at rest, its full width when shown (a grid track
+     from 0fr to 1fr), fading in. */
+  .tname {
+    display: grid;
+    grid-template-columns: 0fr;
     opacity: 0;
-    clip-path: inset(0 50% 0 50% round 0.5rem);
     transition:
-      clip-path 0.18s ease-out,
+      grid-template-columns 0.18s ease-out,
       opacity 0.18s ease-out;
   }
-  .tabrow button:hover .flyout,
-  .tabrow button:focus-visible .flyout {
+  .tname > span {
+    overflow: hidden;
+    padding-left: 0;
+    transition: padding-left 0.18s ease-out;
+  }
+  .tabrow button.active .tname,
+  .tabrow button:hover .tname,
+  .tabrow button:focus-visible .tname {
+    grid-template-columns: 1fr;
     opacity: 1;
-    clip-path: inset(0 0 0 0 round 0.5rem);
+  }
+  .tabrow button.active .tname > span,
+  .tabrow button:hover .tname > span,
+  .tabrow button:focus-visible .tname > span {
+    padding-left: 0.5rem;
   }
   @media (prefers-reduced-motion: reduce) {
-    .flyout {
+    .tname,
+    .tname > span {
       transition: none;
     }
   }

@@ -68,10 +68,12 @@ fn a_mage_adds_cantrips_and_spellbook_spells() {
 fn a_grant_chooses_its_spells() {
     let mut t = Tui::scenario("spells.choose", Home::party());
     spells_of(&mut t, "Hexa");
+    // The last rows are Armor of Shadows and its Mage Armor (spells.granted):
+    // the feat's choices are just above them.
     t.wait("Magic Initiate; Cleric").wait("+ choose 2 Cleric cantrip");
     // The class's 2 cantrips and 2 spells, and the feat's 2 cantrips and 1 spell.
     t.wait("7 spell(s) to choose");
-    t.send("G").send("k").send(ENTER).wait("Choose 2 Cleric cantrip");
+    t.send("G").send("k").send("k").send("k").send(ENTER).wait("Choose 2 Cleric cantrip");
     t.typed("guidance").send(" ").send(&ctrl('u')).typed("sacred").send(" ").send(ENTER);
     t.wait("Added Guidance, Sacred Flame").wait_gone("+ choose 2 Cleric cantrip");
     t.wait("5 spell(s) to choose");
@@ -127,6 +129,41 @@ fn a_cantrip_needs_no_slot() {
     to_spell(&mut t, "Ray of Frost");
     t.send(ENTER).wait("Ray of Frost is a cantrip: no slot needed");
     assert!(t.line("Slots").contains("1 ●●"), "{}", t.screen());
+}
+
+#[test]
+fn any_spell_is_added_from_all_spells() {
+    let mut t = Tui::scenario("spells.add-any", Home::party());
+    spells_of(&mut t, "Tester");
+    // The Wizard's list has no Cure Wounds…
+    t.send("a").wait("add a cantrip or spellbook spell");
+    t.typed("cure wounds");
+    t.wait_until("no Cure Wounds in the Wizard's list", |s| !s.contains("Cure Wounds"));
+    t.send(ESC);
+    // …all spells have.
+    t.send("A").wait("(all spells)");
+    t.typed("cure wounds").wait("Cure Wounds");
+    t.send(ENTER).wait("Added Cure Wounds");
+}
+
+#[test]
+fn a_feature_that_grants_a_spell_adds_it() {
+    let mut t = Tui::scenario("spells.granted", Home::party());
+    spells_of(&mut t, "Hexa");
+    assert!(!t.shows("Find Familiar"), "{}", t.screen());
+    // Warlock 2: Pact of the Chain grants Find Familiar (not a Warlock spell).
+    t.send("u").wait("Level up: choose a class").send(ENTER).wait("Hit points for this level");
+    t.send(ENTER).wait("Eldritch Invocations: choose 2");
+    t.typed("chain").wait("○ Pact of the Chain").send(" ").send(&ctrl('u')).typed("mask").send(" ").send(ENTER);
+    t.wait("Confirm level up").send(ENTER).wait("Warlock 2");
+    t.wait("◆ Find Familiar");
+    let s = t.screen();
+    let group = s.find("Pact of the Chain").unwrap_or_else(|| panic!("no Pact of the Chain group: {s}"));
+    assert!(s[group..].contains("◆ Find Familiar"), "{s}");
+    // The level undone, the invocation and its spell are gone.
+    t.send("U").wait("Remove the latest level").send("y");
+    t.wait("Warlock 1");
+    t.wait_until("Find Familiar is gone", |s| !s.contains("Find Familiar"));
 }
 
 #[test]
@@ -205,10 +242,10 @@ fn dice_that_are_not_damage_are_named_for_what_they_do() {
     let mut t = Tui::scenario("spells.roll", Home::party());
     spells_of(&mut t, "Hexa");
     // Magic Initiate: Guidance and Resistance, and Guiding Bolt.
-    t.send("G").send("k").send(ENTER).wait("Choose 2 Cleric cantrip");
+    t.send("G").send("k").send("k").send("k").send(ENTER).wait("Choose 2 Cleric cantrip");
     t.typed("guidance").send(" ").send(&ctrl('u')).typed("resistance").send(" ").send(ENTER);
     t.wait("Added Guidance, Resistance");
-    t.send("G").send(ENTER).wait("Choose 1 Cleric spell");
+    t.send("G").send("k").send("k").send(ENTER).wait("Choose 1 Cleric spell");
     t.typed("guiding").send(" ").send(ENTER).wait("Added Guiding Bolt");
     // In the list: what the dice are.
     let guidance = t.line("◆ Guidance");
@@ -233,7 +270,7 @@ fn a_spell_with_plain_dice_does_not_say_healing() {
     let mut t = Tui::scenario("spells.roll", Home::party());
     spells_of(&mut t, "Hexa");
     // Bane, from Magic Initiate: its 1d4 is taken off the targets' rolls.
-    t.send("G").send(ENTER).wait("Choose 1 Cleric spell");
+    t.send("G").send("k").send("k").send(ENTER).wait("Choose 1 Cleric spell");
     t.typed("bane").send(" ").send(ENTER).wait("Added Bane");
     to_spell(&mut t, "Bane");
     t.send("r").wait("Bane: ");

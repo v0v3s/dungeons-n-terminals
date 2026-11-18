@@ -242,3 +242,124 @@ test("a spell is removed", { tag: "@spells.remove" }, async ({ page }) => {
   await expect(spell(page, "Burning Hands")).toHaveCount(0);
   await expect(spell(page, "Ray of Frost")).toBeVisible();
 });
+
+test("a feature that grants a spell adds it, under that feature; gone with it", { tag: "@spells.granted" }, async ({ page }) => {
+  // Hexa to Warlock 2, taking Pact of the Chain (Find Familiar is no Warlock spell).
+  await invoke(page, "open_character", { slug: "hexa" });
+  let step = await invoke<{ question: any }>(page, "levelup_start");
+  while (step.question.type !== "confirm") {
+    const q = step.question;
+    const want = (c: any) => /^Pact of the Chain$/.test(c.label);
+    const answer =
+      q.type === "pick"
+        ? { type: "pick", value: [...q.choices.filter(want), ...q.choices.filter((c: any) => !want(c))].slice(0, q.count).map((c: any) => c.value) }
+        : { type: "number", value: 1 };
+    step = await invoke(page, "levelup_answer", { answer });
+  }
+  await invoke(page, "levelup_apply");
+  await invoke(page, "close_character");
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+
+  await openSheet(page, "Spells", "Hexa");
+  await expect(spell(page, "Find Familiar")).toBeVisible();
+  // Listed under the feature that grants it, as from a feature.
+  const under = await spell(page, "Find Familiar").evaluate((b) => {
+    for (let el: Element | null = b.closest(".srow"); el; el = el.previousElementSibling) {
+      const t = el.querySelector?.(".header .title") ?? (el.classList.contains("header") ? el.querySelector(".title") : null);
+      if (t) return t.textContent?.trim();
+    }
+    return null;
+  });
+  expect(under).toBe("Pact of the Chain");
+  await expect(page.locator(".srow", { has: spell(page, "Find Familiar") }).locator(".mark")).toHaveText("◆");
+  // The level undone: the invocation goes, and its spell with it.
+  await sheetMore(page);
+  await choose(page, "Hexa", "Remove the latest level");
+  await dialog(page, "Undo a level").getByRole("button", { name: "Yes" }).click();
+  await expect(page.locator(".sheet .id")).toContainText("Warlock 1");
+  await expect(spell(page, "Find Familiar")).toHaveCount(0);
+});
+
+test("a class's spells widen to all spells with a switch, off at first", { tag: "@spells.add-any" }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  await page.getByRole("button", { name: "+ add" }).first().click();
+  const box = page.getByRole("dialog").filter({ has: page.locator(".spellpick") });
+  const all = box.getByRole("switch", { name: /All spells/ });
+  await expect(all).not.toBeChecked();
+  await box.getByRole("textbox").fill("cure wounds");
+  await expect(box.getByRole("checkbox", { name: "Choose Cure Wounds", exact: true })).toHaveCount(0);
+  // All spells: Cure Wounds (no Wizard spell) is there, and said to be so.
+  await all.check();
+  await expect(box).toContainText("not only the class's list");
+  await box.getByRole("checkbox", { name: "Choose Cure Wounds", exact: true }).check();
+  await box.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(spell(page, "Cure Wounds")).toBeVisible();
+});
+
+test("several spells are chosen at once: a row read beside, boxes ticked to a count, Confirm", { tag: "@spells.multi-pick" }, async ({ page }) => {
+  await openSheet(page, "Spells", "Hexa");
+  await page.locator("button.choice", { hasText: "choose 2 Cleric cantrip" }).click();
+  const box = page.getByRole("dialog").filter({ has: page.locator(".spellpick") });
+  const group = (level: string) => box.locator("li.group", { hasText: new RegExp(`^${level}`) });
+  // Cantrips only (the feature's choice), by name, with how many to choose.
+  await expect(box.locator("li.group")).toHaveCount(1);
+  await expect(group("Cantrips")).toHaveText("Cantrips · choose 2");
+  const names = await box.locator("li.item .label").allTextContents();
+  expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  // A click on a row reads it, and keeps it read.
+  await box.locator("button.row", { hasText: "Guidance" }).click();
+  const read = box.locator(".preview, li.inline").first();
+  await expect(read).toContainText("You touch a willing creature and choose a skill");
+  await box.locator("button.row", { hasText: "Light" }).first().hover();
+  await page.waitForTimeout(300);
+  await expect(read).toContainText("You touch a willing creature and choose a skill");
+  // Ticked to the count, no more; the heading counts down.
+  await box.getByRole("checkbox", { name: "Choose Guidance", exact: true }).check();
+  await expect(group("Cantrips")).toHaveText("Cantrips · choose 1");
+  await box.getByRole("checkbox", { name: "Choose Resistance", exact: true }).check();
+  await expect(group("Cantrips")).toHaveText("Cantrips · none left");
+  await expect(box.getByRole("checkbox", { name: "Choose Sacred Flame", exact: true })).toBeDisabled();
+  // The keyboard: Space unticks the one under the cursor (Guidance), the
+  // arrows move, Space ticks, Enter confirms.
+  await box.locator("button.row", { hasText: "Guidance" }).click();
+  await page.keyboard.press(" ");
+  await expect(group("Cantrips")).toHaveText("Cantrips · choose 1");
+  await box.locator("button.row", { hasText: "Sacred Flame" }).click();
+  await page.keyboard.press(" ");
+  await page.keyboard.press("Enter");
+  await expect(box).toHaveCount(0);
+  await expect(spell(page, "Resistance")).toBeVisible();
+  await expect(spell(page, "Sacred Flame")).toBeVisible();
+  await expect(spell(page, "Guidance")).toHaveCount(0);
+});
+
+test("a class's spells by level: what is had ticked, given up to free a pick; full groups hidden", { tag: "@spells.multi-pick" }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  const open = async () => {
+    await page.getByRole("button", { name: "+ add" }).first().click();
+    return page.getByRole("dialog").filter({ has: page.locator(".spellpick") });
+  };
+  // A new Wizard: cantrips and level 1, each with its count.
+  let box = await open();
+  const group = (level: string) => box.locator("li.group", { hasText: new RegExp(`^${level}`) });
+  await expect(box.locator("li.group")).toHaveText(["Cantrips · choose 3", "Level 1 · choose 6"]);
+  for (const name of ["Fire Bolt", "Light", "Mage Hand", "Magic Missile"]) await box.getByRole("checkbox", { name: `Choose ${name}`, exact: true }).check();
+  await expect(group("Cantrips")).toHaveText("Cantrips · none left");
+  await expect(group("Level 1")).toHaveText("Level 1 · choose 5");
+  await box.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(spell(page, "Magic Missile")).toBeVisible();
+  // Again: the cantrips are full, so not shown; what is had is ticked, as had.
+  box = await open();
+  await expect(box.locator("li.group")).toHaveText(["Level 1 · choose 5"]);
+  const missile = box.locator("li.item", { hasText: "Magic Missile" });
+  await expect(missile.getByRole("checkbox")).toBeChecked();
+  await expect(missile.locator(".had")).toHaveText("in your spellbook");
+  // Given up, it frees a pick; Confirm takes it out of the spellbook.
+  await missile.getByRole("checkbox").uncheck();
+  await expect(group("Level 1")).toHaveText("Level 1 · choose 6");
+  await box.getByRole("checkbox", { name: "Choose Shield", exact: true }).check();
+  await box.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(spell(page, "Shield")).toBeVisible();
+  await expect(spell(page, "Magic Missile")).toHaveCount(0);
+});

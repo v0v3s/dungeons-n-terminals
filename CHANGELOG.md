@@ -75,7 +75,20 @@ become the release page.
 - Tables (a class's) keep each cell on one line and scroll sideways in
   their box, in the compendium, the creation preview and entry dialogs.
 - The sheet's tabs on Windows are icons; the open tab shows its name, and
-  another's opens out on hover or with the keyboard.
+  the pointer or the keyboard on another grows it the same way in the row.
+- With the sidebar hidden on Windows, the content keeps the same margin on
+  both sides; a note uses the whole width.
+- Features that grant a spell add it, listed under the feature: as the
+  data's granted spells, or as its text says (Pact of the Chain's Find
+  Familiar, an invocation's spell, Paladin's Smite's Divine Smite); gone
+  with the feature. In the app and the terminal.
+- Spells can be added from all spells, not only the class's list: an All
+  spells switch in the app's picker, A in the terminal.
+- In the app several spells are chosen at once: grouped by level, each
+  heading with how many can be chosen there; only what can be chosen now
+  (no Cantrips when no cantrip is to choose); the spells already had shown
+  ticked, one given up freeing a pick; read each beside the list, then
+  Confirm.
 - A character's note on Windows has a ‹ <name> button back to their sheet.
 - On a phone, tapping a dice chip in Roll dice no longer brings the
   keyboard up.

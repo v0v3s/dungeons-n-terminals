@@ -270,6 +270,66 @@ fn applicable(map: &serde_json::Map<String, Json>, level: i64) -> impl Iterator<
     map.iter().filter(move |(k, _)| k == &"_" || k.trim_end_matches('e').parse::<i64>().is_ok_and(|l| l <= level)).map(|(_, v)| v)
 }
 
+/// Spells a feature grants in its text only (no `additionalSpells`): "you
+/// always have the {@spell Divine Smite} spell prepared" (prepared), "you
+/// learn the {@spell Find Familiar} spell" or "you know the {@spell
+/// Thaumaturgy} cantrip" (known), "you can cast {@spell Mage Armor} …
+/// without expending a spell slot" (at will). A lineage's or a legacy's
+/// own section is left to that lineage (its own entity).
+pub fn text_grants(data: &Json) -> Vec<Granted> {
+    fn texts<'a>(v: &'a Json, out: &mut Vec<&'a str>) {
+        match v {
+            Json::String(s) => out.push(s),
+            Json::Array(a) => a.iter().for_each(|x| texts(x, out)),
+            Json::Object(o) => {
+                let name = o.get("name").and_then(Json::as_str).unwrap_or("");
+                if name.contains("Lineage") || name.contains("Legacy") {
+                    return;
+                }
+                if let Some(e) = o.get("entries") {
+                    texts(e, out);
+                }
+                if let Some(i) = o.get("items") {
+                    texts(i, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut strings = Vec::new();
+    texts(data.get("entries").unwrap_or(&Json::Null), &mut strings);
+    let mut out: Vec<Granted> = Vec::new();
+    for text in strings {
+        for sentence in text.split(". ") {
+            let lower = sentence.to_lowercase();
+            let grant = if lower.contains("without expending a spell slot") && lower.contains("can cast") {
+                Grant::Innate(None)
+            } else if lower.contains("always have") && lower.contains("prepared") {
+                Grant::Prepared
+            } else if lower.contains("you learn the") || (lower.contains("you know the") && lower.contains("cantrip")) {
+                Grant::Known
+            } else {
+                continue;
+            };
+            let mut rest = sentence;
+            while let Some(at) = rest.find("{@spell ") {
+                let after = &rest[at + 8..];
+                let Some(end) = after.find('}') else { break };
+                let body = &after[..end];
+                let mut parts = body.split('|');
+                let name = parts.next().unwrap_or("").trim().to_lowercase();
+                let source = parts.next().map(str::trim).filter(|s| !s.is_empty()).unwrap_or("phb").to_lowercase();
+                let id = format!("spell:{name}|{source}");
+                if !name.is_empty() && !out.iter().any(|g| matches!(g, Granted::Spell { id: i, .. } if *i == id)) {
+                    out.push(Granted::Spell { id, grant: grant.clone() });
+                }
+                rest = &after[end + 1..];
+            }
+        }
+    }
+    out
+}
+
 /// Spells granted by an entity's `additionalSpells` at `level` (class level
 /// for subclasses, character level otherwise). Only the first alternative
 /// is used; variants such as Magic Initiate; Cleric are separate entities.
@@ -630,6 +690,27 @@ mod tests {
             ("1d4".to_string(), "attack and save penalty", false)
         );
         assert!(fb.damage && fireball.damage);
+    }
+
+    /// Spells a feature grants in its text only.
+    #[test]
+    fn spells_granted_in_text() {
+        let pact = json!({"entries": ["You learn the {@spell Find Familiar|SRD52} spell and can cast it as a Magic action without expending a spell slot."]});
+        assert_eq!(text_grants(&pact), vec![Granted::Spell { id: "spell:find familiar|srd52".into(), grant: Grant::Innate(None) }]);
+        let smite = json!({"entries": ["You always have the {@spell Divine Smite|SRD52} spell prepared. In addition, you can cast it without expending a spell slot."]});
+        assert_eq!(text_grants(&smite), vec![Granted::Spell { id: "spell:divine smite|srd52".into(), grant: Grant::Prepared }]);
+        let words = json!({"entries": ["You therefore always have the {@spell Power Word Heal|SRD52} and {@spell Power Word Kill|SRD52} spells prepared."]});
+        assert_eq!(text_grants(&words).len(), 2);
+        let tiefling = json!({"entries": [{"type": "entries", "name": "Fiendish Legacy", "entries": ["You know the {@spell Fire Bolt|SRD52} cantrip."]},
+            {"type": "entries", "name": "Otherworldly Presence", "entries": ["You know the {@spell Thaumaturgy|SRD52} cantrip."]}]});
+        assert_eq!(
+            text_grants(&tiefling),
+            vec![Granted::Spell { id: "spell:thaumaturgy|srd52".into(), grant: Grant::Known }],
+            "the legacy's own spells are its own"
+        );
+        // Text about a spell already had is no grant.
+        let lore = json!({"entries": ["While a creature is marked by your {@spell Hunter's Mark|SRD52}, you know whether it has any Immunities."]});
+        assert!(text_grants(&lore).is_empty());
     }
 
     /// Dice that are not damage are named for what they do; damage only

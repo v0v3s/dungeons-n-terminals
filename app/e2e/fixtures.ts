@@ -293,14 +293,24 @@ export async function pick(page: Page, labels: string[]) {
   // be up while the app works out the next), else the last one open.
   // Held by its place: filtering its list must not lose it.
   const dialogs = page.getByRole("dialog");
-  const offering = dialogs.filter({ has: page.locator("li button", { hasText: labels[0] }) });
+  const offering = dialogs.filter({ has: page.locator("li button, .spellpick", { hasText: labels[0] }) });
   await offering.last().waitFor({ timeout: 5000 }).catch(() => {});
   let picker = dialogs.last();
   for (let i = (await dialogs.count()) - 1; i >= 0; i--) {
-    if (await dialogs.nth(i).locator("li button", { hasText: labels[0] }).count()) {
+    if (await dialogs.nth(i).locator("li button, .spellpick").filter({ hasText: labels[0] }).count() || (await dialogs.nth(i).locator(".spellpick").count())) {
       picker = dialogs.nth(i);
       break;
     }
+  }
+  // Spells: each ticked, then Confirm.
+  if (await picker.locator(".spellpick").count()) {
+    for (const label of labels) {
+      await picker.getByRole("textbox").fill(label);
+      await picker.getByRole("checkbox", { name: `Choose ${label}`, exact: true }).check();
+    }
+    await picker.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(picker).toHaveCount(0, { timeout: 5000 }).catch(() => {});
+    return;
   }
   // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
   // fewer need "done".

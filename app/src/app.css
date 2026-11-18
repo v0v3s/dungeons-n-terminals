@@ -43,6 +43,8 @@
   --line: 1.5;
   --radius: 7px;
   --gap: 12px;
+  /* A scrollbar's width, with its gap (see ::-webkit-scrollbar). */
+  --scrollbar: calc(8px + var(--gap));
   /* A card on the page, a control on a card. */
   --card: #1f2335;
   --raised: #292e42;
@@ -124,7 +126,7 @@ input {
 /* A scrollbar keeps a gap from what it scrolls: its own transparent
    side, so the gap is there only when the bar is. */
 ::-webkit-scrollbar {
-  width: calc(8px + var(--gap));
+  width: var(--scrollbar);
 }
 /* Rows that scroll sideways (tabs, categories) show no bar. */
 .no-bar {
