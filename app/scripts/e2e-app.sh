@@ -17,7 +17,8 @@
 # several devices. On Windows the app runs in a temporary home (DNT_HOME).
 #
 # The build has the e2e feature (its WebView can be debugged), so it is
-# never one to release.
+# never one to release. CARGO_TARGET_DIR builds it elsewhere (beside a
+# release build that is running, say).
 set -eu
 
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -66,8 +67,9 @@ case "$target" in
       ' "$(native "$conf")"
       npx tauri build --no-bundle --features e2e --config "$(native "$conf")"
     fi
-    export DNT_E2E_APP="$(native "$here/../target/release/dnt-app.exe")"
-    echo "the app: $DNT_E2E_APP"; ls -la "$here/../target/release/" | grep -i dnt || true
+    out=${CARGO_TARGET_DIR:-$here/../target}
+    export DNT_E2E_APP="$(native "$out/release/dnt-app.exe")"
+    echo "the app: $DNT_E2E_APP"; ls -la "$out/release/" | grep -i dnt || true
     set -- --grep-invert @android "$@"
     ;;
   *) echo "unknown target: $target (android or windows)" >&2; exit 2 ;;

@@ -43,6 +43,8 @@
   --line: 1.5;
   --radius: 7px;
   --gap: 12px;
+  /* A scrollbar's width, with its gap (see ::-webkit-scrollbar). */
+  --scrollbar: calc(8px + var(--gap));
   /* A card on the page, a control on a card. */
   --card: #1f2335;
   --raised: #292e42;
@@ -97,6 +99,18 @@ body {
   line-height: var(--line);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* Text never runs out of its box: a word too long for it breaks. */
+  overflow-wrap: anywhere;
+}
+
+/* What must stay on one line (a button's label, a label) shortens with an
+   ellipsis instead of running out; its full text is its tooltip
+   (lib/overflow.ts). */
+.ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 button,
@@ -112,7 +126,7 @@ input {
 /* A scrollbar keeps a gap from what it scrolls: its own transparent
    side, so the gap is there only when the bar is. */
 ::-webkit-scrollbar {
-  width: calc(8px + var(--gap));
+  width: var(--scrollbar);
 }
 /* Rows that scroll sideways (tabs, categories) show no bar. */
 .no-bar {
@@ -167,6 +181,9 @@ input {
     padding: 0 1rem;
     font-weight: 500;
     white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .ghost {
     background: var(--raised);

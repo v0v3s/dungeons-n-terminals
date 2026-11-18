@@ -94,6 +94,15 @@ pub enum Command {
         inside: Option<String>,
         #[serde(default)]
         into: Option<usize>,
+        /// What it is, in a few words.
+        #[serde(default)]
+        description: Option<String>,
+        /// Pounds, each.
+        #[serde(default)]
+        weight: Option<f64>,
+        /// How many (1 when unset).
+        #[serde(default)]
+        quantity: Option<i64>,
     },
     ChangeQuantity {
         line: usize,
@@ -382,12 +391,26 @@ impl CharacterSession {
                 let name = dnt_rules::overlay::resolve_id(lib, &id).map(|e| lib.entity(e).name.clone()).unwrap_or(id);
                 Outcome::changed(format!("Added {name}"))
             }
-            Command::AddCustomItem { name, inside, into } => {
+            Command::AddCustomItem { name, inside, into, description, weight, quantity } => {
                 let name = name.trim().to_string();
                 if name.is_empty() {
                     return Err("A custom item needs a name".into());
                 }
-                c.inventory.push(InventoryItem { name: Some(name.clone()), quantity: 1, inside, ..Default::default() });
+                if weight.is_some_and(|w| !w.is_finite() || w < 0.0) {
+                    return Err("A weight is a number of pounds, 0 or more".into());
+                }
+                if quantity.is_some_and(|q| q < 1) {
+                    return Err("A quantity is 1 or more".into());
+                }
+                let description = description.map(|d| d.trim().to_string()).filter(|d| !d.is_empty());
+                c.inventory.push(InventoryItem {
+                    name: Some(name.clone()),
+                    quantity: quantity.unwrap_or(1),
+                    weight: weight.filter(|&w| w > 0.0),
+                    description,
+                    inside,
+                    ..Default::default()
+                });
                 if into.is_some() {
                     equipment::put_in(lib, c, c.inventory.len() - 1, into)?;
                 }
@@ -597,9 +620,20 @@ mod tests {
         s.apply(&lib, o, Command::PutIn { line: 0, into: Some(2) }).unwrap();
         assert!(s.character().inventory[0].inside.is_some());
         // Added straight into a container, by its line (the app's way).
-        s.apply(&lib, o, Command::AddCustomItem { name: "Pebble".into(), inside: None, into: Some(2) }).unwrap();
+        s.apply(
+            &lib,
+            o,
+            Command::AddCustomItem { name: "Pebble".into(), inside: None, into: Some(2), description: None, weight: None, quantity: None },
+        )
+        .unwrap();
         let inv = &s.character().inventory;
         assert_eq!(inv[3].inside, inv[2].id, "the pebble is in the sack");
+        let quick: Command = serde_json::from_str(r#"{"command":"add_custom_item","name":"Lucky stone","inside":null,"description":" A smooth stone ","weight":0.5,"quantity":3}"#).unwrap();
+        s.apply(&lib, o, quick).unwrap();
+        let stone = s.character().inventory.last().unwrap();
+        assert_eq!((stone.description.as_deref(), stone.weight, stone.quantity), (Some("A smooth stone"), Some(0.5), 3));
+        let bad: Command = serde_json::from_str(r#"{"command":"add_custom_item","name":"Nothing","inside":null,"quantity":0}"#).unwrap();
+        assert!(s.apply(&lib, o, bad).is_err(), "no item of quantity 0");
         let added: Command = serde_json::from_str(r#"{"command":"add_custom_item","name":"Pebble","inside":null,"into":2}"#).unwrap();
         assert!(matches!(added, Command::AddCustomItem { into: Some(2), .. }));
         assert!(s.apply(&lib, o, Command::ChangeQuantity { line: 0, delta: -1 }).is_err());

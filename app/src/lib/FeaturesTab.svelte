@@ -76,6 +76,27 @@
   .swap {
     padding: 0 1ch;
   }
+  /* A computer: the groups in columns that flow on their own (a long
+     group in one column does not push the next column's down), and room
+     between rows so the swap buttons' borders never touch. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .features {
+      display: block;
+      columns: 24rem;
+      column-gap: 1.2rem;
+    }
+    .features > :global(.pane) {
+      break-inside: avoid;
+      margin: 0 0 1.2rem;
+    }
+    .row + .row {
+      margin-top: 0.3rem;
+    }
+    .swap {
+      min-height: 2rem;
+      font-size: 0.85em;
+    }
+  }
   @media (max-width: 760px) {
     .features {
       grid-template-columns: minmax(0, 1fr);

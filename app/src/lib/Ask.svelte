@@ -14,6 +14,8 @@
     onscores,
     oninfo,
     next = true,
+    confirmPick = false,
+    onchosen,
   }: {
     question: Question;
     onanswer: (a: Answer) => void;
@@ -25,6 +27,9 @@
     oninfo?: (c: Choice) => void;
     /// The scores' Next here (else the caller's, with its other buttons).
     next?: boolean;
+    /// A pick selects first; the caller's button confirms (see Picker).
+    confirmPick?: boolean;
+    onchosen?: (values: string[]) => void;
   } = $props();
 
   const NAMES = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
@@ -92,7 +97,7 @@
 {#if question.type === "pick"}
   <div class="title muted">{question.title}</div>
   {#key question.title + question.choices.length}
-    <Picker choices={question.choices} count={question.count} onpick={(v) => onanswer({ type: "pick", value: v })} {onhighlight} {oninfo} />
+    <Picker choices={question.choices} count={question.count} onpick={(v) => onanswer({ type: "pick", value: v })} {onhighlight} {oninfo} confirm={confirmPick} {onchosen} />
   {/key}
 {:else if question.type === "number"}
   <div class="title muted">{question.title}</div>
@@ -181,11 +186,14 @@
   }
   .methods {
     display: flex;
+    flex-wrap: wrap;
     gap: 1ch;
     margin-bottom: 0.75em;
   }
+  /* A method's name on one line; the three wrap when there is no room. */
   .method {
-    flex: 1;
+    flex: 1 1 auto;
+    white-space: nowrap;
     background: none;
     border: 1px solid var(--border);
     border-radius: var(--radius);

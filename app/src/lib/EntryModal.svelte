@@ -31,7 +31,9 @@
   onMount(() => open(id, part));
 </script>
 
-<Modal title={entry?.name ?? "…"} {onclose} wide footer="esc">
+<!-- Opened once the entry is read, so it does not jump from empty to full. -->
+{#if entry || error}
+<Modal title={entry?.name ?? "Not found"} {onclose} wide footer="esc">
   {#if entry}
     {#if stack.length > 1}<button class="back" onclick={() => (stack = stack.slice(0, -1))}>‹ {stack.at(-2)?.name}</button>{/if}
     <div class="sub">
@@ -49,6 +51,7 @@
   {/if}
   {#if error}<p class="err">{error}</p>{/if}
 </Modal>
+{/if}
 
 <style>
   .back {

@@ -4,6 +4,8 @@
   import * as api from "./api";
   import type { Inventory, Line } from "./api";
   import BrewEditor from "./BrewEditor.svelte";
+  import ContainerKind from "./ContainerKind.svelte";
+  import QuickItem from "./QuickItem.svelte";
   import Pane from "./Pane.svelte";
   import type { SheetCtx } from "./sheetctx";
   import { desktop } from "./screen";
@@ -15,8 +17,19 @@
     ctx.pick({ type: "items" }, ([id]) => ctx.act({ command: "add_item", id, inside: null, into }));
   }
 
+  /// A quick item being added (into a container line, or loose).
+  let quick: { into: number | null } | null = $state(null);
   function custom(into: number | null = null) {
-    ctx.prompt("A custom item", (name) => name.trim() && ctx.act({ command: "add_custom_item", name: name.trim(), inside: null, into }));
+    quick = { into };
+  }
+  async function addQuick(into: number | null, item: { name: string; description: string | null; quantity: number; weight: number | null }) {
+    if (await ctx.act({ command: "add_custom_item", inside: null, into, ...item })) quick = null;
+  }
+
+  /// A line whose container kind is being set.
+  let containerOf: Line | null = $state(null);
+  async function setContainer(line: number, settings: string) {
+    if (await ctx.act({ command: "set_container", line, settings })) containerOf = null;
   }
 
   /// A new campaign item from a template, added here, then edited.
@@ -107,16 +120,9 @@
     if (l.pack) actions.push(["Unpack", () => ctx.act({ command: "unpack", line })]);
     if (l.fill !== null) {
       actions.push(["Add an item into it…", () => add(line)]);
-      actions.push(["Add a custom item into it…", () => custom(line)]);
+      actions.push(["Add a quick item into it…", () => custom(line)]);
     }
-    actions.push([
-      l.fill !== null ? "Container settings…" : "Make it a container…",
-      () =>
-        ctx.prompt(`${l.name}: container`, (settings) => ctx.act({ command: "set_container", line, settings }), {
-          value: l.container,
-          hint: "30 (pounds it holds) · no limit · weightless (a Bag of Holding) · off · empty: as the item says",
-        }),
-    ]);
+    actions.push([l.fill !== null ? "Container settings…" : "Make it a container…", () => (containerOf = l)]);
     if (l.monk_weapon !== null) {
       actions.push([l.monk_weapon ? "Not a monk weapon" : "Count as a monk weapon", () => ctx.act({ command: "toggle_monk_weapon", line })]);
     }
@@ -144,7 +150,7 @@
   <Pane title="Inventory" class="items" fold="sheet.inventory" summary="{inv.lines.length} item{inv.lines.length === 1 ? '' : 's'} · {inv.carried.toFixed(1)} lb">
     <div class="buttons">
       <button class="primary" onclick={() => add()}>+ Add item</button>
-      <button class="ghost" onclick={() => custom()}>+ Custom</button>
+      <button class="ghost" title="An item only this character has" onclick={() => custom()}>+ Quick item</button>
       <button class="ghost" onclick={homebrew}>+ Homebrew</button>
     </div>
     {#if !inv.lines.length}<p class="dim">Empty.</p>{/if}
@@ -164,7 +170,7 @@
           {#if l.equippable}{@render equip(l)}{:else if !hasContents(i)}<span class="equip none"></span>{/if}
         {/if}
         <button class="line" class:chosen={chosen === l.index} aria-expanded={desktop.current ? chosen === l.index : undefined} onclick={() => open(l)} oncontextmenu={(e) => (e.preventDefault(), menu(l))}>
-          <span class="name" class:container={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}</span>
+          <span class="name" class:container={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}{#if l.description}<span class="desc dim">{l.description}</span>{/if}</span>
           <span class="kind dim">{l.kind}{#if l.fill} <span class:over={l.over} class="fill">{l.fill}</span>{/if}{l.weightless ? " weightless" : ""}</span>
           {#if !desktop.current}
             <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
@@ -209,6 +215,21 @@
   </Pane>
 </div>
 
+<!-- Keyed: one reopened while the last still fades is a new one. -->
+{#if quick}
+  {@const into = quick.into}
+  {#key quick}
+  <QuickItem into={into === null ? null : (inv.lines.find((l) => l.index === into)?.name ?? null)} onadd={(item) => addQuick(into, item)} onclose={() => (quick = null)} />
+  {/key}
+{/if}
+
+{#if containerOf}
+  {@const l = containerOf}
+  {#key l}
+  <ContainerKind name={l.name} current={l.fill !== null ? l.container : null} onset={(settings) => setContainer(l.index, settings)} onclose={() => (containerOf = null)} />
+  {/key}
+{/if}
+
 {#if editing}
   <BrewEditor
     bind:editing
@@ -237,6 +258,7 @@
   }
   .buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 1ch;
     margin-bottom: 0.75em;
   }
@@ -280,6 +302,14 @@
   }
   .name.container {
     font-weight: 700;
+  }
+  /* A quick item's description, a line under its name. */
+  .desc {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.85em;
+    font-weight: 400;
   }
   .kind {
     white-space: nowrap;
@@ -382,6 +412,10 @@
       flex: 0 0 1.6rem;
       width: 1.6rem;
       margin-right: 0.3rem;
+    }
+    /* Room between rows: the equip pills' borders never touch. */
+    .lrow {
+      padding: 0.2rem 0;
     }
     .lrow .line {
       flex: 1;

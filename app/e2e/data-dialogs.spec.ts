@@ -65,7 +65,7 @@ test.describe("getting started", () => {
   });
 });
 
-test("a new character's choices are a grid between the steps and the choice read", { tag: ["@creation.desktop", "@windows"] }, async ({ page }) => {
+test("a new character's choices are one column between the steps and the choice read", { tag: ["@creation.desktop", "@windows"] }, async ({ page }) => {
   await go(page, "Characters");
   await page.getByRole("button", { name: "+ New character" }).click();
   const name = page.getByRole("dialog", { name: "New character" }).getByRole("textbox");
@@ -73,20 +73,64 @@ test("a new character's choices are a grid between the steps and the choice read
   await name.press("Enter");
   const creation = page.locator(".creation");
   await expect(creation).toContainText("Choose a species");
-  // The choices: cards side by side.
-  const cards = creation.locator(".question ul > li > button");
-  const [a, b] = [(await cards.nth(0).boundingBox())!, (await cards.nth(1).boundingBox())!];
-  expect(Math.abs(a.y - b.y)).toBeLessThan(2);
-  // The steps left, the highlighted choice read on the right.
+  // The choices: one column of rows, alphabetical top to bottom.
+  const rows = creation.locator(".question ul > li > button");
+  const [a, b] = [(await rows.nth(0).boundingBox())!, (await rows.nth(1).boundingBox())!];
+  expect(Math.abs(a.x - b.x)).toBeLessThan(2);
+  expect(b.y).toBeGreaterThan(a.y + a.height - 1);
+  // The steps left, the selected choice read on the right, the widest.
   const steps = (await creation.locator(".steps").boundingBox())!;
   const question = (await creation.locator(".question").boundingBox())!;
   const preview = (await creation.locator(".preview").boundingBox())!;
   expect(question.x).toBeGreaterThan(steps.x + steps.width - 1);
   expect(preview.x).toBeGreaterThan(question.x + question.width - 1);
-  await cards.nth(0).hover();
-  await expect(creation.locator(".preview")).not.toBeEmpty();
+  expect(preview.width).toBeGreaterThan(question.width);
   // Back and Cancel at the foot.
   await expect(creation.locator(".nav").getByRole("button", { name: "Cancel" })).toBeVisible();
+  await invoke(page, "creation_cancel");
+});
+
+test("a click selects a choice and keeps it in the preview; Choose or Enter goes on", { tag: ["@creation.select-confirm", "@windows"] }, async ({ page }) => {
+  await go(page, "Characters");
+  await page.getByRole("button", { name: "+ New character" }).click();
+  const name = page.getByRole("dialog", { name: "New character" }).getByRole("textbox");
+  await name.fill("Nova");
+  await name.press("Enter");
+  const creation = page.locator(".creation");
+  const title = creation.locator(".ask .title");
+  const preview = creation.locator(".preview");
+  const row = (label: string) => creation.locator(".question li button", { has: page.locator(".label", { hasText: new RegExp(`^${label}$`) }) });
+  await expect(title).toContainText("Choose a species");
+  // A click selects: the preview shows it, nothing moves on.
+  await row("Dragonborn").click();
+  await expect(preview).toContainText("Dragonborn");
+  await expect(title).toContainText("Choose a species");
+  await expect(row("Dragonborn")).toHaveAttribute("aria-pressed", "true");
+  // The pointer over another only highlights: the preview keeps the selected.
+  await row("Elf").hover();
+  await page.waitForTimeout(300);
+  await expect(preview.locator(".acc").first()).toHaveText("Dragonborn");
+  // The arrows move the selection; Enter confirms it.
+  await page.keyboard.press("ArrowDown");
+  await expect(row("Dwarf")).toHaveAttribute("aria-pressed", "true");
+  await expect(preview.locator(".acc").first()).toHaveText("Dwarf");
+  await page.keyboard.press("ArrowUp");
+  const choose = creation.locator(".nav").getByRole("button", { name: "Choose Dragonborn" });
+  await expect(choose).toBeVisible();
+  await expect(choose).toHaveClass(/primary/);
+  await choose.click();
+  await expect(title).toContainText("Dragonborn: choose");
+  // Enter goes on too.
+  await creation.locator(".question li button").first().click();
+  await page.keyboard.press("Enter");
+  await expect(title).toContainText("Choose a background");
+  // A background: its ability increases are rows in one column too.
+  await row("Sage").click();
+  await creation.locator(".nav").getByRole("button", { name: "Choose Sage" }).click();
+  await creation.locator(".nav").getByRole("button", { name: "Next" }).click();
+  await expect(title).toContainText("ability increases");
+  const options = await creation.locator(".question ul > li > button").evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().left)));
+  expect(new Set(options).size).toBe(1);
   await invoke(page, "creation_cancel");
 });
 

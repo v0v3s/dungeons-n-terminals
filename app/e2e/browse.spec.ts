@@ -1,7 +1,7 @@
 // The app on a computer: the compendium, the notes, the campaigns and the
 // characters, every action in sight.
 import type { Page } from "@playwright/test";
-import { CAMPAIGN, expect, go, invoke, test, windowSize } from "./fixtures";
+import { CAMPAIGN, expect, fits, go, invoke, openSheet, pick, test, windowSize } from "./fixtures";
 
 const search = (page: Page) => page.locator(".compendium .prompt input");
 
@@ -52,16 +52,23 @@ test("the notes' actions are in sight, the links to a note beside it", { tag: ["
   for (const name of ["Rename NPCs", "Delete NPCs…", "Move NPCs up", "Move NPCs down"]) await expect(folder.getByRole("button", { name })).toBeVisible();
   await expect(page.locator(".rows .chosen")).toContainText("NPCs");
   await expect(page.locator(".rows .chosen").getByRole("group", { name: "NPCs: actions" })).toBeVisible();
-  // The toolbar: + Note (in NPCs), Quick note, new folder, session note and ⋯, one size, one row.
-  await expect(page.locator(".tree .tools button.new")).toHaveText("+ Note · NPCs");
-  const rows = await page.locator(".tree .tools button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size);
-  expect(rows).toBeLessThanOrEqual(2);
-  const heights = await page.locator(".tree .tools button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().height))).size);
+  // The toolbar: + Note (in NPCs), Quick note, new folder, session note and
+  // ⋯, one size, one row, at the top of the note's side (not the folders').
+  const bar = page.getByRole("toolbar", { name: "Notes" });
+  await expect(bar.locator("button.new")).toHaveText("+ Note · NPCs");
+  await expect(page.locator(".tree").getByRole("toolbar", { name: "Notes" })).toHaveCount(0);
+  await expect(page.locator(".note").getByRole("toolbar", { name: "Notes" })).toBeVisible();
+  const rows = await bar.locator("button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size);
+  expect(rows).toBe(1);
+  const heights = await bar.locator("button").evaluateAll((bs) => new Set(bs.map((b) => Math.round(b.getBoundingClientRect().height))).size);
   expect(heights).toBe(1);
   // A note open: its actions, and what links to it beside the text.
   await page.locator("button.row:not(.dir)", { hasText: "Old Miller" }).click();
   const acts = page.getByRole("group", { name: "Old Miller: actions" });
   await expect(acts.getByRole("button", { name: "Delete…" })).toBeVisible();
+  // The toolbar above the note's own actions.
+  const note = (await page.locator(".note .ntools").boundingBox())!;
+  expect((await bar.boundingBox())!.y + (await bar.boundingBox())!.height).toBeLessThanOrEqual(note.y + 1);
   const linked = page.locator(".note .backlinks");
   await expect(linked).toContainText("Bridge");
   const text = (await page.locator(".note .read").boundingBox())!;
@@ -119,6 +126,46 @@ test("a dialog is a card with a ✕ that closes it", { tag: ["@layout.dialogs", 
   expect(title.y).toBeGreaterThan(frame.y);
   await box.getByRole("button", { name: "Close the dialog" }).click();
   await expect(box).toBeHidden();
+});
+
+test("a dialog opens and closes smoothly, and an entry's reads cleanly at any size", { tag: ["@layout.dialogs", "@windows"] }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  await page.getByRole("button", { name: "+ add" }).first().click();
+  await pick(page, ["Fire Bolt"]);
+  await page.locator("button.spell", { hasText: "Fire Bolt" }).click();
+  const read = page.getByRole("button", { name: "Read it" });
+  // Opening: it fades in from a little smaller (a short animation running
+  // right after the click), then stands still at full size.
+  const opening = await read.evaluate(async (b: HTMLElement) => {
+    b.click();
+    for (let i = 0; i < 30 && !document.querySelector(".modal"); i++) await new Promise(requestAnimationFrame);
+    const m = document.querySelector(".modal")!;
+    await new Promise(requestAnimationFrame);
+    return { running: m.getAnimations().length > 0, opacity: Number(getComputedStyle(m).opacity) };
+  });
+  expect(opening.running).toBe(true);
+  expect(opening.opacity).toBeLessThan(1);
+  const entry = page.locator(".modal").and(page.getByRole("dialog", { name: "Fire Bolt" }));
+  await expect(entry).toContainText("Evocation");
+  await expect.poll(() => entry.evaluate((m) => m.getAnimations().length)).toBe(0);
+  expect(await entry.evaluate((m) => getComputedStyle(m).opacity)).toBe("1");
+  // Inside the window, its text inside it, at every size.
+  for (const size of [
+    { width: 1280, height: 820 },
+    { width: 900, height: 600 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await windowSize(page, size);
+    const box = (await entry.boundingBox())!;
+    expect(box.x, `at ${size.width}px`).toBeGreaterThanOrEqual(0);
+    expect(box.y, `at ${size.width}px`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `at ${size.width}px`).toBeLessThanOrEqual(size.width);
+    expect(box.y + box.height, `at ${size.width}px`).toBeLessThanOrEqual(size.height);
+    await fits(page, `the entry dialog at ${size.width}px`);
+  }
+  // Closing: it fades out the same way, then is gone.
+  await page.keyboard.press("Escape");
+  await expect(entry).toBeHidden();
 });
 
 test("on a big screen the characters and campaigns take more columns", { tag: ["@layout.wide", "@windows"] }, async ({ page }) => {

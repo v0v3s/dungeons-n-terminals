@@ -55,22 +55,35 @@ test("an attack rolls to hit with its damage", { tag: "@roll.attack" }, async ({
   await expect(roll(page)).toContainText("bludgeoning damage");
 });
 
+/// The next roll's mode: the chip that cycles it (a phone), or the Roll
+/// control (a computer).
+const mode = {
+  async now(page: Page) {
+    const control = page.getByRole("group", { name: "Next roll" });
+    if (await control.isVisible()) return (await control.locator('[aria-pressed="true"]').innerText()).toLowerCase();
+    return chip(page).locator("button.mode").innerText();
+  },
+  async set(page: Page, to: string) {
+    const control = page.getByRole("group", { name: "Next roll" });
+    if (await control.isVisible()) return control.getByRole("button", { name: to[0].toUpperCase() + to.slice(1), exact: true }).click();
+    for (let i = 0; i < 3 && (await mode.now(page)) !== to; i++) await chip(page).locator("button.mode").click();
+  },
+};
+
 test("advantage or disadvantage is chosen for the next roll only", { tag: "@roll.advantage" }, async ({ page }) => {
   await openSheet(page);
-  const mode = chip(page).locator("button.mode");
-  await expect(mode).toHaveText("normal");
-  await mode.click();
-  await expect(mode).toHaveText("advantage");
+  await expect.poll(() => mode.now(page)).toBe("normal");
+  await mode.set(page, "advantage");
+  await expect.poll(() => mode.now(page)).toBe("advantage");
   await tile(page, "Init").click();
   await expect(roll(page)).toContainText("advantage (chosen)");
-  await expect(mode).toHaveText("normal");
+  await expect.poll(() => mode.now(page)).toBe("normal");
 
-  await mode.click();
-  await mode.click();
-  await expect(mode).toHaveText("disadvantage");
+  await mode.set(page, "disadvantage");
+  await expect.poll(() => mode.now(page)).toBe("disadvantage");
   await tile(page, "Init").click();
   await expect(roll(page)).toContainText("disadvantage (chosen)");
-  await expect(mode).toHaveText("normal");
+  await expect.poll(() => mode.now(page)).toBe("normal");
 
   await tile(page, "Init").click();
   await expect(roll(page)).toContainText("Initiative");
@@ -219,7 +232,7 @@ test("removing a tracker of your own asks first", { tag: "@trackers.remove" }, a
   await expect(tracker(page, "Lucky Coin")).toHaveCount(0);
 });
 
-test("a weapon is held from the attacks: main hand, off hand or both hands", { tag: "@attacks.hold" }, async ({ page }) => {
+test("a weapon is held from the attacks: main hand, off hand or both hands", { tag: ["@attacks.hold", "@attacks.both-hands-only-if-it-can"] }, async ({ page }) => {
   await openSheet(page);
   await expect(held(page)).toHaveText(/In hand\s+nothing/);
 
@@ -231,6 +244,11 @@ test("a weapon is held from the attacks: main hand, off hand or both hands", { t
 
   await attack(page, "Dagger").getByRole("button", { name: "More" }).click();
   await choose(page, "Dagger", "Hold in the main hand");
+  // A dagger is neither Versatile nor Two-Handed: no both hands for it.
+  await attack(page, "Dagger").getByRole("button", { name: "More" }).click();
+  await expect(dialog(page, "Dagger").getByRole("button", { name: "Hold in the off hand" })).toBeVisible();
+  await expect(dialog(page, "Dagger").getByRole("button", { name: "Hold with both hands" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(held(page)).toContainText("Dagger");
   // Both hands are needed for the staff: it is put away.
   await expect(held(page)).not.toContainText("Quarterstaff");

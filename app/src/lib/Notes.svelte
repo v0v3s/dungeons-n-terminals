@@ -9,14 +9,24 @@
   import Modal from "./Modal.svelte";
   import Pane from "./Pane.svelte";
   import Prompt from "./Prompt.svelte";
-  import { render } from "./md";
+  import { listEnter, render, setTask } from "./md";
 
   let {
     status,
     narrow = false,
     openPath = $bindable(null),
     reading = $bindable(null),
-  }: { status: api.Status; narrow?: boolean; openPath?: string | null; reading?: string | null } = $props();
+    backTo = null,
+    onbackto,
+  }: {
+    status: api.Status;
+    narrow?: boolean;
+    openPath?: string | null;
+    reading?: string | null;
+    /// The character the note was opened from: a way back to them.
+    backTo?: string | null;
+    onbackto?: () => void;
+  } = $props();
 
   let rows: api.NoteRow[] = $state([]);
   let expanded: string[] = $state([]);
@@ -65,6 +75,12 @@
     } catch (e) {
       error = String(e);
     }
+  }
+
+  /// Save, then read what was written.
+  async function saveAndRead() {
+    await save();
+    if (!dirty) editing = false;
   }
 
   async function open(path: string, remember = true) {
@@ -365,7 +381,39 @@
     }
   }
 
+  /// A task's checkbox ticked or not: the note changes, and is saved.
+  async function toggleTask(box: HTMLInputElement) {
+    if (!note) return;
+    text = setTask(text, Number(box.dataset.line), box.checked);
+    dirty = true;
+    await save();
+  }
+
+  /// Enter at the end of a list item goes on with the list; on an empty
+  /// item it ends it (as the keyboard's Enter on a phone too).
+  function continueList(e: InputEvent) {
+    if ((e.inputType !== "insertLineBreak" && e.inputType !== "insertParagraph") || e.isComposing) return;
+    const box = e.currentTarget as HTMLTextAreaElement;
+    if (box.selectionStart !== box.selectionEnd) return;
+    const edit = listEnter(box.value, box.selectionStart);
+    if (!edit) return;
+    e.preventDefault();
+    box.setSelectionRange(edit.from, edit.to);
+    // As typed, so Undo takes it back; else straight into the text. (An
+    // empty insert deletes the selection: the bullet.)
+    const done = edit.insert ? document.execCommand("insertText", false, edit.insert) : edit.from === edit.to || document.execCommand("delete");
+    if (!done) {
+      box.setRangeText(edit.insert, edit.from, edit.to, "end");
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
   function onread(e: MouseEvent) {
+    const box = (e.target as HTMLElement).closest("input.task");
+    if (box instanceof HTMLInputElement) {
+      toggleTask(box);
+      return;
+    }
     const a = (e.target as HTMLElement).closest("a[data-link]");
     if (!a) return;
     e.preventDefault();
@@ -391,26 +439,37 @@
   });
 </script>
 
+{#snippet tools()}
+  <!-- Making something new: + Note (in the chosen folder), a quick note,
+       a folder, today's session note, and ⋯. On a computer at the top of
+       the note's side, above the note's own actions; on a phone over the
+       folders. -->
+  <div class="tools" role="toolbar" aria-label="Notes">
+    <!-- Opened from a character: back to their sheet (a phone's app bar has
+         its own Back). -->
+    {#if backTo && desktop.current}<button class="ghost backto" title="Back to {backTo}'s sheet" onclick={() => onbackto?.()}>‹ {backTo}</button>{/if}
+    <button class="ghost new" onclick={() => newNote()} title={selected ? `A note in ${selected}, from its template` : "A note at the top level"}
+      >+ Note{#if selected}<span class="dim">&nbsp;· {short(selected)}</span>{/if}</button
+    >
+    <button class="ghost" onclick={capture}>Quick note</button>
+    {#if desktop.current}
+      <!-- What ⋯ does, in sight: making something new here; what is done
+           to the chosen folder is on its row. Short labels; the full one
+           is the name. -->
+      <span class="treeacts" role="group" aria-label="Notes: actions">
+        {#each newActions() as [label, run] (label)}<button class="ghost" aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
+      </span>
+    {/if}
+    <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
+  </div>
+{/snippet}
+
 <div class="notes" class:narrow class:open={!!note} class:folded={!narrow && !sidebar.open}>
   {#if !status.campaign}
     <Pane title="Notes" focused><p>Create or activate a campaign first (Campaigns).</p></Pane>
   {:else}
     <Pane title="Notes · {status.campaign}" class="tree">
-      <div class="tools">
-        <button class="ghost new" onclick={() => newNote()} title={selected ? `A note in ${selected}, from its template` : "A note at the top level"}
-          >+ Note{#if selected}<span class="dim">&nbsp;· {short(selected)}</span>{/if}</button
-        >
-        <button class="ghost" onclick={capture}>Quick note</button>
-        {#if desktop.current}
-          <!-- What ⋯ does, in sight: making something new here; what is done
-               to the chosen folder is on its row. Short labels; the full one
-               is the name. -->
-          <span class="treeacts" role="group" aria-label="Notes: actions">
-            {#each newActions() as [label, run] (label)}<button class="ghost" aria-label={label} title={label} onclick={run}>{shortAction(label)}</button>{/each}
-          </span>
-        {/if}
-        <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
-      </div>
+      {#if !desktop.current}{@render tools()}{/if}
       <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
       <div class="rows">
         {#if found}
@@ -449,12 +508,13 @@
     </Pane>
 
     <Pane title={note ? `${note.path}${dirty ? " ●" : ""}` : "Note"} focused={!!note} class="note">
+      {#if desktop.current}{@render tools()}{/if}
       {#if note}
         <div class="ntools">
           {#if !narrow && back.length}<button class="ghost" onclick={stepBack}>‹ back</button>{/if}
           <button class="ghost" class:on={!editing} onclick={async () => (await save(), (editing = false))}>Read</button>
           <button class="ghost" class:on={editing} onclick={() => (editing = true)}>Edit</button>
-          {#if dirty}<button class="primary" onclick={save}>Save</button>{/if}
+          {#if dirty}<button class="primary" onclick={saveAndRead}>Save</button>{/if}
           {#if desktop.current}
             <span class="noteacts" role="group" aria-label="{note.title}: actions">
               {#each noteActions(note) as [label, run] (label)}<button class="ghost" class:danger={label.startsWith("Delete")} onclick={run}>{label}</button>{/each}
@@ -463,7 +523,7 @@
           <button class="ghost" onclick={noteMenu} aria-label="More">⋯</button>
         </div>
         {#if editing}
-          <textarea bind:value={text} oninput={() => (dirty = true)} onblur={save} spellcheck="false"></textarea>
+          <textarea bind:value={text} oninput={() => (dirty = true)} onbeforeinput={continueList} onblur={save} spellcheck="false"></textarea>
         {:else}
           <!-- The text and its query blocks; on a computer the notes that
                link here in a column beside them. -->
@@ -691,6 +751,40 @@
     margin: 0 0 0.8em;
     padding-left: 2ch;
   }
+  /* Tasks: a checkbox in the bullet's place, big enough to tap. */
+  .read :global(ul.tasks) {
+    list-style: none;
+    padding-left: 0;
+  }
+  .read :global(li.task label) {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6ch;
+    cursor: pointer;
+  }
+  .read :global(input.task) {
+    width: 1.05em;
+    height: 1.05em;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .read :global(input.task:checked + span) {
+    color: var(--dim);
+    text-decoration: line-through;
+  }
+  @media (pointer: coarse) {
+    .read :global(li.task label) {
+      min-height: 40px;
+      align-items: center;
+    }
+    .read :global(input.task) {
+      width: 1.4em;
+      height: 1.4em;
+    }
+  }
   .read :global(blockquote) {
     border-left: 2px solid var(--dark);
     margin: 0 0 0.8em;
@@ -788,15 +882,29 @@
       grid-template-columns: minmax(16rem, 22%) minmax(0, 1fr);
       gap: 0 1rem;
     }
+    /* The folders hidden: the note has the whole width. */
+    .notes.folded {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .notes :global(.note > .body) {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
       column-gap: 1.5rem;
     }
+    .tools,
     .ntools,
     textarea {
       grid-column: 1 / -1;
+    }
+    .backto {
+      color: var(--accent);
+      margin-right: 0.4rem;
+    }
+    /* Making something new, apart from the note's own actions under it. */
+    .tools {
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--edge);
     }
     .readwrap {
       display: block;
@@ -814,7 +922,7 @@
     }
     .backlinks {
       grid-column: 2;
-      grid-row: 2;
+      grid-row: 3;
       align-self: start;
       width: 15rem;
       flex-direction: column;

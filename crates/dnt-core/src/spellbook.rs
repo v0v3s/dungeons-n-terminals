@@ -211,6 +211,28 @@ pub struct SpellChoices {
     pub choices: Vec<Choice>,
     pub pick: usize,
     pub target: Target,
+    /// How many more the class (or the feature) takes: cantrips and spells
+    /// still to choose (at least 1, to add one past the count).
+    pub left: usize,
+    /// Each choice's spell level (as `choices`).
+    pub levels: Vec<i64>,
+    /// What the class (or the feature) already has from this list: the
+    /// choice, its level and how (`known`, `prepared`, `in your spellbook`).
+    /// Any of them can be removed (the rules set no time for it).
+    pub had: Vec<HadSpell>,
+    /// Cantrips had and the most there may be; the same for levelled
+    /// spells (a count shared by every level); the highest level it takes.
+    pub cantrips: (i64, i64),
+    pub spells: (i64, i64),
+    pub max_level: i64,
+}
+
+/// A spell already had, in a list to choose from.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct HadSpell {
+    pub choice: Choice,
+    pub level: i64,
+    pub how: String,
 }
 
 fn spell_choice(lib: &Library, e: EntityId) -> Choice {
@@ -229,37 +251,103 @@ fn spell_choice(lib: &Library, e: EntityId) -> Choice {
 }
 
 /// Spells a class can add (not already chosen).
-pub fn class_choices(lib: &Library, ch: &Character, c: &Caster, filter: &SourceFilter) -> SpellChoices {
+pub fn class_choices(lib: &Library, ch: &Character, c: &Caster, filter: &SourceFilter, all: bool) -> SpellChoices {
     let mine = ch.spells.classes.get(&c.id).cloned().unwrap_or_default();
     let have: Vec<&String> = mine.cantrips.iter().chain(&mine.prepared).chain(&mine.spellbook).collect();
-    let choices = spells::caster_spell_list(lib, c, filter)
+    // All spells (for what the rules do not list): every spell the
+    // campaign's sources allow, by name.
+    let list = if all {
+        let mut every: Vec<EntityId> =
+            (0..lib.entities().len()).filter(|&e| lib.entity(e).kind == dnt_data::Kind::Spell && filter.allows(lib.entity(e))).collect();
+        every.sort_by(|&a, &b| lib.entity(a).name.cmp(&lib.entity(b).name));
+        every
+    } else {
+        spells::caster_spell_list(lib, c, filter)
+    };
+    let picked: Vec<EntityId> = list
         .into_iter()
         .filter(|&e| !have.contains(&&spells::spell_id(lib, e)))
         .filter(|&e| spells::spell_level(lib, e) > 0 || c.limits.cantrips > 0)
-        .map(|e| spell_choice(lib, e))
         .collect();
-    let what = if c.limits.spellbook.is_some() { "cantrip or spellbook spell" } else { "spell" };
+    let levels = picked.iter().map(|&e| spells::spell_level(lib, e)).collect();
+    let choices = picked.iter().map(|&e| spell_choice(lib, e)).collect();
+    let l = &c.limits;
+    let wizard = l.spellbook.is_some();
+    let how = |id: &String| {
+        if mine.cantrips.contains(id) {
+            "known"
+        } else if wizard {
+            "in your spellbook"
+        } else if l.list == spells::SpellList::Known {
+            "known"
+        } else {
+            "prepared"
+        }
+    };
+    let mut had: Vec<HadSpell> = mine
+        .cantrips
+        .iter()
+        .chain(if wizard { &mine.spellbook } else { &mine.prepared })
+        .filter_map(|id| {
+            let e = resolve_id(lib, id)?;
+            Some(HadSpell { choice: spell_choice(lib, e), level: spells::spell_level(lib, e), how: how(id).into() })
+        })
+        .collect();
+    had.sort_by(|a, b| a.choice.label.cmp(&b.choice.label));
+    let cantrips = (mine.cantrips.len() as i64, l.cantrips);
+    let spells_had = if wizard { mine.spellbook.len() as i64 } else { mine.prepared.len() as i64 };
+    let spells = (spells_had, l.spellbook.unwrap_or(l.spells));
+    let cantrips_left = (cantrips.1 - cantrips.0).max(0);
+    let spells_left = (spells.1 - spells.0).max(0);
+    let what = if wizard { "cantrip or spellbook spell" } else { "spell" };
     SpellChoices {
-        title: format!("{} {}: add a {what}", c.name, c.level),
+        title: if all {
+            format!("{} {}: add a {what} (all spells)", c.name, c.level)
+        } else {
+            format!("{} {}: add a {what}", c.name, c.level)
+        },
         choices,
         pick: 1,
         target: Target::Class { class_id: c.id.clone() },
+        left: ((cantrips_left + spells_left) as usize).max(1),
+        levels,
+        had,
+        cantrips,
+        spells,
+        max_level: l.max_level,
     }
 }
 
 /// Spells for a feature's choice (`filter_text` as the grant states it).
 pub fn grant_choices(lib: &Library, ch: &Character, key: &str, filter_text: &str, missing: usize, filter: &SourceFilter) -> SpellChoices {
     let chosen = ch.spells.chosen.get(key).cloned().unwrap_or_default();
-    let choices = spells::filter_spells(lib, filter_text, filter)
-        .into_iter()
-        .filter(|&e| !chosen.contains(&spells::spell_id(lib, e)))
-        .map(|e| spell_choice(lib, e))
+    let picked: Vec<EntityId> =
+        spells::filter_spells(lib, filter_text, filter).into_iter().filter(|&e| !chosen.contains(&spells::spell_id(lib, e))).collect();
+    let levels: Vec<i64> = picked.iter().map(|&e| spells::spell_level(lib, e)).collect();
+    let choices = picked.iter().map(|&e| spell_choice(lib, e)).collect();
+    let mut had: Vec<HadSpell> = chosen
+        .iter()
+        .filter_map(|id| {
+            let e = resolve_id(lib, id)?;
+            Some(HadSpell { choice: spell_choice(lib, e), level: spells::spell_level(lib, e), how: "chosen".into() })
+        })
         .collect();
+    had.sort_by(|a, b| a.choice.label.cmp(&b.choice.label));
+    // The feature's count, for cantrips or for spells (as its filter says).
+    let count = (chosen.len() as i64, (chosen.len() + missing) as i64);
+    let cantrip = filter_text.split('|').any(|p| p.trim() == "level=0");
+    let max_level = levels.iter().chain(had.iter().map(|h| &h.level)).copied().max().unwrap_or(9);
     SpellChoices {
         title: format!("Choose {} {}", missing, spells::describe_filter(filter_text)),
         choices,
         pick: missing.max(1),
         target: Target::Grant { key: key.to_string() },
+        left: missing.max(1),
+        levels,
+        had,
+        cantrips: if cantrip { count } else { (0, 0) },
+        spells: if cantrip { (0, 0) } else { count },
+        max_level,
     }
 }
 

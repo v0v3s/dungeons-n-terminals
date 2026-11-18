@@ -490,6 +490,30 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
         }
     }
+    // Features that grant spells in their text only (Pact of the Chain's
+    // Find Familiar, Paladin's Smite's Divine Smite): the spells not
+    // already granted above. Gone with the feature (a level undone, an
+    // invocation swapped), as the sheet is built from the features.
+    let had = |sets: &Vec<(String, String, Vec<spells::Granted>)>, id: &str| {
+        let name = |i: &str| i.trim_start_matches("spell:").split('|').next().unwrap_or("").to_lowercase();
+        sets.iter().flat_map(|(_, _, g)| g).any(|g| matches!(g, spells::Granted::Spell { id: other, .. } if name(other) == name(id)))
+    };
+    for f in &features {
+        let ent = lib.entity(f.entity);
+        if f.source == FeatureSource::Mastery || ent.data.get("additionalSpells").is_some() {
+            continue;
+        }
+        let grants: Vec<spells::Granted> = spells::text_grants(&ent.data)
+            .into_iter()
+            .filter(|g| match g {
+                spells::Granted::Spell { id, .. } => !had(&sets, id) && resolve_id(lib, id).is_some(),
+                spells::Granted::Choice { .. } => true,
+            })
+            .collect();
+        if !grants.is_empty() {
+            sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
+        }
+    }
     // Mystic Arcanum (Warlock 11, 13, 15, 17): a level 6–9 Warlock spell
     // each, cast once per long rest without a slot.
     let mut arcana: Vec<i64> = features

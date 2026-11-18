@@ -15,7 +15,8 @@ async function start(page: Page, name: string) {
 }
 
 /// Answer the question titled `title` with these choices (several for a
-/// multiple pick, which goes on by itself once all are chosen).
+/// multiple pick). On a computer a click selects, and Choose (or Confirm)
+/// goes on; elsewhere the tap goes on by itself.
 async function step(page: Page, title: string, ...labels: string[]) {
   await expect(ask(page).locator(".title")).toContainText(title);
   for (const label of labels) {
@@ -31,6 +32,8 @@ async function step(page: Page, title: string, ...labels: string[]) {
       .first()
       .click();
   }
+  const confirm = page.locator(".creation .nav .confirm");
+  if (await confirm.isVisible()) await confirm.click();
 }
 
 const row = (page: Page, ability: string) => ask(page).locator(".score", { hasText: ability });
@@ -67,8 +70,8 @@ test("a character is made step by step", { tag: "@creation.full" }, async ({ pag
   // Arcana and History come with the Sage, so the Wizard does not offer them.
   await step(page, "Wizard: choose 2 skill(s)", "Investigation", "Nature");
   await step(page, "Human: choose 1 skill(s)", "Stealth");
-  await step(page, "Class (Wizard): starting equipment", "A:");
-  await step(page, "Background (Sage): starting equipment", "B:");
+  await step(page, "Class (Wizard): starting equipment", "Option A");
+  await step(page, "Background (Sage): starting equipment", "Option B");
   await create(page);
 
   await expect(page.locator(".sheet h1")).toContainText("Nova");
@@ -106,8 +109,8 @@ test(
     await step(page, "Choose your starting class", "Hexer");
     await step(page, "Choose a subclass", "The Tide");
     await step(page, "Hexer: choose 2 skill(s)", "Arcana", "Deception");
-    await step(page, "Class (Hexer): starting equipment", "A:");
-    await step(page, "Background (Acolyte): starting equipment", "A:");
+    await step(page, "Class (Hexer): starting equipment", "Option A");
+    await step(page, "Background (Acolyte): starting equipment", "Option A");
     await step(page, "Choose a holy symbol", "Reliquary");
     await create(page);
 
@@ -144,8 +147,8 @@ test(
     await step(page, "Fighter: choose 2 skill(s)", "Acrobatics", "Perception");
     await step(page, "Fighting Style: choose one", "Two-Weapon Fighting");
     await step(page, "Weapon Mastery: choose 3", "Flail", "Greatsword", "Longbow");
-    await step(page, "Class (Fighter): starting equipment", "A:");
-    await step(page, "Background (Soldier): starting equipment", "A:");
+    await step(page, "Class (Fighter): starting equipment", "Option A");
+    await step(page, "Background (Soldier): starting equipment", "Option A");
     await step(page, "Choose a gaming set", "Playing Cards");
     await create(page);
 
@@ -268,8 +271,8 @@ test("the steps are a checklist of what was chosen", { tag: "@creation.checklist
   await step(page, "Choose your starting class", "Wizard");
   await step(page, "Wizard: choose 2 skill(s)", "Investigation", "Nature");
   await step(page, "Human: choose 1 skill(s)", "Stealth");
-  await step(page, "Class (Wizard): starting equipment", "A:");
-  await step(page, "Background (Sage): starting equipment", "B:");
+  await step(page, "Class (Wizard): starting equipment", "Option A");
+  await step(page, "Background (Sage): starting equipment", "Option B");
   await expect(ask(page)).toContainText("Everything is chosen");
   const review = await checklist(page);
   await expect(item(review, "Class")).toContainText("Wizard 1");

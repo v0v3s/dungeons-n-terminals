@@ -11,13 +11,14 @@
   import Modal from "./Modal.svelte";
   import OverviewTab from "./OverviewTab.svelte";
   import Picker from "./Picker.svelte";
+  import SpellPicker from "./SpellPicker.svelte";
   import Prompt from "./Prompt.svelte";
   import DiceRoll from "./DiceRoll.svelte";
   import RulesEditor from "./RulesEditor.svelte";
   import Icon from "./Icon.svelte";
   import type { IconName } from "./icons";
   import SpellsTab from "./SpellsTab.svelte";
-  import { SHEET_TABS, type SheetCtx, type SheetTab } from "./sheetctx";
+  import { SHEET_TABS, type RollMode, type SheetCtx, type SheetTab } from "./sheetctx";
   import { Swipe } from "./swipe.svelte";
   import SkillsTab from "./SkillsTab.svelte";
   import { desktop, narrow, touch } from "./screen";
@@ -118,21 +119,11 @@
     | { kind: "file"; text: string; error: string }
     | { kind: "rules"; entity: number }
     | { kind: "warnings" }
-    | { kind: "dice"; text: string; error: string };
+    | { kind: "dice"; text: string; error: string }
+    | { kind: "spells"; wanted: api.Wanted; options: api.Options; then: (values: string[], options: api.Options) => void };
   let dialog: Dialog | null = $state(null);
   /// How a number adds up, in a pop-up beside it (a computer).
   let pop: { b: api.Breakdown; key: string; x: number; y: number } | null = $state(null);
-
-  /// The roll a breakdown's number makes, when it is one that rolls.
-  function rollOf(key: string): api.Roll | null {
-    const [kind, a, b] = key.split(".");
-    if (kind === "mod") return { type: "ability", key: a };
-    if (kind === "save") return { type: "save", key: a };
-    if (kind === "skill") return { type: "skill", key: a };
-    if (key === "initiative") return { type: "initiative" };
-    if (kind === "attack" && b === "bonus") return { type: "attack", slug: a };
-    return null;
-  }
 
   /// A modifier is shown with its sign (+3, −1); a score or a count is not.
   const SIGNED = /^(skill|save|mod)\.|^initiative$|^prof$|^attack\..*\.bonus$/;
@@ -170,12 +161,9 @@
     return [...out, ...rest.map(as)];
   }
 
-  /// Roll with advantage, disadvantage or neither: the next roll's mode set
-  /// first (as its chip cycles it), then the roll.
-  async function rollWith(what: api.Roll, mode: string) {
-    pop = null;
-    for (let i = 0; i < 3 && sheet.overview.next_roll !== mode; i++) await ctx.cycle();
-    await ctx.roll(what);
+  /// The next roll's mode: cycled to (normal → advantage → disadvantage).
+  async function setRollMode(mode: RollMode) {
+    for (let i = 0; i < 3 && sheet.overview.next_roll !== mode; i++) sheet = await api.cycleAdvantage();
   }
   /// The last roll typed by hand, to roll again.
   let lastDice = "";
@@ -228,6 +216,9 @@
     async pick(wanted, then) {
       try {
         const options = await api.options(wanted);
+        // Spells: several at once, read beside the list (a class's list can
+        // widen to all spells, so an empty one is no end).
+        if (wanted.type === "class_spells" || wanted.type === "grant_spells") return void (dialog = { kind: "spells", wanted, options, then });
         if (!options.choices.length) return say("Nothing to choose from");
         dialog = { kind: "pick", options, then };
       } catch (e) {
@@ -253,6 +244,11 @@
     },
     async cycle() {
       sheet = await api.cycleAdvantage();
+    },
+    setRollMode,
+    async rollWith(what, mode) {
+      await setRollMode(mode);
+      await ctx.roll(what);
     },
     say,
     async refresh() {
@@ -355,7 +351,8 @@
   }
 
   /// The same, on a computer: one toolbar of groups, each button a short
-  /// name (its full name as its title), the deletion apart at the end.
+  /// name (its full name as its title), the deletion apart at the end. The
+  /// exports are in the ⋯ menu only.
   type Tool = { label: string; title: string; run: () => void };
   function toolGroups(): { name: string; tools: Tool[] }[] {
     const t = (label: string, title: string, run: () => void): Tool => ({ label, title, run });
@@ -379,14 +376,6 @@
           t("Undo the last level", "Remove the latest level", undoLevel),
           t("Note", "Open the character's note", openNote),
           t("File…", "Edit the character file…", editFile),
-        ],
-      },
-      {
-        name: "Export",
-        tools: [
-          t("Printable page…", "Export as a printable page…", () => exportAs("html")),
-          t("Markdown…", "Export as Markdown…", () => exportAs("markdown")),
-          t("For dnt…", "Export for dnt (to import elsewhere)…", exportForDnt),
         ],
       },
     ];
@@ -558,11 +547,16 @@
       {/each}
     </div>
   {:else}
-    <!-- A computer: every tab by its name, in one row. -->
+    <!-- A computer: the tabs as icons, the open one with its name; the
+         pointer over a tab (or the keyboard on it) opens its name the same
+         way, the tab growing in the row. -->
     <div class="tabrow" role="tablist" aria-label="Sheet">
       {#each SHEET_TABS as t (t)}
-        <button role="tab" aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
-          {t}{#if t === "Spells" && sheet.header.spells_to_choose}<span class="badge">{sheet.header.spells_to_choose}</span>{/if}
+        {@const n = t === "Spells" ? sheet.header.spells_to_choose : 0}
+        <button role="tab" aria-label={n ? `${t}, ${n} to choose` : t} aria-selected={tab === t} class:active={tab === t} onclick={() => (tab = t)}>
+          <Icon name={TAB_ICONS[t]} size="1.25em" />
+          <span class="tname" aria-hidden="true"><span>{t}</span></span>
+          {#if n}<span class="badge">{n}</span>{/if}
         </button>
       {/each}
     </div>
@@ -600,7 +594,8 @@
         <span class="nums" class:many={rolled.extra.length > 0}>
           {#each [rolled.result, ...rolled.extra] as line, i (i)}
             {@const p = numbered(line)}
-            <span class="n" class:dmg={i > 0}>
+            <!-- Red for damage dealt only ("fire damage", not "damage reduction"). -->
+            <span class="n" class:dmg={i > 0 && /damage$/.test(p?.label ?? "")} class:more={i > 0}>
               <b class:word={!p} class:crit={i === 0 && rolled.crit === true} class:fumble={i === 0 && rolled.crit === false}>{p ? p.num : line}</b>
               {#if p?.label}<span class="label">{p.label}</span>{/if}
               <!-- The result's own dice under it, each damage's under that. -->
@@ -683,6 +678,27 @@
       />
     {/key}
   </Modal>
+{:else if dialog?.kind === "spells"}
+  {@const d = dialog}
+  {#key closings}
+    <SpellPicker
+      wanted={d.wanted}
+      options={d.options}
+      onclose={close}
+      onconfirm={async (ids, options, removes) => {
+        const then = d.then;
+        close();
+        // Given up first (freeing their place), then the new ones. A spell
+        // in a Wizard's spellbook that is prepared takes two removals.
+        for (const r of removes) {
+          const from = options.target;
+          if (!(await act({ command: "remove_spell", from, id: r.id }))) continue;
+          if (r.how === "in your spellbook" && sheet.spells.some((s) => s.type === "spell" && s.id === r.id && s.class_id)) await act({ command: "remove_spell", from, id: r.id });
+        }
+        if (ids.length) then(ids, options);
+      }}
+    />
+  {/key}
 {:else if dialog?.kind === "dice"}
   {@const d = dialog}
   {#key closings}
@@ -742,9 +758,8 @@
 
 {#if pop}
   {@const p = pop}
-  {@const r = rollOf(p.key)}
-  <!-- How a number adds up, beside it: where each part comes from, and its
-       roll with or without advantage. -->
+  <!-- How a number adds up, beside it: where each part comes from (only
+       that: the number itself rolls). -->
   <div class="popback" role="presentation" onclick={() => (pop = null)}></div>
   <div class="pop" role="dialog" aria-label={p.b.title} style:left="{p.x}px" style:top="{p.y}px">
     <div class="phead">
@@ -759,13 +774,6 @@
         <span class="dim pkind">{part.kind}</span>
       </div>
     {/each}
-    {#if r}
-      <div class="pbtns">
-        <button class="primary" onclick={() => rollWith(r, "normal")}>Roll</button>
-        <button class="ghost" onclick={() => rollWith(r, "advantage")}>Advantage</button>
-        <button class="ghost" onclick={() => rollWith(r, "disadvantage")}>Disadvantage</button>
-      </div>
-    {/if}
   </div>
 {/if}
 
@@ -907,25 +915,31 @@
     padding: 0.1em 1ch;
     cursor: pointer;
   }
-  /* A computer: the tabs by name, one row, the chosen one raised. */
+  /* A computer: the tabs by icon and name, one row as wide as the sheet,
+     the chosen one raised. */
+  /* The tabs on a computer: a row of icons on the left. The open tab
+     shows its name; the pointer over another (or the keyboard on it) shows
+     its name the same way, the tab growing from its icon and the tabs
+     after it moving along. */
   .tabrow {
     display: inline-flex;
     align-self: flex-start;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    margin: 0.9rem 0 0.6rem;
+    gap: 0.2rem;
+    margin: 0.7rem 0 0.35rem;
     padding: 0.25rem;
     background: var(--card);
     border: 1px solid var(--edge);
     border-radius: var(--radius);
     flex-shrink: 0;
+    white-space: nowrap;
   }
   .tabrow button {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    justify-content: center;
     height: 2.3rem;
-    padding: 0 1rem;
+    padding: 0 0.8rem;
     border: 0;
     border-radius: 0.5rem;
     background: none;
@@ -935,7 +949,8 @@
     white-space: nowrap;
     cursor: pointer;
   }
-  .tabrow button:hover {
+  .tabrow button:hover,
+  .tabrow button:focus-visible {
     background: var(--raised);
     color: var(--fg);
   }
@@ -943,6 +958,39 @@
     background: var(--dark);
     color: var(--fg);
   }
+  /* The name: no width at rest, its full width when shown (a grid track
+     from 0fr to 1fr), fading in. */
+  .tname {
+    display: grid;
+    grid-template-columns: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-columns 0.18s ease-out,
+      opacity 0.18s ease-out;
+  }
+  .tname > span {
+    overflow: hidden;
+    padding-left: 0;
+    transition: padding-left 0.18s ease-out;
+  }
+  .tabrow button.active .tname,
+  .tabrow button:hover .tname,
+  .tabrow button:focus-visible .tname {
+    grid-template-columns: 1fr;
+    opacity: 1;
+  }
+  .tabrow button.active .tname > span,
+  .tabrow button:hover .tname > span,
+  .tabrow button:focus-visible .tname > span {
+    padding-left: 0.5rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tname,
+    .tname > span {
+      transition: none;
+    }
+  }
+  /* The spells to choose, on the icon's corner. */
   .badge {
     background: var(--cyan);
     color: var(--black);
@@ -950,6 +998,14 @@
     padding: 0 0.4rem;
     font-size: 0.75em;
     font-weight: 700;
+  }
+  .tabrow .badge {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.2rem;
+    z-index: 6;
+    font-size: 0.68em;
+    line-height: 1.5;
   }
   @media (pointer: fine) and (min-width: 761px) {
     h1 {
@@ -1102,12 +1158,6 @@
   }
   .pkind {
     font-size: 0.8em;
-  }
-  .pbtns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.8rem;
   }
   .body {
     position: relative;

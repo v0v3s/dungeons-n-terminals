@@ -4,6 +4,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { fade, fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import { onMount } from "svelte";
   import { opened } from "./modals";
   import { touch } from "./screen";
@@ -17,6 +18,25 @@
   }: { title: string; onclose: () => void; children: Snippet; footer?: string; wide?: boolean } = $props();
 
   onMount(() => opened(() => onclose()));
+
+  /// Less motion asked for: no movement, a quick fade only.
+  const still = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /// A computer: the dialog fades in from a little smaller, and out the same
+  /// way (it is centred by its transform, which the scale keeps).
+  function grow(_: Element, { duration }: { duration: number }) {
+    const calm = still();
+    return {
+      duration: calm ? 80 : duration,
+      easing: cubicOut,
+      css: (t: number) => `opacity: ${t}; transform: translate(-50%, -50%) scale(${calm ? 1 : 0.96 + 0.04 * t})`,
+    };
+  }
+
+  /// The dialog's way in and out: up from the bottom on touch, else grown.
+  function appear(node: Element) {
+    return touch.current ? fly(node, still() ? { y: 0, duration: 80 } : { y: 400, duration: 180, opacity: 1 }) : grow(node, { duration: 160 });
+  }
 
   /// How far the sheet is dragged down, while it is.
   let drag = $state(0);
@@ -48,7 +68,7 @@
 
 <svelte:window onkeydown={onkey} />
 
-<button class="scrim" aria-label="Close" onclick={onclose} transition:fade={{ duration: 120 }}></button>
+<button class="scrim" aria-label="Close" onclick={onclose} transition:fade={{ duration: 160 }}></button>
 <div
   class="modal"
   class:sheet={touch.current}
@@ -57,7 +77,7 @@
   style:translate={drag ? `0 ${drag}px` : null}
   role="dialog"
   aria-label={title}
-  transition:fly={touch.current ? { y: 400, duration: 180, opacity: 1 } : { y: 12, duration: 120 }}
+  transition:appear
 >
   {#if touch.current}
     <div class="handle" onpointerdown={grab} onpointermove={move} onpointerup={letGo} onpointercancel={letGo} role="presentation">

@@ -592,6 +592,16 @@
     .inner p {
       max-width: 75ch;
     }
+    /* The menu hidden: the parts as far from the window's left as the
+       scrollbar's room keeps them from the right. */
+    .data:not(.withnav) {
+      margin-right: 0;
+      padding-left: var(--scrollbar);
+      scrollbar-gutter: stable;
+    }
+    .data:not(.withnav) .inner {
+      padding-right: 0;
+    }
     .datanav {
       display: flex;
       flex-direction: column;
