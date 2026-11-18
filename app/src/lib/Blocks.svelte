@@ -62,6 +62,14 @@
   p {
     margin: 0 0 1em;
   }
+  /* On a computer, running text keeps a comfortable line however wide its
+     pane is (the pane still fills the window). */
+  @media (pointer: fine) and (min-width: 761px) {
+    p,
+    li {
+      max-width: 75ch;
+    }
+  }
   .h1 {
     margin: 1em 0 0.25em;
     font-size: 1em;
@@ -130,9 +138,25 @@
     border-left: 2px solid var(--dark);
     font-style: italic;
   }
+  /* A table keeps each header and cell on one line (the exception to text
+     wrapping): it scrolls sideways in its box instead, the bar in sight. */
   .table {
+    max-width: 100%;
     overflow-x: auto;
     margin: 0 0 1em;
+    padding-bottom: 0.3em;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dark) transparent;
+  }
+  .table::-webkit-scrollbar {
+    height: 9px;
+  }
+  .table::-webkit-scrollbar-thumb {
+    background: var(--dark);
+    border: 0;
+    border-top: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 4px;
   }
   .caption {
     font-weight: 700;
@@ -150,6 +174,8 @@
   td {
     padding: 0 2ch 0 0;
     vertical-align: top;
+    white-space: nowrap;
+    overflow-wrap: normal;
   }
   /* Phones: tables scroll sideways rather than squeezing every column. */
   @media (max-width: 760px) {

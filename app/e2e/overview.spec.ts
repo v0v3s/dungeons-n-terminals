@@ -10,7 +10,9 @@ const intSave = (page: import("@playwright/test").Page) => page.locator("button.
 test("holding a number explains it without rolling; tapping a name explains the score", { tag: "@explain.number" }, async ({ page }) => {
   await sheetTab(page, "Skills");
   await intSave(page).click({ button: "right" });
-  await expect(dialog(page, "Intelligence save")).toContainText("Intelligence + proficiency");
+  // As one line on a phone; as its components (the modifier, the
+  // proficiency) in the pop-up on a computer.
+  await expect(dialog(page, "Intelligence save")).toContainText(/Intelligence \+ proficiency|Intelligence modifier[^]*Proficiency bonus/);
   await expect(status(page)).toHaveCount(0);
   await page.keyboard.press("Escape");
 

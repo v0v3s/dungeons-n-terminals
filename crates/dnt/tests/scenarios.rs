@@ -7,7 +7,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 const FRONTENDS: [&str; 2] = ["tui", "app"];
-const TARGETS: [&str; 3] = ["tui", "app", "android"];
+const TARGETS: [&str; 4] = ["tui", "app", "android", "windows"];
+/// The app's targets: both of its systems, or one of them.
+const APP_TARGETS: [&str; 3] = ["app", "android", "windows"];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -111,7 +113,7 @@ fn every_scenario_is_tested_on_its_targets() {
             }
         }
         for f in FRONTENDS {
-            let listed = targets.contains(&f) || (f == "app" && targets.contains(&"android"));
+            let listed = targets.contains(&f) || (f == "app" && targets.iter().any(|t| APP_TARGETS.contains(t)));
             let excused = not.and_then(|n| n.get(f)).and_then(|v| v.as_str()).is_some_and(|r| !r.trim().is_empty());
             match (listed, excused) {
                 (false, false) => {
@@ -128,7 +130,7 @@ fn every_scenario_is_tested_on_its_targets() {
                 problems.push(format!("{id}: no terminal test (crates/dnt/tests/e2e: Tui::scenario(\"{id}\", …))"));
             }
         }
-        if targets.contains(&"app") || targets.contains(&"android") {
+        if targets.iter().any(|t| APP_TARGETS.contains(t)) {
             if app.contains_key(id) {
                 on_app += 1;
             } else {

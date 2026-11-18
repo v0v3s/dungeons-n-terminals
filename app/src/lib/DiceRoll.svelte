@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Modal from "./Modal.svelte";
+  import { touch } from "./screen";
 
   let {
     vars,
@@ -23,10 +24,15 @@
 
   let text = $state("");
   let input: HTMLInputElement | undefined = $state();
+  /// Back to the text after a tap, with a mouse only: on a touch screen it
+  /// would bring the keyboard up, moving the buttons from under the finger.
+  const refocus = () => !touch.current && input?.focus();
   onMount(() => {
     text = value;
-    input?.focus();
-    input?.select();
+    if (!touch.current) {
+      input?.focus();
+      input?.select();
+    }
   });
 
   /// Add a term: a second d6 makes `2d6`, anything else is added on.
@@ -40,7 +46,7 @@
     } else {
       text = `${text.trimEnd()} + ${term}`;
     }
-    input?.focus();
+    refocus();
   }
 
   const signed = (k: string, v: number) => (k === "level" ? `${v}` : v < 0 ? `${v}` : `+${v}`);
@@ -56,7 +62,7 @@
     <label class="line">
       <span>❯</span>
       <input bind:this={input} bind:value={text} placeholder="d20 + prof + dex" spellcheck="false" autocomplete="off" autocapitalize="off" />
-      {#if text}<button type="button" class="ghost clear" aria-label="Clear" onclick={() => ((text = ""), input?.focus())}>✕</button>{/if}
+      {#if text}<button type="button" class="ghost clear" aria-label="Clear" onclick={() => ((text = ""), refocus())}>✕</button>{/if}
     </label>
     <div class="chips">
       {#each DICE as d (d)}<button type="button" class="chip" onclick={() => add(`d${d}`)}>d{d}</button>{/each}

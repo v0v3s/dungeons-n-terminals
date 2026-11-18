@@ -528,7 +528,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         let command = match prompt {
                             TextPrompt::CustomItem => {
                                 let inside = sheet.session.character().inventory.get(sheet.inventory_cursor).and_then(|l| l.inside.clone());
-                                Command::AddCustomItem { name: text, inside, into: None }
+                                Command::AddCustomItem { name: text, inside, into: None, description: None, weight: None, quantity: None }
                             }
                             TextPrompt::Container => Command::SetContainer { line: sheet.inventory_cursor, settings: text },
                             TextPrompt::Currency => Command::ChangeCoins { change: text },
@@ -997,14 +997,23 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
             let Some(c) = caster_at(i).or((!data.casters.is_empty()).then_some(0)) else {
                 return Action::Status("No spellcasting class".into());
             };
-            sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter)));
+            sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter, false)));
+        }
+        // From every spell, not only the class's list (for what the rules
+        // do not list).
+        KeyCode::Char('A') => {
+            let Some(c) = caster_at(i).or((!data.casters.is_empty()).then_some(0)) else {
+                return Action::Status("No spellcasting class".into());
+            };
+            sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter, true)));
         }
         KeyCode::Enter => match row {
             Some(Row::GrantChoice { key, filter: f, missing, .. }) => {
                 sheet.popup = Some(spell_pick(spellbook::grant_choices(lib, &sheet.session.file.character, &key, &f, missing, filter)));
             }
             Some(Row::ClassHeader(c)) => {
-                sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter)));
+                sheet.popup =
+                    Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter, false)));
             }
             Some(Row::ClassSpell { ref id, .. } | Row::GrantSpell { ref id, .. }) => {
                 let Some(spell) = dnt_rules::overlay::resolve_id(lib, id) else { return Action::None };

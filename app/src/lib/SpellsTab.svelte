@@ -5,6 +5,7 @@
   import type { SpellRow, Tracker } from "./api";
   import Icon from "./Icon.svelte";
   import { pool, type SheetCtx } from "./sheetctx";
+  import { desktop } from "./screen";
 
   let { rows, slots = [], ctx }: { rows: SpellRow[]; slots?: Tracker[]; ctx: SheetCtx } = $props();
 
@@ -60,6 +61,16 @@
   }
 
   function menu(r: Spell) {
+    ctx.menu(r.name, spellActions(r));
+  }
+
+  /// The spell chosen on a computer: its actions in sight under it.
+  let chosen = $state<string | null>(null);
+  /// A row by where it is: a favorite shows twice (Favorites and its level).
+  /// A tap opens the menu; on a computer a click shows the actions instead.
+  const open = (r: Spell, at: string) => (desktop.current ? (chosen = at) : menu(r));
+
+  function spellActions(r: Spell): [string, () => void][] {
     const actions: [string, () => void][] = [];
     if (r.entity !== null) actions.push(["Read it", () => ctx.show(r.entity!)]);
     if (r.castable) actions.push([r.free ? "Cast (a free cast)" : "Cast…", () => cast(r.id, r.free)]);
@@ -70,7 +81,7 @@
     }
     actions.push([r.favorite ? "No longer a favorite" : "Make it a favorite", () => ctx.act({ command: "toggle_favorite", id: r.id })]);
     if (r.target) actions.push(["Remove", () => ctx.act({ command: "remove_spell", from: r.target, id: r.id })]);
-    ctx.menu(r.name, actions);
+    return actions;
   }
 </script>
 
@@ -112,6 +123,7 @@
         {#if sec.header?.class_id && level}{#each slotsAt(level) as t (t.id)}{@render slot(t)}{/each}{/if}
       </div>
       {#each spells as r, i (i)}
+        {@const at = `${sec.header?.title ?? si}|${level}|${r.id}`}
         <div class="srow">
           {#if r.class_id && r.mark !== "cantrip"}
             <button
@@ -124,14 +136,21 @@
           {:else}
             <span class="mark">{MARK[r.mark]}</span>
           {/if}
-          <button class="spell" onclick={() => menu(r)}>
+          <button class="spell" class:chosen={chosen === at} aria-expanded={desktop.current ? chosen === at : undefined} onclick={() => open(r, at)} oncontextmenu={(e) => (e.preventDefault(), menu(r))}>
             <span class="name">{r.name}{#if r.favorite && !r.in_favorites}<span class="star"> ★</span>{/if}</span>
             <span class="detail dim">{r.detail}</span>
           </button>
           {#if r.rollable}
             <button class="rollbox roll" aria-label="Roll {r.name}" onclick={() => ctx.roll({ type: "spell", id: r.id, caster: r.caster })}><Icon name="d20" /></button>
           {/if}
+          {#if desktop.current}<button class="more" aria-label="More" title="The menu" onclick={() => menu(r)}>⋯</button>{/if}
         </div>
+        {#if desktop.current && chosen === at}
+          <!-- Everything the spell's menu does, in sight. -->
+          <div class="acts" role="dialog" aria-label={r.name}>
+            {#each spellActions(r) as [label, run] (label)}<button class="ghost" class:bad={label === "Remove"} onclick={run}>{label}</button>{/each}
+          </div>
+        {/if}
       {/each}
       {#if !spells.length}<p class="dim none">none yet</p>{/if}
     {/each}
@@ -303,6 +322,38 @@
   }
   .legend {
     margin-top: 1.5em;
+  }
+  /* A computer: a click shows the spell's actions under it (⋯ and a right
+     click still open its menu). */
+  @media (pointer: fine) and (min-width: 761px) {
+    .srow {
+      grid-template-columns: 2rem minmax(0, 1fr) auto auto;
+    }
+    .spell.chosen .name {
+      color: var(--accent);
+    }
+    .more {
+      background: none;
+      border: 0;
+      color: var(--gray);
+      cursor: pointer;
+      font: inherit;
+      padding: 0 0.5rem;
+    }
+    .acts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.2rem 0 0.6rem 2.6rem;
+    }
+    .acts .ghost {
+      min-height: 2rem;
+      padding: 0 0.75rem;
+      font-size: 0.9em;
+    }
+    .acts .bad {
+      color: var(--red);
+    }
   }
   @media (max-width: 760px) {
     .level {

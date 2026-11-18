@@ -2,7 +2,7 @@
 // windows). Each test starts from a known state, made through the app's own
 // commands: the app reset, the test data imported (e2e/data), the campaign
 // and the test party (e2e/characters.json), unless it asks for less.
-import { test as base, chromium, expect, type Locator, type Page } from "@playwright/test";
+import { test as base, chromium, expect, type CDPSession, type Locator, type Page } from "@playwright/test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -122,13 +122,17 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
   app: [
     async ({}, use) => {
       const endpoint = TARGET === "windows" ? await windows.connect() : await android.connect();
-      const browser = await chromium.connectOverCDP(endpoint);
+      // An Android WebView has no browser contexts to manage: Playwright's
+      // defaults for the context (downloads, emulation) are left alone.
+      const browser = await chromium.connectOverCDP(endpoint, { noDefaults: TARGET === "android" });
       // The WebView's page may come a moment after its DevTools port.
       const context = browser.contexts()[0];
       const page = context.pages()[0] ?? (await context.waitForEvent("page"));
       // A test that does not answer the file dialogs cancels them: the
       // system's own would stop the run (fakeFilePicker answers them).
       await context.addInitScript(() => ((window as any).dntE2eFiles = { open: null, save: null }));
+      // Links out are caught, not opened in a browser (opened() reads them).
+      await context.addInitScript(() => ((window as any).dntE2eLinks = []));
       // The frontend is up when it can call the app.
       await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
       await use(page);
@@ -139,13 +143,38 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
     { scope: "worker", timeout: 120_000 },
   ],
   page: async ({ app, seed: what }, use, info) => {
+    // On a computer every test starts in the app's own window size (its
+    // tauri.conf.json), whatever the screen: a CI machine's small screen
+    // squeezes the real window, and the layout follows the width.
+    if (TARGET === "windows") await windowSize(app, DEFAULT_WINDOW);
     await seed(app, what);
     await use(app);
     if (info.status !== info.expectedStatus) {
       await info.attach("screen", { body: await app.screenshot(), contentType: "image/png" });
     }
+    if (TARGET === "windows") await windowSize(app, null);
   },
 });
+
+/// The app's window as it opens (app/src-tauri/tauri.conf.json).
+export const DEFAULT_WINDOW = { width: 1280, height: 820 };
+
+/// The DevTools session that sizes the window's page, while one does.
+let sizing: CDPSession | null = null;
+
+/// Make the window's page this size (a computer: as if the window were
+/// resized), or as the window is again (null). Through a session of its own,
+/// not Playwright's viewport, which Playwright would put back on every reload.
+export async function windowSize(page: Page, size: { width: number; height: number } | null) {
+  if (size) {
+    sizing ??= await page.context().newCDPSession(page);
+    await sizing.send("Emulation.setDeviceMetricsOverride", { ...size, deviceScaleFactor: 0, mobile: false });
+  } else if (sizing) {
+    await sizing.send("Emulation.clearDeviceMetricsOverride");
+    await sizing.detach();
+    sizing = null;
+  }
+}
 
 export { expect };
 
@@ -169,6 +198,9 @@ export async function go(page: Page, section: "Compendium" | "Characters" | "Not
 
 /// A tab of the open Data screen.
 export async function dataTab(page: Page, tab: DataTab) {
+  // A computer: its menu on the left; elsewhere (or with ☰ hiding it) a select.
+  const menu = page.getByRole("navigation", { name: "Data" });
+  if (await menu.isVisible()) return menu.getByRole("button", { name: new RegExp(`^${tab}`) }).click();
   await page.getByRole("combobox", { name: "Data" }).selectOption(tab);
 }
 
@@ -191,17 +223,25 @@ export type SheetTab = "Overview" | "Skills" | "Spells" | "Inventory" | "Feature
 /// A touch screen (a phone or a tablet): the sheet's tabs are icons.
 export const touchScreen = (page: Page) => page.evaluate(() => matchMedia("(pointer: coarse)").matches);
 
-/// Change the open sheet's tab (Notes opens the character's note): its
-/// icon on a phone or a tablet, its select elsewhere.
-export async function sheetTab(page: Page, tab: SheetTab) {
-  if (await touchScreen(page)) await page.locator(".sheet .icontabs").getByRole("tab", { name: tab, exact: true }).click();
-  else await page.locator(".sheet .tabs select").selectOption(tab);
+/// The sheet shows its tabs as icons: on a phone or a tablet, and in a
+/// narrow window.
+/// The open sheet's row of tabs: icons (a phone, a tablet, a narrow
+/// window) or names (a computer), once the sheet is there.
+async function tabRow(page: Page) {
+  const row = page.locator(".sheet .icontabs, .sheet .tabrow").first();
+  await row.waitFor();
+  return row;
 }
 
-/// The open sheet's tab, as its icons or its select show it.
+/// Change the open sheet's tab (Notes opens the character's note).
+export async function sheetTab(page: Page, tab: SheetTab) {
+  // A tab with a badge (Spells 10) is named by its text: its name first.
+  await (await tabRow(page)).getByRole("tab", { name: new RegExp(`^${tab}\\b`) }).click();
+}
+
+/// The open sheet's tab, as its row shows it.
 export async function expectTab(page: Page, tab: SheetTab) {
-  if (await touchScreen(page)) await expect(page.locator('.sheet .icontabs [aria-selected="true"]')).toHaveAttribute("aria-label", tab);
-  else await expect(page.locator(".sheet .tabs select")).toHaveValue(tab);
+  await expect((await tabRow(page)).locator('[aria-selected="true"]')).toHaveAccessibleName(new RegExp(`^${tab}\\b`));
 }
 
 /// The sheet's own ⋯ menu: in the app bar on a phone, by the name elsewhere.
@@ -253,14 +293,24 @@ export async function pick(page: Page, labels: string[]) {
   // be up while the app works out the next), else the last one open.
   // Held by its place: filtering its list must not lose it.
   const dialogs = page.getByRole("dialog");
-  const offering = dialogs.filter({ has: page.locator("li button", { hasText: labels[0] }) });
+  const offering = dialogs.filter({ has: page.locator("li button, .spellpick", { hasText: labels[0] }) });
   await offering.last().waitFor({ timeout: 5000 }).catch(() => {});
   let picker = dialogs.last();
   for (let i = (await dialogs.count()) - 1; i >= 0; i--) {
-    if (await dialogs.nth(i).locator("li button", { hasText: labels[0] }).count()) {
+    if (await dialogs.nth(i).locator("li button, .spellpick").filter({ hasText: labels[0] }).count() || (await dialogs.nth(i).locator(".spellpick").count())) {
       picker = dialogs.nth(i);
       break;
     }
+  }
+  // Spells: each ticked, then Confirm.
+  if (await picker.locator(".spellpick").count()) {
+    for (const label of labels) {
+      await picker.getByRole("textbox").fill(label);
+      await picker.getByRole("checkbox", { name: `Choose ${label}`, exact: true }).check();
+    }
+    await picker.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(picker).toHaveCount(0, { timeout: 5000 }).catch(() => {});
+    return;
   }
   // A multiple pick says "0 of N chosen"; one of all N goes on by itself,
   // fewer need "done".
@@ -292,4 +342,85 @@ export async function fakeFilePicker(page: Page) {
     return (window as any).__TAURI_INTERNALS__.invoke("e2e_stash_zip", { bytes });
   }, dataZip().toString("base64"));
   await page.evaluate(() => ((window as any).dntE2eFiles = { open: "e2e:stash", save: "e2e:" }));
+}
+
+/// The links the app opened in the browser, caught (see lib/links.ts).
+export const opened = (page: Page): Promise<string[]> => page.evaluate(() => (window as any).dntE2eLinks);
+
+/// What does not fit on the screen: the page wider than the window,
+/// buttons off its side (but for those in a row that scrolls sideways, like
+/// the tabs), buttons whose label wraps onto a second line, and text that
+/// runs out of its box.
+function misfits(page: Page) {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const width = document.documentElement.clientWidth;
+    const wide = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+    if (wide > width) out.push(`the page is ${wide}px wide in a ${width}px window`);
+    for (const button of document.querySelectorAll("button")) {
+      const box = button.getBoundingClientRect();
+      if (!box.width || !box.height || getComputedStyle(button).visibility === "hidden") continue;
+      const scrolls = (e: Element | null): boolean =>
+        !!e && (["auto", "scroll"].includes(getComputedStyle(e).overflowX) || scrolls(e.parentElement));
+      if (box.right > width + 1 && !scrolls(button.parentElement)) out.push(`button "${button.textContent?.trim()}" runs off the side (right ${Math.round(box.right)}px)`);
+      // A label that wrapped has its characters on more than one line
+      // (a button of several texts, a card or a row, may wrap them).
+      const texts = [...button.childNodes].length && document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      let labels = 0;
+      for (let n = texts && texts.nextNode(); n; n = texts && texts.nextNode()) if (n.textContent?.trim()) labels++;
+      if (labels > 1) continue;
+      // A list's row (a choice in a picker) may wrap its text too.
+      if (button.parentElement?.tagName === "LI") continue;
+      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const tops = new Set<number>();
+        for (const r of range.getClientRects()) if (r.width > 0) tops.add(Math.round(r.top / 4));
+        if (tops.size > 1) {
+          out.push(`button "${button.textContent?.trim().replace(/\s+/g, " ")}" wraps its label`);
+          break;
+        }
+      }
+    }
+    // Text out of its box: a line that runs past the side of what holds it
+    // (up to the first box that scrolls or clips it, or an ellipsis).
+    const clips = (s: CSSStyleDeclaration) => s.overflowX !== "visible" || s.textOverflow === "ellipsis";
+    const seen = new Set<Element>();
+    const texts = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = texts.nextNode(); node; node = texts.nextNode()) {
+      const text = node.textContent?.trim();
+      const parent = node.parentElement;
+      if (!text || !parent || parent.closest("script, style, svg, select, textarea, [aria-hidden=true]")) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const lines = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+      if (!lines.length) continue;
+      const right = Math.max(...lines.map((r) => r.right));
+      const left = Math.min(...lines.map((r) => r.left));
+      for (let box: Element | null = parent; box && box !== document.body; box = box.parentElement) {
+        const s = getComputedStyle(box);
+        if (s.visibility === "hidden" || s.display === "none") break;
+        if (clips(s)) break;
+        if (s.display.startsWith("inline") && s.display !== "inline-block" && s.display !== "inline-flex" && s.display !== "inline-grid") continue;
+        const r = box.getBoundingClientRect();
+        if (!r.width) continue;
+        if ((right > r.right + 1 || left < r.left - 1) && !seen.has(box)) {
+          seen.add(box);
+          const name = `${box.tagName.toLowerCase()}${box.classList.length ? "." + [...box.classList].filter((c) => !c.startsWith("svelte-")).join(".") : ""}`;
+          out.push(`text "${text.slice(0, 40)}" runs out of its ${name} by ${Math.round(Math.max(right - r.right, r.left - left))}px`);
+        }
+        if (s.position === "absolute" || s.position === "fixed") break;
+      }
+    }
+    return out;
+  });
+}
+
+/// Check the screen as it is now, saying where.
+export async function fits(page: Page, where: string) {
+  // Let transitions and lazy content settle.
+  await page.waitForTimeout(400);
+  expect.soft(await misfits(page), where).toEqual([]);
 }

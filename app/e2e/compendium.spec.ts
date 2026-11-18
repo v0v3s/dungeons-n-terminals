@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, entryAction, expect, go, phone, test } from "./fixtures";
+import { answer, choose, dialog, entryAction, expect, fits, go, phone, test } from "./fixtures";
 import { drag, swipe } from "./touch";
 
 test.use({ seed: "campaign" });
@@ -60,6 +60,14 @@ async function categoryValue(page: Page, label: string) {
 
 async function category(page: Page, label: string) {
   await toList(page);
+  // A computer: the categories are chips under the search.
+  const chips = page.getByRole("group", { name: "Categories" });
+  if (await chips.isVisible()) {
+    const chip = chips.getByRole("button", { name: new RegExp(`^${label} \\d`) });
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    return;
+  }
   const value = await categoryValue(page, label);
   await page.locator(".categories select").selectOption(value);
   await expect(page.locator(".categories select")).toHaveValue(value);
@@ -158,6 +166,33 @@ test("an entry shows its fields, text, tables and lists", { tag: "@compendium.re
   await expect(doc(page).locator("dl")).toContainText("1 round");
   await expect(doc(page)).toContainText("You hurl a bolt of light toward a creature within range.");
   await expect(doc(page)).toContainText("Using a Higher-Level Spell Slot");
+});
+
+test("a wide table keeps its headers and cells on one line and scrolls sideways", { tag: "@compendium.tables" }, async ({ page }) => {
+  await compendium(page);
+  await search(page, "wizard");
+  await read(page, "Wizard");
+  // The Wizard's class table: many columns.
+  const box = doc(page).locator(".table").filter({ has: page.locator("th", { hasText: "Level" }) }).first();
+  await expect(box).toBeVisible();
+  const check = await box.evaluate((b) => {
+    const lines = (el: Element) => {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      return new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size;
+    };
+    const cells = [...b.querySelectorAll("th, td")];
+    return {
+      wrapped: cells.filter((c) => c.textContent?.trim() && lines(c) > 1).map((c) => c.textContent?.trim()),
+      scrolls: getComputedStyle(b).overflowX,
+      inside: b.getBoundingClientRect().right <= document.documentElement.clientWidth + 1,
+    };
+  });
+  expect(check.wrapped).toEqual([]);
+  expect(check.scrolls).toBe("auto");
+  // The box stays in the window (its table scrolls in it), so nothing runs out.
+  expect(check.inside).toBe(true);
+  await fits(page, "the Wizard's entry");
 });
 
 test("a link opens its entry, and back returns", { tag: "@compendium.follow-link" }, async ({ page }) => {

@@ -3,6 +3,7 @@
      it in place; the done ones are ticked. -->
 <script lang="ts">
   import { openZip } from "./files";
+  import { openLink, WIKI_DATA } from "./links";
   import * as api from "./api";
   import { working } from "./working.svelte";
   import Pane from "./Pane.svelte";
@@ -21,15 +22,8 @@
   let error = $state("");
   let imported = $state("");
   let name = $state("");
-  let presets: [string, string[]][] = $state([]);
-  /// The books of the new campaign: a preset's name, or "" for all official.
-  let preset = $state("");
 
   const step = $derived(!status.loaded ? 1 : !status.campaigns.length ? 2 : 3);
-
-  $effect(() => {
-    if (status.loaded && !presets.length) api.sources().then((s) => (presets = s.presets));
-  });
 
   async function importZip() {
     error = "";
@@ -44,17 +38,40 @@
     }
   }
 
+  /// The first campaign uses every official book (on a first start, the
+  /// SRD); its books are chosen later, from the compendium's @ button.
   async function create() {
     error = "";
-    const sources = presets.find(([n]) => n === preset)?.[1] ?? [];
     try {
-      onchange(await working("Creating the campaign…", () => api.createCampaign(name, [...sources])));
+      onchange(await working("Creating the campaign…", () => api.createCampaign(name, [])));
     } catch (e) {
       error = String(e);
     }
   }
 
   const mark = (n: number) => (n < step ? "✓" : n === step ? "▸" : "·");
+
+  /// The wiki's page on making your own data: opened in the browser, or its
+  /// address copied, for reading it on another device.
+  const WIKI = WIKI_DATA;
+  async function openWiki(e: MouseEvent) {
+    e.preventDefault();
+    try {
+      await openLink(WIKI);
+    } catch (e) {
+      error = String(e);
+    }
+  }
+  let copied = $state(false);
+  async function copyWiki() {
+    try {
+      await navigator.clipboard.writeText(WIKI);
+      copied = true;
+      setTimeout(() => (copied = false), 3000);
+    } catch (e) {
+      error = String(e);
+    }
+  }
 </script>
 
 <div class="welcome">
@@ -77,6 +94,10 @@
         project's <code>scripts/pack-data.sh</code> makes a small zip of just what dnt reads.
       </p>
       <div><button class={step === 1 ? "primary" : "ghost"} onclick={importZip}>Import a zip…</button></div>
+      <div class="wiki">
+        <a class="url" href={WIKI} onclick={openWiki}>How to make your own data (wiki)</a>
+        <button class="ghost" onclick={copyWiki}>{copied ? "Copied ✓" : "Copy link"}</button>
+      </div>
     </Pane>
 
     <Pane title="{mark(2)} 2 · Create a campaign" focused={step === 2} class={step !== 2 ? "done" : ""}>
@@ -89,13 +110,6 @@
           }}
         >
           <label class="line"><span>❯</span><input bind:value={name} placeholder="the campaign's name" spellcheck="false" /></label>
-          <label class="books">
-            <span class="dim">Books</span>
-            <select bind:value={preset}>
-              <option value="">All official</option>
-              {#each presets as [n] (n)}<option value={n}>{n}</option>{/each}
-            </select>
-          </label>
           <p class="dim">The books and homebrew can be changed at any time, from the compendium's @ button.</p>
           <div><button class="primary" type="submit" disabled={!name.trim()}>Create the campaign</button></div>
         </form>
@@ -182,16 +196,6 @@
     border: 0;
     outline: none;
   }
-  .books {
-    display: flex;
-    gap: 1.5ch;
-    align-items: center;
-    margin-bottom: 0.6em;
-  }
-  select {
-    flex: 1;
-    min-width: 0;
-  }
   .go {
     display: flex;
     flex-wrap: wrap;
@@ -200,6 +204,54 @@
   .err {
     color: var(--red);
   }
+  .wiki {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em 1ch;
+    margin-top: 0.9em;
+  }
+  .url {
+    color: var(--link);
+    word-break: break-all;
+  }
+  /* A computer: the welcome on the left, the steps on the right, the whole
+     window used. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .inner {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      align-items: start;
+      gap: 1.2rem 3rem;
+      max-width: none;
+      padding: 2.5rem 2.5rem 2rem;
+    }
+    .hello {
+      grid-column: 1;
+      grid-row: 1 / span 4;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.2rem;
+      padding-top: 1rem;
+    }
+    .hello img {
+      height: 5.5rem;
+    }
+    h1 {
+      font-size: 2.2em;
+      color: var(--fg);
+    }
+    .hello p {
+      font-size: 1.15em;
+      max-width: 34ch;
+    }
+    .inner > :global(.pane) {
+      grid-column: 2;
+    }
+    .inner > .err {
+      grid-column: 2;
+    }
+  }
   @media (pointer: coarse) {
     .inner button {
       width: 100%;
@@ -207,9 +259,6 @@
     }
     .go {
       flex-direction: column;
-    }
-    select {
-      min-height: 44px;
     }
   }
 </style>

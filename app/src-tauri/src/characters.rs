@@ -232,8 +232,12 @@ pub enum Wanted {
     Wear { line: usize },
     /// Containers a line can go into (values: line indexes, or `loose`).
     Containers { line: usize },
-    /// Spells a class can add.
-    ClassSpells { class_id: String },
+    /// Spells a class can add (`all`: every spell, not only its list).
+    ClassSpells {
+        class_id: String,
+        #[serde(default)]
+        all: bool,
+    },
     /// Spells for a feature's choice.
     GrantSpells { key: String, filter: String, missing: usize },
     /// How to cast a spell (values: `slot:N`, `pact`, `ritual`).
@@ -248,10 +252,38 @@ pub struct Options {
     choices: Vec<Choice>,
     /// How many to pick.
     pick: usize,
+    /// How many more can be chosen at once (several spells: the class's or
+    /// the feature's still to choose).
+    left: usize,
     /// The likely choice (index).
     default: usize,
     /// Where picked spells go.
     target: Option<spellbook::Target>,
+    /// Spells: their lists by level (see `spellbook::SpellChoices`).
+    spells: Option<SpellLists>,
+}
+
+#[derive(Serialize)]
+pub struct SpellLists {
+    levels: Vec<i64>,
+    had: Vec<spellbook::HadSpell>,
+    cantrips: (i64, i64),
+    spells: (i64, i64),
+    max_level: i64,
+}
+
+impl From<spellbook::SpellChoices> for Options {
+    fn from(sc: spellbook::SpellChoices) -> Self {
+        Options {
+            title: sc.title,
+            choices: sc.choices,
+            pick: sc.pick,
+            left: sc.left,
+            default: 0,
+            target: Some(sc.target),
+            spells: Some(SpellLists { levels: sc.levels, had: sc.had, cantrips: sc.cantrips, spells: sc.spells, max_level: sc.max_level }),
+        }
+    }
 }
 
 #[tauri::command]
@@ -261,7 +293,15 @@ pub async fn options(app: State<'_, App>, wanted: Wanted) -> Res<Options> {
     let s = inner.sheet.as_ref().ok_or("No character open")?;
     let filter = inner.ws.filter();
     let ch = s.character();
-    let plain = |title: &str, choices: Vec<Choice>| Options { title: title.into(), choices, pick: 1, default: 0, target: None };
+    let plain = |title: &str, choices: Vec<Choice>| Options {
+        title: title.into(),
+        choices,
+        pick: 1,
+        left: 1,
+        default: 0,
+        target: None,
+        spells: None,
+    };
     Ok(match wanted {
         Wanted::Items => plain("Add an item", options::item_catalog(lib, &filter)),
         Wanted::Wear { line } => {
@@ -281,16 +321,12 @@ pub async fn options(app: State<'_, App>, wanted: Wanted) -> Res<Options> {
             }
             plain("Put it in…", options::containers_for(lib, ch, line))
         }
-        Wanted::ClassSpells { class_id } => {
+        Wanted::ClassSpells { class_id, all } => {
             let casters = dnt_rules::spells::casters(lib, &s.build, &s.ev);
             let c = casters.iter().find(|c| c.id == class_id).ok_or("No such class")?;
-            let sc = spellbook::class_choices(lib, ch, c, &filter);
-            Options { title: sc.title, choices: sc.choices, pick: sc.pick, default: 0, target: Some(sc.target) }
+            spellbook::class_choices(lib, ch, c, &filter, all).into()
         }
-        Wanted::GrantSpells { key, filter: text, missing } => {
-            let sc = spellbook::grant_choices(lib, ch, &key, &text, missing, &filter);
-            Options { title: sc.title, choices: sc.choices, pick: sc.pick, default: 0, target: Some(sc.target) }
-        }
+        Wanted::GrantSpells { key, filter: text, missing } => spellbook::grant_choices(lib, ch, &key, &text, missing, &filter).into(),
         Wanted::Cast { id } => {
             let spell = dnt_rules::overlay::resolve_id(lib, &id).ok_or("No such spell")?;
             let (title, choices) = spellbook::cast_choices(lib, s, spell).ok_or("No spell slots")?;

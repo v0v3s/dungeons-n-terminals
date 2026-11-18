@@ -1,5 +1,7 @@
-// A tablet held sideways: the phone's screen made a tablet's (its size and
-// density, as adb sets them) for these tests, and given back after.
+// A tablet held sideways: the phone's screen made a tablet's (its size, as
+// adb sets it) for these tests, and given back after. The size follows the
+// device's own pixel ratio, so the page is the same tablet everywhere (a
+// WebView may not follow a density changed while it runs).
 import type { Locator } from "@playwright/test";
 import { adb } from "./android";
 import { answer, expect, go, openSheet, sheetTab, test } from "./fixtures";
@@ -7,13 +9,13 @@ import { answer, expect, go, openSheet, sheetTab, test } from "./fixtures";
 test.describe("a tablet sideways", () => {
   test.beforeEach(async ({ page }) => {
     test.setTimeout(120_000);
-    adb("shell", "wm", "size", "1920x1200");
-    adb("shell", "wm", "density", "280");
+    // A 10" tablet sideways, in CSS pixels (1920×1200 at 280 dpi).
+    const dpr = await page.evaluate(() => devicePixelRatio);
+    adb("shell", "wm", "size", `${Math.round(1097 * dpr)}x${Math.round(686 * dpr)}`);
     await expect.poll(() => page.evaluate(() => innerWidth), { timeout: 15_000 }).toBeGreaterThan(1000);
   });
   test.afterEach(async ({ page }) => {
     adb("shell", "wm", "size", "reset");
-    adb("shell", "wm", "density", "reset");
     await expect.poll(() => page.evaluate(() => innerWidth), { timeout: 15_000 }).toBeLessThan(760);
   });
 

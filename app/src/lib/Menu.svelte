@@ -1,13 +1,20 @@
 <!-- A ⋯ button for the actions not needed often, listed in a dialog
-     titled `title` when it is pressed. -->
+     titled `title` when it is pressed. On a computer every action is a
+     button in sight as well (⋯ stays, the second way). -->
 <script lang="ts">
   import Modal from "./Modal.svelte";
+  import { desktop } from "./screen";
 
   let { title, actions }: { title: string; actions: [label: string, run: () => void, danger?: boolean][] } = $props();
 
   let open = $state(false);
 </script>
 
+{#if desktop.current}
+  <span class="inline" role="group" aria-label="{title}: actions">
+    {#each actions as [label, run, danger] (label)}<button class="ghost" class:danger onclick={run}>{label}</button>{/each}
+  </span>
+{/if}
 <button class="ghost icon more" onclick={() => (open = true)} aria-label="More">⋯</button>
 
 {#if open}
@@ -46,6 +53,20 @@
     background: var(--selected);
   }
   .menu button.danger {
+    color: var(--red);
+  }
+  .inline {
+    margin-left: auto;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .inline .ghost {
+    min-height: 2rem;
+    padding: 0 0.7rem;
+    font-size: 0.88em;
+  }
+  .inline .danger {
     color: var(--red);
   }
   @media (pointer: coarse) {

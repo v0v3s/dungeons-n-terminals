@@ -8,7 +8,7 @@ your campaign uses.
 - **Search** as you type; narrow it with filters: `@XPHB` (a source),
   `#spell` (a kind), `^3` (a level), `*fire` (a damage type), `"text"` (in
   the text), `!` (not).
-- **Categories** (the select above the results in the app, `tab` in the
+- **Categories** (chips under the search in the app, `tab` in the
   terminal; on a phone, swipe the results sideways, or pick one from the
   menu) and the **order**: best match, name, source, level or rarity
   (`o`).

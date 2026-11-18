@@ -115,6 +115,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // Links to the project (its wiki, its source), in the system browser;
+        // capabilities/default.json allows those and nothing else.
+        .plugin(tauri_plugin_opener::init())
         .plugin(folders::init())
         .plugin(updates::init())
         .manage(App::default())

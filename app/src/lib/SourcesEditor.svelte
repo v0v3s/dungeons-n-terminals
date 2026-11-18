@@ -378,6 +378,15 @@
     gap: 1.5ch;
     margin-top: 1em;
   }
+  /* A computer: the buttons a footer across the dialog. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .buttons {
+      gap: 0.5rem;
+      margin: 1.1rem 0 0.2rem;
+      padding: 0.9rem 0 0;
+      border-top: 1px solid var(--edge);
+    }
+  }
   @media (pointer: coarse) {
     .group,
     .source {

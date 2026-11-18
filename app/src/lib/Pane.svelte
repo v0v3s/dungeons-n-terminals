@@ -158,4 +158,52 @@
       line-height: 36px;
     }
   }
+  /* On a computer: a card, its title a small heading inside it, the aside
+     and the footer in its corners. */
+  @media (pointer: fine) and (min-width: 761px) {
+    .pane {
+      background: var(--card);
+      border-color: var(--edge);
+      padding: 0.9rem 1.1rem 1rem;
+    }
+    .pane.focused {
+      border-color: var(--edge);
+    }
+    .pane.folded {
+      border-width: 1px;
+      border-radius: var(--radius);
+      padding: 0.6rem 1.1rem;
+      height: auto;
+    }
+    .title {
+      position: static;
+      max-width: 100%;
+      padding: 0;
+      margin: 0 0 0.6rem;
+      background: none;
+      font-size: 0.9em;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--gray);
+    }
+    .folded .title {
+      margin: 0;
+    }
+    .focused .title {
+      color: var(--gray);
+    }
+    .aside {
+      top: 0.55rem;
+      right: 1.1rem;
+      padding: 0;
+      background: none;
+    }
+    .footer {
+      position: static;
+      align-self: flex-end;
+      padding: 0.4rem 0 0;
+      background: none;
+      font-size: 0.85em;
+    }
+  }
 </style>

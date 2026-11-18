@@ -1,5 +1,7 @@
 <!-- Choose from a list: type to filter, pick one (or `count`). With
-     `oninfo`, each row has a ? to read about its choice first. -->
+     `oninfo`, each row has a ? to read about its choice first. With
+     `confirm`, a click (or the arrows) only selects, the pointer only
+     highlights, and Enter (or the caller's button) confirms. -->
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import type { Choice } from "./api";
@@ -12,6 +14,8 @@
     onpick,
     onhighlight,
     oninfo,
+    confirm = false,
+    onchosen,
   }: {
     choices: Choice[];
     count?: number;
@@ -19,6 +23,10 @@
     onpick: (values: string[]) => void;
     onhighlight?: (value: string) => void;
     oninfo?: (c: Choice) => void;
+    /// Select first, confirm after (see above).
+    confirm?: boolean;
+    /// What a multiple pick has chosen so far.
+    onchosen?: (values: string[]) => void;
   } = $props();
 
   let filter = $state("");
@@ -38,11 +46,20 @@
     if (c) onhighlight?.(c.value);
   });
 
+  $effect(() => onchosen?.(chosen));
+
   function toggle(c: Choice) {
     if (!many) return onpick([c.value]);
     if (chosen.includes(c.value)) chosen = chosen.filter((v) => v !== c.value);
     else if (chosen.length < count) chosen = [...chosen, c.value];
-    if (chosen.length === count) onpick(chosen);
+    if (chosen.length === count && !confirm) onpick(chosen);
+  }
+
+  /// A click: chooses it, or (to confirm after) selects it.
+  function click(c: Choice, i: number) {
+    if (!confirm) return toggle(c);
+    cursor = i;
+    if (many) toggle(c);
   }
 
   async function move(d: number) {
@@ -61,7 +78,9 @@
     } else if (e.key === "Enter") {
       e.preventDefault();
       const c = shown[cursor];
-      if (c) toggle(c);
+      // Confirming a multiple pick once all are chosen.
+      if (confirm && many && chosen.length === count) onpick(chosen);
+      else if (c) toggle(c);
     } else if (e.key === " " && many && !filter) {
       e.preventDefault();
       const c = shown[cursor];
@@ -85,12 +104,18 @@
   </label>
 {/if}
 {#if many}
-  <div class="count dim">{chosen.length} of {count} chosen{#if chosen.length}<button class="done" onclick={() => onpick(chosen)}>done</button>{/if}</div>
+  <div class="count dim">{chosen.length} of {count} chosen{#if chosen.length && !confirm}<button class="done" onclick={() => onpick(chosen)}>done</button>{/if}</div>
 {/if}
 <ul bind:this={list}>
   {#each shown as c, i (c.value)}
     <li data-i={i}>
-      <button class:cursor={i === cursor} class:chosen={chosen.includes(c.value)} onclick={() => toggle(c)} onmouseenter={() => !touch.current && (cursor = i)}>
+      <button
+        class:cursor={i === cursor}
+        class:chosen={chosen.includes(c.value)}
+        aria-pressed={confirm ? (many ? chosen.includes(c.value) : i === cursor) : undefined}
+        onclick={() => click(c, i)}
+        onmouseenter={() => !touch.current && !confirm && (cursor = i)}
+      >
         {#if many}<span class="box">{chosen.includes(c.value) ? "◉" : "○"}</span>{/if}
         <span class="label">{c.label}</span>
         {#if c.warning}<span class="warn">⚠ {c.warning}</span>{/if}

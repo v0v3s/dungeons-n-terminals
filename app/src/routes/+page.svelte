@@ -1,7 +1,9 @@
-<!-- The app: on desktop a TUI-style header with the sections and a footer
-     with the keys; on touch screens an app bar with a drawer. -->
+<!-- The app: on a computer a header with the sections, the search, the
+     campaign and ☰ for a section's sidebar; on a touch screen, or in a
+     window too narrow for the header, an app bar with a drawer. -->
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import { sidebar } from "../lib/sidebar.svelte";
   import UpdateNotice from "../lib/UpdateNotice.svelte";
   import { checkForUpdate } from "../lib/update.svelte";
   import { exit, onBackButtonPress } from "@tauri-apps/api/app";
@@ -14,7 +16,6 @@
   import Compendium from "../lib/Compendium.svelte";
   import Data from "../lib/Data.svelte";
   import Welcome from "../lib/Welcome.svelte";
-  import Icon from "../lib/Icon.svelte";
   import Drawer from "../lib/Drawer.svelte";
   import Notes from "../lib/Notes.svelte";
   import { closeTop } from "../lib/modals";
@@ -32,6 +33,9 @@
   ];
 
   let section = $state<Section>("compendium");
+  /// The app bar and drawer: a touch screen, or a window too narrow for
+  /// the header's sections.
+  const mobile = $derived(touch.current || narrow.current);
   /// Getting started (a new app, or one just reset) instead of a section.
   let welcome = $state(false);
   let status = $state<api.Status | null>(null);
@@ -161,6 +165,14 @@
     (section === "compendium" && narrow.current && !!reading) || (section === "characters" && !!characterOpen) || (section === "notes" && ((narrow.current && !!noteOpen) || !!returnTo)),
   );
 
+  /// Back from a note to the character it was opened from (its sheet on
+  /// the tab it was on), as Android's back button does.
+  async function backToCharacter() {
+    await notes?.save();
+    if (returnTo) section = returnTo;
+    returnTo = null;
+  }
+
   function openNote(path: string) {
     notePath = path;
     returnTo = section === "characters" ? "characters" : null;
@@ -200,10 +212,24 @@
     }
   });
 
+  /// The section has a sidebar for ☰ to hide and show.
+  const hasSidebar = $derived(!welcome && ((section === "notes" && !!status?.campaign) || (section === "characters" && sheetOpen) || section === "data"));
+
+  /// The compendium, the cursor in its search (the header's search, Ctrl+K).
+  async function search() {
+    if (!status?.loaded) return;
+    go("compendium");
+    await tick();
+    compendium?.focusSearch();
+  }
+
   function onkey(e: KeyboardEvent) {
     if (e.altKey && e.key >= "1" && e.key <= String(SECTIONS.length)) {
       go(SECTIONS[Number(e.key) - 1][0]);
       e.preventDefault();
+    } else if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      search();
     }
   }
 
@@ -213,7 +239,7 @@
 <svelte:window onkeydown={onkey} />
 
 <div class="app" class:touch={touch.current}>
-  {#if touch.current}
+  {#if mobile}
     <AppBar {title} back={opened} onmenu={() => (drawer = true)} onback={stepBack} actions={appActions} />
     <Drawer
       bind:open={drawer}
@@ -224,18 +250,28 @@
       footer={status?.campaign ? `◈ ${status.campaign} · ${counts}` : counts}
     />
   {:else}
-    <header class="tabs">
+    <header class="top">
+      {#if hasSidebar}
+        <button class="icon" aria-label={sidebar.open ? "Hide the sidebar" : "Show the sidebar"} aria-expanded={sidebar.open} onclick={() => sidebar.toggle()}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      {/if}
       <img class="brand" src="/dnt.svg" alt="dnt" />
-      <nav class="no-bar">
+      <nav aria-label="Sections">
         {#each SECTIONS as [id, l], i (id)}
-          <button class:active={!welcome && section === id} onclick={() => go(id)}>
-            <span class="n">{i + 1}</span>
-            <Icon name={id} />
-            {l}
-          </button>
+          <button class:active={!welcome && section === id} aria-current={!welcome && section === id ? "page" : undefined} title="Alt+{i + 1}" onclick={() => go(id)}>{l}</button>
         {/each}
       </nav>
-      <span class="right">{#if status?.campaign}<span class="acc">◈</span> <b>{status.campaign}</b>{:else}<span class="dim">no campaign</span>{/if}</span>
+      {#if status?.loaded}
+        <button class="search" onclick={search}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+          <span>Search the compendium…</span>
+          <span class="kbd">Ctrl K</span>
+        </button>
+      {/if}
+      <button class="campaign" class:none={!status?.campaign} onclick={() => go("campaigns")} title="Campaigns">
+        {#if status?.campaign}<span class="acc">◆</span> {status.campaign}{:else}No campaign{/if}
+      </button>
     </header>
   {/if}
 
@@ -262,7 +298,15 @@
     {:else if section === "characters"}
       {#key status.campaign}<Characters bind:this={characters} bind:open={characterOpen} bind:tab={sheetTab} bind:actions={sheetActions} {status} onnote={openNote} />{/key}
     {:else if section === "notes"}
-      {#key status.campaign}<Notes bind:this={notes} bind:openPath={notePath} bind:reading={noteOpen} {status} narrow={narrow.current} />{/key}
+      {#key status.campaign}<Notes
+          bind:this={notes}
+          bind:openPath={notePath}
+          bind:reading={noteOpen}
+          {status}
+          narrow={narrow.current}
+          backTo={returnTo === "characters" ? (characterOpen?.split(" · ")[0] ?? null) : null}
+          onbackto={backToCharacter}
+        />{/key}
     {:else if section === "campaigns"}
       <Campaigns {status} onchange={(s) => (status = s)} />
     {:else}
@@ -270,17 +314,6 @@
     {/if}
   </main>
 
-  {#if !touch.current}
-    <footer class="keys">
-      {#if section === "compendium" && !welcome}
-        <span><span class="keycap">↑↓</span> move</span>
-        <span><span class="keycap">/</span> search</span>
-        <span><span class="keycap">tab</span> complete · category</span>
-        <span><span class="keycap">esc</span> back</span>
-      {/if}
-      <span><span class="keycap">alt+1-5</span> section</span>
-    </footer>
-  {/if}
   <Busy />
 </div>
 
@@ -294,44 +327,109 @@
   .app.touch {
     padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
-  .tabs {
+  .top {
     display: flex;
     align-items: center;
-    gap: 2ch;
-    padding: 0.25em 1ch;
+    gap: 0.4rem;
+    height: 4rem;
+    flex-shrink: 0;
+    padding: 0 1.15rem;
+    background: var(--bar);
+    border-bottom: 1px solid var(--dark);
     white-space: nowrap;
   }
+  .top button {
+    font: inherit;
+    font-weight: 500;
+    border-radius: 0.55rem;
+    cursor: pointer;
+  }
+  .icon {
+    width: 2.6rem;
+    height: 2.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    color: var(--fg);
+  }
+  .icon:hover {
+    background: var(--raised);
+  }
   .brand {
-    height: 1.3em;
+    height: 1.4em;
     width: auto;
     flex-shrink: 0;
-    align-self: center;
+    margin: 0 0.7rem 0 0.3rem;
   }
   nav {
     display: flex;
-    gap: 1ch;
+    gap: 0.15rem;
   }
   nav button {
+    height: 2.6rem;
+    padding: 0 1rem;
     background: none;
     border: 0;
     color: var(--gray);
-    padding: 0 1ch;
-    cursor: pointer;
   }
-  nav .n {
-    color: var(--dim);
-    margin-right: 0.5ch;
+  nav button:hover {
+    background: var(--raised);
+    color: var(--fg);
   }
   nav button.active {
-    background: var(--gray);
-    color: var(--black);
-    font-weight: 700;
+    background: var(--raised);
+    color: var(--accent);
   }
-  nav button.active .n {
-    color: var(--black);
-  }
-  .right {
+  .search {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    height: 2.6rem;
+    width: min(21rem, 28vw);
+    min-width: 0;
+    padding: 0 0.85rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    text-align: left;
+  }
+  .search > span:first-of-type {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+  }
+  .search:hover {
+    border-color: var(--gray);
+  }
+  .kbd {
+    font-family: var(--mono);
+    font-size: 0.75em;
+    border: 1px solid var(--border);
+    border-radius: 0.3rem;
+    padding: 1px 5px;
+    color: var(--gray);
+  }
+  .campaign {
+    height: 2.6rem;
+    margin-left: 0.55rem;
+    padding: 0 1rem;
+    background: var(--raised);
+    border: 1px solid var(--border);
+    color: var(--fg);
+  }
+  .campaign.none {
+    color: var(--dim);
+  }
+  nav + .campaign {
+    margin-left: auto;
+  }
+  .campaign:hover {
+    background: var(--hover);
   }
   .acc {
     color: var(--accent);
@@ -345,14 +443,6 @@
   }
   .touch main {
     padding: 12px 12px max(env(safe-area-inset-bottom), 24px);
-  }
-  .keys {
-    display: flex;
-    gap: 3ch;
-    padding: 0.25em 1ch 0.4em;
-    color: var(--dim);
-    white-space: nowrap;
-    overflow: hidden;
   }
   .err {
     color: var(--red);

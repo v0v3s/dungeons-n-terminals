@@ -5,3 +5,6 @@ import { MediaQuery } from "svelte/reactivity";
 
 export const touch = new MediaQuery("(pointer: coarse)");
 export const narrow = new MediaQuery("(max-width: 760px)");
+/// A computer's window wide enough for the desktop layout: every option in
+/// sight (buttons, pop-ups), not behind menus and long presses.
+export const desktop = new MediaQuery("(pointer: fine) and (min-width: 761px)");

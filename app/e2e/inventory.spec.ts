@@ -6,6 +6,8 @@ const line = (page: Page, name: string) => page.locator("button.line", { hasText
 /// Pick a library item by its exact name: magic items made from it (+1
 /// Shield, Sentinel Shield…) match its name too, and sort before it.
 async function pickExactly(page: Page, name: string) {
+  // A dialog that just closed may still be fading out.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), null, { timeout: 2000 }).catch(() => {});
   const picker = page.getByRole("dialog").last();
   await picker.getByRole("textbox").fill(name);
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -31,14 +33,18 @@ test("a pack unpacks into its container", { tag: "@inventory.unpack" }, async ({
 test("a container folds its contents away", { tag: "@inventory.fold" }, async ({ page }) => {
   await openSheet(page, "Inventory");
   await unpack(page);
-  // Its arrow takes the place of the equip box: names stay in line, and no
-  // line keeps an empty column for arrows it lacks.
+  // Names stay in line, arrow or not. On a phone the arrow takes the place
+  // of the equip box at the start of a row; on a computer the box (its
+  // state: Equip, Worn, Held) comes after the name.
   const left = async (name: string) => (await line(page, name).boundingBox())!.x;
   const first = (await page.locator("button.line .name").first().textContent())!;
   expect(await left("Backpack")).toBeCloseTo(await left(first), 0);
-  const box = (await page.locator("button.equip").first().boundingBox())!;
-  const row = (await page.locator(".lrow", { has: page.locator("button.equip") }).first().boundingBox())!;
-  expect(box.x - row.x).toBeLessThan(box.width);
+  const equipRow = page.locator(".lrow", { has: page.locator("button.equip") }).first();
+  const box = (await equipRow.locator("button.equip").boundingBox())!;
+  const row = (await equipRow.boundingBox())!;
+  const name = (await equipRow.locator("button.line .name").boundingBox())!;
+  if (await page.evaluate(() => matchMedia("(pointer: fine) and (min-width: 761px)").matches)) expect(box.x).toBeGreaterThan(name.x + name.width);
+  else expect(box.x - row.x).toBeLessThan(box.width);
   await expect(line(page, "Backpack").locator(".name")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Fold" }).click();
   await expect(line(page, "Ink Pen")).toHaveCount(0);
@@ -46,26 +52,54 @@ test("a container folds its contents away", { tag: "@inventory.fold" }, async ({
   await expect(line(page, "Ink Pen")).toBeVisible();
 });
 
-test("a container's settings change, and any item can become one", { tag: "@inventory.container" }, async ({ page }) => {
+test("a container's settings change, and any item can become one", { tag: ["@inventory.container", "@inventory.container-kind"] }, async ({ page }) => {
   await openSheet(page, "Inventory");
   await unpack(page);
   await line(page, "Backpack").click();
   await choose(page, "Backpack", "Container settings…");
-  await answer(page, "Backpack: container", "weightless");
+  // The kinds are a list to choose from, not a word to type.
+  const box = dialog(page, "Backpack: container");
+  const kind = box.getByRole("combobox", { name: "Kind" });
+  await expect(kind.locator("option")).toHaveText([
+    "As the item says",
+    "Holds up to a weight",
+    "Holds anything (no weight limit)",
+    "Contents weigh nothing, up to a weight (a Bag of Holding)",
+    "Contents weigh nothing, no limit",
+    "Not a container",
+  ]);
+  await kind.selectOption({ label: "Contents weigh nothing, up to a weight (a Bag of Holding)" });
+  // The backpack's own 30 lb is kept.
+  await expect(box.getByRole("spinbutton", { name: "Holds up to (lb)" })).toHaveValue("30");
+  await box.getByRole("button", { name: "Set" }).click();
   await expect(line(page, "Backpack")).toContainText("weightless");
+  await expect(line(page, "Backpack")).toContainText("/30 lb");
 
   await line(page, "Spellbook").click();
   await choose(page, "Spellbook", "Make it a container…");
-  await answer(page, "Spellbook: container", "5");
+  const book = dialog(page, "Spellbook: container");
+  await expect(book.getByRole("combobox", { name: "Kind" })).toHaveValue("limit");
+  await book.getByRole("spinbutton", { name: "Holds up to (lb)" }).fill("5");
+  await book.getByRole("button", { name: "Set" }).click();
   await expect(line(page, "Spellbook")).toContainText("/5 lb");
+  // No limit has no weight to give.
+  await line(page, "Spellbook").click();
+  await choose(page, "Spellbook", "Container settings…");
+  await dialog(page, "Spellbook: container").getByRole("combobox", { name: "Kind" }).selectOption("nolimit");
+  await expect(dialog(page, "Spellbook: container").getByRole("spinbutton")).toHaveCount(0);
+  await dialog(page, "Spellbook: container").getByRole("button", { name: "Set" }).click();
+  await expect(dialog(page, "Spellbook: container")).toHaveCount(0);
+  await expect(line(page, "Spellbook")).not.toContainText("/5 lb");
 });
 
 test("items go straight into a container", { tag: "@inventory.add-into" }, async ({ page }) => {
   await openSheet(page, "Inventory");
   await unpack(page);
   await line(page, "Backpack").click();
-  await choose(page, "Backpack", "Add a custom item into it…");
-  await answer(page, "A custom item", "Lucky Pebble");
+  await choose(page, "Backpack", "Add a quick item into it…");
+  const quick = dialog(page, "A quick item, into Backpack");
+  await quick.getByRole("textbox", { name: "Name" }).fill("Lucky Pebble");
+  await quick.getByRole("button", { name: "Add the item" }).click();
   const pebble = page.locator(".lrow", { hasText: "Lucky Pebble" });
   await expect(pebble).toBeVisible();
   expect(await pebble.evaluate((e) => parseFloat(getComputedStyle(e).paddingLeft))).toBeGreaterThan(0);
@@ -130,11 +164,23 @@ test("an item is added from the library", { tag: "@inventory.add" }, async ({ pa
   await addItem(page, "Dice");
 });
 
-test("a custom item is added by its name", { tag: "@inventory.add-custom" }, async ({ page }) => {
+test("a quick item is added with its name, what it is, how many and its weight", { tag: ["@inventory.add-custom", "@inventory.quick-item"] }, async ({ page }) => {
   await openSheet(page, "Inventory");
-  await page.getByRole("button", { name: "+ Custom" }).click();
-  await answer(page, "A custom item", "Strange Feather");
+  await page.getByRole("button", { name: "+ Quick item" }).click();
+  const quick = dialog(page, "A quick item");
+  // A name is needed.
+  await quick.getByRole("button", { name: "Add the item" }).click();
+  await expect(quick).toContainText("It needs a name.");
+  await quick.getByRole("textbox", { name: "Name" }).fill("Strange Feather");
+  await quick.getByRole("textbox", { name: "Description" }).fill("Blue, and warm to the touch");
+  await quick.getByRole("spinbutton", { name: "How many" }).fill("2");
+  await quick.getByRole("spinbutton", { name: "Weight, each (lb)" }).fill("0.5");
+  await quick.getByRole("button", { name: "Add the item" }).click();
+  await expect(quick).toHaveCount(0);
   await expect(line(page, "Strange Feather")).toBeVisible();
+  await expect(line(page, "Strange Feather")).toContainText("Blue, and warm to the touch");
+  await expect(page.locator(".lrow", { hasText: "Strange Feather" })).toContainText("×2");
+  await expect(page.locator(".lrow", { hasText: "Strange Feather" })).toContainText("1.0 lb");
   // A custom item has no entry to read.
   await line(page, "Strange Feather").click();
   await expect(dialog(page, "Strange Feather").getByRole("button", { name: "Read it" })).toHaveCount(0);
@@ -204,18 +250,19 @@ test("attuning to an item adds its bonuses; ending it takes them away", { tag: "
 
 test("one more, one fewer", { tag: "@inventory.quantity" }, async ({ page }) => {
   await openSheet(page, "Inventory");
-  const knives = line(page, "Dagger");
+  // The row as it reads (on a computer the quantity has a column of its own).
+  const knives = page.locator(".lrow").filter({ has: line(page, "Dagger") });
   await expect(knives).toContainText("×2");
-  await knives.click();
+  await line(page, "Dagger").click();
   await choose(page, "Dagger", "One more");
   await expect(knives).toContainText("×3");
-  await knives.click();
+  await line(page, "Dagger").click();
   await choose(page, "Dagger", "One fewer");
-  await knives.click();
+  await line(page, "Dagger").click();
   await choose(page, "Dagger", "One fewer");
   await expect(knives).not.toContainText("×");
   // One left: no fewer to take.
-  await knives.click();
+  await line(page, "Dagger").click();
   await expect(dialog(page, "Dagger").getByRole("button", { name: "One fewer" })).toHaveCount(0);
 });
 

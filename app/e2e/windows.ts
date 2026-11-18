@@ -26,6 +26,10 @@ export async function connect(port = 9333): Promise<string> {
     env: {
       ...process.env,
       DNT_HOME: home,
+      // A WebView2 profile of its own: an installed dnt that is open holds
+      // the shared one with other browser arguments, and the app would not
+      // start.
+      WEBVIEW2_USER_DATA_FOLDER: join(home, "webview"),
       DNT_SEED: "1",
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     },

@@ -13,6 +13,9 @@
 
   /// One pane at a time: no steps or preview beside the question.
   const phone = new MediaQuery("(max-width: 1000px)");
+  /// A computer, the preview beside the choices: a click selects (and the
+  /// preview shows it), Choose confirms.
+  const confirming = new MediaQuery("(pointer: fine) and (min-width: 1001px)");
 
   let { step = $bindable(), ondone, oncancel }: { step: api.CreationStep; ondone: (s: api.Sheet) => void; oncancel: () => void } = $props();
 
@@ -28,6 +31,32 @@
 
   const at = $derived(step.steps.findIndex((s) => s.current));
   const review = $derived(step.question.type === "confirm");
+  /// A multiple pick's choices so far (to confirm).
+  let chosen: string[] = $state([]);
+
+  /// An equipment package by its letter (Option A), the rest in its hint: the
+  /// preview lists what is in it.
+  const question = $derived.by((): api.Question => {
+    const q = step.question;
+    if (q.type !== "pick" || !q.title.endsWith(": starting equipment")) return q;
+    return {
+      ...q,
+      choices: q.choices.map((c) => {
+        const m = c.label.match(/^([A-Z]): (.*)$/);
+        return m ? { ...c, label: `Option ${m[1]}`, hint: m[2] } : c;
+      }),
+    };
+  });
+  /// What the footer's button confirms: the selected choice, or a
+  /// multiple pick once all are chosen.
+  const pick = $derived(question.type === "pick" ? question : null);
+  const selected = $derived(pick?.choices.find((c) => c.value === highlighted) ?? null);
+  function confirmPick() {
+    if (!pick) return;
+    if (pick.count > 1) {
+      if (chosen.length) answer({ type: "pick", value: chosen });
+    } else if (selected) answer({ type: "pick", value: [selected.value] });
+  }
 
   async function refresh() {
     const ask = ++asked;
@@ -50,6 +79,7 @@
     try {
       error = "";
       highlighted = null;
+      chosen = [];
       step = await api.creationAnswer(a);
       open = false;
     } catch (e) {
@@ -142,7 +172,9 @@
       {#if phone.current && (open || review)}{@render checklist()}{/if}
       {#key JSON.stringify(step.steps)}
         <Ask
-          question={step.question}
+          {question}
+          confirmPick={confirming.current}
+          onchosen={(v) => (chosen = v)}
           onanswer={answer}
           onconfirm={finish}
           confirm="Create the character"
@@ -158,6 +190,14 @@
       <button class="ghost" onclick={oncancel}>Cancel</button>
       {#if step.question.type === "abilities" && scores}
         <button class="primary next" onclick={() => scores && answer({ type: "scores", value: scores })}>Next</button>
+      {:else if pick && confirming.current}
+        {#if pick.count > 1}
+          <button class="primary next confirm" disabled={!chosen.length} onclick={confirmPick}>Confirm ({chosen.length} of {pick.count})</button>
+        {:else}
+          <button class="primary next confirm" disabled={!selected} title={selected ? `Choose ${selected.label}` : undefined} onclick={confirmPick}
+            >Choose {selected?.label ?? ""}</button
+          >
+        {/if}
       {/if}
     </div>
     {#if error}<p class="err">{error}</p>{/if}
@@ -245,8 +285,9 @@
     cursor: pointer;
   }
   .mark {
+    flex: none;
     white-space: pre;
-    width: 1ch;
+    min-width: 1ch;
   }
   .slabel {
     flex: 1;
@@ -287,6 +328,79 @@
   }
   .nav .next {
     margin-left: auto;
+  }
+  /* Back and Cancel keep their labels; a long Choose … shortens. */
+  .nav > button {
+    flex: none;
+  }
+  .nav > .confirm {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  /* A computer: the steps on the left, the choices one column of rows
+     (alphabetical, top to bottom), the selected one read on the right
+     (the widest: it holds the most text); Back, Cancel and Choose a
+     footer. */
+  @media (pointer: fine) and (min-width: 1001px) {
+    .creation {
+      grid-template-columns: minmax(14rem, 16%) minmax(0, 1fr) minmax(22rem, 1.25fr);
+      gap: 0 1.2rem;
+    }
+    .creation :global(.question ul) {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .creation :global(.question ul > li > button:not(.info)) {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      column-gap: 1rem;
+      row-gap: 0.1rem;
+      width: 100%;
+      text-align: left;
+      padding: 0.45rem 0.8rem;
+      border: 1px solid var(--edge);
+      border-radius: 0.55rem;
+      background: var(--bg);
+    }
+    /* A multiple pick: its ○ / ◉ before the name. */
+    .creation :global(.question ul > li > button:not(.info) > .box) {
+      flex: none;
+      margin-right: -0.4rem;
+    }
+    .creation :global(.question ul > li > button:not(.info) > .label) {
+      flex: 0 1 auto;
+    }
+    /* What it gives, beside the name; under it when there is no room. */
+    .creation :global(.question ul > li > button:not(.info) > .hint) {
+      flex: 1 1 14rem;
+      min-width: 0;
+    }
+    /* The pointer only highlights; the selected one is marked. */
+    .creation :global(.question ul > li > button:not(.info):hover) {
+      border-color: var(--gray);
+    }
+    .creation :global(.question ul > li > button:not(.info).cursor) {
+      border-color: var(--accent);
+      background: var(--selected);
+    }
+    /* A row: its name, then what it gives on one line (in full in the
+       preview, and as its tooltip). */
+    .creation :global(.question ul > li > button:not(.info) .label) {
+      font-weight: 600;
+    }
+    .creation :global(.question ul > li > button:not(.info) .hint) {
+      max-width: none;
+      margin: 0;
+      text-align: left;
+      font-size: 0.88em;
+    }
+    .nav {
+      margin: 1rem -1.1rem -1rem;
+      padding: 0.8rem 1.1rem;
+      border-top: 1px solid var(--edge);
+    }
   }
   .err {
     color: var(--red);

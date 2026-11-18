@@ -8,6 +8,104 @@ become the release page.
 
 ## Unreleased
 
+## v1.9.0 - 2026-11-18
+
+### Changed
+
+- The app on Windows has a desktop look: a header with the sections,
+  a search (also Ctrl+K) and the campaign; Inter for what the app says,
+  the monospace kept for numbers; controls that show where the keyboard
+  is. A narrow window gets the app bar and menu of the phone instead.
+- ☰ hides and shows a section's sidebar (the notes' folders); it starts
+  hidden in a window narrower than 1200 px.
+- Dim text is lighter, easier to read on every screen.
+- On Windows the app grows with its window: bigger text and controls on
+  a bigger screen, and more columns side by side (the skills, the
+  features); running text still wraps at a comfortable length.
+- The character sheet on Windows: its tabs by name in a row, the party
+  beside it (another character in one click; ☰ hides it), the hit points
+  across the top with the temporary ones in the bar, and an attack's
+  damage on one line with a versatile weapon's two-handed damage under it.
+- On Windows every option of the sheet is in sight: the ⋯ menu as one
+  toolbar of groups (Play, Character, Export, then Delete), each attack's
+  and tracker's actions by it, a spell's or an item's under it once
+  clicked (⋯ and a right click still open the menus).
+- On Windows ⓘ by a number shows how it adds up in a pop-up beside it:
+  the total with its sign, a line for each part and where it comes from,
+  with Roll, Advantage and Disadvantage.
+- On Windows an item's state has its own column after the name (Equip,
+  Held · its hand, Worn · its slot); the hit dice sit on one line under
+  the hit points with their buttons; what just happened shows in a toast
+  in the corner that fades, never over the sheet.
+- The compendium on Windows: the search across the top, the categories
+  and the search's facets as chips under it (a facet's chip adds it to the
+  search, a suggestion's completes it), an entry's actions (edit, clone,
+  export) as buttons by its name.
+- Notes, campaigns and characters on Windows: every ⋯ action in sight (a
+  folder's and a note's, a campaign's), the notes that link to a note in a
+  column beside it, the campaigns and the characters as cards side by
+  side; dialogs as roomy cards with a ✕ to close them.
+- Data on Windows: its parts as a menu on the left (Problems with how many,
+  About & updates marked when a newer dnt is out); ☰ hides it.
+- Getting started links to the wiki's page on making your own data: it
+  opens in the browser, or a button copies its address; on Windows the
+  welcome and the steps side by side.
+- About has a Source code button that opens the project's repository in
+  the browser. The app can open the project's own pages and nothing else.
+- A new character on Windows: the choices as one column of rows between
+  the steps and the selected choice, read in a wider preview; a click
+  selects (the pointer only highlights), the arrows move, Choose (or
+  Enter) goes on; an equipment package is named by its letter, its
+  contents in the preview. The sources and homebrew dialogs have their
+  buttons as a footer.
+- Getting started no longer asks for the books: the first campaign uses
+  every official one (they are chosen later, from the compendium).
+- Text never runs out of its box: a long word breaks, a label kept to
+  one line ends in "…" with its full text as the tooltip.
+- The sheet on Windows: the exports in ⋯ only, so the toolbar is one line; the latest rolls folded
+  under the numbers (Rolls (n)), never a column.
+- Rolling on Windows: the next roll is a control in sight (Roll: Normal,
+  Advantage, Disadvantage) on the overview and skills, and Shift+click
+  rolls with advantage, Ctrl+click with disadvantage; ⓘ only shows how a
+  number adds up.
+- Both hands is offered only for a Versatile or Two-Handed weapon.
+- A spell's dice say what they are: damage only when it deals damage;
+  otherwise healing, temporary hit points, or what the spell does with
+  them (Guidance's 1d4 an ability check bonus, Resistance's damage
+  reduction, Bane's an attack and save penalty), in the app and the
+  terminal.
+- Tables (a class's) keep each cell on one line and scroll sideways in
+  their box, in the compendium, the creation preview and entry dialogs.
+- The sheet's tabs on Windows are icons; the open tab shows its name, and
+  the pointer or the keyboard on another grows it the same way in the row.
+- With the sidebar hidden on Windows, the content keeps the same margin on
+  both sides; a note uses the whole width.
+- Features that grant a spell add it, listed under the feature: as the
+  data's granted spells, or as its text says (Pact of the Chain's Find
+  Familiar, an invocation's spell, Paladin's Smite's Divine Smite); gone
+  with the feature. In the app and the terminal.
+- Spells can be added from all spells, not only the class's list: an All
+  spells switch in the app's picker, A in the terminal.
+- In the app several spells are chosen at once: grouped by level, each
+  heading with how many can be chosen there; only what can be chosen now
+  (no Cantrips when no cantrip is to choose); the spells already had shown
+  ticked, one given up freeing a pick; read each beside the list, then
+  Confirm.
+- A character's note on Windows has a ‹ <name> button back to their sheet.
+- On a phone, tapping a dice chip in Roll dice no longer brings the
+  keyboard up.
+- Dialogs open and close with a short fade (still with reduced motion);
+  an entry read from the sheet opens once it is read.
+- Inventory: + Custom is + Quick item, asking a name, a description
+  (shown under it), how many and the weight; a container's kind is chosen
+  from a list; more room between rows on Windows.
+- Features on Windows flow in columns of their own; the Weapon Mastery
+  swap buttons keep apart.
+- Notes: on Windows the toolbar (+ Note, Quick note, New folder, Session
+  note, ⋯) is at the top of the note's side; saving goes back to reading;
+  tasks (- [ ], - [x]) are checkboxes to tick; Enter goes on with a list,
+  and on an empty item ends it.
+
 ## v1.8.0 - 2026-11-13
 
 ### Added

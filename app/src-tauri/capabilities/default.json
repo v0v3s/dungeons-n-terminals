@@ -9,6 +9,13 @@
     "core:default",
     "core:app:allow-exit",
     "dialog:allow-open",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/v0v3s/dungeons-n-terminals" },
+        { "url": "https://github.com/v0v3s/dungeons-n-terminals/*" }
+      ]
+    }
   ]
 }

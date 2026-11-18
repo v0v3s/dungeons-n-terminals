@@ -1265,10 +1265,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 };
                 let dice = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() });
                 if let Some(d) = &dice {
-                    right.push_str(&format!(
-                        "{d} {} · ",
-                        if r.kind.is_empty() { "damage" } else { r.kind.split(" or ").next().unwrap_or("") }
-                    ));
+                    right.push_str(&format!("{d} {} · ", r.label()));
                 }
                 right.push_str(&if lvl == 0 { "cantrip".into() } else { format!("level {lvl}") });
                 if spells::concentration(lib, e) {
@@ -1389,6 +1386,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
             Line::styled("◦ cantrip   ● prepared/known   ○ in spellbook   ◆ from a feature", theme.dim),
             Line::default(),
             Line::from(vec![Span::styled(" a ", theme.keycap), Span::styled(" add a spell to the class under the cursor", theme.dim)]),
+            Line::from(vec![Span::styled(" A ", theme.keycap), Span::styled(" add from all spells, not only the class's", theme.dim)]),
             Line::from(vec![
                 Span::styled(" enter ", theme.keycap),
                 Span::styled(" cast (choose a slot) · pick spells for a feature", theme.dim),

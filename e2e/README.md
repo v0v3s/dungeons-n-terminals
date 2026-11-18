@@ -6,8 +6,9 @@ taps, on every target it is released for.
 | Target | What runs | Where |
 |---|---|---|
 | `tui` | the terminal app in a pseudo-terminal, read back through a terminal emulator | `crates/dnt/tests/e2e`, on Linux and Windows (CI) |
-| `app` | the Tauri app through its WebView's DevTools protocol ([Playwright](https://playwright.dev)) | `app/e2e`, on an Android phone (USB) and on Windows (CI) |
-| `android` | as `app`, phone only (touch) | `app/e2e` |
+| `app` | the Tauri app through its WebView's DevTools protocol ([Playwright](https://playwright.dev)) | `app/e2e`, on Android (a phone over USB, or on CI an emulator) and on Windows (CI) |
+| `android` | as `app`, phone only (touch) | `app/e2e`, tagged `@android` too |
+| `windows` | as `app`, computer only (mouse and keyboard) | `app/e2e`, tagged `@windows` too |
 
 ## The rule
 
@@ -66,11 +67,15 @@ cargo test -p dnt --test e2e inventory     # some of them
 cargo test -p dnt --test scenarios         # the rule
 
 cd app
-npm run e2e:android                        # a test phone over USB: builds, installs, runs
+npm run e2e:android                        # a test phone (or an emulator) over adb: builds, installs, runs
 npm run e2e:android -- --no-build -g notes # some of them, without building
 npm run e2e:windows                        # on Windows
 npx playwright show-report e2e/report      # what failed, with screenshots
 ```
+
+CI runs the Android tests on an emulator (`app (android)` in
+`.github/workflows/ci.yml`): a debug build for x86_64 with the e2e feature,
+installed with `DNT_E2E_APK`. Locally a phone still works.
 
 The app's tests **reset the app**: on a phone, use a test device (they
 refuse to run when the app has campaigns of its own; `DNT_E2E_RESET=1` wipes

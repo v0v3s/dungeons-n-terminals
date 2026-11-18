@@ -264,6 +264,8 @@ export interface AttackRow {
   notes: string[];
   problems: string[];
   properties: string[];
+  /// Can be held in both hands (Versatile or Two-Handed).
+  both_hands: boolean;
   line: number | null;
 }
 
@@ -357,6 +359,8 @@ export interface Line {
   entity: number | null;
   quantity: number;
   weight: number;
+  /// A quick item's description.
+  description: string | null;
   kind: string;
   worn: boolean;
   held: boolean;
@@ -418,9 +422,27 @@ export interface Options {
   title: string;
   choices: Choice[];
   pick: number;
+  /// How many more can be chosen at once (several spells).
+  left: number;
+  /// Spells: each choice's level, the spells already had, the counts.
+  spells: SpellLists | null;
   default: number;
   target: Target | null;
 }
+
+/// A list of spells to choose from, by level (`Options.spells`).
+export interface SpellLists {
+  levels: number[];
+  had: { choice: Choice; level: number; how: string }[];
+  /// Had, and the most there may be.
+  cantrips: [number, number];
+  /// Levelled spells: one count for every level.
+  spells: [number, number];
+  max_level: number;
+}
+
+/// A spell given up in the spell picker, and how it was had.
+export type RemovedSpell = { id: string; how: string };
 
 export interface Part {
   kind: string;
@@ -452,7 +474,7 @@ export type Wanted =
   | { type: "items" }
   | { type: "wear"; line: number }
   | { type: "containers"; line: number }
-  | { type: "class_spells"; class_id: string }
+  | { type: "class_spells"; class_id: string; all?: boolean }
   | { type: "grant_spells"; key: string; filter: string; missing: number }
   | { type: "cast"; id: string }
   | { type: "mastery" };

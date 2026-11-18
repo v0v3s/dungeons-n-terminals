@@ -3,9 +3,12 @@
 #
 #   scripts/e2e-app.sh [--target android|windows] [--no-build] [playwright args…]
 #
-#   --target   android (default): a phone over adb (USB debugging on);
-#              windows: the desktop app, on Windows
+#   --target   android (default): a phone (USB debugging on) or an
+#              emulator over adb; windows: the desktop app, on Windows
 #   --no-build use the last e2e build as it is
+#
+# DNT_E2E_APK installs another APK on Android (CI: a debug build for the
+# emulator, app (android) in .github/workflows/ci.yml).
 #
 # The tests use the repository's test data (e2e/data, e2e/homebrew) and
 # party (e2e/characters.json), and RESET the app before each test. On a
@@ -14,7 +17,8 @@
 # several devices. On Windows the app runs in a temporary home (DNT_HOME).
 #
 # The build has the e2e feature (its WebView can be debugged), so it is
-# never one to release.
+# never one to release. CARGO_TARGET_DIR builds it elsewhere (beside a
+# release build that is running, say).
 set -eu
 
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -44,8 +48,9 @@ case "$target" in
     if [ "$build" = 1 ]; then
       (. scripts/android-env.sh && npx tauri android build --apk --target aarch64 --features e2e)
     fi
-    adb -s "$serial" install -r src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+    adb -s "$serial" install -r "${DNT_E2E_APK:-src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk}"
     adb -s "$serial" shell am force-stop cz.v0v3s.dnt
+    set -- --grep-invert @windows "$@"
     ;;
   windows)
     if [ "$build" = 1 ]; then
@@ -62,8 +67,9 @@ case "$target" in
       ' "$(native "$conf")"
       npx tauri build --no-bundle --features e2e --config "$(native "$conf")"
     fi
-    export DNT_E2E_APP="$(native "$here/../target/release/dnt-app.exe")"
-    echo "the app: $DNT_E2E_APP"; ls -la "$here/../target/release/" | grep -i dnt || true
+    out=${CARGO_TARGET_DIR:-$here/../target}
+    export DNT_E2E_APP="$(native "$out/release/dnt-app.exe")"
+    echo "the app: $DNT_E2E_APP"; ls -la "$out/release/" | grep -i dnt || true
     set -- --grep-invert @android "$@"
     ;;
   *) echo "unknown target: $target (android or windows)" >&2; exit 2 ;;
