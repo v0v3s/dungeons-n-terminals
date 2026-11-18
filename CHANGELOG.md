@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.9.0 - 2026-11-18
+
 ### Changed
 
 - The app on Windows has a desktop look: a header with the sections,

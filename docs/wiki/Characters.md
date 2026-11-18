@@ -26,13 +26,15 @@ In the app, six tabs: **Overview** (hit points and hit dice, attacks,
 what you track), **Skills** (abilities, saves and skills), **Spells** (by
 level, with their slots), **Inventory**, **Features** and **Notes**. The
 terminal has five: its **Overview** has the abilities and skills too. Every number
-explains itself: hold it on a phone (right-click on a desktop; `enter` in
-the terminal) to see how it adds up.
+explains itself: tap its ⓘ (on Windows, the ⓘ beside it; `enter` in the
+terminal) to see how it adds up, with a line for each part and where it
+comes from.
 
 ![The overview on a phone](images/app-sheet.png)
 
-The tab select above the sheet changes the tab; on a phone, the row of
-icons under the app bar. Swipe sideways too: the gap names the tab you are
+The tabs above the sheet change the tab: on Windows a row of icons that
+opens to its name when hovered or focused, on a phone the same row under
+the app bar. ☰ hides and shows the party beside the sheet. Swipe sideways too: the gap names the tab you are
 going to, and lights up once letting go opens it (a little under half the
 way). Unfold *Characters* in the menu (▸) for the open character's tabs:
 from the compendium straight to their spells.
