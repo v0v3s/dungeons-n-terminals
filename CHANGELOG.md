@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.10.0 - 2026-11-23
+
 ### Added
 
 - Rules for one class: a rule can name the class it is for
