@@ -8,6 +8,28 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Rules for one class: a rule can name the class it is for
+  (`class = "Shaman|WoW"`). A book's class made from another (its
+  version of the Barbarian) shares that class's features but has rules
+  of its own; the rules library lists them as rules of their own
+  ("Rage (Shaman 1)"), and importing them leaves the other class's
+  alone.
+- A book's class made from another offers that class's subclasses too,
+  with its own.
+- Spells always prepared that are also cast once a day without a slot
+  are listed both ways: always prepared, and their free casts.
+- Spells cast by spending a resource (a class's points) say what they
+  cost ("1 Soul Fragment"), and casting one spends it when the rules
+  track it.
+
+### Changed
+
+- A class's features have the rules of the class they came with: the
+  rules for another class's features no longer apply to a class made
+  from it (they showed errors, or numbers of the wrong class).
+
 ## v1.9.0 - 2026-11-18
 
 ### Changed

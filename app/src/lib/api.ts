@@ -349,6 +349,8 @@ export type SpellRow =
       /// The casting class, for a class spell's attack and DC.
       caster: string | null;
       in_favorites: boolean;
+      /// What a cast without a slot spends, when a resource pays for it.
+      cost: string | null;
     }
   | { type: "choice"; key: string; filter: string; missing: number; text: string };
 

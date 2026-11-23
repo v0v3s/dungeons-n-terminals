@@ -1,7 +1,7 @@
 // The rules library: a tree of folders, files and rules to tick and import
 // as your own rules (the tests' library: e2e/rules).
 import type { Page } from "@playwright/test";
-import { dialog, expect, go, invoke, openSheet, test, useTestRulesLibrary } from "./fixtures";
+import { dialog, expect, go, invoke, openSheet, test, useTestRulesLibrary, wren } from "./fixtures";
 
 const library = (page: Page) => dialog(page, "Rules library");
 /// A row's tick (a folder, a file or a rule), by its name.
@@ -26,9 +26,9 @@ async function ownRules(page: Page) {
 
 test("the library is a tree of folders, files and rules", { tag: "@rules.library-browse" }, async ({ page }) => {
   await open(page);
-  // Folded at first: the folders, the SRD first, then the homebrew.
+  // Folded at first: the folders, the SRD first, then the others.
   const names = await library(page).locator(".folder .name").allInnerTexts();
-  expect(names).toEqual(["SRD", "Homebrew"]);
+  expect(names).toEqual(["SRD", "Books", "Homebrew"]);
   await expect(tick(page, "SRD")).toContainText("3 rule(s)");
   await expect(tick(page, "Classes")).toHaveCount(0);
   // Unfolded: its files, folded too; then a file's rules.
@@ -95,4 +95,27 @@ test("kept rules stay yours", { tag: "@rules.library-conflict" }, async ({ page 
   await page.keyboard.press("Escape");
   await openSheet(page);
   await expect(tile(page, "Speed")).toContainText("40");
+});
+
+test("a class made from another has rules of its own", { tag: "@rules.for-a-class" }, async ({ page }) => {
+  await wren(page, false);
+  await open(page);
+  // The books' folder: the Hexer's rules for Hexer Patron, and the
+  // Runebinder's, each a rule of its own.
+  await expect(tick(page, "Books")).toContainText("2 rule(s)");
+  await unfold(page, "Books");
+  await unfold(page, "Proving Grounds");
+  await expect(tick(page, "Hexer Patron (Hexer 1)")).toContainText("new");
+  await expect(tick(page, "Hexer Patron (Runebinder 1)")).toContainText("new");
+  // Only the Runebinder's.
+  await tick(page, "Hexer Patron (Runebinder 1)").click();
+  await library(page).getByRole("button", { name: "Import 1 rule(s)" }).click();
+  await expect(library(page)).toContainText("✓ Imported 1 rule(s)");
+  await expect(tick(page, "Hexer Patron (Runebinder 1)")).toContainText("yours already");
+  await expect(tick(page, "Hexer Patron (Hexer 1)")).toContainText("new");
+  await page.keyboard.press("Escape");
+  await openSheet(page, "Overview", "Wren");
+  const tracker = (name: string) => page.locator(".tracker").filter({ has: page.locator(".tname", { hasText: name }) });
+  await expect(tracker("Bindings").locator(".count")).toHaveText("2/2");
+  await expect(tracker("Patron's Favor")).toHaveCount(0);
 });

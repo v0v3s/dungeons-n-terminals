@@ -1352,6 +1352,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                         let key = format!("innate_{}", dnt_rules::class_table::slug(&name));
                         format!("{}/{n} free", play::resource_left(ch, ev, &key))
                     }
+                    Grant::Resource { name, cost } => Grant::resource_text(name, *cost),
                 };
                 spell_spans(id, Span::styled("◆ ", base.fg(theme.accent)), text)
             }

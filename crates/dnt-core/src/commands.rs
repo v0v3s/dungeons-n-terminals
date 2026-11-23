@@ -547,7 +547,29 @@ impl CharacterSession {
             }
             Command::Cast { id, how } => {
                 let spell = resolve_id(lib, &id).ok_or_else(|| format!("Unknown spell {id}"))?;
-                Outcome::changed(spellbook::cast(lib, c, ev, spell, &how)?)
+                // A spell cast with a resource (Soul Fragments): spend it,
+                // if the character's rules track it.
+                let paid = self.build.granted.iter().flat_map(|g| &g.grants).find_map(|g| match g {
+                    spells::Granted::Spell { id: s, grant: spells::Grant::Resource { name, cost } } if *s == id => Some((name, *cost)),
+                    _ => None,
+                });
+                match paid {
+                    Some((name, cost)) if how == "free" => {
+                        let plural = format!("{name}s");
+                        let tracked = self.build.resources.iter().map(|(r, _)| r).find(|r| {
+                            let n = r.name.to_lowercase();
+                            n == name.to_lowercase() || n == plural.to_lowercase()
+                        });
+                        if let Some(r) = tracked {
+                            if !play::spend_resource(c, ev, &r.key, cost) {
+                                return Err(format!("Not enough {} left", r.name));
+                            }
+                        }
+                        let msg = spellbook::cast(lib, c, ev, spell, "ritual")?;
+                        Outcome::changed(format!("{msg} ({})", spells::Grant::resource_text(name, cost)))
+                    }
+                    _ => Outcome::changed(spellbook::cast(lib, c, ev, spell, &how)?),
+                }
             }
             Command::ToggleFavorite { id } => {
                 let name = spell_name(lib, &id);

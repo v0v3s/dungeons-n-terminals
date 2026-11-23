@@ -1,0 +1,19 @@
+# The Proving Grounds (the test supplement): rules for its classes. The
+# Runebinder is made from the Hexer: its Hexer Patron has rules of its own.
+
+[[feature]]
+id = "classFeature:Hexer Patron|Hexer|TST|1"
+[[feature.resource]]
+key = "patron_favor"
+name = "Patron's Favor"
+max = "1"
+recharge = "long_rest"
+
+[[feature]]
+id = "classFeature:Hexer Patron|Hexer|TST|1"
+class = "Runebinder|TST"
+[[feature.resource]]
+key = "bindings"
+name = "Bindings"
+max = "level('Runebinder') + 1"
+recharge = "long_rest"

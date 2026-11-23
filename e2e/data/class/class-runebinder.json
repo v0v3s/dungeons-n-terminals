@@ -1,0 +1,70 @@
+{
+ "class": [
+  {
+   "name": "Runebinder",
+   "source": "TST",
+   "page": 40,
+   "reskinOf": [
+    "Hexer|TST"
+   ],
+   "_copy": {
+    "name": "Hexer",
+    "source": "TST"
+   },
+   "includeSubclassesFrom": [
+    "Hexer|TST"
+   ],
+   "subclassTitle": "Runebinder Circle",
+   "additionalSpells": [
+    {
+     "resourceName": "Binding",
+     "prepared": {
+      "1": {
+       "daily": {
+        "1": [
+         "shield|srd52"
+        ]
+       }
+      }
+     },
+     "innate": {
+      "1": {
+       "resource": {
+        "1": [
+         "jump|srd52"
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "subclass": [
+  {
+   "name": "The Grove",
+   "shortName": "Grove",
+   "source": "TST",
+   "className": "Runebinder",
+   "classSource": "TST",
+   "page": 41,
+   "subclassFeatures": [
+    "The Grove|Runebinder|TST|Grove|TST|1"
+   ]
+  }
+ ],
+ "subclassFeature": [
+  {
+   "name": "The Grove",
+   "source": "TST",
+   "className": "Runebinder",
+   "classSource": "TST",
+   "subclassShortName": "Grove",
+   "subclassSource": "TST",
+   "level": 1,
+   "entries": [
+    "Leaves follow you."
+   ]
+  }
+ ]
+}

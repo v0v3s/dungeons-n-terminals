@@ -247,3 +247,24 @@ fn the_last_level_is_undone_after_confirming() {
     see(&mut t, "Human · Sage · Wizard 1 · Level 1");
     t.wait("8/8");
 }
+
+#[test]
+fn a_class_made_from_another_offers_its_subclasses_too() {
+    let home = Home::party();
+    character_file(&home, "dabbler", DABBLER);
+    let mut t = Tui::scenario("levelup.subclass-from-base", home);
+    t.send("2").wait("Dabbler");
+    t.send("j").send(ENTER);
+    see(&mut t, "Halfling · Sage · Wizard 1 · Level 1");
+    t.send("u");
+    answer(&mut t, "Level up: choose a class", "Runebinder");
+    // Its own subclass, and the Hexer's.
+    see(&mut t, "Choose a subclass");
+    t.wait("The Grove").wait("The Lantern").wait("The Tide");
+    answer(&mut t, "Choose a subclass", "Tide");
+    answer(&mut t, "Hit points for this level", "Average");
+    see(&mut t, "✓ Subclass: The Tide");
+    confirm(&mut t, 2);
+    see(&mut t, "Wizard 1 / Runebinder 1 · Level 2");
+    assert!(!t.shows("warning"), "{}", t.screen());
+}

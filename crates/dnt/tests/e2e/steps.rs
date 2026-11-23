@@ -40,3 +40,44 @@ pub fn row(t: &Tui, text: &str) -> String {
 pub fn character_file(home: &Home, slug: &str, toml: &str) {
     std::fs::write(home.campaign_file("characters").join(format!("{slug}.toml")), toml).expect("the character file");
 }
+
+/// A level 1 Runebinder (the invented class made from the Hexer), last on
+/// the roster: always prepared Shield with a free cast, Jump for a Binding.
+pub const WREN: &str = r#"name = "Wren"
+species = "race:Halfling|SRD52"
+background = "background:Sage|SRD52"
+
+[abilities]
+str = 8
+dex = 14
+con = 12
+int = 10
+wis = 13
+cha = 15
+
+[[levels]]
+class = "class:Runebinder|TST"
+
+[subclasses]
+"class:Runebinder|TST" = "subclass:Grove|Runebinder|TST|TST"
+"#;
+
+/// The Runebinder's own rules for Hexer Patron: Bindings to spend.
+pub const BINDINGS: &str = "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\nclass = \"Runebinder|TST\"\n[[feature.resource]]\nkey = \"bindings\"\nname = \"Bindings\"\nmax = \"level('Runebinder') + 1\"\nrecharge = \"long_rest\"\n";
+
+/// The party with Wren, and Wren's rules when `rules`.
+pub fn with_wren(rules: bool) -> Home {
+    let home = Home::party();
+    character_file(&home, "wren", WREN);
+    if rules {
+        let dir = home.store().overlays_dir();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("bindings.toml"), BINDINGS).unwrap();
+    }
+    home
+}
+
+/// Open Wren (last on the roster) on the Overview.
+pub fn open_wren(t: &mut Tui) {
+    t.send("2").wait("Wren").send("G").send(crate::harness::ENTER).wait("◆ Wren").wait("Armor Class");
+}

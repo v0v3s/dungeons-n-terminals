@@ -629,15 +629,22 @@ impl Library {
         Key::from_ref(kind, tag, &parts).and_then(|(key, _)| self.get(&key))
     }
 
-    /// Subclasses belonging to a class.
+    /// Subclasses belonging to a class, and those of the classes it takes
+    /// subclasses from (`includeSubclassesFrom`: a book's class made from
+    /// another).
     pub fn subclasses_of(&self, class: EntityId) -> Vec<EntityId> {
         let c = &self.entities[class];
+        let mut classes = vec![(c.name.to_lowercase(), c.source.to_lowercase())];
+        for from in c.data.get("includeSubclassesFrom").and_then(Value::as_array).into_iter().flatten() {
+            if let Some((name, source)) = from.as_str().and_then(|f| f.split_once('|')) {
+                classes.push((name.to_lowercase(), source.to_lowercase()));
+            }
+        }
+        let field = |e: &Entity, k: &str| e.data.get(k).and_then(Value::as_str).unwrap_or_default().to_lowercase();
         let mut subs: Vec<EntityId> = (0..self.entities.len())
             .filter(|&i| {
                 let e = &self.entities[i];
-                e.kind == Kind::Subclass
-                    && e.data.get("className").and_then(Value::as_str) == Some(&c.name)
-                    && e.data.get("classSource").and_then(Value::as_str) == Some(&c.source)
+                e.kind == Kind::Subclass && classes.contains(&(field(e, "className"), field(e, "classSource")))
             })
             .collect();
         subs.sort_by(|&a, &b| self.entities[a].name.cmp(&self.entities[b].name));
@@ -962,5 +969,26 @@ mod tests {
         let n = lib.entities().len();
         lib.load_json(&json!({"spell": []}));
         assert_eq!(lib.entities().len(), n);
+    }
+
+    #[test]
+    fn a_class_made_from_another_takes_its_subclasses_too() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "class": [
+                {"name": "Barbarian", "source": "T"},
+                {"name": "Shaman", "source": "B", "includeSubclassesFrom": ["Barbarian|T"]}
+            ],
+            "subclass": [
+                {"name": "Berserker", "shortName": "Berserker", "source": "T", "className": "Barbarian", "classSource": "T"},
+                {"name": "Elements", "shortName": "Elements", "source": "B", "className": "Shaman", "classSource": "B"}
+            ]
+        }));
+        let names = |class: &str, source: &str| {
+            let c = lib.get(&Key::new(Kind::Class, &[class, source])).unwrap();
+            lib.subclasses_of(c).into_iter().map(|s| lib.entity(s).name.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(names("Shaman", "B"), ["Berserker", "Elements"]);
+        assert_eq!(names("Barbarian", "T"), ["Berserker"]);
     }
 }

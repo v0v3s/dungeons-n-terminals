@@ -113,3 +113,31 @@ fn kept_rules_stay_yours() {
     open(&mut t, "Tester");
     assert_eq!(stat_box(&t, "Speed"), "40");
 }
+
+#[test]
+fn a_class_made_from_another_has_rules_of_its_own() {
+    let home = crate::steps::with_wren(false);
+    let mut t = Tui::scenario("rules.for-a-class", home);
+    library(&mut t);
+    // The books' folder: the Hexer's rules for Hexer Patron, and the
+    // Runebinder's, each a rule of its own.
+    see(&mut t, "▸ ○ Books  2 rule(s)");
+    t.send("j").send("l");
+    see(&mut t, "▸ ○ Proving Grounds  2 rule(s)");
+    t.send("j").send("l");
+    assert!(row(&t, "Hexer Patron (Hexer 1)").contains("new"), "{}", t.screen());
+    assert!(row(&t, "Hexer Patron (Runebinder 1)").contains("new"), "{}", t.screen());
+    // Only the Runebinder's.
+    t.send("j").send("j").send(" ");
+    see(&mut t, "● Hexer Patron (Runebinder 1)");
+    t.send(ENTER);
+    wait_status(&mut t, "Imported 1 rule(s)");
+    assert!(row(&t, "Hexer Patron (Runebinder 1)").contains("yours already"), "{}", t.screen());
+    assert!(row(&t, "Hexer Patron (Hexer 1)").contains("new"), "{}", t.screen());
+    t.send(ESC).wait_gone("Rules library");
+    crate::steps::open_wren(&mut t);
+    t.wait("Bindings");
+    assert!(!t.shows("warning"), "{}", t.screen());
+    assert!(t.line("Bindings").contains("2/2"), "{}", t.screen());
+    assert!(!t.shows("Patron's Favor"), "{}", t.screen());
+}

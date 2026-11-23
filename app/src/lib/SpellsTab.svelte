@@ -73,7 +73,7 @@
   function spellActions(r: Spell): [string, () => void][] {
     const actions: [string, () => void][] = [];
     if (r.entity !== null) actions.push(["Read it", () => ctx.show(r.entity!)]);
-    if (r.castable) actions.push([r.free ? "Cast (a free cast)" : "Cast…", () => cast(r.id, r.free)]);
+    if (r.castable) actions.push([r.cost ? `Cast (${r.cost})` : r.free ? "Cast (a free cast)" : "Cast…", () => cast(r.id, r.free)]);
     if (r.free) actions.push(["Cast with a slot…", () => cast(r.id, false)]);
     actions.push(["Roll it", () => ctx.roll({ type: "spell", id: r.id, caster: r.caster })]);
     if (r.class_id && r.mark !== "cantrip") {
