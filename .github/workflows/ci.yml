@@ -190,6 +190,9 @@ jobs:
           # Which WebView the image has (Playwright needs a recent one).
           script: |
             adb shell dumpsys webviewupdate | grep -i "current webview package" || true
+            # The cached emulator may keep an install signed with another
+            # run's debug key, which the new APK cannot update.
+            adb uninstall cz.v0v3s.dnt || true
             sh scripts/e2e-app.sh --target android --no-build
       - name: Report
         if: failure()
