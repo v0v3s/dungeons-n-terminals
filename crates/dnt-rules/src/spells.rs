@@ -284,23 +284,22 @@ fn applicable(map: &serde_json::Map<String, Json>, level: i64) -> impl Iterator<
 /// always have the {@spell Divine Smite} spell prepared" (prepared), "you
 /// learn the {@spell Find Familiar} spell" or "you know the {@spell
 /// Thaumaturgy} cantrip" (known), "you can cast {@spell Mage Armor} …
-/// without expending a spell slot" (at will). A lineage's or a legacy's
-/// own section is left to that lineage (its own entity).
+/// without expending a spell slot" (at will). Options to choose from (a
+/// list of named options, two or more with spells: a species' lineages)
+/// are left to the option chosen.
 pub fn text_grants(data: &Json) -> Vec<Granted> {
     fn texts<'a>(v: &'a Json, out: &mut Vec<&'a str>) {
         match v {
             Json::String(s) => out.push(s),
             Json::Array(a) => a.iter().for_each(|x| texts(x, out)),
             Json::Object(o) => {
-                let name = o.get("name").and_then(Json::as_str).unwrap_or("");
-                if name.contains("Lineage") || name.contains("Legacy") {
-                    return;
-                }
                 if let Some(e) = o.get("entries") {
                     texts(e, out);
                 }
-                if let Some(i) = o.get("items") {
-                    texts(i, out);
+                let items = o.get("items").and_then(Json::as_array).map(Vec::as_slice).unwrap_or_default();
+                let options = items.iter().filter(|i| i.get("name").is_some() && i.to_string().contains("{@spell ")).count();
+                if options < 2 {
+                    items.iter().for_each(|x| texts(x, out));
                 }
             }
             _ => {}
@@ -759,13 +758,18 @@ mod tests {
         assert_eq!(text_grants(&smite), vec![Granted::Spell { id: "spell:divine smite|srd52".into(), grant: Grant::Prepared }]);
         let words = json!({"entries": ["You therefore always have the {@spell Power Word Heal|SRD52} and {@spell Power Word Kill|SRD52} spells prepared."]});
         assert_eq!(text_grants(&words).len(), 2);
-        let tiefling = json!({"entries": [{"type": "entries", "name": "Fiendish Legacy", "entries": ["You know the {@spell Fire Bolt|SRD52} cantrip."]},
-            {"type": "entries", "name": "Otherworldly Presence", "entries": ["You know the {@spell Thaumaturgy|SRD52} cantrip."]}]});
+        let species = json!({"entries": [{"type": "entries", "name": "Hedge Ancestry", "entries": ["Choose one of the following options:",
+                {"type": "list", "items": [
+                    {"type": "item", "name": "Moss Kin", "entries": ["You know the {@spell Druidcraft|SRD52} cantrip."]},
+                    {"type": "item", "name": "Stone Kin", "entries": ["You know the {@spell Mending|SRD52} cantrip."]}]}]},
+            {"type": "entries", "name": "Old Voice", "entries": ["You know the {@spell Thaumaturgy|SRD52} cantrip."]}]});
         assert_eq!(
-            text_grants(&tiefling),
+            text_grants(&species),
             vec![Granted::Spell { id: "spell:thaumaturgy|srd52".into(), grant: Grant::Known }],
-            "the legacy's own spells are its own"
+            "an option's spells are the chosen option's"
         );
+        let one = json!({"entries": [{"type": "list", "items": [{"type": "item", "name": "Spark", "entries": ["You know the {@spell Light|SRD52} cantrip."]}]}]});
+        assert_eq!(text_grants(&one).len(), 1, "a single named part is no choice");
         // Text about a spell already had is no grant.
         let lore = json!({"entries": ["While a creature is marked by your {@spell Hunter's Mark|SRD52}, you know whether it has any Immunities."]});
         assert!(text_grants(&lore).is_empty());

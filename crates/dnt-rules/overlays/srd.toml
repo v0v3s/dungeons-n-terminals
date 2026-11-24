@@ -1,0 +1,37 @@
+# Built-in automation for the SRD 5.2.1's own names.
+#
+# The SRD has the 2024 rules: the rules in xphb.toml are its rules too
+# (`classFeature:Rage|Barbarian|XPHB|1` is also the SRD's Rage). This file
+# has the features the SRD names differently.
+# Format: see crates/dnt-rules/src/overlay.rs.
+
+
+# ---- Warlock ----
+
+[[feature]]
+id = "classFeature:Mystic Arcanum (level 6 spell)|Warlock|SRD52|11"
+[[feature.spell]]
+choose = "level=6|class=Warlock"
+grant = "free"
+uses = 1
+
+[[feature]]
+id = "classFeature:Mystic Arcanum (level 7 spell)|Warlock|SRD52|13"
+[[feature.spell]]
+choose = "level=7|class=Warlock"
+grant = "free"
+uses = 1
+
+[[feature]]
+id = "classFeature:Mystic Arcanum (level 8 spell)|Warlock|SRD52|15"
+[[feature.spell]]
+choose = "level=8|class=Warlock"
+grant = "free"
+uses = 1
+
+[[feature]]
+id = "classFeature:Mystic Arcanum (level 9 spell)|Warlock|SRD52|17"
+[[feature.spell]]
+choose = "level=9|class=Warlock"
+grant = "free"
+uses = 1

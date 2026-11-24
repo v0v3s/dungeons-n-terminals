@@ -387,3 +387,22 @@ test("a spell cast with a resource spends it", { tag: "@spells.cast-resource" },
   await expect(bindings.locator(".count")).toHaveText("1/2");
 });
 
+
+test("a rule grants a spell and a choice of spells", { tag: "@rules.grant-spells" }, async ({ page }) => {
+  await wren(page, false, true);
+  await openSheet(page, "Spells", "Wren");
+  await expect(spell(page, "Light")).toBeVisible();
+  const under = await spell(page, "Light").evaluate((b) => {
+    for (let el: Element | null = b.closest(".srow"); el; el = el.previousElementSibling) {
+      const t = el.querySelector?.(".header .title") ?? (el.classList.contains("header") ? el.querySelector(".title") : null);
+      if (t) return t.textContent?.trim();
+    }
+    return null;
+  });
+  expect(under).toBe("Patron's Gifts");
+  await page.locator("button.choice", { hasText: "choose 1 Wizard" }).click();
+  await pick(page, ["Sleep"]);
+  await expect(page.locator("button.choice")).toHaveCount(0);
+  // Chosen, it is cast free once a day.
+  await expect(spell(page, "Sleep")).toContainText("1/1 free");
+});

@@ -764,6 +764,11 @@ does = "A class made from another has its own rules for the features they share:
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "rules.grant-spells"
+does = "A rule grants spells for a feature: a spell, or a choice of spells, always prepared, known or cast free (a number of times a day, at will, or paid with a resource); they are listed under the rule's name, a choice to make among them."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "features.mastery-swap"
 does = "Swap a weapon mastery."
 targets = ["tui", "app"]

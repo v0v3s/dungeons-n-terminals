@@ -65,6 +65,18 @@ class = "class:Runebinder|TST"
 /// The Runebinder's own rules for Hexer Patron: Bindings to spend.
 pub const BINDINGS: &str = "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\nclass = \"Runebinder|TST\"\n[[feature.resource]]\nkey = \"bindings\"\nname = \"Bindings\"\nmax = \"level('Runebinder') + 1\"\nrecharge = \"long_rest\"\n";
 
+/// A rule that grants Wren spells: a cantrip, and a level 1 Wizard spell
+/// to choose, cast free once a day.
+pub const GIFTS: &str = "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\nclass = \"Runebinder|TST\"\nname = \"Patron's Gifts\"\n[[feature.spell]]\nspell = \"spell:Light|SRD52\"\ngrant = \"known\"\n[[feature.spell]]\nchoose = \"level=1|class=Wizard\"\ngrant = \"free\"\nuses = 1\n";
+
+/// Add Wren's rule that grants spells.
+pub fn with_gifts(home: Home) -> Home {
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("gifts.toml"), GIFTS).unwrap();
+    home
+}
+
 /// The party with Wren, and Wren's rules when `rules`.
 pub fn with_wren(rules: bool) -> Home {
     let home = Home::party();

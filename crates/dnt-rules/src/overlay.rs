@@ -24,6 +24,20 @@
 //! `id` is `<type>:<reference>` using the data format's pipe syntax, e.g.
 //! `feat:Alert|XPHB`, `item:Shield|XPHB`, `classFeature:Rage|Barbarian|XPHB|1`.
 //!
+//! A rule can grant spells: a spell, or a choice of spells (the data
+//! format's filter), prepared, known, or cast free (`uses` times per long
+//! rest, at will without `uses`, or paid with a resource):
+//!
+//! ```toml
+//! [[feature]]
+//! id = "classFeature:Mystic Arcanum|Warlock|XPHB|11"
+//!
+//! [[feature.spell]]
+//! choose = "level=6|class=Warlock"
+//! grant = "free"
+//! uses = 1
+//! ```
+//!
 //! A class's features are its own: rules for one apply when it comes with
 //! the class it names (the Barbarian's Rage, for a Barbarian). Another
 //! class that has it too (a book's class made from the Barbarian) has its
@@ -42,6 +56,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::{Effect, Model, Op, StatDef};
 use crate::formula::Formula;
+use crate::spells::{Grant, Granted};
 use crate::value::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -85,6 +100,8 @@ pub struct FeatureOverlay {
     pub resources: Vec<Resource>,
     pub toggles: Vec<Toggle>,
     pub effects: Vec<Effect>,
+    /// Spells it grants.
+    pub spells: Vec<Granted>,
 }
 
 /// A problem found while loading an overlay. Loading continues past these.
@@ -122,6 +139,20 @@ struct RawFeature {
     toggle: Vec<RawToggle>,
     #[serde(default)]
     effect: Vec<RawEffect>,
+    #[serde(default)]
+    spell: Vec<RawSpell>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSpell {
+    spell: Option<String>,
+    choose: Option<String>,
+    count: Option<usize>,
+    grant: String,
+    uses: Option<i64>,
+    resource: Option<String>,
+    cost: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -165,6 +196,39 @@ fn valid_key(k: &str) -> bool {
         let mut c = p.chars();
         c.next().is_some_and(|f| f.is_ascii_alphabetic() || f == '_') && c.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
     })
+}
+
+/// A `[[feature.spell]]`: what it grants, and how.
+fn spell_grant(g: RawSpell) -> Result<Granted, String> {
+    let free_only = || {
+        if g.uses.is_some() || g.resource.is_some() || g.cost.is_some() {
+            return Err(format!("`uses`, `resource` and `cost` are for `grant = \"free\"`, not `{}`", g.grant));
+        }
+        Ok(())
+    };
+    let grant = match g.grant.as_str() {
+        "prepared" => free_only().map(|_| Grant::Prepared)?,
+        "known" => free_only().map(|_| Grant::Known)?,
+        "free" => match (g.uses, g.resource, g.cost) {
+            (Some(_), Some(_), _) => return Err("a free cast has `uses` or a `resource`, not both".into()),
+            (_, None, Some(_)) => return Err("`cost` is what a cast takes of a `resource`".into()),
+            (Some(n), None, None) if n < 1 => return Err("`uses` is a number of casts, 1 or more".into()),
+            (uses, None, None) => Grant::Innate(uses),
+            (None, Some(name), cost) => Grant::Resource { name, cost: cost.unwrap_or(1).max(1) },
+        },
+        other => return Err(format!("`grant = \"{other}\"`: expected `prepared`, `known` or `free`")),
+    };
+    match (g.spell, g.choose) {
+        (Some(id), None) => {
+            let keys = parse_id(&id)?;
+            if !keys.iter().any(|k| k.kind == Kind::Spell) {
+                return Err(format!("`{id}` is not a spell: `spell:<name>|<source>`"));
+            }
+            Ok(Granted::Spell { id: id.to_lowercase(), grant })
+        }
+        (None, Some(filter)) => Ok(Granted::Choice { filter, count: g.count.unwrap_or(1).max(1), grant }),
+        _ => Err("a spell grant has one of `spell` (a spell) or `choose` (a filter, e.g. `level=0|class=Wizard`)".into()),
+    }
 }
 
 /// Parse an entity id such as `feat:Alert|XPHB` into candidate library keys.
@@ -302,7 +366,15 @@ impl Overlay {
                 effects.push(Effect { target: e.target, op: *op, value, when, origin: e.origin.unwrap_or_else(|| name.clone()) });
             }
 
-            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects });
+            let mut spells = Vec::new();
+            for (si, g) in f.spell.into_iter().enumerate() {
+                match spell_grant(g) {
+                    Ok(g) => spells.push(g),
+                    Err(message) => diags.push(Diagnostic { location: at(&format!(".spell[{si}]")), message }),
+                }
+            }
+
+            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells });
         }
         Ok((Overlay { features }, diags))
     }
@@ -359,15 +431,18 @@ impl OverlaySet {
     /// came with) has the rules for the class it came with: those naming
     /// it, or its own class's when it is that one. Other features have
     /// their rules.
-    pub fn for_feature<'a>(&'a self, key: &Key, own: Option<&str>, through: Option<&'a str>) -> impl Iterator<Item = &'a FeatureOverlay> {
+    pub fn for_feature(&self, key: &Key, own: Option<&str>, through: Option<&str>) -> Vec<&FeatureOverlay> {
         let own_class = match (own, through) {
             (Some(own), Some(through)) => own.eq_ignore_ascii_case(through),
             _ => true,
         };
-        self.for_entity(key).iter().filter(move |o| match &o.class {
-            None => own_class,
-            Some(c) => through.is_some_and(|t| c.eq_ignore_ascii_case(t)),
-        })
+        self.for_entity(key)
+            .iter()
+            .filter(|o| match &o.class {
+                None => own_class,
+                Some(c) => through.is_some_and(|t| c.eq_ignore_ascii_case(t)),
+            })
+            .collect()
     }
 
     pub fn len(&self) -> usize {
@@ -604,6 +679,61 @@ id = "nonsense:Thing"
         let locations: Vec<&str> = diags.iter().map(|d| d.location.as_str()).collect();
         assert_eq!(locations, vec!["feature[0].effect[0].add", "feature[0].effect[1]", "feature[1].id"]);
         assert!(diags[0].message.contains("unexpected end of formula"));
+    }
+
+    #[test]
+    fn grants_spells_and_names_mistakes() {
+        let text = r#"
+[[feature]]
+id = "feat:Hedge Magic|T"
+[[feature.spell]]
+spell = "spell:Light|T"
+grant = "known"
+[[feature.spell]]
+choose = "level=1|class=Wizard"
+count = 2
+grant = "free"
+uses = 1
+[[feature.spell]]
+spell = "spell:Jump|T"
+grant = "free"
+resource = "Binding"
+[[feature.spell]]
+spell = "spell:Light|T"
+choose = "level=0"
+grant = "known"
+[[feature.spell]]
+spell = "feat:Light|T"
+grant = "known"
+[[feature.spell]]
+spell = "spell:Light|T"
+grant = "prepared"
+uses = 1
+[[feature.spell]]
+spell = "spell:Light|T"
+grant = "free"
+uses = 1
+resource = "Binding"
+[[feature.spell]]
+spell = "spell:Light|T"
+grant = "learned"
+"#;
+        let (overlay, diags) = Overlay::parse(text).unwrap();
+        assert_eq!(
+            overlay.features[0].spells,
+            vec![
+                Granted::Spell { id: "spell:light|t".into(), grant: Grant::Known },
+                Granted::Choice { filter: "level=1|class=Wizard".into(), count: 2, grant: Grant::Innate(Some(1)) },
+                Granted::Spell { id: "spell:jump|t".into(), grant: Grant::Resource { name: "Binding".into(), cost: 1 } },
+            ]
+        );
+        let locations: Vec<&str> = diags.iter().map(|d| d.location.as_str()).collect();
+        assert_eq!(
+            locations,
+            ["feature[0].spell[3]", "feature[0].spell[4]", "feature[0].spell[5]", "feature[0].spell[6]", "feature[0].spell[7]"]
+        );
+        assert!(diags[1].message.contains("not a spell"), "{}", diags[1].message);
+        assert!(diags[4].message.contains("`prepared`, `known` or `free`"));
     }
 
     #[test]

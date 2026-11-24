@@ -32,8 +32,17 @@ fn mistakes_are_caught() {
         ),
         ("misspelled field", json!({"feature": [{"id": "feat:X|T", "effects": []}]})),
         ("no id", json!({"feature": [{"name": "X"}]})),
+        (
+            "a spell and a choice",
+            json!({"feature": [{"id": "feat:X|T", "spell": [{"spell": "spell:A|T", "choose": "level=1", "grant": "known"}]}]}),
+        ),
+        ("an unknown grant", json!({"feature": [{"id": "feat:X|T", "spell": [{"spell": "spell:A|T", "grant": "learned"}]}]})),
+        ("a class without a source", json!({"feature": [{"id": "feat:X|T", "class": "Shaman"}]})),
     ] {
         assert!(!v.is_valid(&doc), "{what} should be rejected");
     }
     assert!(v.is_valid(&json!({"feature": [{"id": "feat:X|T", "effect": [{"target": "speed", "mul": "1 / 2", "when": "toggle('x')"}]}]})));
+    assert!(
+        v.is_valid(&json!({"feature": [{"id": "feat:X|T", "spell": [{"choose": "level=6|class=Warlock", "grant": "free", "uses": 1}]}]}))
+    );
 }

@@ -39,7 +39,7 @@ export async function useTestRulesLibrary(page: Page) {
 /// Wren, a level 1 Runebinder (the invented class made from the Hexer):
 /// always prepared Shield with a free cast, Jump for a Binding. With
 /// `rules`, the Runebinder's own rules for Hexer Patron: Bindings to spend.
-export async function wren(page: Page, rules: boolean) {
+export async function wren(page: Page, rules: boolean, gifts = false) {
   await invoke(page, "e2e_put_file", {
     path: "characters/wren.toml",
     text:
@@ -53,6 +53,17 @@ export async function wren(page: Page, rules: boolean) {
       text:
         '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\nclass = "Runebinder|TST"\n' +
         '[[feature.resource]]\nkey = "bindings"\nname = "Bindings"\nmax = "level(\'Runebinder\') + 1"\nrecharge = "long_rest"\n',
+    });
+  }
+  // A rule that grants spells: a cantrip, and a level 1 Wizard spell to
+  // choose, cast free once a day.
+  if (gifts) {
+    await invoke(page, "e2e_put_file", {
+      path: "overlays/gifts.toml",
+      text:
+        '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\nclass = "Runebinder|TST"\nname = "Patron\'s Gifts"\n' +
+        '[[feature.spell]]\nspell = "spell:Light|SRD52"\ngrant = "known"\n' +
+        '[[feature.spell]]\nchoose = "level=1|class=Wizard"\ngrant = "free"\nuses = 1\n',
     });
   }
 }

@@ -8,6 +8,20 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Rules grant spells (`[[feature.spell]]`): a spell, or a choice of
+  spells, always prepared, known or cast free (a number of times a day,
+  at will, or paid with a resource). They are listed under the rule's
+  name.
+
+### Changed
+
+- Mystic Arcanum is a rule now, as any feature's automation: dnt's code
+  knows no game's features. A Warlock of level 11 or more chooses the
+  arcanum spells again (their old choices are not carried over).
+- The rules file schema has `class` and `spell`.
+
 ## v1.10.0 - 2026-11-23
 
 ### Added

@@ -313,6 +313,38 @@ name = "Magical Cunning"
 max = "1"
 recharge = "long_rest"
 
+[[feature]]
+id = "classFeature:Mystic Arcanum|Warlock|XPHB|11"
+name = "Mystic Arcanum (level 6 spell)"
+[[feature.spell]]
+choose = "level=6|class=Warlock"
+grant = "free"
+uses = 1
+
+[[feature]]
+id = "classFeature:Mystic Arcanum|Warlock|XPHB|13"
+name = "Mystic Arcanum (level 7 spell)"
+[[feature.spell]]
+choose = "level=7|class=Warlock"
+grant = "free"
+uses = 1
+
+[[feature]]
+id = "classFeature:Mystic Arcanum|Warlock|XPHB|15"
+name = "Mystic Arcanum (level 8 spell)"
+[[feature.spell]]
+choose = "level=8|class=Warlock"
+grant = "free"
+uses = 1
+
+[[feature]]
+id = "classFeature:Mystic Arcanum|Warlock|XPHB|17"
+name = "Mystic Arcanum (level 9 spell)"
+[[feature.spell]]
+choose = "level=9|class=Warlock"
+grant = "free"
+uses = 1
+
 # ---- Wizard ----
 
 [[feature]]
