@@ -200,6 +200,12 @@ recharge = "short_rest"
 
 [[feature]]
 id = "classFeature:Martial Arts|Monk|XPHB|1"
+# Monk weapons: simple melee weapons and Light martial melee weapons.
+[[feature.attack]]
+kind = "monk weapon"
+weapons = "weapon.melee and (weapon.simple or (weapon.martial and weapon.light))"
+ability = "max(mod.str, mod.dex)"
+die = "class.monk.martial_arts"
 [[feature.effect]]
 target = "attack.unarmed.mod"
 set = "max(mod.str, mod.dex)"
@@ -207,6 +213,17 @@ set = "max(mod.str, mod.dex)"
 target = "attack.unarmed.damage"
 set = "class.monk.martial_arts + attack.unarmed.mod"
 
+
+[[feature]]
+id = "classFeature:Martial Arts|Monk|PHB|1"
+name = "Martial Arts (2014)"
+# Monk weapons: shortswords, and simple melee weapons neither Two-Handed
+# nor Heavy.
+[[feature.attack]]
+kind = "monk weapon"
+weapons = "weapon.melee and (weapon.name == 'shortsword' or (weapon.simple and not weapon.two_handed and not weapon.heavy))"
+ability = "max(mod.str, mod.dex)"
+die = "class.monk.martial_arts"
 [[feature]]
 id = "classFeature:Unarmored Defense|Monk|XPHB|1"
 name = "Unarmored Defense (Monk)"
@@ -402,12 +419,39 @@ target = "attack.one_handed.damage"
 add = "2"
 
 [[feature]]
+id = "feat:Dual Wielder|XPHB"
+[[feature.offhand]]
+main = "main.light"
+off = "weapon.melee and not weapon.two_handed"
+note = "Dual Wielder: the main weapon Light, this one a melee weapon without Two-Handed"
+
+[[feature]]
 id = "feat:Dual Wielder|PHB"
 name = "Dual Wielder (2014)"
+[[feature.offhand]]
+main = "main.melee and not main.two_handed"
+off = "weapon.melee and not weapon.two_handed"
+note = "Dual Wielder: one-handed melee weapons in both hands"
 [[feature.effect]]
 target = "ac"
 add = "1"
 when = "hands.two_melee"
+
+[[feature]]
+id = "feat:Great Weapon Fighting|XPHB"
+name = "Great Weapon Fighting (Fighting Style)"
+[[feature.attack]]
+weapons = "weapon.melee and (weapon.two_handed or (weapon.versatile and weapon.both_hands))"
+dice_min = 3
+note = "Great Weapon Fighting: 1s and 2s on damage dice count as 3s"
+
+[[feature]]
+id = "optionalfeature:Great Weapon Fighting|PHB"
+name = "Great Weapon Fighting (2014)"
+[[feature.attack]]
+weapons = "weapon.melee and (weapon.two_handed or (weapon.versatile and weapon.both_hands))"
+reroll = 2
+note = "Great Weapon Fighting: reroll 1s and 2s on damage dice once"
 
 [[feature]]
 id = "feat:Two-Weapon Fighting|XPHB"

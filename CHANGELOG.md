@@ -8,6 +8,22 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Rules change attacks (`[[feature.attack]]`): for the weapons a filter
+  picks by their properties, the ability they use, a damage die used
+  when it is better, dice that count at least a number or are rolled
+  again, a note, and a kind of weapon to mark weapons in or out of.
+  `[[feature.offhand]]` says which weapons may attack off hand.
+
+### Changed
+
+- Martial Arts (monk weapons, their ability and die), Dual Wielder and
+  Great Weapon Fighting are rules now. A weapon marked as a monk
+  weapon keeps its mark. The inventory names the kind of weapon its rule
+  has.
+- The rules file schema has `attack` and `offhand`.
+
 ## v1.11.0 - 2026-11-24
 
 ### Added

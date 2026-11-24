@@ -191,11 +191,7 @@ pub fn attack(sheet: &mut CharacterSession, a: &Attack) -> Rolled {
     let (m, why) = mode(sheet, RollKind::Attack);
     let r = roll::d20(&mut sheet.roller.rng, bonus, m);
     let critical = r.natural_20();
-    let mut rules = DamageRules { critical, ..Default::default() };
-    if let Some(g) = a.great_weapon.filter(|_| a.hand == Some(Hand::Both) || !a.has_versatile) {
-        rules.min_three = g;
-        rules.reroll_low = !g;
-    }
+    let rules = DamageRules { critical, dice_min: a.dice_min, reroll: a.reroll };
     // Which damage: off hand, two-handed (versatile in both hands), or the usual.
     let key = match a.hand {
         Some(Hand::Off) if a.offhand => format!("attack.{}.offhand", a.slug),

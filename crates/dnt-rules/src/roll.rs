@@ -128,10 +128,10 @@ pub fn d20(rng: &mut Rng, modifier: i64, mode: Advantage) -> D20 {
 pub struct DamageRules {
     /// Roll every die twice (a critical hit).
     pub critical: bool,
-    /// Great Weapon Fighting, 2024: 1s and 2s count as 3s.
-    pub min_three: bool,
-    /// Great Weapon Fighting, 2014: reroll 1s and 2s once.
-    pub reroll_low: bool,
+    /// Each die counts at least this (1s and 2s count as 3s).
+    pub dice_min: Option<i64>,
+    /// Dice of this or less are rolled again, once.
+    pub reroll: Option<i64>,
 }
 
 /// One rolled die.
@@ -188,13 +188,13 @@ pub fn damage(rng: &mut Rng, value: &Value, rules: DamageRules) -> Damage {
         for _ in 0..count.max(0) {
             let mut value = rng.die(faces);
             let mut was = None;
-            if rules.reroll_low && value <= 2 {
+            if rules.reroll.is_some_and(|n| value <= n) {
                 was = Some(value);
                 value = rng.die(faces);
             }
-            if rules.min_three && value <= 2 {
+            if let Some(min) = rules.dice_min.filter(|&min| value < min) {
                 was = Some(value);
-                value = 3;
+                value = min;
             }
             dice.push(Die { faces, value, was });
         }
@@ -253,7 +253,7 @@ mod tests {
         assert_eq!(crit.dice.len(), 4, "a critical hit doubles the dice, not the modifier");
         assert_eq!(crit.flat, 3);
         for _ in 0..100 {
-            let gwf = damage(&mut rng, &v, DamageRules { min_three: true, ..Default::default() });
+            let gwf = damage(&mut rng, &v, DamageRules { dice_min: Some(3), ..Default::default() });
             assert!(gwf.dice.iter().all(|d| d.value >= 3));
         }
         assert_eq!(damage(&mut rng, &Value::int(4), DamageRules::default()).total, 4);

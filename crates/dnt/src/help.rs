@@ -362,7 +362,7 @@ mod content {
             ("enter · ← →", "fold and unfold containers"),
             ("p", "unpack an equipment pack"),
             ("w", "container settings: 30 · weightless · no limit · off"),
-            ("m", "mark or unmark a monk weapon"),
+            ("m", "mark a weapon in or out of a rule's kind of weapon"),
             ("g", "coins: +15gp, -3sp, 20"),
         ],
     };

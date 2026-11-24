@@ -161,6 +161,69 @@
               ],
               "not": { "required": ["uses", "resource"] }
             }
+          },
+          "attack": {
+            "type": "array",
+            "description": "How it changes attacks with the weapons `weapons` picks.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "weapons": {
+                  "type": "string",
+                  "description": "Formula: which weapons, by their facts: weapon.melee, weapon.ranged, weapon.simple, weapon.martial, weapon.name, weapon.both_hands and the properties (weapon.light, weapon.heavy, weapon.finesse, weapon.two_handed, weapon.versatile, weapon.thrown, weapon.reach, weapon.ammunition, weapon.loading). All weapons if missing."
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "What those weapons are called (`monk weapon`): the player marks weapons in or out of the kind."
+                },
+                "ability": {
+                  "type": "string",
+                  "description": "Formula: the ability modifier for their attack and damage rolls, e.g. `max(mod.str, mod.dex)`."
+                },
+                "die": {
+                  "type": "string",
+                  "description": "Formula: a damage die used instead of the weapon's when it is better."
+                },
+                "dice_min": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "description": "Each damage die counts at least this."
+                },
+                "reroll": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Damage dice of this or less are rolled again, once."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Shown with the attack."
+                }
+              }
+            }
+          },
+          "offhand": {
+            "type": "array",
+            "description": "Weapons it lets attack off hand, besides Light weapons in both hands.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "main": {
+                  "type": "string",
+                  "description": "Formula: what the main hand's weapon must be (main.light, main.melee, … as for weapon.*)."
+                },
+                "off": {
+                  "type": "string",
+                  "description": "Formula: what the off hand's weapon must be (weapon.*)."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "What it needs, shown when the weapons do not have it."
+                }
+              }
+            }
           }
         }
       }

@@ -48,6 +48,28 @@ grant = "free"                         # prepared, known or free
 uses = 1                               # or: resource = "Soul Fragment"
 ```
 
+And change attacks: for the weapons a filter picks by their properties
+(`weapon.melee`, `weapon.simple`, `weapon.light`, `weapon.two_handed`,
+`weapon.both_hands`, …), the ability they use, a damage die used when it
+is better, dice that count at least `dice_min` or are rolled again at
+`reroll` or less, and a note. With a `kind`, they are a kind of weapon
+you mark weapons in or out of in the inventory.
+
+```toml
+[[feature]]
+id = "classFeature:Martial Arts|Monk|XPHB|1"
+
+[[feature.attack]]
+kind = "monk weapon"
+weapons = "weapon.melee and (weapon.simple or (weapon.martial and weapon.light))"
+ability = "max(mod.str, mod.dex)"
+die = "class.monk.martial_arts"        # used when better than the weapon's
+```
+
+`[[feature.offhand]]` says which weapons may attack off hand besides Light
+ones in both hands: `main` for the main hand's (`main.light`), `off` for
+the off hand's (`weapon.melee and not weapon.two_handed`).
+
 A class's features are its own. A book's class made from another (its
 version of the Barbarian, say) shares that class's features, but not
 its rules: it has rules of its own, which name it.

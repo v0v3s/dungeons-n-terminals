@@ -344,8 +344,8 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
                 (Some(Hand::Pair), Some(off)) => notes.push(format!("off hand {off}")),
                 _ => {}
             }
-            if a.monk_weapon {
-                notes.push("monk weapon".into());
+            if let Some(kind) = &a.kind {
+                notes.push(kind.clone());
             }
             if let Some(m) = &a.mastery {
                 notes.push(format!("mastery: {m}"));
@@ -834,13 +834,19 @@ pub struct Line {
     /// Its container settings as typed (`30`, `no limit weightless`); empty
     /// when it is not a container.
     pub container: String,
-    /// A weapon a monk might use: whether it counts as a monk weapon.
-    /// `None` for other lines, and for characters without Martial Arts
-    /// (unless marked by hand).
-    pub monk_weapon: Option<bool>,
+    /// A weapon of the kind a rule has (a monk weapon), or not. `None`
+    /// for other lines, and without such a rule (unless marked by hand).
+    pub weapon_kind: Option<WeaponKind>,
     /// Something to wear or hold (a weapon, armor, a shield, a ring, …), or
     /// worn or held already: the inventory offers to equip it.
     pub equippable: bool,
+}
+
+/// The kind of weapon a rule has (`monk weapon`), and whether a line is one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WeaponKind {
+    pub name: String,
+    pub on: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -922,10 +928,13 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                             || equipment::armor_kind(d).is_some()
                             || equipment::guess_slot(ch, &line_name(lib, line), d) != Slot::Other
                     }),
-                monk_weapon: entity
+                weapon_kind: entity
                     .and_then(|e| dnt_rules::attacks::Weapon::from_item(&lib.entity(e).name.to_lowercase(), &lib.entity(e).data))
-                    .filter(|_| s.build.martial_arts.is_some() || line.monk_weapon.is_some())
-                    .map(|w| line.monk_weapon.unwrap_or_else(|| s.build.martial_arts.is_some_and(|m| m.preset(&w)))),
+                    .filter(|_| s.build.attack_rules.kind().is_some() || line.weapon_kind.is_some())
+                    .map(|w| WeaponKind {
+                        name: s.build.attack_rules.kind().unwrap_or("marked weapon").to_string(),
+                        on: line.weapon_kind.unwrap_or_else(|| s.build.attack_rules.preset(&w)),
+                    }),
             }
         })
         .collect();
@@ -1001,7 +1010,7 @@ mod tests {
         assert_eq!(title("mod.str").as_deref(), Some("Strength modifier"));
         assert_eq!(title("hit_dice.d10.max").as_deref(), Some("Hit dice d10"));
         let club = &inv.lines[0];
-        assert_eq!((club.pack, club.container.as_str(), club.monk_weapon), (false, "", None), "no Martial Arts: no monk weapon choice");
+        assert_eq!((club.pack, club.container.as_str(), &club.weapon_kind), (false, "", &None), "no rule: no kind of weapon");
         // All of it goes over the wire.
         serde_json::to_string(&(h, o, inv, features(&lib, &OverlaySet::default(), &s), spells(&lib, &s))).unwrap();
     }

@@ -69,8 +69,8 @@ pub struct Build {
     /// Weapon attacks (carried weapons and the unarmed strike).
     pub attacks: Vec<attacks::Attack>,
     pub weapon_proficiency: attacks::WeaponProficiency,
-    /// The Monk's Martial Arts, if the character has it.
-    pub martial_arts: Option<attacks::MartialArts>,
+    /// The rules that change attacks (a monk weapon, the off-hand attack).
+    pub attack_rules: attacks::AttackRules,
     pub warnings: Vec<String>,
 }
 
@@ -581,9 +581,12 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     // ---- overlays ----
     let mut resources = innate;
     let mut toggles = Vec::new();
+    let mut attack_rules = attacks::AttackRules::default();
     for f in &features {
         for o in rules_for(f) {
             o.apply(&mut model);
+            attack_rules.attacks.extend(o.attacks.iter().cloned());
+            attack_rules.offhand.extend(o.offhand.iter().cloned());
             resources.extend(o.resources.iter().map(|r| (r.clone(), o.name.clone())));
             toggles.extend(o.toggles.iter().map(|t| (t.clone(), o.name.clone())));
         }
@@ -616,23 +619,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         .collect();
     let weapon_proficiency = attacks::weapon_proficiency(lib, character, &class_entities, &proficiency_sources);
     let mastered: Vec<EntityId> = features.iter().filter(|f| f.source == FeatureSource::Mastery).map(|f| f.entity).collect();
-    let martial_arts = features.iter().find_map(|f| {
-        let e = lib.entity(f.entity);
-        let monk = e.data.get("className").and_then(Json::as_str) == Some("Monk");
-        (e.kind == Kind::ClassFeature && monk && e.name == "Martial Arts")
-            .then(|| attacks::MartialArts { rules_2024: is_2024(lib, f.entity) })
-    });
-    let dual_wielder = features.iter().find_map(|f| {
-        let e = lib.entity(f.entity);
-        (e.kind == Kind::Feat && e.name == "Dual Wielder").then(|| attacks::DualWielder { rules_2024: is_2024(lib, f.entity) })
-    });
-    let great_weapon = features.iter().find_map(|f| {
-        let e = lib.entity(f.entity);
-        // A 2024 feat, or a 2014 fighting style (an optional feature).
-        (matches!(e.kind, Kind::Feat | Kind::OptionalFeature) && e.name == "Great Weapon Fighting").then(|| is_2024(lib, f.entity))
-    });
-    let found = attacks::AttackFeatures { martial_arts, dual_wielder, great_weapon };
-    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, found);
+    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, &attack_rules);
 
     // ---- state that feeds stats, and overrides ----
     for (k, on) in &character.state.toggles {
@@ -660,7 +647,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
-    Build { model, classes, features, resources, toggles, granted, attacks, weapon_proficiency, martial_arts, warnings }
+    Build { model, classes, features, resources, toggles, granted, attacks, weapon_proficiency, attack_rules, warnings }
 }
 
 fn collect_refs(v: &Json, out: &mut Vec<(Kind, String)>) {

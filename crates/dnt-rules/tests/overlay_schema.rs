@@ -37,6 +37,8 @@ fn mistakes_are_caught() {
             json!({"feature": [{"id": "feat:X|T", "spell": [{"spell": "spell:A|T", "choose": "level=1", "grant": "known"}]}]}),
         ),
         ("an unknown grant", json!({"feature": [{"id": "feat:X|T", "spell": [{"spell": "spell:A|T", "grant": "learned"}]}]})),
+        ("an attack rule that changes nothing", json!({"feature": [{"id": "feat:X|T", "attack": [{}]}]})),
+        ("an off-hand rule with a typo", json!({"feature": [{"id": "feat:X|T", "offhand": [{"mian": "main.light"}]}]})),
         ("a class without a source", json!({"feature": [{"id": "feat:X|T", "class": "Shaman"}]})),
     ] {
         assert!(!v.is_valid(&doc), "{what} should be rejected");

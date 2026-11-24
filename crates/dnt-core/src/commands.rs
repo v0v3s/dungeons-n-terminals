@@ -130,8 +130,9 @@ pub enum Command {
     ToggleAttuned {
         line: usize,
     },
-    /// Mark or unmark a monk weapon (back to the rules when they agree).
-    ToggleMonkWeapon {
+    /// Mark a weapon in or out of the kind of weapon a rule has (a monk
+    /// weapon), back to the rule when they agree.
+    ToggleWeaponKind {
         line: usize,
     },
     /// Put a line into a container line, or carry it loose (`None`).
@@ -476,21 +477,22 @@ impl CharacterSession {
                 }
                 Outcome::changed(msg)
             }
-            Command::ToggleMonkWeapon { line: i } => {
+            Command::ToggleWeaponKind { line: i } => {
                 let l = line(self, i)?;
                 let Some(e) = item_entity(lib, l) else { return Err("Not a library item".into()) };
                 let ent = lib.entity(e);
                 let Some(w) = dnt_rules::attacks::Weapon::from_item(&ent.name.to_lowercase(), &ent.data) else {
                     return Err(format!("{} is not a weapon", ent.name));
                 };
-                let preset = self.build.martial_arts.is_some_and(|m| m.preset(&w));
-                let now = !l.monk_weapon.unwrap_or(preset);
+                let preset = self.build.attack_rules.preset(&w);
+                let now = !l.weapon_kind.unwrap_or(preset);
                 let name = ent.name.clone();
-                self.file.character.inventory[i].monk_weapon = (now != preset).then_some(now);
-                Outcome::changed(match (now, self.build.martial_arts.is_some()) {
-                    (true, true) => format!("{name} is a monk weapon"),
-                    (true, false) => format!("{name} is marked as a monk weapon (it counts once you have Martial Arts)"),
-                    (false, _) => format!("{name} is not a monk weapon"),
+                self.file.character.inventory[i].weapon_kind = (now != preset).then_some(now);
+                Outcome::changed(match (now, self.build.attack_rules.kind()) {
+                    (true, Some(kind)) => format!("{name} is a {kind}"),
+                    (true, None) => format!("{name} is marked (it counts once a rule has a kind of weapon)"),
+                    (false, Some(kind)) => format!("{name} is not a {kind}"),
+                    (false, None) => format!("{name} is not marked"),
                 })
             }
             Command::PutIn { line: i, into } => {

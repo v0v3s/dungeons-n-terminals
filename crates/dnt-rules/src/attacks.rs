@@ -20,6 +20,8 @@
 //! `rider.<key>` stats, shown under the attacks with the effect's origin
 //! as the explanation.
 
+use std::collections::HashMap;
+
 use dnt_data::view::item_property;
 use dnt_data::{EntityId, Library};
 use serde_json::Value as Json;
@@ -27,6 +29,7 @@ use serde_json::Value as Json;
 use crate::character::{Character, Hand};
 use crate::engine::{Effect, Model, Op, StatDef};
 use crate::formula::Formula;
+use crate::overlay::{AttackRule, OffhandRule};
 use crate::value::Value;
 
 /// Which weapons a character is proficient with.
@@ -205,46 +208,76 @@ impl Weapon {
     }
 }
 
-/// The Monk's Martial Arts: which weapons are monk weapons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MartialArts {
-    /// 2024 rules (simple melee and Light martial melee weapons) rather
-    /// than 2014 (shortswords and simple melee weapons that are neither
-    /// two-handed nor heavy).
-    pub rules_2024: bool,
-}
+/// What the data format's property codes are called in rule filters
+/// (`weapon.light`).
+const PROPERTY_NAMES: [(&str, &str); 9] = [
+    ("F", "finesse"),
+    ("L", "light"),
+    ("H", "heavy"),
+    ("R", "reach"),
+    ("T", "thrown"),
+    ("2H", "two_handed"),
+    ("V", "versatile"),
+    ("A", "ammunition"),
+    ("LD", "loading"),
+];
 
-impl MartialArts {
-    /// Whether the rules make this weapon a monk weapon.
-    pub fn preset(&self, w: &Weapon) -> bool {
-        if !w.melee {
-            return false;
-        }
-        let simple = w.category.as_deref() == Some("simple");
-        if self.rules_2024 {
-            simple || (w.category.as_deref() == Some("martial") && w.has("L"))
-        } else {
-            w.base_name == "shortsword" || (simple && !w.has("2H") && !w.has("H"))
-        }
+/// A weapon's facts for rule filters, under `prefix` (`weapon`, `main`):
+/// `weapon.melee`, `weapon.simple`, `weapon.light`, `weapon.name`, and
+/// `weapon.both_hands` when held in both.
+fn weapon_vars(w: &Weapon, prefix: &str, both_hands: bool, vars: &mut HashMap<String, Value>) {
+    let mut put = |k: &str, v: Value| {
+        vars.insert(format!("{prefix}.{k}"), v);
+    };
+    put("melee", Value::Bool(w.melee));
+    put("ranged", Value::Bool(!w.melee));
+    put("simple", Value::Bool(w.category.as_deref() == Some("simple")));
+    put("martial", Value::Bool(w.category.as_deref() == Some("martial")));
+    put("name", Value::Str(w.base_name.clone()));
+    put("both_hands", Value::Bool(both_hands));
+    for (code, name) in PROPERTY_NAMES {
+        put(name, Value::Bool(w.has(code)));
     }
 }
 
-/// The Dual Wielder feat.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DualWielder {
-    /// 2024: the main weapon must be Light, the off-hand one any melee
-    /// weapon without Two-Handed. 2014: any one-handed melee weapons.
-    pub rules_2024: bool,
+/// Whether a rule's filter takes these facts (no filter takes all).
+fn takes(filter: &Option<Formula>, vars: &HashMap<String, Value>) -> bool {
+    filter.as_ref().is_none_or(|f| matches!(f.eval(vars), Ok(Value::Bool(true))))
 }
 
-/// Features that change how attacks work, found by the builder.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct AttackFeatures {
-    pub martial_arts: Option<MartialArts>,
-    pub dual_wielder: Option<DualWielder>,
-    /// Great Weapon Fighting: `true` for 2024 (1s and 2s count as 3s),
-    /// `false` for 2014 (reroll 1s and 2s).
-    pub great_weapon: Option<bool>,
+/// The rules that change attacks, from the character's features.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AttackRules {
+    pub attacks: Vec<AttackRule>,
+    pub offhand: Vec<OffhandRule>,
+}
+
+impl AttackRules {
+    /// The kind of weapon (`monk weapon`) the rules have, if any.
+    pub fn kind(&self) -> Option<&str> {
+        self.attacks.iter().find_map(|r| r.kind.as_deref())
+    }
+
+    /// Whether the rules make a weapon of their kind, unmarked.
+    pub fn preset(&self, w: &Weapon) -> bool {
+        let mut vars = HashMap::new();
+        weapon_vars(w, "weapon", false, &mut vars);
+        self.attacks.iter().any(|r| r.kind.is_some() && takes(&r.weapons, &vars))
+    }
+
+    /// The rules for a weapon held so (`both_hands`), with the player's
+    /// mark for the kind of weapon.
+    fn for_weapon(&self, w: &Weapon, both_hands: bool, mark: Option<bool>) -> Vec<&AttackRule> {
+        let mut vars = HashMap::new();
+        weapon_vars(w, "weapon", both_hands, &mut vars);
+        self.attacks
+            .iter()
+            .filter(|r| match (&r.kind, mark) {
+                (Some(_), Some(m)) => m,
+                _ => takes(&r.weapons, &vars),
+            })
+            .collect()
+    }
 }
 
 /// One attack on the sheet.
@@ -268,13 +301,14 @@ pub struct Attack {
     pub properties: Vec<String>,
     /// The weapon's mastery property, if the character has mastered it.
     pub mastery: Option<String>,
-    /// Used as a monk weapon (Martial Arts).
-    pub monk_weapon: bool,
+    /// The kind of weapon a rule has it count as (`monk weapon`).
+    pub kind: Option<String>,
     /// Has an off-hand attack (`attack.<slug>.offhand` damage).
     pub offhand: bool,
-    /// Great Weapon Fighting applies when used with two hands: `true` for
-    /// 2024 (1s and 2s count as 3s), `false` for 2014 (reroll them).
-    pub great_weapon: Option<bool>,
+    /// Each damage die counts at least this (a rule's `dice_min`).
+    pub dice_min: Option<i64>,
+    /// Damage dice of this or less are rolled again, once (a rule's `reroll`).
+    pub reroll: Option<i64>,
     /// Why something is off (no damage dice, needs attunement, …).
     pub notes: Vec<String>,
 }
@@ -337,9 +371,8 @@ pub fn add_attacks(
     character: &Character,
     prof: &WeaponProficiency,
     mastered: &[EntityId],
-    features: AttackFeatures,
+    rules: &AttackRules,
 ) -> Vec<Attack> {
-    let AttackFeatures { martial_arts, dual_wielder, great_weapon } = features;
     let mut attacks = Vec::new();
     let mut seen = Vec::new();
     // Two-Weapon Fighting sets this to add the ability modifier off hand.
@@ -379,42 +412,35 @@ pub fn add_attacks(
         let attuned_ok = !crate::equipment::requires_attunement(&e.data) || line.attuned;
         let mastery =
             w.mastery.clone().filter(|_| mastered.iter().any(|&m| lib.entity(m).name.eq_ignore_ascii_case(&w.base_name) || m == id));
-        let monk = martial_arts.is_some_and(|m| line.monk_weapon.unwrap_or_else(|| m.preset(&w)));
+        // Held in both hands: a two-handed weapon, or a versatile one so held.
+        let both_hands = w.has("2H") || line.hand == Some(Hand::Both);
+        let here = rules.for_weapon(&w, both_hands, line.weapon_kind);
         // Dueling: a one-handed melee weapon and no other weapon in hand.
         let dueling = line.hand == Some(Hand::Main) && !off_weapon;
         let held = Held { hand: line.hand, dueling };
-        let mut a = weapon_attack(model, &s, &name, Some(id), held, &w, prof, attuned_ok, mastery, monk);
-        if martial_arts.is_none() && line.monk_weapon == Some(true) {
-            a.notes.push("marked as a monk weapon, but no Martial Arts".into());
+        let mut a = weapon_attack(model, &s, &name, Some(id), held, &w, prof, attuned_ok, mastery, &here);
+        if rules.kind().is_none() && line.weapon_kind == Some(true) {
+            a.notes.push("marked as a kind of weapon, but no rule has one".into());
         }
-        // Great Weapon Fighting: melee weapons used with both hands.
-        if let Some(rules_2024) = great_weapon {
-            if w.melee && (w.has("2H") || w.has("V")) {
-                a.great_weapon = Some(rules_2024);
-                let what = if w.has("2H") { "" } else { " (two-handed)" };
-                a.notes.push(if rules_2024 {
-                    format!("Great Weapon Fighting{what}: 1s and 2s on damage dice count as 3s")
-                } else {
-                    format!("Great Weapon Fighting{what}: reroll 1s and 2s on damage dice once")
-                });
-            }
-        }
-        // The off-hand extra attack: Light weapons, or Dual Wielder.
+        a.dice_min = here.iter().filter_map(|r| r.dice_min).max();
+        a.reroll = here.iter().filter_map(|r| r.reroll).max();
+        a.notes.extend(here.iter().filter_map(|r| r.note.clone()));
+        // The off-hand extra attack: Light weapons in both hands, or what
+        // a rule allows.
         if a.offhand {
-            let one_handed_melee = w.melee && !w.has("2H");
-            let (ok, why) = match dual_wielder {
-                None => (w.has("L") && main_light, "the off-hand attack needs Light weapons in both hands (or Dual Wielder)"),
-                Some(d) if d.rules_2024 => (
-                    one_handed_melee && main_light,
-                    "Dual Wielder: the main weapon must be Light, this one a melee weapon without Two-Handed",
-                ),
-                Some(_) => (
-                    one_handed_melee && main_weapon.as_ref().is_some_and(|(_, m)| m.melee && !m.has("2H")),
-                    "Dual Wielder: both weapons must be one-handed melee weapons",
-                ),
-            };
-            if !ok {
-                a.notes.push(why.into());
+            let mut vars = HashMap::new();
+            weapon_vars(&w, "weapon", false, &mut vars);
+            if let Some((_, m)) = &main_weapon {
+                weapon_vars(m, "main", false, &mut vars);
+            }
+            let light = w.has("L") && main_light;
+            if !light && !rules.offhand.iter().any(|o| takes(&o.main, &vars) && takes(&o.off, &vars)) {
+                let needs: Vec<String> = rules.offhand.iter().filter_map(|o| o.note.clone()).collect();
+                a.notes.push(if needs.is_empty() {
+                    "the off-hand attack needs Light weapons in both hands".into()
+                } else {
+                    format!("the off-hand attack needs Light weapons in both hands, or: {}", needs.join("; "))
+                });
             }
         }
         attacks.push(a);
@@ -442,19 +468,23 @@ fn weapon_attack(
     prof: &WeaponProficiency,
     attuned_ok: bool,
     mastery: Option<String>,
-    monk: bool,
+    rules: &[&AttackRule],
 ) -> Attack {
     let key = |part: &str| format!("attack.{s}.{part}");
     let finesse = w.has("F");
-    // Finesse and monk weapons use the better of Strength and Dexterity.
-    let flexible = finesse || monk;
-    let (ability, label) = match (monk, finesse, w.melee) {
-        (true, _, _) => ("max(mod.str, mod.dex)", "Strength or Dexterity (Martial Arts)"),
-        (_, true, _) => ("max(mod.str, mod.dex)", "Strength or Dexterity (finesse)"),
-        (_, false, true) => ("mod.str", "Strength"),
-        (_, false, false) => ("mod.dex", "Dexterity"),
+    // A rule's ability (the better of Strength and Dexterity, say), or
+    // the weapon's own.
+    let ruled = rules.iter().rev().find_map(|r| Some((r.ability.clone()?, r.origin.clone())));
+    let flexible = finesse || ruled.is_some();
+    let (ability, label) = match (&ruled, finesse, w.melee) {
+        (Some((f, origin)), _, _) => (f.clone(), origin.clone()),
+        (None, true, _) => (Formula::parse("max(mod.str, mod.dex)").unwrap(), "Strength or Dexterity (finesse)".into()),
+        (None, false, true) => (Formula::parse("mod.str").unwrap(), "Strength".into()),
+        (None, false, false) => (Formula::parse("mod.dex").unwrap(), "Dexterity".into()),
     };
-    model.stats.push(StatDef::new(&key("mod"), ability, label));
+    let label = label.as_str();
+    model.stats.push(StatDef { key: key("mod"), base: ability, origin: label.to_string() });
+    let die = rules.iter().find_map(|r| Some((r.die.clone()?, r.origin.clone())));
     let proficient = prof.covers(w);
     let mut notes = Vec::new();
 
@@ -491,7 +521,7 @@ fn weapon_attack(
     for (stat, dice, one_handed) in [(key("damage"), Some(dice), true), (key("versatile"), w.versatile.clone(), false)] {
         let Some(dice) = dice else { continue };
         let origin = format!("{name} ({})", if one_handed { "damage dice" } else { "two-handed" });
-        let (base, origin) = damage_dice(model, &dice, monk, origin);
+        let (base, origin) = damage_dice(model, &dice, die.as_ref(), origin);
         model.stats.push(StatDef { key: stat.clone(), base, origin });
         model.effects.push(effect(&stat, &key("mod"), label));
         if attuned_ok && magic.1 != 0 {
@@ -514,7 +544,7 @@ fn weapon_attack(
     let offhand = matches!(held.hand, Some(Hand::Off | Hand::Pair));
     if offhand {
         let stat = key("offhand");
-        let (base, origin) = damage_dice(model, w.dice.as_deref().unwrap_or("0"), monk, format!("{name} (off hand)"));
+        let (base, origin) = damage_dice(model, w.dice.as_deref().unwrap_or("0"), die.as_ref(), format!("{name} (off hand)"));
         model.stats.push(StatDef { key: stat.clone(), base, origin });
         let m = key("mod");
         model.effects.push(effect(
@@ -549,30 +579,30 @@ fn weapon_attack(
         damage_type: w.damage_type.clone().unwrap_or_default(),
         has_versatile: w.versatile.is_some(),
         two_handed: w.has("2H"),
-        monk_weapon: monk,
+        kind: rules.iter().find_map(|r| r.kind.clone()),
         offhand,
-        great_weapon: None,
+        dice_min: None,
+        reroll: None,
         properties: w.properties.iter().filter(|p| !matches!(p.as_str(), "V")).map(|p| item_property(p).to_string()).collect(),
         mastery,
         notes,
     }
 }
 
-/// A weapon's damage dice, or for a monk weapon the Martial Arts die
-/// when it is better.
-fn damage_dice(model: &Model, dice: &str, monk: bool, origin: String) -> (Formula, String) {
+/// A weapon's damage dice, or a rule's die (and its name) when it is
+/// better.
+fn damage_dice(model: &Model, dice: &str, die: Option<&(Formula, String)>, origin: String) -> (Formula, String) {
     let own = Formula::parse(dice).unwrap_or_else(|_| Formula::constant(Value::int(0)));
-    if !monk {
+    let Some((die, name)) = die else {
         return (own, origin);
-    }
+    };
     let average = |v: Option<Value>| match v {
         Some(Value::Dice(d)) => d.average(),
         Some(Value::Num(n)) => n.floor(),
         _ => 0,
     };
-    let die = model.inputs.get("class.monk.martial_arts").cloned();
-    if die.is_some() && average(die) > average(own.eval(&model.inputs).ok()) {
-        return (Formula::parse("class.monk.martial_arts").unwrap(), "Martial Arts die".into());
+    if average(die.eval(&model.inputs).ok()) > average(own.eval(&model.inputs).ok()) {
+        return (die.clone(), format!("{name} die"));
     }
     (own, origin)
 }
@@ -581,7 +611,7 @@ fn damage_dice(model: &Model, dice: &str, monk: bool, origin: String) -> (Formul
 /// bludgeoning (Martial Arts and similar overlays change `attack.unarmed.*`).
 fn unarmed(model: &mut Model) -> Attack {
     model.stats.push(StatDef::new("attack.unarmed.mod", "mod.str", "Strength"));
-    model.stats.push(StatDef::new("attack.unarmed.bonus", "attack.unarmed.mod", "Strength (or Martial Arts)"));
+    model.stats.push(StatDef::new("attack.unarmed.bonus", "attack.unarmed.mod", "Strength"));
     model.effects.push(effect("attack.unarmed.bonus", "prof", "proficiency (unarmed strike)"));
     model.stats.push(StatDef::new("attack.unarmed.damage", "1 + attack.unarmed.mod", "1 + Strength"));
     copy_group_effects(model, &["attack", "attack.melee"], "bonus", "attack.unarmed.bonus");
@@ -599,9 +629,10 @@ fn unarmed(model: &mut Model) -> Attack {
         two_handed: false,
         properties: Vec::new(),
         mastery: None,
-        monk_weapon: false,
+        kind: None,
         offhand: false,
-        great_weapon: None,
+        dice_min: None,
+        reroll: None,
         notes: Vec::new(),
     }
 }
@@ -668,7 +699,7 @@ mod tests {
                  "weaponCategory": "martial", "property": ["V|T"], "dmg1": "1d8", "dmgType": "S", "dmg2": "1d10", "bonusWeapon": "+1"}
             ],
             "feat": [{"name": "Archery", "source": "T", "entries": ["x"]}, {"name": "Dueling", "source": "T", "entries": ["x"]},
-                     {"name": "Dual Wielder", "source": "XPHB", "entries": ["x"]}, {"name": "Dual Wielder", "source": "T", "entries": ["x"]},
+                     {"name": "Dual Wielder", "source": "XPHB", "entries": ["x"]}, {"name": "Dual Wielder", "source": "PHB", "entries": ["x"]},
                      {"name": "Great Weapon Fighting", "source": "XPHB", "entries": ["x"]}]
         }));
         lib
@@ -774,14 +805,18 @@ add = "2"
             c.inventory[0].hand = Some(Hand::Main);
             c.inventory[1].hand = Some(Hand::Off);
             c.feats = feat.into_iter().map(str::to_string).collect();
-            let b = build(&c, &lib, &OverlaySet::default());
+            let b = build(&c, &lib, &crate::builtin::overlays().0);
             b.attacks.iter().find(|a| a.offhand).unwrap().notes.clone()
         };
         assert!(!held(None, "Dagger", "Rapier").is_empty(), "Rapier is not Light");
         assert!(held(Some("feat:Dual Wielder|XPHB"), "Dagger", "Rapier").is_empty(), "2024: Light main, any one-handed off");
         assert!(!held(Some("feat:Dual Wielder|XPHB"), "Rapier", "Dagger").is_empty(), "2024: the main weapon must be Light");
-        assert!(held(Some("feat:Dual Wielder|T"), "Rapier", "Longsword").is_empty(), "2014: any one-handed melee");
-        assert!(!held(Some("feat:Dual Wielder|T"), "Rapier", "Greataxe").is_empty());
+        assert!(held(Some("feat:Dual Wielder|PHB"), "Rapier", "Longsword").is_empty(), "2014: any one-handed melee");
+        assert!(!held(Some("feat:Dual Wielder|PHB"), "Rapier", "Greataxe").is_empty());
+        assert!(
+            held(Some("feat:Dual Wielder|XPHB"), "Rapier", "Dagger")[0].contains("Dual Wielder: the main weapon Light"),
+            "the rule says why"
+        );
     }
 
     #[test]
@@ -789,11 +824,17 @@ add = "2"
         let lib = library();
         let mut c = character(&["Fighter"], &["Greataxe", "Longsword", "Rapier", "Longbow"]);
         c.feats = vec!["feat:Great Weapon Fighting|XPHB".into()];
-        let b = build(&c, &lib, &OverlaySet::default());
-        let notes = |n: &str| b.attacks.iter().find(|a| a.name == n).unwrap().notes.join(" ");
-        assert!(notes("Greataxe").contains("count as 3s"));
-        assert!(notes("Longsword").contains("(two-handed)"), "versatile");
-        assert!(notes("Rapier").is_empty() && !notes("Longbow").contains("Great Weapon"));
+        let rules = crate::builtin::overlays().0;
+        let b = build(&c, &lib, &rules);
+        let by = |b: &crate::builder::Build, n: &str| b.attacks.iter().find(|a| a.name == n).unwrap().clone();
+        let axe = by(&b, "Greataxe");
+        assert!(axe.notes.join(" ").contains("count as 3s"));
+        assert_eq!((axe.dice_min, axe.reroll), (Some(3), None));
+        assert_eq!(by(&b, "Longsword").dice_min, None, "versatile, in one hand");
+        assert!(by(&b, "Rapier").notes.is_empty() && by(&b, "Longbow").dice_min.is_none());
+        // A versatile weapon in both hands.
+        c.inventory[1].hand = Some(crate::character::Hand::Both);
+        assert_eq!(by(&build(&c, &lib, &rules), "Longsword").dice_min, Some(3));
     }
 
     #[test]
@@ -872,7 +913,7 @@ origin = "Tavern Brawler"
             origin: "Rage".into(),
         });
         let prof = super::weapon_proficiency(&lib, &c, &[], &[]);
-        super::add_attacks(&mut model, &lib, &c, &prof, &[], Default::default());
+        super::add_attacks(&mut model, &lib, &c, &prof, &[], &Default::default());
         let ev = model.evaluate();
         assert_eq!(ev.get("attack.greataxe.damage").unwrap().to_string(), "1d12 + 5", "Strength melee");
         assert_eq!(ev.get("attack.longbow.damage").unwrap().to_string(), "1d8 + 2", "not ranged");
@@ -914,32 +955,33 @@ origin = "Tavern Brawler"
     fn monk_weapons() {
         let lib = monk_library();
         let c = monk(&["Nunchaku|HB", "Shortsword|T", "Longsword|T"]);
-        let b = build(&c, &lib, &OverlaySet::default());
-        assert_eq!(b.martial_arts, Some(super::MartialArts { rules_2024: true }));
+        let rules = crate::builtin::overlays().0;
+        let b = build(&c, &lib, &rules);
+        assert_eq!(b.attack_rules.kind(), Some("monk weapon"));
         let ev = b.evaluate();
         let by = |n: &str| b.attacks.iter().find(|a| a.name == n).unwrap();
         // A homebrew simple melee weapon is a monk weapon: Dex, and the
         // Martial Arts die (1d6) beats its own 1d4.
-        assert!(by("Nunchaku").monk_weapon);
+        assert_eq!(by("Nunchaku").kind.as_deref(), Some("monk weapon"));
         assert_eq!(ev.int("attack.nunchaku.bonus"), Some(3 + 2));
         assert_eq!(ev.get("attack.nunchaku.damage").unwrap().to_string(), "1d6 + 3");
         // Light martial weapons are monk weapons in 2024.
-        assert!(by("Shortsword").monk_weapon && by("Shortsword").proficient);
+        assert!(by("Shortsword").kind.is_some() && by("Shortsword").proficient);
         // A Longsword is not (and not proficient).
-        assert!(!by("Longsword").monk_weapon);
+        assert!(by("Longsword").kind.is_none());
         assert_eq!(ev.get("attack.longsword.damage").unwrap().to_string(), "1d8");
 
         // Marking overrides the rules either way.
         let mut c = monk(&["Nunchaku|HB", "Longsword|T"]);
-        c.inventory[0].monk_weapon = Some(false);
-        c.inventory[1].monk_weapon = Some(true);
-        let b = build(&c, &lib, &OverlaySet::default());
+        c.inventory[0].weapon_kind = Some(false);
+        c.inventory[1].weapon_kind = Some(true);
+        let b = build(&c, &lib, &rules);
         let ev = b.evaluate();
         assert_eq!(ev.get("attack.nunchaku.damage").unwrap().to_string(), "1d4", "Strength +0, own die");
         assert_eq!(ev.get("attack.longsword.damage").unwrap().to_string(), "1d8 + 3", "Dex, its own bigger die");
 
         // Without Martial Arts nothing is a monk weapon.
-        let fighter = build(&character(&["Fighter"], &["Dagger"]), &library(), &OverlaySet::default());
-        assert!(!fighter.attacks[0].monk_weapon && fighter.martial_arts.is_none());
+        let fighter = build(&character(&["Fighter"], &["Dagger"]), &library(), &rules);
+        assert!(fighter.attacks[0].kind.is_none() && fighter.attack_rules.kind().is_none());
     }
 }

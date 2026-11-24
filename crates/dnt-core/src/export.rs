@@ -125,8 +125,8 @@ pub fn character(lib: &Library, sheet: &CharacterSession) -> Document {
             if let Some(m) = &a.mastery {
                 notes.push(format!("mastery: {m}"));
             }
-            if a.monk_weapon {
-                notes.push("monk weapon".into());
+            if let Some(kind) = &a.kind {
+                notes.push(kind.clone());
             }
             notes.extend(a.properties.iter().cloned());
             notes.extend(a.notes.iter().cloned());

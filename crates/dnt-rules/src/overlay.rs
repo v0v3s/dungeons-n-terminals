@@ -38,6 +38,34 @@
 //! uses = 1
 //! ```
 //!
+//! A rule can change attacks: for the weapons a filter picks (their
+//! properties: `weapon.melee`, `weapon.simple`, `weapon.light`, …), the
+//! ability they use, a damage die used when better, each damage die
+//! counting at least `dice_min` or rerolled at `reroll` or less, and a
+//! note. With a `kind`, those weapons are a kind the player marks weapons
+//! in or out of (the filter says which are, until marked):
+//!
+//! ```toml
+//! [[feature]]
+//! id = "classFeature:Martial Arts|Monk|XPHB|1"
+//!
+//! [[feature.attack]]
+//! kind = "monk weapon"
+//! weapons = "weapon.melee and (weapon.simple or (weapon.martial and weapon.light))"
+//! ability = "max(mod.str, mod.dex)"
+//! die = "class.monk.martial_arts"
+//! ```
+//!
+//! and which weapons allow the off-hand attack (besides Light ones in
+//! both hands), with what is needed when they do not:
+//!
+//! ```toml
+//! [[feature.offhand]]
+//! main = "main.light"
+//! off = "weapon.melee and not weapon.two_handed"
+//! note = "the main weapon must be Light, this one a melee weapon without Two-Handed"
+//! ```
+//!
 //! A class's features are its own: rules for one apply when it comes with
 //! the class it names (the Barbarian's Rage, for a Barbarian). Another
 //! class that has it too (a book's class made from the Barbarian) has its
@@ -102,6 +130,42 @@ pub struct FeatureOverlay {
     pub effects: Vec<Effect>,
     /// Spells it grants.
     pub spells: Vec<Granted>,
+    /// How it changes attacks.
+    pub attacks: Vec<AttackRule>,
+    /// Weapons it lets attack off hand.
+    pub offhand: Vec<OffhandRule>,
+}
+
+/// How a rule changes the attacks with some weapons.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AttackRule {
+    /// The rule's name.
+    pub origin: String,
+    /// Which weapons (all without one).
+    pub weapons: Option<Formula>,
+    /// What those weapons are called, when the player marks weapons in or
+    /// out (`monk weapon`).
+    pub kind: Option<String>,
+    /// The ability modifier for attack and damage rolls.
+    pub ability: Option<Formula>,
+    /// A damage die used instead of the weapon's when it is better.
+    pub die: Option<Formula>,
+    /// Each damage die counts at least this.
+    pub dice_min: Option<i64>,
+    /// Damage dice of this or less are rolled again, once.
+    pub reroll: Option<i64>,
+    /// Shown with the attack.
+    pub note: Option<String>,
+}
+
+/// Weapons a rule lets attack off hand: the main hand's (`main.*`) and the
+/// off hand's (`weapon.*`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct OffhandRule {
+    pub main: Option<Formula>,
+    pub off: Option<Formula>,
+    /// What it needs, shown when the weapons do not have it.
+    pub note: Option<String>,
 }
 
 /// A problem found while loading an overlay. Loading continues past these.
@@ -141,6 +205,30 @@ struct RawFeature {
     effect: Vec<RawEffect>,
     #[serde(default)]
     spell: Vec<RawSpell>,
+    #[serde(default)]
+    attack: Vec<RawAttack>,
+    #[serde(default)]
+    offhand: Vec<RawOffhand>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAttack {
+    weapons: Option<String>,
+    kind: Option<String>,
+    ability: Option<String>,
+    die: Option<String>,
+    dice_min: Option<i64>,
+    reroll: Option<i64>,
+    note: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawOffhand {
+    main: Option<String>,
+    off: Option<String>,
+    note: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -374,7 +462,63 @@ impl Overlay {
                 }
             }
 
-            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells });
+            let mut attacks = Vec::new();
+            for (ai, a) in f.attack.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".attack[{ai}]{field}"));
+                let mut ok = true;
+                let mut opt = |src: &Option<String>, field: &str, diags: &mut Vec<Diagnostic>| match src {
+                    Some(src) => {
+                        let f = formula(src, loc(&format!(".{field}")), diags);
+                        ok &= f.is_some();
+                        f
+                    }
+                    None => None,
+                };
+                let (weapons, ability, die) =
+                    (opt(&a.weapons, "weapons", &mut diags), opt(&a.ability, "ability", &mut diags), opt(&a.die, "die", &mut diags));
+                if a.kind.is_some() && a.weapons.is_none() {
+                    diags.push(Diagnostic { location: loc(".kind"), message: "a kind of weapon needs `weapons`: which are".into() });
+                    ok = false;
+                }
+                if a.dice_min.is_some_and(|n| n < 2) || a.reroll.is_some_and(|n| n < 1) {
+                    diags.push(Diagnostic { location: loc(""), message: "`dice_min` is 2 or more, `reroll` 1 or more".into() });
+                    ok = false;
+                }
+                let changes =
+                    [a.kind.is_some(), ability.is_some(), die.is_some(), a.dice_min.is_some(), a.reroll.is_some(), a.note.is_some()];
+                if ok && !changes.contains(&true) {
+                    diags.push(Diagnostic {
+                        location: loc(""),
+                        message: "an attack rule changes something: `kind`, `ability`, `die`, `dice_min`, `reroll` or `note`".into(),
+                    });
+                    ok = false;
+                }
+                if ok {
+                    attacks.push(AttackRule {
+                        origin: name.clone(),
+                        weapons,
+                        kind: a.kind,
+                        ability,
+                        die,
+                        dice_min: a.dice_min,
+                        reroll: a.reroll,
+                        note: a.note,
+                    });
+                }
+            }
+
+            let mut offhand = Vec::new();
+            for (oi, o) in f.offhand.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".offhand[{oi}].{field}"));
+                let main = o.main.as_deref().map(|src| formula(src, loc("main"), &mut diags));
+                let off = o.off.as_deref().map(|src| formula(src, loc("off"), &mut diags));
+                if matches!(main, Some(None)) || matches!(off, Some(None)) {
+                    continue;
+                }
+                offhand.push(OffhandRule { main: main.flatten(), off: off.flatten(), note: o.note });
+            }
+
+            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells, attacks, offhand });
         }
         Ok((Overlay { features }, diags))
     }
@@ -734,6 +878,49 @@ grant = "learned"
         );
         assert!(diags[1].message.contains("not a spell"), "{}", diags[1].message);
         assert!(diags[4].message.contains("`prepared`, `known` or `free`"));
+    }
+
+    #[test]
+    fn changes_attacks_and_names_mistakes() {
+        let text = r#"
+[[feature]]
+id = "feat:Iron Fists|T"
+[[feature.attack]]
+kind = "fist weapon"
+weapons = "weapon.melee and weapon.simple"
+die = "1d6"
+[[feature.attack]]
+weapons = "weapon.heavy"
+[[feature.attack]]
+kind = "fist weapon"
+[[feature.attack]]
+weapons = "weapon.melee and"
+note = "x"
+[[feature.attack]]
+dice_min = 1
+[[feature.offhand]]
+off = "weapon.melee"
+note = "any melee weapon"
+[[feature.offhand]]
+main = "main."
+"#;
+        let (overlay, diags) = Overlay::parse(text).unwrap();
+        let f = &overlay.features[0];
+        assert_eq!(f.attacks.len(), 1);
+        assert_eq!((f.attacks[0].kind.as_deref(), f.attacks[0].origin.as_str()), (Some("fist weapon"), "Iron Fists"));
+        assert_eq!(f.offhand.len(), 1);
+        let locations: Vec<&str> = diags.iter().map(|d| d.location.as_str()).collect();
+        assert_eq!(
+            locations,
+            [
+                "feature[0].attack[1]",
+                "feature[0].attack[2].kind",
+                "feature[0].attack[3].weapons",
+                "feature[0].attack[4]",
+                "feature[0].offhand[1].main"
+            ]
+        );
+        assert!(diags[0].message.contains("changes something"), "{}", diags[0].message);
     }
 
     #[test]

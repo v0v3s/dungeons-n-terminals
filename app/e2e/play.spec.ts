@@ -281,3 +281,16 @@ test("concentration on a spell is ended from the overview", { tag: "@concentrati
   await conc.click();
   await expect(conc).toHaveCount(0);
 });
+
+test("a rule changes the attacks with the weapons it picks", { tag: "@rules.attacks" }, async ({ page }) => {
+  // Light weapons: a d8, when it is better, and a note.
+  await invoke(page, "e2e_put_file", {
+    path: "overlays/quick.toml",
+    text: '[[feature]]\nid = "feat:Alert|SRD52"\nname = "Quick Blade"\n[[feature.attack]]\nweapons = "weapon.light"\ndie = "1d8"\nnote = "quick"\n',
+  });
+  await openSheet(page, "Overview", "Tester");
+  await expect(attack(page, "Dagger").locator("button.arow")).toContainText("1d8 + 2");
+  await expect(attack(page, "Dagger").locator(".anotes")).toContainText("quick");
+  // Not a Light weapon: its own die.
+  await expect(attack(page, "Quarterstaff").locator(".anotes")).not.toContainText("quick");
+});

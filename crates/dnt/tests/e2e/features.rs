@@ -238,3 +238,21 @@ fn choices_left_open_are_made() {
         "{rows:#?}"
     );
 }
+
+#[test]
+fn a_rule_changes_attacks() {
+    let home = Home::party();
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    // Light weapons: a d8, when it is better, and a note.
+    std::fs::write(
+        dir.join("quick.toml"),
+        "[[feature]]\nid = \"feat:Alert|SRD52\"\nname = \"Quick Blade\"\n[[feature.attack]]\nweapons = \"weapon.light\"\ndie = \"1d8\"\nnote = \"quick\"\n",
+    )
+    .unwrap();
+    let mut t = Tui::scenario("rules.attacks", home);
+    crate::sheet_play::open(&mut t, "Tester");
+    t.wait("  Dagger ");
+    // The rule's die beats the dagger's 1d4 (the note is past the pane's edge).
+    assert!(t.line("  Dagger ").contains("1d8 + 2 piercing"), "{}", t.screen());
+}

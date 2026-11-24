@@ -1151,7 +1151,7 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             sheet.popup = Some(Popup::AddItem(Box::new(Picker::new("Add an item", items))));
         }
         KeyCode::Char('g') => sheet.popup = Some(Popup::Text(TextPrompt::Currency, String::new())),
-        KeyCode::Char('m') if n > 0 => return run(sheet, lib, overlays, Command::ToggleMonkWeapon { line: i }),
+        KeyCode::Char('m') if n > 0 => return run(sheet, lib, overlays, Command::ToggleWeaponKind { line: i }),
         KeyCode::Char('+' | '=') if n > 0 => return run(sheet, lib, overlays, Command::ChangeQuantity { line: i, delta: 1 }),
         KeyCode::Char('-') if n > 0 => return run(sheet, lib, overlays, Command::ChangeQuantity { line: i, delta: -1 }),
         KeyCode::Char('x') if n > 0 => {

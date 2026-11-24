@@ -658,8 +658,8 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
         for n in &a.notes {
             notes.push(Span::styled(format!("{n}  "), base.fg(Color::Red)));
         }
-        if a.monk_weapon {
-            notes.push(Span::styled("monk weapon  ", base.fg(theme.accent)));
+        if let Some(kind) = &a.kind {
+            notes.push(Span::styled(format!("{kind}  "), base.fg(theme.accent)));
         }
         if let Some(m) = &a.mastery {
             notes.push(Span::styled(format!("mastery: {m}  "), base.fg(theme.accent)));
@@ -1494,8 +1494,8 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             (_, Some(h)) => format!(" {}", h.label()),
             _ => entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default(),
         };
-        if entity.is_some() && sheet.session.build.attacks.iter().any(|a| a.item == entity && a.monk_weapon) {
-            kind.push_str(" monk weapon");
+        if let Some(k) = sheet.session.build.attacks.iter().filter(|a| entity.is_some() && a.item == entity).find_map(|a| a.kind.as_ref()) {
+            kind.push_str(&format!(" {k}"));
         }
         let weight = if w > 0.0 { format!("{w:.1}") } else { "—".into() };
         // Containers: a fold marker and how full they are.

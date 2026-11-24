@@ -764,6 +764,11 @@ does = "A class made from another has its own rules for the features they share:
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "rules.attacks"
+does = "A rule changes attacks with the weapons its filter picks (by their properties): the ability they use, a damage die used when it is better, dice that count at least a number or are rolled again, a note; or which weapons may attack off hand."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "rules.grant-spells"
 does = "A rule grants spells for a feature: a spell, or a choice of spells, always prepared, known or cast free (a number of times a day, at will, or paid with a resource); they are listed under the rule's name, a choice to make among them."
 targets = ["tui", "app"]
@@ -929,7 +934,7 @@ not = { tui = "the terminal types the settings (30, no limit, weightless, off) i
 
 [[scenario]]
 id = "inventory.monk-weapon"
-does = "Mark a weapon as a monk weapon, or not."
+does = "Mark a weapon in or out of the kind of weapon a rule has (the Monk's monk weapons), whatever the rule's filter says; without such a rule the mark is kept, and counts once there is one."
 targets = ["tui", "app"]
 
 [[scenario]]

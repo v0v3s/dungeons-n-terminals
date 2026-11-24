@@ -377,7 +377,7 @@ export interface Line {
   container: string;
   /// A weapon: whether it counts as a monk weapon (null when that does
   /// not apply).
-  monk_weapon: boolean | null;
+  weapon_kind: { name: string; on: boolean } | null;
   /// Something to wear or hold, or worn or held already.
   equippable: boolean;
 }
