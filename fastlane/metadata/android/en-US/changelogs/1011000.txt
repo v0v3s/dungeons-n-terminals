@@ -1,0 +1,3 @@
+- Rules grant spells ([[feature.spell]]): a spell, or a choice of spells, always prepared, known or cast free (a number of times a day, at will, or paid with a resource).
+- Mystic Arcanum is a rule now, as any feature's automation: dnt's code knows no game's features.
+- The rules file schema has class and spell.

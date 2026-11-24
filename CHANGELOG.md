@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.11.0 - 2026-11-24
+
 ### Added
 
 - Rules grant spells (`[[feature.spell]]`): a spell, or a choice of

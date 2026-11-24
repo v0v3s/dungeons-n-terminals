@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "dnt"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1094,7 +1094,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-app"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "dnt-core",
  "dnt-data",
@@ -1111,7 +1111,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-core"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "chrono",
  "dnt-data",
@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-data"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "jsonschema",
  "nucleo-matcher",
@@ -1139,7 +1139,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-rules"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "dnt-data",
  "jsonschema",
@@ -1151,7 +1151,7 @@ dependencies = [
 
 [[package]]
 name = "dnt-store"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "dirs",
  "dnt-data",
