@@ -152,7 +152,11 @@ jobs:
           npm ci
           npx tauri android build --apk --debug --target x86_64 --features e2e
           ls src-tauri/gen/android/app/build/outputs/apk/*/*/
-      # The emulator, booted once and kept as a snapshot.
+      # The emulator, booted once and kept as a snapshot. A newer emulator
+      # cannot load an older one's snapshot: its version is in the key.
+      - name: Emulator version
+        id: emulator
+        run: echo "version=$("$ANDROID_HOME/emulator/emulator" -version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" >> "$GITHUB_OUTPUT"
       - name: Emulator cache
         uses: actions/cache@v6
         id: avd
@@ -160,7 +164,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.API_LEVEL }}-google_apis-x86_64-pixel_6
+          key: avd-${{ env.API_LEVEL }}-google_apis-x86_64-pixel_6-${{ steps.emulator.outputs.version }}
       - name: Emulator snapshot
         if: steps.avd.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2.38.0
