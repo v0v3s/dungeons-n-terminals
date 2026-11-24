@@ -156,7 +156,7 @@ jobs:
       # cannot load an older one's snapshot: its version is in the key.
       - name: Emulator version
         id: emulator
-        run: echo "version=$("$ANDROID_HOME/emulator/emulator" -version | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$("$ANDROID_HOME/emulator/emulator" -version 2>&1 | grep -oE 'version [0-9]+(\.[0-9]+)+' | head -1 | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
       - name: Emulator cache
         uses: actions/cache@v6
         id: avd
