@@ -358,7 +358,7 @@ impl Characters {
                     let name = name.trim().to_string();
                     self.name_input = None;
                     if !name.is_empty() {
-                        self.wizard = Some(Wizard::new(name, lib, filter));
+                        self.wizard = Some(Wizard::new(name, lib, overlays, filter));
                     }
                 }
                 KeyCode::Backspace => {
@@ -792,7 +792,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             return Action::Export(sheet.session.file.slug.clone(), dnt_core::export::to_markdown(&d), dnt_core::export::to_html(&d));
         }
         KeyCode::Char('u') if !ctrl => {
-            let flow = LevelUp::start(lib, &sheet.session.file.character, &sheet.session.ev, filter);
+            let flow = LevelUp::start(lib, overlays, &sheet.session.file.character, &sheet.session.ev, filter);
             sheet.popup = Some(Popup::LevelUp(Box::new(flow)));
             return Action::None;
         }

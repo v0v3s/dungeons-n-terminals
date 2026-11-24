@@ -14,7 +14,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`."
+            "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`. A `*` part names every entity with anything there: `classFeature:Ability Score Improvement|*|*|*`."
           },
           "name": {
             "type": "string",
@@ -223,6 +223,54 @@
                   "description": "What it needs, shown when the weapons do not have it."
                 }
               }
+            }
+          },
+          "choice": {
+            "type": "array",
+            "description": "Choices it asks for when gained (a class's or subclass's feature).",
+            "items": {
+              "type": "object",
+              "required": ["pick"],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "What it is called, and what the character file keeps it under; the rule's name if missing."
+                },
+                "pick": {
+                  "enum": ["ability_increase", "feat", "expertise", "weapon_mastery"],
+                  "description": "Ability scores to increase (or a feat instead), a feat, skills to gain Expertise in, or weapons to master."
+                },
+                "count": {
+                  "type": "string",
+                  "description": "Formula (expertise, weapon_mastery): how many the feature gives in all at a class level; the class table's columns are at that level."
+                },
+                "feats": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "ability_increase, feat: the feat categories offered (the data's, e.g. G, EB); feats without a category always are."
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "pick": {
+                        "enum": ["expertise", "weapon_mastery"]
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["count"],
+                    "not": { "required": ["feats"] }
+                  },
+                  "else": {
+                    "not": { "required": ["count"] }
+                  }
+                }
+              ]
             }
           }
         }

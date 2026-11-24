@@ -15,6 +15,11 @@ become the release page.
   when it is better, dice that count at least a number or are rolled
   again, a note, and a kind of weapon to mark weapons in or out of.
   `[[feature.offhand]]` says which weapons may attack off hand.
+- Rules ask for choices (`[[feature.choice]]`) when their feature is
+  gained: abilities to increase or a feat instead, a feat, Expertise, or
+  weapons to master (how many by a formula of the class table's columns).
+- A rule's id can have a `*` part, naming every entity with anything
+  there (`classFeature:Ability Score Improvement|*|*|*`).
 
 ### Changed
 
@@ -22,7 +27,10 @@ become the release page.
   Great Weapon Fighting are rules now. A weapon marked as a monk
   weapon keeps its mark. The inventory names the kind of weapon its rule
   has.
-- The rules file schema has `attack` and `offhand`.
+- Ability Score Improvement, Epic Boon, Expertise and Weapon Mastery are
+  rules now too. A class made from another (a book's version of a class)
+  asks for them through its own rules.
+- The rules file schema has `attack`, `offhand` and `choice`.
 
 ## v1.11.0 - 2026-11-24
 

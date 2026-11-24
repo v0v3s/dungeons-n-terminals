@@ -6,6 +6,7 @@ use dnt_core::creation::{NewCharacter, StepRow};
 use dnt_core::flow::{AbilityScores, Answer, Method, Question};
 use dnt_data::{EntityId, Library, SourceFilter};
 use dnt_rules::character::Character;
+use dnt_rules::overlay::OverlaySet;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use crate::levelup::question_picker;
@@ -45,8 +46,8 @@ fn view(q: &Question) -> View {
 }
 
 impl Wizard {
-    pub fn new(name: String, lib: &Library, filter: &SourceFilter) -> Wizard {
-        let flow = NewCharacter::new(name, lib, filter);
+    pub fn new(name: String, lib: &Library, rules: &OverlaySet, filter: &SourceFilter) -> Wizard {
+        let flow = NewCharacter::new(name, lib, rules, filter);
         Wizard { view: view(flow.question()), flow }
     }
 

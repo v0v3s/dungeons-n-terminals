@@ -66,6 +66,23 @@
 //! note = "the main weapon must be Light, this one a melee weapon without Two-Handed"
 //! ```
 //!
+//! A rule can ask for a choice when its feature is gained: abilities to
+//! increase (or a feat instead), a feat, skills to gain Expertise in, or
+//! weapons to master. `count` is how many the feature gives in all at a
+//! class level (a formula: the class table's columns are at that level):
+//!
+//! ```toml
+//! [[feature]]
+//! id = "classFeature:Weapon Mastery|Fighter|XPHB|1"
+//!
+//! [[feature.choice]]
+//! pick = "weapon_mastery"
+//! count = "class.fighter.weapon_mastery"
+//! ```
+//!
+//! An id with a `*` part names every entity that has anything there:
+//! `classFeature:Ability Score Improvement|*|*|*` is every class's.
+//!
 //! A class's features are its own: rules for one apply when it comes with
 //! the class it names (the Barbarian's Rage, for a Barbarian). Another
 //! class that has it too (a book's class made from the Barbarian) has its
@@ -134,6 +151,34 @@ pub struct FeatureOverlay {
     pub attacks: Vec<AttackRule>,
     /// Weapons it lets attack off hand.
     pub offhand: Vec<OffhandRule>,
+    /// Choices it asks for when gained.
+    pub choices: Vec<ChoiceRule>,
+}
+
+/// What a choice picks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pick {
+    /// Ability scores to increase (2 points), or a feat instead.
+    AbilityIncrease,
+    /// A feat.
+    Feat,
+    /// Proficient skills to gain Expertise in.
+    Expertise,
+    /// Weapons to master.
+    WeaponMastery,
+}
+
+/// A choice a feature asks for when it is gained.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChoiceRule {
+    /// What it is called, and what the character file keeps it under.
+    pub key: String,
+    pub pick: Pick,
+    /// How many the feature gives in all at a class level (Expertise,
+    /// Weapon Mastery).
+    pub count: Option<Formula>,
+    /// The feat categories it offers (the data's: `G`, `EB`).
+    pub feats: Vec<String>,
 }
 
 /// How a rule changes the attacks with some weapons.
@@ -209,6 +254,18 @@ struct RawFeature {
     attack: Vec<RawAttack>,
     #[serde(default)]
     offhand: Vec<RawOffhand>,
+    #[serde(default)]
+    choice: Vec<RawChoice>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawChoice {
+    key: Option<String>,
+    pick: String,
+    count: Option<String>,
+    #[serde(default)]
+    feats: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -518,7 +575,46 @@ impl Overlay {
                 offhand.push(OffhandRule { main: main.flatten(), off: off.flatten(), note: o.note });
             }
 
-            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells, attacks, offhand });
+            let mut choices = Vec::new();
+            for (ci, c) in f.choice.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".choice[{ci}]{field}"));
+                let pick = match c.pick.as_str() {
+                    "ability_increase" => Pick::AbilityIncrease,
+                    "feat" => Pick::Feat,
+                    "expertise" => Pick::Expertise,
+                    "weapon_mastery" => Pick::WeaponMastery,
+                    other => {
+                        diags.push(Diagnostic {
+                            location: loc(".pick"),
+                            message: format!("`{other}`: expected `ability_increase`, `feat`, `expertise` or `weapon_mastery`"),
+                        });
+                        continue;
+                    }
+                };
+                let counted = matches!(pick, Pick::Expertise | Pick::WeaponMastery);
+                let count = match (&c.count, counted) {
+                    (Some(src), true) => match formula(src, loc(".count"), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    (None, true) => {
+                        diags.push(Diagnostic { location: loc(""), message: format!("`{}` needs a `count`", c.pick) });
+                        continue;
+                    }
+                    (Some(_), false) => {
+                        diags.push(Diagnostic { location: loc(".count"), message: format!("`{}` has no `count`", c.pick) });
+                        continue;
+                    }
+                    (None, false) => None,
+                };
+                if !c.feats.is_empty() && counted {
+                    diags.push(Diagnostic { location: loc(".feats"), message: format!("`{}` offers no feats", c.pick) });
+                    continue;
+                }
+                choices.push(ChoiceRule { key: c.key.unwrap_or_else(|| name.clone()), pick, count, feats: c.feats });
+            }
+
+            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells, attacks, offhand, choices });
         }
         Ok((Overlay { features }, diags))
     }
@@ -526,7 +622,11 @@ impl Overlay {
     /// Feature ids that do not exist in the library (likely typos, or a
     /// homebrew source that is not loaded).
     pub fn unresolved<'a>(&'a self, lib: &Library) -> Vec<&'a str> {
-        self.features.iter().filter(|f| !f.keys.iter().any(|k| lib.get(k).is_some())).map(|f| f.id.as_str()).collect()
+        let names = |k: &Key| match is_pattern(k) {
+            true => lib.entities().iter().any(|e| pattern_matches(k, &e.key)),
+            false => lib.get(k).is_some(),
+        };
+        self.features.iter().filter(|f| !f.keys.iter().any(names)).map(|f| f.id.as_str()).collect()
     }
 }
 
@@ -534,11 +634,30 @@ impl Overlay {
 #[derive(Debug, Default, Clone)]
 pub struct OverlaySet {
     by_key: HashMap<Key, Vec<FeatureOverlay>>,
+    /// Rules whose id has a `*` part (every class's Ability Score
+    /// Improvement): checked against each entity.
+    patterns: Vec<FeatureOverlay>,
+}
+
+/// Whether a key has a `*` part.
+pub fn is_pattern(k: &Key) -> bool {
+    k.path.split('|').any(|p| p == "*")
+}
+
+/// Whether a key (or a pattern) is one a pattern names: each part the
+/// same, or `*` in the pattern.
+pub fn pattern_matches(pattern: &Key, key: &Key) -> bool {
+    let (p, k): (Vec<&str>, Vec<&str>) = (pattern.path.split('|').collect(), key.path.split('|').collect());
+    pattern.kind == key.kind && p.len() == k.len() && p.iter().zip(&k).all(|(p, k)| *p == "*" || p == k)
 }
 
 impl OverlaySet {
     pub fn add(&mut self, overlay: Overlay) {
         for f in overlay.features {
+            if f.keys.iter().any(is_pattern) {
+                self.patterns.push(f);
+                continue;
+            }
             for k in &f.keys {
                 self.by_key.entry(k.clone()).or_default().push(f.clone());
             }
@@ -549,6 +668,7 @@ impl OverlaySet {
     /// same entities and class (a user's version of a built-in overlay).
     pub fn replace(&mut self, overlay: Overlay) {
         for f in &overlay.features {
+            self.patterns.retain(|o| !(o.keys == f.keys && same_class(&o.class, &f.class)));
             for k in &f.keys {
                 if let Some(list) = self.by_key.get_mut(k) {
                     list.retain(|o| !same_class(&o.class, &f.class));
@@ -563,11 +683,14 @@ impl OverlaySet {
         if let Some(list) = self.by_key.get_mut(key) {
             list.retain(|o| o.class.is_some());
         }
+        self.patterns.retain(|o| o.class.is_some() || !o.keys.contains(key));
     }
 
-    /// Every overlay for an entity, whichever class each is for.
-    pub fn for_entity(&self, key: &Key) -> &[FeatureOverlay] {
-        self.by_key.get(key).map(Vec::as_slice).unwrap_or_default()
+    /// Every overlay for an entity, whichever class each is for: its own,
+    /// then those whose id has a `*` part that names it.
+    pub fn for_entity(&self, key: &Key) -> Vec<&FeatureOverlay> {
+        let own = self.by_key.get(key).into_iter().flatten();
+        own.chain(self.patterns.iter().filter(|o| o.keys.iter().any(|p| pattern_matches(p, key)))).collect()
     }
 
     /// The overlays for a feature as a character has it: a class's
@@ -581,7 +704,7 @@ impl OverlaySet {
             _ => true,
         };
         self.for_entity(key)
-            .iter()
+            .into_iter()
             .filter(|o| match &o.class {
                 None => own_class,
                 Some(c) => through.is_some_and(|t| c.eq_ignore_ascii_case(t)),
@@ -589,12 +712,23 @@ impl OverlaySet {
             .collect()
     }
 
+    /// The rules for a feature as a character has it: through `class`
+    /// (the class entity it came with), for a class's or subclass's feature.
+    pub fn for_had(&self, lib: &Library, feature: dnt_data::EntityId, class: Option<dnt_data::EntityId>) -> Vec<&FeatureOverlay> {
+        let e = lib.entity(feature);
+        let field = |k: &str| e.data.get(k).and_then(serde_json::Value::as_str).unwrap_or("");
+        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
+            .then(|| format!("{}|{}", field("className"), field("classSource")));
+        let through = class.map(|c| format!("{}|{}", lib.entity(c).name, lib.entity(c).source));
+        self.for_feature(&e.key, own.as_deref(), through.as_deref())
+    }
+
     pub fn len(&self) -> usize {
-        self.by_key.values().flatten().map(FeatureOverlay::ident).collect::<std::collections::HashSet<_>>().len()
+        self.by_key.values().flatten().chain(&self.patterns).map(FeatureOverlay::ident).collect::<std::collections::HashSet<_>>().len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.by_key.is_empty()
+        self.by_key.is_empty() && self.patterns.is_empty()
     }
 }
 
@@ -713,7 +847,7 @@ mod class_tests {
         set.replace(Overlay::parse(SHAMAN_RAGE).unwrap().0);
         assert_eq!(set.for_entity(&key).len(), 2);
         set.remove(&key);
-        let left: Vec<String> = set.for_entity(&key).iter().map(FeatureOverlay::ident).collect();
+        let left: Vec<String> = set.for_entity(&key).into_iter().map(FeatureOverlay::ident).collect();
         assert_eq!(left, ["classFeature:Rage|Barbarian|T|1@Shaman|B"]);
     }
 
@@ -921,6 +1055,51 @@ main = "main."
             ]
         );
         assert!(diags[0].message.contains("changes something"), "{}", diags[0].message);
+    }
+
+    #[test]
+    fn asks_for_choices_and_names_mistakes() {
+        let text = r#"
+[[feature]]
+id = "classFeature:Ability Score Improvement|*|*|*"
+[[feature.choice]]
+pick = "ability_increase"
+feats = ["G"]
+[[feature.choice]]
+key = "Sharp Eye"
+pick = "expertise"
+count = "1"
+[[feature.choice]]
+pick = "expertise"
+[[feature.choice]]
+pick = "feat"
+count = "1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+feats = ["G"]
+[[feature.choice]]
+pick = "skills"
+"#;
+        let (overlay, diags) = Overlay::parse(text).unwrap();
+        let c = &overlay.features[0].choices;
+        assert_eq!(c.len(), 2);
+        assert_eq!(
+            (c[0].key.as_str(), c[0].pick, c[0].feats.as_slice()),
+            ("Ability Score Improvement", Pick::AbilityIncrease, &["G".to_string()][..])
+        );
+        assert_eq!((c[1].key.as_str(), c[1].pick), ("Sharp Eye", Pick::Expertise));
+        let locations: Vec<&str> = diags.iter().map(|d| d.location.as_str()).collect();
+        assert_eq!(
+            locations,
+            ["feature[0].choice[2]", "feature[0].choice[3].count", "feature[0].choice[4].feats", "feature[0].choice[5].pick"]
+        );
+        // A `*` part names every class's feature of that name.
+        let mut set = OverlaySet::default();
+        set.add(overlay);
+        let fighter = Key::new(Kind::ClassFeature, &["Ability Score Improvement", "Fighter", "T", "4", "T"]);
+        let other = Key::new(Kind::ClassFeature, &["Extra Attack", "Fighter", "T", "5", "T"]);
+        assert_eq!((set.for_entity(&fighter).len(), set.for_entity(&other).len()), (1, 0));
     }
 
     #[test]

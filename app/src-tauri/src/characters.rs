@@ -509,7 +509,7 @@ pub async fn levelup_start(app: State<'_, App>) -> Res<Step> {
     let inner = &mut *guard;
     let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
     let s = inner.sheet.as_ref().ok_or("No character open")?;
-    let flow = LevelUp::start(lib, s.character(), &s.ev, &inner.ws.filter());
+    let flow = LevelUp::start(lib, &inner.ws.overlays, s.character(), &s.ev, &inner.ws.filter());
     let step = levelup_step(&flow);
     inner.levelup = Some(flow);
     Ok(step)
@@ -573,7 +573,7 @@ pub async fn creation_start(app: State<'_, App>, name: String) -> Res<CreationSt
         return Err("Your character needs a name".into());
     }
     let lib = inner.ws.lib.as_ref().ok_or("No data yet")?;
-    let flow = NewCharacter::new(name.to_string(), lib, &inner.ws.filter());
+    let flow = NewCharacter::new(name.to_string(), lib, &inner.ws.overlays, &inner.ws.filter());
     let step = creation_step(&flow, lib);
     inner.creation = Some(flow);
     Ok(step)

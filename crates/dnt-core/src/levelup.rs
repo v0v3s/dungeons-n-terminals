@@ -7,7 +7,7 @@ use dnt_data::{EntityId, Library, SourceFilter};
 use dnt_rules::character::{Character, HitPoints, HpMethod, Level, LevelChoices};
 use dnt_rules::choices;
 use dnt_rules::levelup::{self, LevelPerk};
-use dnt_rules::overlay::resolve_id;
+use dnt_rules::overlay::{resolve_id, OverlaySet};
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::Evaluation;
 
@@ -46,10 +46,12 @@ pub struct LevelUp {
     pub summary: Vec<String>,
     /// Feature choices still to make; `None` until computed.
     feature_choices: Option<Vec<choices::Choice>>,
+    /// The rules as they were when it began (the choices features ask for).
+    rules: OverlaySet,
 }
 
 impl LevelUp {
-    pub fn start(lib: &Library, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> LevelUp {
+    pub fn start(lib: &Library, rules: &OverlaySet, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> LevelUp {
         let items = levelup::class_options(lib, c, ev, filter)
             .into_iter()
             .map(|o| {
@@ -77,6 +79,7 @@ impl LevelUp {
             perk: LevelPerk::None,
             summary: Vec::new(),
             feature_choices: None,
+            rules: rules.clone(),
         }
     }
 
@@ -192,7 +195,7 @@ impl LevelUp {
             };
             let subclass = self.subclass.clone().or_else(|| c.subclasses.get(&class_id).cloned()).and_then(|s| resolve_id(lib, &s));
             let skills = c.proficiencies.skills.clone();
-            let found = choices::level_choices(lib, c, class, subclass, self.new_level, filter, &skills);
+            let found = choices::level_choices(lib, &self.rules, c, class, subclass, self.new_level, filter, &skills);
             self.feature_choices = Some(found.into_iter().filter(|ch| !ch.options.is_empty()).collect());
         }
         match self.feature_choices.as_ref().and_then(|q| q.first()) {
@@ -228,18 +231,19 @@ impl LevelUp {
     }
 
     fn after_hp(&mut self, lib: &Library, c: &Character, filter: &SourceFilter) {
-        self.perk = self.class_entity.map(|e| levelup::perk_at(&lib.entity(e).data, self.new_level)).unwrap_or(LevelPerk::None);
-        match self.perk {
+        self.perk = self.class_entity.map(|e| levelup::perk_at(lib, &self.rules, e, self.new_level)).unwrap_or(LevelPerk::None);
+        match &self.perk {
             LevelPerk::None => self.next_choice(lib, c, filter),
-            LevelPerk::EpicBoon => self.feat_stage(lib, filter),
-            LevelPerk::Asi => {
+            LevelPerk::Feat { .. } => self.feat_stage(lib, filter),
+            LevelPerk::Asi { title, .. } => {
+                let title = title.clone();
                 let items = vec![
                     Choice::new("+2 to one ability score", "", "2"),
                     Choice::new("+1 to two ability scores", "", "11"),
                     Choice::new("Take a feat instead…", "", "feat"),
                 ];
                 self.step = Step::Asi;
-                self.question = pick("Ability Score Improvement", items);
+                self.question = pick(title, items);
             }
         }
     }
@@ -263,7 +267,7 @@ impl LevelUp {
     }
 
     fn feat_stage(&mut self, lib: &Library, filter: &SourceFilter) {
-        let items = levelup::feat_options(lib, self.perk, filter)
+        let items = levelup::feat_options(lib, &self.rules, &self.perk, filter)
             .into_iter()
             .map(|f| {
                 let e = lib.entity(f);
@@ -271,7 +275,10 @@ impl LevelUp {
                 Choice::new(e.name.clone(), format!("{category} {}", e.source).trim().to_string(), levelup::feat_id(lib, f))
             })
             .collect();
-        let title = if self.perk == LevelPerk::EpicBoon { "Epic Boon: choose a feat" } else { "Choose a feat" };
+        let title = match &self.perk {
+            LevelPerk::Feat { title, .. } => format!("{title}: choose a feat"),
+            _ => "Choose a feat".into(),
+        };
         self.step = Step::Feat;
         self.question = pick(title, items);
     }
@@ -314,7 +321,7 @@ mod tests {
         let ev = dnt_rules::builder::build(&c, &lib, &overlays).evaluate();
 
         // First level: the class, then maximum hit points without asking.
-        let mut flow = LevelUp::start(&lib, &c, &ev, &filter);
+        let mut flow = LevelUp::start(&lib, &overlays, &c, &ev, &filter);
         let fighter = values(&flow.question).into_iter().find(|v| v.contains("Fighter")).expect("Fighter is offered");
         assert!(flow.answer(&lib, &c, &ev, &filter, Answer::Number(3)).is_err(), "a number does not pick a class");
         assert!(flow.answer(&lib, &c, &ev, &filter, Answer::Pick(vec!["class:Nope|T".into()])).is_err());
@@ -325,7 +332,7 @@ mod tests {
 
         // Second level: hit points rolled at the table.
         let ev = dnt_rules::builder::build(&c, &lib, &overlays).evaluate();
-        let mut flow = LevelUp::start(&lib, &c, &ev, &filter);
+        let mut flow = LevelUp::start(&lib, &overlays, &c, &ev, &filter);
         flow.answer(&lib, &c, &ev, &filter, Answer::Pick(vec![fighter])).unwrap();
         assert_eq!(values(&flow.question), ["average", "roll", "max"]);
         flow.answer(&lib, &c, &ev, &filter, Answer::Pick(vec!["roll".into()])).unwrap();

@@ -142,15 +142,16 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                 op: Op::Add,
                 value: Formula::constant(Value::int(*v)),
                 when: None,
-                origin: format!("Ability Score Improvement ({class_name} {n})"),
+                origin: format!("{class_name} {n}: ability scores"),
             });
         }
         level_feats.extend(l.choices.feat.iter().cloned());
-        for (key, values) in &l.choices.picks {
-            if key == "Expertise" {
-                expertise.extend(values.iter().cloned());
+        // A skill picked is an Expertise; anything else a feature.
+        for v in l.choices.picks.values().flatten() {
+            if crate::choices::is_skill(v) {
+                expertise.push(v.clone());
             } else {
-                level_picks.extend(values.iter().map(|v| (l.class.clone(), v.clone())));
+                level_picks.push((l.class.clone(), v.clone()));
             }
         }
     }
@@ -474,17 +475,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     // A feature's rules. A class's feature has the rules of the class it
     // came with.
     let rules_for = |f: &ActiveFeature| {
-        let e = lib.entity(f.entity);
-        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
-            .then(|| format!("{}|{}", str_of(&e.data, "className").unwrap_or(""), str_of(&e.data, "classSource").unwrap_or("")));
         let through = match f.source {
-            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => {
-                let c = lib.entity(classes[ci].entity);
-                Some(format!("{}|{}", c.name, c.source))
-            }
+            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => Some(classes[ci].entity),
             _ => None,
         };
-        overlays.for_feature(&e.key, own.as_deref(), through.as_deref())
+        overlays.for_had(lib, f.entity, through)
     };
 
     // ---- spells granted by features ----
@@ -917,7 +912,7 @@ mod tests {
         let lib = library();
         let ev = build(&c, &lib, &OverlaySet::default()).evaluate();
         assert_eq!(ev.int("str"), Some(16));
-        assert!(ev.stats["str"].explain().contains("Ability Score Improvement (Fighter 4)"));
+        assert!(ev.stats["str"].explain().contains("Fighter 4: ability scores"));
 
         eldritch_knight(&mut c);
         for _ in 0..2 {

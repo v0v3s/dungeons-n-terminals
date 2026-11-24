@@ -33,9 +33,9 @@ fn features_are_grouped_by_where_they_come_from() {
     let at = |name: &str| rows.iter().position(|r| r == name).unwrap_or_else(|| panic!("no {name:?} in {rows:#?}"));
     // Class levels first, then species, background, feats, masteries.
     assert!(at("Ranger 1") < at("1 Spellcasting"));
-    // Favored Enemy and Alert have built-in rules: marked auto.
-    assert!(at("1 Spellcasting") < at("1 Favored Enemy auto") && at("1 Favored Enemy auto") < at("1 Weapon Mastery"));
-    assert!(at("1 Weapon Mastery") < at("Species"));
+    // Favored Enemy, Weapon Mastery and Alert have built-in rules: marked auto.
+    assert!(at("1 Spellcasting") < at("1 Favored Enemy auto") && at("1 Favored Enemy auto") < at("1 Weapon Mastery auto"));
+    assert!(at("1 Weapon Mastery auto") < at("Species"));
     assert!(at("Species") < at("Tiefling; Infernal Legacy") && at("Tiefling; Infernal Legacy") < at("Background"));
     assert!(at("Background") < at("Criminal") && at("Criminal") < at("Feats"));
     assert!(at("Feats") < at("Alert auto") && at("Alert auto") < at("Weapon Mastery"));
@@ -79,11 +79,10 @@ fn a_mistake_in_the_rules_is_named_at_start() {
 #[test]
 fn rules_written_for_a_feature_change_the_sheet() {
     let mut t = ranger_features(Tui::scenario("features.rules", Home::party()));
-    // Weapon Mastery: no built-in rules.
-    t.send("j").send("j");
-    see(&mut t, "╭ Weapon Mastery ─");
+    // Spellcasting: no built-in rules.
+    see(&mut t, "╭ Spellcasting ─");
     t.send("O");
-    see(&mut t, "╭ Rules for Weapon Mastery ─");
+    see(&mut t, "╭ Rules for Spellcasting ─");
     see(&mut t, "Nothing automates this feature yet");
     // Ten more feet of speed.
     t.send("G").send("o");
@@ -98,7 +97,7 @@ fn rules_written_for_a_feature_change_the_sheet() {
     see(&mut t, "NORMAL");
     t.send(ESC);
     see(&mut t, "Saved your rules");
-    assert!(row(&t, "1 Weapon Mastery").contains("auto"), "{}", t.screen());
+    assert!(row(&t, "1 Spellcasting").contains("auto"), "{}", t.screen());
     t.send(BACKTAB);
     see(&mut t, "╭ Abilities ─");
     assert!(stat_boxes(&t).contains("│ 40 │"), "{}", t.screen());
@@ -255,4 +254,28 @@ fn a_rule_changes_attacks() {
     t.wait("  Dagger ");
     // The rule's die beats the dagger's 1d4 (the note is past the pane's edge).
     assert!(t.line("  Dagger ").contains("1d8 + 2 piercing"), "{}", t.screen());
+}
+
+#[test]
+fn a_rule_asks_for_a_choice() {
+    let home = crate::steps::with_wren(false);
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    // Wren's patron feature asks for one skill to gain Expertise in.
+    std::fs::write(
+        dir.join("lore.toml"),
+        "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\nclass = \"Runebinder|TST\"\nname = \"Patron's Lore\"\n[[feature.choice]]\npick = \"expertise\"\ncount = \"1\"\n",
+    )
+    .unwrap();
+    let mut t = Tui::scenario("rules.choices", home);
+    crate::steps::open_wren(&mut t);
+    see(&mut t, "1 choice(s) to make press c");
+    t.send("c");
+    see(&mut t, "Patron's Lore");
+    t.typed("History");
+    t.send(ENTER);
+    see(&mut t, "All choices made");
+    // Expertise: History's mark is the double one, and twice the bonus.
+    t.wait("◉ History");
+    assert!(t.line("◉ History").contains("+4"), "{}", t.screen());
 }

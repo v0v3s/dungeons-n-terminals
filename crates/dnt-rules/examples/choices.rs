@@ -25,7 +25,8 @@ fn main() {
     ] {
         let class = resolve_id(&lib, class).expect(class);
         let subclass = sub.and_then(|s| resolve_id(&lib, s));
-        let choices = level_choices(&lib, &Character::default(), class, subclass, level, &filter, &skills);
+        let choices =
+            level_choices(&lib, &dnt_rules::builtin::overlays().0, &Character::default(), class, subclass, level, &filter, &skills);
         let text: Vec<String> = choices
             .iter()
             .map(|c| {

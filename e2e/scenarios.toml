@@ -769,6 +769,11 @@ does = "A rule changes attacks with the weapons its filter picks (by their prope
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "rules.choices"
+does = "A rule asks for a choice when its feature is gained: abilities to increase or a feat instead, a feat (of the categories it names), skills to gain Expertise in, or weapons to master (how many by a formula, the class table's columns at that level). It is asked on levelling up, or as a choice still to make; an id with a * part is every class's feature of that name."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "rules.grant-spells"
 does = "A rule grants spells for a feature: a spell, or a choice of spells, always prepared, known or cast free (a number of times a day, at will, or paid with a resource); they are listed under the rule's name, a choice to make among them."
 targets = ["tui", "app"]

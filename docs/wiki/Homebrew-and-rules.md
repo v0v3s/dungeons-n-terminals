@@ -70,6 +70,29 @@ die = "class.monk.martial_arts"        # used when better than the weapon's
 ones in both hands: `main` for the main hand's (`main.light`), `off` for
 the off hand's (`weapon.melee and not weapon.two_handed`).
 
+A rule asks for a choice when its feature is gained: `ability_increase`
+(or a feat of the categories in `feats` instead), `feat`, `expertise` or
+`weapon_mastery`. `count` is how many the feature gives in all at a class
+level: a number, or a formula of the class table's columns. An id with a
+`*` part is every entity with anything there: every class's Ability Score
+Improvement in one rule.
+
+```toml
+[[feature]]
+id = "classFeature:Ability Score Improvement|*|*|*"
+
+[[feature.choice]]
+pick = "ability_increase"
+feats = ["G"]                          # or a General feat instead
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Fighter|XPHB|1"
+
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "class.fighter.weapon_mastery" # the table's column, at each level
+```
+
 A class's features are its own. A book's class made from another (its
 version of the Barbarian, say) shares that class's features, but not
 its rules: it has rules of its own, which name it.

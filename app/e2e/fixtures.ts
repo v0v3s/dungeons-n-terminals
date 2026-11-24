@@ -45,6 +45,7 @@ export async function wren(page: Page, rules: boolean, gifts = false) {
     text:
       'name = "Wren"\nspecies = "race:Halfling|SRD52"\nbackground = "background:Sage|SRD52"\n\n' +
       "[abilities]\nstr = 8\ndex = 14\ncon = 12\nint = 10\nwis = 13\ncha = 15\n\n" +
+      '[proficiencies]\nskills = ["history"]\n\n' +
       '[[levels]]\nclass = "class:Runebinder|TST"\n\n[subclasses]\n"class:Runebinder|TST" = "subclass:Grove|Runebinder|TST|TST"\n',
   });
   if (rules) {

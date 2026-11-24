@@ -4,7 +4,7 @@
 //! Mastery. Picks are stored per level in `LevelChoices::picks`, keyed by
 //! the choice's `key`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use dnt_data::{EntityId, Kind, Library, SourceFilter};
 use serde_json::Value as Json;
@@ -12,7 +12,7 @@ use serde_json::Value as Json;
 use crate::character::Character;
 use crate::class_table::{class_columns, slug};
 use crate::levelup::feat_id;
-use crate::overlay::resolve_id;
+use crate::overlay::{resolve_id, OverlaySet, Pick};
 use crate::standard::SKILLS;
 use crate::value::Value;
 
@@ -248,8 +248,10 @@ fn features_at(lib: &Library, owner: &Json, field: &str, kind: Kind, level_part:
 
 /// The choices due when `class` reaches `level` (with `subclass`, if any).
 /// `skills` are the character's skill proficiencies at that point.
+#[allow(clippy::too_many_arguments)]
 pub fn level_choices(
     lib: &Library,
+    rules: &OverlaySet,
     c: &Character,
     class: EntityId,
     subclass: Option<EntityId>,
@@ -299,24 +301,16 @@ pub fn level_choices(
         }
     }
 
-    // Features gained now: option blocks and Expertise.
-    let mut gained = features_at(lib, owners[0], "classFeatures", Kind::ClassFeature, 3, level);
-    if let Some(s) = subclass {
-        gained.extend(features_at(lib, &lib.entity(s).data, "subclassFeatures", Kind::SubclassFeature, 5, level));
-    }
-    let mastery_column = class_columns(&lib.entity(class).data).into_iter().find(|c| c.var.ends_with(".weapon_mastery"));
-    for f in gained {
-        let e = lib.entity(f);
-        // Classes without a mastery column (2024 Paladin, Ranger, Rogue)
-        // state "two kinds of weapons" in the feature text.
-        if e.name == "Weapon Mastery" && mastery_column.is_none() && e.kind == Kind::ClassFeature {
-            out.push(Choice {
-                key: "Weapon Mastery".into(),
-                kind: ChoiceKind::WeaponMastery,
-                count: 2,
-                options: mastery_weapons(lib, filter, &taken),
-            });
+    // Features gained now: option blocks.
+    let at = |l: i64| {
+        let mut f = features_at(lib, owners[0], "classFeatures", Kind::ClassFeature, 3, l);
+        if let Some(s) = subclass {
+            f.extend(features_at(lib, &lib.entity(s).data, "subclassFeatures", Kind::SubclassFeature, 5, l));
         }
+        f
+    };
+    for f in at(level) {
+        let e = lib.entity(f);
         let mut blocks = Vec::new();
         option_blocks(e.data.get("entries").unwrap_or(&Json::Null), &mut blocks);
         for (count, refs) in blocks {
@@ -341,41 +335,70 @@ pub fn level_choices(
                 out.push(Choice { key: e.name.clone(), kind: ChoiceKind::SubFeature, count, options });
             }
         }
-        if e.name == "Expertise" {
-            let expert: BTreeSet<String> = c
-                .levels
-                .iter()
-                .flat_map(|l| l.choices.picks.get("Expertise").into_iter().flatten().cloned())
-                .chain(c.proficiencies.expertise.iter().cloned())
-                .collect();
-            let options = skills
-                .iter()
-                .filter(|s| !expert.contains(*s))
-                .map(|s| ChoiceOption {
-                    value: s.clone(),
-                    label: SKILLS.iter().find(|(k, _, _)| k == s).map_or(s.clone(), |(_, n, _)| n.to_string()),
-                    hint: String::new(),
-                    warning: None,
-                })
-                .collect();
-            out.push(Choice { key: "Expertise".into(), kind: ChoiceKind::Expertise, count: 2, options });
-        }
     }
 
-    // Weapon Mastery from the class table.
-    if let Some(col) = mastery_column {
-        let at = |l: i64| if l < 1 { 0 } else { matches_num(&col.at(l as usize)) };
-        let new = at(level) - at(level - 1);
-        if new > 0 {
-            out.push(Choice {
-                key: "Weapon Mastery".into(),
-                kind: ChoiceKind::WeaponMastery,
-                count: new as usize,
-                options: mastery_weapons(lib, filter, &taken),
-            });
+    // The rules' choices that count (Expertise, Weapon Mastery): what the
+    // features had give in all now, less what they gave a level before.
+    let columns: Vec<_> = class_columns(&lib.entity(class).data)
+        .into_iter()
+        .chain(subclass.into_iter().flat_map(|s| crate::class_table::subclass_columns(&lib.entity(s).data)))
+        .collect();
+    let env = |l: i64| -> HashMap<String, Value> {
+        let mut m: HashMap<String, Value> =
+            columns.iter().map(|c| (c.var.clone(), if l < 1 { Value::int(0) } else { c.at(l as usize) })).collect();
+        m.insert(format!("class.{}.level", slug(&lib.entity(class).name)), Value::int(l));
+        m
+    };
+    let (now, before) = (env(level), env(level - 1));
+    let mut counted: Vec<(String, Pick, i64)> = Vec::new();
+    for l in 1..=level {
+        for f in at(l) {
+            for o in rules.for_had(lib, f, Some(class)) {
+                for r in o.choices.iter().filter(|r| matches!(r.pick, Pick::Expertise | Pick::WeaponMastery)) {
+                    let Some(count) = &r.count else { continue };
+                    let total = |env: &HashMap<String, Value>| count.eval(env).map(|v| matches_num(&v)).unwrap_or(0);
+                    let new = total(&now) - if l < level { total(&before) } else { 0 };
+                    match counted.iter_mut().find(|(k, _, _)| *k == r.key) {
+                        Some((_, _, n)) => *n += new,
+                        None => counted.push((r.key.clone(), r.pick, new)),
+                    }
+                }
+            }
         }
     }
+    for (key, pick, count) in counted.into_iter().filter(|(_, _, n)| *n > 0) {
+        let (kind, options) = match pick {
+            Pick::Expertise => (ChoiceKind::Expertise, expertise_options(c, skills)),
+            _ => (ChoiceKind::WeaponMastery, mastery_weapons(lib, filter, &taken)),
+        };
+        out.push(Choice { key, kind, count: count as usize, options });
+    }
     out
+}
+
+/// Proficient skills without Expertise yet.
+fn expertise_options(c: &Character, skills: &[String]) -> Vec<ChoiceOption> {
+    let expert: BTreeSet<String> = c
+        .levels
+        .iter()
+        .flat_map(|l| l.choices.picks.values().flatten().filter(|v| is_skill(v)).cloned())
+        .chain(c.proficiencies.expertise.iter().cloned())
+        .collect();
+    skills
+        .iter()
+        .filter(|s| !expert.contains(*s))
+        .map(|s| ChoiceOption {
+            value: s.clone(),
+            label: SKILLS.iter().find(|(k, _, _)| k == s).map_or(s.clone(), |(_, n, _)| n.to_string()),
+            hint: String::new(),
+            warning: None,
+        })
+        .collect()
+}
+
+/// Whether a pick is a skill (an Expertise), not an entity.
+pub fn is_skill(v: &str) -> bool {
+    SKILLS.iter().any(|(k, _, _)| *k == v)
 }
 
 fn matches_num(v: &Value) -> i64 {
@@ -394,8 +417,8 @@ pub fn mastery_swap_options(lib: &Library, c: &Character, filter: &SourceFilter)
 /// resolves to `old` becomes `new`. Returns whether one was found.
 pub fn swap_mastery(lib: &Library, c: &mut Character, old: EntityId, new: &str) -> bool {
     for l in &mut c.levels {
-        if let Some(list) = l.choices.picks.get_mut("Weapon Mastery") {
-            if let Some(v) = list.iter_mut().find(|v| resolve_id(lib, v) == Some(old)) {
+        for list in l.choices.picks.values_mut() {
+            if let Some(v) = list.iter_mut().find(|v| v.starts_with("item:") && resolve_id(lib, v) == Some(old)) {
                 *v = new.to_string();
                 return true;
             }
@@ -435,7 +458,7 @@ pub struct Pending {
 
 /// Choices missing on an existing character (e.g. made before dnt knew
 /// about them, or edited by hand).
-pub fn pending(lib: &Library, c: &Character, filter: &SourceFilter) -> Vec<Pending> {
+pub fn pending(lib: &Library, rules: &OverlaySet, c: &Character, filter: &SourceFilter) -> Vec<Pending> {
     let mut out = Vec::new();
     let mut counts: std::collections::BTreeMap<&str, i64> = Default::default();
     for (i, l) in c.levels.iter().enumerate() {
@@ -447,7 +470,7 @@ pub fn pending(lib: &Library, c: &Character, filter: &SourceFilter) -> Vec<Pendi
         let mut before = c.clone();
         before.levels.truncate(i);
         let skills: Vec<String> = c.proficiencies.skills.iter().map(|s| slug(s)).collect();
-        for choice in level_choices(lib, &before, class, subclass, *n, filter, &skills) {
+        for choice in level_choices(lib, rules, &before, class, subclass, *n, filter, &skills) {
             let have = l.choices.picks.get(&choice.key).map_or(0, Vec::len);
             if have < choice.count && !choice.options.is_empty() {
                 out.push(Pending {
@@ -546,5 +569,57 @@ mod tests {
         assert!(swap_mastery(&lib, &mut c, longsword, "item:Greatsword|T"));
         assert_eq!(c.levels[0].choices.picks["Weapon Mastery"], ["item:Greatsword|T"]);
         assert!(!swap_mastery(&lib, &mut c, longsword, "item:Greatsword|T"));
+    }
+
+    /// Expertise and Weapon Mastery are asked for by the features' rules:
+    /// how many the feature gives in all, less what it gave a level before.
+    #[test]
+    fn counted_choices_from_rules() {
+        use crate::overlay::Overlay;
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "class": [{"name": "Duelist", "source": "T",
+                "classTableGroups": [{"colLabels": ["Weapon Mastery"], "rows": [[2], [2], [2], [3]]}],
+                "classFeatures": ["Weapon Mastery|Duelist|T|1", "Expertise|Duelist|T|2"]}],
+            "classFeature": [
+                {"name": "Weapon Mastery", "source": "T", "className": "Duelist", "classSource": "T", "level": 1, "entries": ["x"]},
+                {"name": "Expertise", "source": "T", "className": "Duelist", "classSource": "T", "level": 2, "entries": ["x"]}
+            ],
+            "baseitem": [{"name": "Longsword", "source": "T", "mastery": ["Sap|T"]}]
+        }));
+        let mut rules = OverlaySet::default();
+        rules.add(
+            Overlay::parse(
+                r#"
+[[feature]]
+id = "classFeature:Weapon Mastery|Duelist|T|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "class.duelist.weapon_mastery"
+
+[[feature]]
+id = "classFeature:Expertise|*|*|*"
+[[feature.choice]]
+pick = "expertise"
+count = "2"
+"#,
+            )
+            .unwrap()
+            .0,
+        );
+        let class = lib.get(&dnt_data::Key::new(Kind::Class, &["Duelist", "T"])).unwrap();
+        let skills = vec!["athletics".to_string(), "stealth".to_string(), "history".to_string()];
+        let at = |level: i64| -> Vec<(String, usize)> {
+            level_choices(&lib, &rules, &Character::default(), class, None, level, &SourceFilter::default(), &skills)
+                .into_iter()
+                .map(|c| (c.key, c.count))
+                .collect()
+        };
+        assert_eq!(at(1), [("Weapon Mastery".to_string(), 2)]);
+        assert_eq!(at(2), [("Expertise".to_string(), 2)], "no more masteries; the Expertise gained");
+        assert_eq!(at(3), []);
+        assert_eq!(at(4), [("Weapon Mastery".to_string(), 1)], "the column's 3, one more");
+        let none = level_choices(&lib, &OverlaySet::default(), &Character::default(), class, None, 1, &SourceFilter::default(), &skills);
+        assert!(none.is_empty(), "no rules, no choices");
     }
 }

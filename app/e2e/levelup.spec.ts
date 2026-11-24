@@ -244,3 +244,21 @@ test("a class made from another offers its subclasses too", { tag: "@levelup.sub
   await expect(page.getByRole("button", { name: "Warnings" })).toHaveCount(0);
 });
 
+
+test("a rule asks for a choice: one skill to gain Expertise in", { tag: "@rules.choices" }, async ({ page }) => {
+  await wren(page, false);
+  await invoke(page, "e2e_put_file", {
+    path: "overlays/lore.toml",
+    text:
+      '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\nclass = "Runebinder|TST"\nname = "Patron\'s Lore"\n' +
+      '[[feature.choice]]\npick = "expertise"\ncount = "1"\n',
+  });
+  await openSheet(page, "Skills", "Wren");
+  const history = page.locator("button.skill", { hasText: "History" });
+  await expect(history).toContainText("+2");
+  await page.getByRole("button", { name: /1 choice/ }).click();
+  await pick(page, ["History"]);
+  await expect(page.getByRole("button", { name: /choices? to make|^\d+ choices?$/ })).toHaveCount(0);
+  // Expertise: twice the proficiency bonus.
+  await expect(history).toContainText("+4");
+});

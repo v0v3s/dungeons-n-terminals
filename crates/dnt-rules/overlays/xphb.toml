@@ -5,6 +5,62 @@
 # Format: see crates/dnt-rules/src/overlay.rs.
 
 
+# ---- Choices features ask for ----
+
+[[feature]]
+id = "classFeature:Ability Score Improvement|*|*|*"
+[[feature.choice]]
+pick = "ability_increase"
+feats = ["G"]
+
+# The 2024 feat is that choice itself, not one more feat to take.
+[[feature]]
+id = "feat:Ability Score Improvement|XPHB"
+[[feature.choice]]
+pick = "ability_increase"
+
+[[feature]]
+id = "classFeature:Epic Boon|*|*|*"
+[[feature.choice]]
+pick = "feat"
+feats = ["EB", "G"]
+
+[[feature]]
+id = "classFeature:Expertise|*|*|*"
+[[feature.choice]]
+pick = "expertise"
+count = "2"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Barbarian|XPHB|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "class.barbarian.weapon_mastery"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Fighter|XPHB|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "class.fighter.weapon_mastery"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Paladin|XPHB|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Ranger|XPHB|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Rogue|XPHB|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+
 # ---- Barbarian ----
 
 [[feature]]
