@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test, wren } from "./fixtures";
 
 const spell = (page: Page, name: string) => page.locator("button.spell", { hasText: name });
 /// A level's slots (or the pact slots), in its heading on the Spells tab.
@@ -363,3 +363,27 @@ test("a class's spells by level: what is had ticked, given up to free a pick; fu
   await expect(spell(page, "Shield")).toBeVisible();
   await expect(spell(page, "Magic Missile")).toHaveCount(0);
 });
+
+test("a spell always prepared is cast free once a day too", { tag: "@spells.prepared-free" }, async ({ page }) => {
+  await wren(page, false);
+  await openSheet(page, "Spells", "Wren");
+  // Listed both ways: always prepared, and its free cast.
+  await expect(spell(page, "Shield")).toHaveCount(2);
+  await expect(spell(page, "Shield").first()).toContainText("always prepared");
+  await expect(spell(page, "Shield").nth(1)).toContainText("1/1 free");
+  await spell(page, "Shield").nth(1).click();
+  await choose(page, "Shield", "Cast (a free cast)");
+  await expect(spell(page, "Shield").nth(1)).toContainText("0/1 free");
+});
+
+test("a spell cast with a resource spends it", { tag: "@spells.cast-resource" }, async ({ page }) => {
+  await wren(page, true);
+  await openSheet(page, "Spells", "Wren");
+  await expect(spell(page, "Jump")).toContainText("1 Binding");
+  await act(page, "Jump", "Cast (1 Binding)");
+  await expect(status(page)).toContainText("Cast Jump (1 Binding)");
+  await sheetTab(page, "Overview");
+  const bindings = page.locator(".tracker").filter({ has: page.locator(".tname", { hasText: "Bindings" }) });
+  await expect(bindings.locator(".count")).toHaveText("1/2");
+});
+

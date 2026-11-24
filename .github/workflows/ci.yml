@@ -118,6 +118,8 @@ jobs:
     timeout-minutes: 60
     env:
       API_LEVEL: 36
+      # The emulator 37.3.10.0.
+      EMULATOR_BUILD: 16970787
     steps:
       - uses: actions/checkout@v7
       # The emulator needs hardware acceleration.
@@ -152,7 +154,9 @@ jobs:
           npm ci
           npx tauri android build --apk --debug --target x86_64 --features e2e
           ls src-tauri/gen/android/app/build/outputs/apk/*/*/
-      # The emulator, booted once and kept as a snapshot.
+      # The emulator, booted once and kept as a snapshot. A snapshot only
+      # loads in the emulator that made it: the emulator is pinned
+      # (EMULATOR_BUILD), and its build is in the key.
       - name: Emulator cache
         uses: actions/cache@v6
         id: avd
@@ -160,7 +164,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.API_LEVEL }}-google_apis-x86_64-pixel_6
+          key: avd-${{ env.API_LEVEL }}-google_apis-x86_64-pixel_6-${{ env.EMULATOR_BUILD }}
       - name: Emulator snapshot
         if: steps.avd.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2.38.0
@@ -170,6 +174,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           force-avd-creation: false
+          emulator-build: ${{ env.EMULATOR_BUILD }}
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: echo "The emulator's snapshot, for the cache."
@@ -184,12 +189,16 @@ jobs:
           arch: x86_64
           profile: pixel_6
           force-avd-creation: false
+          emulator-build: ${{ env.EMULATOR_BUILD }}
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           working-directory: app
           # Which WebView the image has (Playwright needs a recent one).
           script: |
             adb shell dumpsys webviewupdate | grep -i "current webview package" || true
+            # The cached emulator may keep an install signed with another
+            # run's debug key, which the new APK cannot update.
+            adb uninstall cz.v0v3s.dnt || true
             sh scripts/e2e-app.sh --target android --no-build
       - name: Report
         if: failure()

@@ -1,0 +1,4 @@
+- Rules for one class: a rule can name the class it is for (class = "Shaman|WoW").
+- A book's class made from another offers that class's subclasses too, with its own.
+- Spells always prepared that are also cast once a day without a slot are listed both ways: always prepared, and their free casts.
+- Spells cast by spending a resource (a class's points) say what they cost ("1 Soul Fragment"), and casting one spends it when the rules track it.

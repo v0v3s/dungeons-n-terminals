@@ -23,6 +23,17 @@
 //!
 //! `id` is `<type>:<reference>` using the data format's pipe syntax, e.g.
 //! `feat:Alert|XPHB`, `item:Shield|XPHB`, `classFeature:Rage|Barbarian|XPHB|1`.
+//!
+//! A class's features are its own: rules for one apply when it comes with
+//! the class it names (the Barbarian's Rage, for a Barbarian). Another
+//! class that has it too (a book's class made from the Barbarian) has its
+//! own rules for it, which name that class:
+//!
+//! ```toml
+//! [[feature]]
+//! id = "classFeature:Rage|Barbarian|XPHB|1"
+//! class = "Shaman|WoW"
+//! ```
 
 use std::collections::HashMap;
 
@@ -68,6 +79,9 @@ pub struct FeatureOverlay {
     pub keys: Vec<Key>,
     /// Display name used as the origin of effects; defaults to the entity name.
     pub name: String,
+    /// For a class feature: the class (`Shaman|WoW`) these rules are for,
+    /// when it is another than the one the feature names.
+    pub class: Option<String>,
     pub resources: Vec<Resource>,
     pub toggles: Vec<Toggle>,
     pub effects: Vec<Effect>,
@@ -101,6 +115,7 @@ struct RawFile {
 struct RawFeature {
     id: String,
     name: Option<String>,
+    class: Option<String>,
     #[serde(default)]
     resource: Vec<RawResource>,
     #[serde(default)]
@@ -193,6 +208,20 @@ impl Overlay {
                     continue;
                 }
             };
+            let class = match f.class {
+                Some(c) if c.split('|').count() != 2 || c.split('|').any(|p| p.trim().is_empty()) => {
+                    diags.push(Diagnostic {
+                        location: at(".class"),
+                        message: format!("`{c}` is not a class: `<name>|<source>`, e.g. `Shaman|WoW`"),
+                    });
+                    continue;
+                }
+                Some(_) if !keys.iter().any(|k| matches!(k.kind, Kind::ClassFeature | Kind::SubclassFeature)) => {
+                    diags.push(Diagnostic { location: at(".class"), message: "only a class's features have a `class`".into() });
+                    continue;
+                }
+                c => c,
+            };
             let name =
                 f.name.clone().unwrap_or_else(|| f.id.split_once(':').map_or("", |(_, r)| r).split('|').next().unwrap_or("").to_string());
             let formula = |src: &str, loc: String, diags: &mut Vec<Diagnostic>| match Formula::parse(src) {
@@ -273,7 +302,7 @@ impl Overlay {
                 effects.push(Effect { target: e.target, op: *op, value, when, origin: e.origin.unwrap_or_else(|| name.clone()) });
             }
 
-            features.push(FeatureOverlay { id: f.id, keys, name, resources, toggles, effects });
+            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects });
         }
         Ok((Overlay { features }, diags))
     }
@@ -301,27 +330,48 @@ impl OverlaySet {
     }
 
     /// Add an overlay whose features replace any already loaded for the
-    /// same entities (a user's version of a built-in overlay).
+    /// same entities and class (a user's version of a built-in overlay).
     pub fn replace(&mut self, overlay: Overlay) {
         for f in &overlay.features {
             for k in &f.keys {
-                self.by_key.remove(k);
+                if let Some(list) = self.by_key.get_mut(k) {
+                    list.retain(|o| !same_class(&o.class, &f.class));
+                }
             }
         }
         self.add(overlay);
     }
 
-    /// Remove the overlays for an entity.
+    /// Remove the overlays for an entity (not those for another class).
     pub fn remove(&mut self, key: &Key) {
-        self.by_key.remove(key);
+        if let Some(list) = self.by_key.get_mut(key) {
+            list.retain(|o| o.class.is_some());
+        }
     }
 
+    /// Every overlay for an entity, whichever class each is for.
     pub fn for_entity(&self, key: &Key) -> &[FeatureOverlay] {
         self.by_key.get(key).map(Vec::as_slice).unwrap_or_default()
     }
 
+    /// The overlays for a feature as a character has it: a class's
+    /// feature (`class`: the feature's own class, `through`: the class it
+    /// came with) has the rules for the class it came with: those naming
+    /// it, or its own class's when it is that one. Other features have
+    /// their rules.
+    pub fn for_feature<'a>(&'a self, key: &Key, own: Option<&str>, through: Option<&'a str>) -> impl Iterator<Item = &'a FeatureOverlay> {
+        let own_class = match (own, through) {
+            (Some(own), Some(through)) => own.eq_ignore_ascii_case(through),
+            _ => true,
+        };
+        self.for_entity(key).iter().filter(move |o| match &o.class {
+            None => own_class,
+            Some(c) => through.is_some_and(|t| c.eq_ignore_ascii_case(t)),
+        })
+    }
+
     pub fn len(&self) -> usize {
-        self.by_key.values().flatten().map(|f| &f.id).collect::<std::collections::HashSet<_>>().len()
+        self.by_key.values().flatten().map(FeatureOverlay::ident).collect::<std::collections::HashSet<_>>().len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -387,7 +437,27 @@ id = "{id}"
     )
 }
 
+fn same_class(a: &Option<String>, b: &Option<String>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => a.eq_ignore_ascii_case(b),
+        (a, b) => a.is_none() && b.is_none(),
+    }
+}
+
+/// A rule's identity: its feature's id, and the class it is for when it
+/// names one (`classFeature:Rage|Barbarian|XPHB|1@Shaman|WoW`).
+pub fn ident(id: &str, class: Option<&str>) -> String {
+    match class {
+        Some(c) => format!("{id}@{c}"),
+        None => id.to_string(),
+    }
+}
+
 impl FeatureOverlay {
+    pub fn ident(&self) -> String {
+        ident(&self.id, self.class.as_deref())
+    }
+
     /// Add this feature's automation to a character model. Resources become
     /// `resource.<key>.max` stats; toggles default to off.
     pub fn apply(&self, model: &mut Model) {
@@ -405,6 +475,35 @@ impl FeatureOverlay {
             model.inputs.entry(format!("toggle.{}", t.key)).or_insert(Value::Bool(false));
         }
         model.effects.extend(self.effects.iter().cloned());
+    }
+}
+
+#[cfg(test)]
+mod class_tests {
+    use super::*;
+
+    const SHAMAN_RAGE: &str = "[[feature]]\nid = \"classFeature:Rage|Barbarian|T|1\"\nclass = \"Shaman|B\"\n";
+
+    #[test]
+    fn a_rule_for_another_class_replaces_only_that_class_s() {
+        let mut set = OverlaySet::default();
+        set.add(Overlay::parse("[[feature]]\nid = \"classFeature:Rage|Barbarian|T|1\"\n").unwrap().0);
+        set.add(Overlay::parse(SHAMAN_RAGE).unwrap().0);
+        let key = parse_id("classFeature:Rage|Barbarian|T|1").unwrap().remove(0);
+        assert_eq!(set.len(), 2);
+        set.replace(Overlay::parse(SHAMAN_RAGE).unwrap().0);
+        assert_eq!(set.for_entity(&key).len(), 2);
+        set.remove(&key);
+        let left: Vec<String> = set.for_entity(&key).iter().map(FeatureOverlay::ident).collect();
+        assert_eq!(left, ["classFeature:Rage|Barbarian|T|1@Shaman|B"]);
+    }
+
+    #[test]
+    fn a_class_is_a_name_and_a_source_and_only_for_class_features() {
+        let (o, d) = Overlay::parse("[[feature]]\nid = \"classFeature:Rage|Barbarian|T|1\"\nclass = \"Shaman\"\n").unwrap();
+        assert!(o.features.is_empty() && d[0].location == "feature[0].class", "{d:?}");
+        let (o, d) = Overlay::parse("[[feature]]\nid = \"feat:Alert|T\"\nclass = \"Shaman|B\"\n").unwrap();
+        assert!(o.features.is_empty() && d.len() == 1);
     }
 }
 

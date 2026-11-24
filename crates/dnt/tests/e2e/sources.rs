@@ -66,7 +66,7 @@ fn all_turns_every_book_on() {
     t.send("a");
     t.wait_until("every book is on", |s| s.lines().filter(|l| l.contains("●")).count() == 3);
     assert!(t.line(" dnt ").contains("all sources"), "{}", t.screen());
-    t.send("1").wait("All 2041");
+    t.send("1").wait("All 2044");
 }
 
 #[test]

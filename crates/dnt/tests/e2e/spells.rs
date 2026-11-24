@@ -278,3 +278,39 @@ fn a_spell_with_plain_dice_does_not_say_healing() {
     assert!(line.contains("(Charisma save) · "), "{line}");
     assert!(!line.contains("healing") && !line.contains(" damage"), "{line}");
 }
+
+/// Open Wren on the Spells tab.
+fn wren_spells(t: &mut Tui) {
+    crate::steps::open_wren(t);
+    t.send(TAB).send(TAB).wait("╭ Spells");
+}
+
+#[test]
+fn a_spell_always_prepared_and_cast_free_once_a_day() {
+    let mut t = Tui::scenario("spells.prepared-free", crate::steps::with_wren(false));
+    wren_spells(&mut t);
+    t.wait("Shield");
+    let s = t.screen();
+    let shields: Vec<&str> = s.lines().filter(|l| l.contains("◆ Shield")).collect();
+    assert_eq!(shields.len(), 2, "{s}");
+    assert!(shields.iter().any(|l| l.contains("always prepared")), "{s}");
+    assert!(shields.iter().any(|l| l.contains("1/1 free")), "{s}");
+    // Always prepared first, then its free cast.
+    let (prepared, free) = (s.find("always prepared").unwrap(), s.find("1/1 free").unwrap());
+    assert!(prepared < free, "{s}");
+    to_spell(&mut t, "Shield");
+    t.send("j").send(ENTER).wait_until("the free cast is spent", |s| s.contains("0/1 free"));
+}
+
+#[test]
+fn a_spell_cast_with_a_resource_spends_it() {
+    let mut t = Tui::scenario("spells.cast-resource", crate::steps::with_wren(true));
+    wren_spells(&mut t);
+    t.wait("Jump");
+    assert!(t.line("◆ Jump").contains("1 Binding"), "{}", t.screen());
+    to_spell(&mut t, "Jump");
+    t.send(ENTER);
+    crate::sheet_play::wait_status(&mut t, "Cast Jump (1 Binding)");
+    t.send(BACKTAB).send(BACKTAB).wait("Bindings");
+    assert!(t.line("Bindings").contains("1/2"), "{}", t.screen());
+}

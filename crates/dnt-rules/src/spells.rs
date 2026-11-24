@@ -225,6 +225,16 @@ pub enum Grant {
     Known,
     /// Cast without a slot: `None` = at will, `Some(n)` = n per long rest.
     Innate(Option<i64>),
+    /// Cast without a slot by spending `cost` of a resource (`Soul
+    /// Fragment`, `Rage`).
+    Resource { name: String, cost: i64 },
+}
+
+impl Grant {
+    /// How it is cast, to show: `1 Soul Fragment`.
+    pub fn resource_text(name: &str, cost: i64) -> String {
+        format!("{cost} {name}{}", if cost == 1 || name.ends_with('s') { "" } else { "s" })
+    }
 }
 
 /// A spell or a choice of spells granted by a feature.
@@ -337,10 +347,23 @@ pub fn granted_spells(data: &Json, level: i64) -> Vec<Granted> {
     let Some(alt) = data.get("additionalSpells").and_then(Json::as_array).and_then(|a| a.first()) else {
         return Vec::new();
     };
+    let resource = alt.get("resourceName").and_then(Json::as_str).unwrap_or("Resource");
     let mut out = Vec::new();
     for (key, grant) in [("prepared", Grant::Prepared), ("known", Grant::Known)] {
         for v in alt.get(key).and_then(Json::as_object).into_iter().flat_map(|m| applicable(m, level)) {
             match v {
+                // Prepared, and cast without a slot too ("you always have
+                // it prepared and can cast it once without a slot").
+                Json::Object(inner) if inner.keys().any(|k| CAST_KINDS.contains(&k.as_str())) => {
+                    let mut free = Vec::new();
+                    innate_kinds(inner, resource, &mut free);
+                    for g in free {
+                        if let Granted::Spell { id, .. } = &g {
+                            out.push(Granted::Spell { id: id.clone(), grant: grant.clone() });
+                        }
+                        out.push(g);
+                    }
+                }
                 Json::Object(inner) => inner.values().for_each(|x| refs(x, &grant, &mut out)),
                 other => refs(other, &grant, &mut out),
             }
@@ -348,24 +371,36 @@ pub fn granted_spells(data: &Json, level: i64) -> Vec<Granted> {
     }
     for v in alt.get("innate").and_then(Json::as_object).into_iter().flat_map(|m| applicable(m, level)) {
         match v {
-            Json::Object(kinds) => {
-                for (kind, uses) in kinds {
-                    match (kind.as_str(), uses) {
-                        ("daily" | "rest", Json::Object(per)) => {
-                            for (n, list) in per {
-                                let count = n.trim_end_matches('e').parse().unwrap_or(1);
-                                refs(list, &Grant::Innate(Some(count)), &mut out);
-                            }
-                        }
-                        ("will" | "ritual", list) => refs(list, &Grant::Innate(None), &mut out),
-                        _ => {}
-                    }
-                }
-            }
+            Json::Object(kinds) => innate_kinds(kinds, resource, &mut out),
             list => refs(list, &Grant::Innate(None), &mut out),
         }
     }
     out
+}
+
+/// The ways a granted spell is cast without a slot.
+const CAST_KINDS: [&str; 5] = ["daily", "rest", "will", "ritual", "resource"];
+
+/// `{"daily": {"1": [...]}, "will": [...], "resource": {"2": [...]}}`.
+fn innate_kinds(kinds: &serde_json::Map<String, Json>, resource: &str, out: &mut Vec<Granted>) {
+    for (kind, uses) in kinds {
+        match (kind.as_str(), uses) {
+            ("daily" | "rest", Json::Object(per)) => {
+                for (n, list) in per {
+                    let count = n.trim_end_matches('e').parse().unwrap_or(1);
+                    refs(list, &Grant::Innate(Some(count)), out);
+                }
+            }
+            ("resource", Json::Object(per)) => {
+                for (n, list) in per {
+                    let cost = n.parse().unwrap_or(1);
+                    refs(list, &Grant::Resource { name: resource.to_string(), cost }, out);
+                }
+            }
+            ("will" | "ritual", list) => refs(list, &Grant::Innate(None), out),
+            _ => {}
+        }
+    }
 }
 
 /// Spells matching a choose filter (`level=0|class=Cleric`,
@@ -646,6 +681,29 @@ mod tests {
         assert!(g.contains(&Granted::Spell { id: "spell:dancing lights|xphb".into(), grant: Grant::Known }));
         assert_eq!(describe_filter("level=0|class=Cleric"), "Cleric cantrip");
         assert_eq!(describe_filter("level=0;1;2|class=Wizard|school=V"), "Wizard Evocation spell (level 0–2)");
+    }
+
+    #[test]
+    fn grants_prepared_and_free_and_for_a_resource() {
+        let lineage = json!({"additionalSpells": [{"known": {"1": ["light|t#c"]},
+            "prepared": {"3": {"daily": {"1": ["healing word|t"]}}, "5": {"daily": {"1": ["aid|t"]}}}}]});
+        let spell = |id: &str, grant: Grant| Granted::Spell { id: id.into(), grant };
+        assert_eq!(
+            granted_spells(&lineage, 3),
+            [
+                spell("spell:healing word|t", Grant::Prepared),
+                spell("spell:healing word|t", Grant::Innate(Some(1))),
+                spell("spell:light|t", Grant::Known)
+            ]
+        );
+        assert_eq!(granted_spells(&lineage, 5).len(), 5);
+        let hunter = json!({"additionalSpells": [{"resourceName": "Soul Shard",
+            "innate": {"3": {"resource": {"1": ["jump|t"]}}, "11": {"resource": {"2": ["counterspell|t"]}}}}]});
+        let shard = |cost| Grant::Resource { name: "Soul Shard".into(), cost };
+        assert_eq!(granted_spells(&hunter, 3), [spell("spell:jump|t", shard(1))]);
+        assert!(granted_spells(&hunter, 11).contains(&spell("spell:counterspell|t", shard(2))));
+        assert_eq!(Grant::resource_text("Soul Shard", 2), "2 Soul Shards");
+        assert_eq!(Grant::resource_text("Rage", 1), "1 Rage");
     }
 
     #[test]

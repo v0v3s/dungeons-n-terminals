@@ -1,3 +1,4 @@
 {
- "hexer": "class-hexer.json"
+ "hexer": "class-hexer.json",
+ "runebinder": "class-runebinder.json"
 }

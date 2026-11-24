@@ -1021,7 +1021,11 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                     return Action::Status(format!("{} is a cantrip: no slot needed", lib.entity(spell).name));
                 }
                 // Free (innate) casts first, if the grant has them.
-                if let Some(Row::GrantSpell { how: dnt_rules::spells::Grant::Innate(Some(_)), .. }) = &row {
+                if let Some(Row::GrantSpell {
+                    how: dnt_rules::spells::Grant::Innate(Some(_)) | dnt_rules::spells::Grant::Resource { .. },
+                    ..
+                }) = &row
+                {
                     return run(sheet, lib, overlays, Command::Cast { id: id.clone(), how: "free".into() });
                 }
                 match spellbook::cast_choices(lib, &sheet.session, spell) {

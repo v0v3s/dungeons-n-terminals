@@ -43,7 +43,8 @@ pub struct File {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Rule {
-    /// `classFeature:Roving|Ranger|SRD52|6`
+    /// `classFeature:Roving|Ranger|SRD52|6`, and the class it is for when
+    /// it names one (`classFeature:Rage|Barbarian|XPHB|1@Shaman|WoW`).
     pub id: String,
     /// `Roving (Ranger 6)`
     pub label: String,
@@ -164,19 +165,19 @@ pub fn tree(files: &[(String, String)], store: &Store) -> RulesLibrary {
         let mut file = File { path: path.clone(), label: label_of(name.trim_end_matches(".toml")), rules: Vec::new() };
         for block in blocks(text) {
             let (id, keys) = match Overlay::parse(&block) {
-                Ok((o, _)) if o.features.len() == 1 => (o.features[0].id.clone(), o.features[0].keys.clone()),
+                Ok((o, _)) if o.features.len() == 1 => (o.features[0].ident(), o.features[0].keys.clone()),
                 Ok(_) => continue,
                 Err(e) => {
                     lib.problems.push(format!("{path}: {}", e.lines().next().unwrap_or_default()));
                     continue;
                 }
             };
-            let status = match yours.iter().find(|b| b.keys.iter().any(|k| keys.contains(k))) {
+            let status = match yours.iter().find(|b| b.ident == id && b.keys.iter().any(|k| keys.contains(k))) {
                 None => Status::New,
                 Some(b) if same(&b.text, &block) => Status::Same,
                 Some(_) => Status::Differs,
             };
-            let builtin = keys.iter().any(|k| !builtins.for_entity(k).is_empty());
+            let builtin = !id.contains('@') && keys.iter().any(|k| builtins.for_entity(k).iter().any(|o| o.class.is_none()));
             file.rules.push(Rule { label: rule_label(&id), id, text: block, status, builtin });
         }
         if file.rules.is_empty() {
@@ -248,6 +249,7 @@ pub fn import(store: &Store, lib: &RulesLibrary, ids: &BTreeSet<String>, overwri
 struct UserBlock {
     path: std::path::PathBuf,
     text: String,
+    ident: String,
     keys: Vec<Key>,
 }
 
@@ -258,7 +260,8 @@ fn user_blocks(store: &Store) -> Vec<UserBlock> {
         for block in blocks(&text) {
             if let Ok((o, _)) = Overlay::parse(&block) {
                 let keys = o.features.iter().flat_map(|f| f.keys.clone()).collect();
-                out.push(UserBlock { path: path.clone(), text: block, keys });
+                let ident = o.features.first().map(|f| f.ident()).unwrap_or_default();
+                out.push(UserBlock { path: path.clone(), text: block, ident, keys });
             }
         }
     }
@@ -270,7 +273,8 @@ fn user_blocks(store: &Store) -> Vec<UserBlock> {
 fn remove_users(store: &Store, library_block: &str) -> Result<(), String> {
     let Ok((o, _)) = Overlay::parse(library_block) else { return Ok(()) };
     let keys: Vec<Key> = o.features.iter().flat_map(|f| f.keys.clone()).collect();
-    for b in user_blocks(store).into_iter().filter(|b| b.keys.iter().any(|k| keys.contains(k))) {
+    let ident = o.features.first().map(|f| f.ident()).unwrap_or_default();
+    for b in user_blocks(store).into_iter().filter(|b| b.ident == ident && b.keys.iter().any(|k| keys.contains(k))) {
         let text = store.read_text(&b.path).map_err(|e| e.to_string())?;
         let rest: Vec<String> = blocks(&text).into_iter().filter(|x| !same(x, &b.text)).collect();
         if rest.is_empty() {
@@ -290,14 +294,19 @@ fn same(a: &str, b: &str) -> bool {
     norm(a) == norm(b)
 }
 
-/// `classFeature:Roving|Ranger|SRD52|6` → `Roving (Ranger 6)`.
+/// `classFeature:Roving|Ranger|SRD52|6` → `Roving (Ranger 6)`; for
+/// another class, that class's: `…|1@Shaman|WoW` → `Rage (Shaman 1)`.
 pub fn rule_label(id: &str) -> String {
+    let (id, for_class) = match id.split_once('@') {
+        Some((id, c)) => (id, c.split('|').next()),
+        None => (id, None),
+    };
     let (kind, rest) = id.split_once(':').unwrap_or(("", id));
     let p: Vec<&str> = rest.split('|').collect();
     let name = p.first().copied().unwrap_or(rest);
     let what = match (kind, p.as_slice()) {
-        ("classFeature", [_, class, _, level, ..]) => format!("{class} {level}"),
-        ("subclassFeature", [_, class, _, sub, _, level, ..]) => format!("{class} {level}, {sub}"),
+        ("classFeature", [_, class, _, level, ..]) => format!("{} {level}", for_class.unwrap_or(class)),
+        ("subclassFeature", [_, class, _, sub, _, level, ..]) => format!("{} {level}, {sub}", for_class.unwrap_or(class)),
         ("feat", _) => "feat".into(),
         ("optionalfeature", _) => "option".into(),
         ("race", _) => "species".into(),
@@ -386,6 +395,22 @@ mod tests {
         assert!(!left.contains("Roving") && left.contains("feat:Other|T"), "{left}");
         let lib = tree(&files(), &store);
         assert!(lib.folders[0].files[0].rules.iter().all(|r| r.status == Status::Same));
+    }
+
+    #[test]
+    fn a_rule_for_another_class_is_a_rule_of_its_own() {
+        let store = Store::with_fs(Arc::new(MemFs::new()), "/data", "/config.toml");
+        let rage = "[[feature]]\nid = \"classFeature:Rage|Barbarian|XPHB|1\"\n";
+        store.save_feature_overlay("classFeature:Rage|Barbarian|XPHB|1", rage).unwrap();
+        let shaman = "[[feature]]\nid = \"classFeature:Rage|Barbarian|XPHB|1\"\nclass = \"Shaman|BK\"\n";
+        let lib = tree(&[("books/book.toml".into(), shaman.into())], &store);
+        let rule = &lib.folders[0].files[0].rules[0];
+        assert_eq!(rule.id, "classFeature:Rage|Barbarian|XPHB|1@Shaman|BK");
+        assert_eq!((rule.label.as_str(), rule.status, rule.builtin), ("Rage (Shaman 1)", Status::New, false));
+        let done = import(&store, &lib, &ids_under(&lib, "books"), &BTreeSet::new()).unwrap();
+        assert_eq!(done.added, 1);
+        assert_eq!(store.overlay_files().len(), 2, "the Barbarian's rules stay");
+        assert_eq!(tree(&[("books/book.toml".into(), shaman.into())], &store).folders[0].files[0].rules[0].status, Status::Same);
     }
 
     #[test]

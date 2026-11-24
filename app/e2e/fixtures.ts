@@ -36,6 +36,27 @@ export async function useTestRulesLibrary(page: Page) {
   await invoke(page, "e2e_rules_library", { files });
 }
 
+/// Wren, a level 1 Runebinder (the invented class made from the Hexer):
+/// always prepared Shield with a free cast, Jump for a Binding. With
+/// `rules`, the Runebinder's own rules for Hexer Patron: Bindings to spend.
+export async function wren(page: Page, rules: boolean) {
+  await invoke(page, "e2e_put_file", {
+    path: "characters/wren.toml",
+    text:
+      'name = "Wren"\nspecies = "race:Halfling|SRD52"\nbackground = "background:Sage|SRD52"\n\n' +
+      "[abilities]\nstr = 8\ndex = 14\ncon = 12\nint = 10\nwis = 13\ncha = 15\n\n" +
+      '[[levels]]\nclass = "class:Runebinder|TST"\n\n[subclasses]\n"class:Runebinder|TST" = "subclass:Grove|Runebinder|TST|TST"\n',
+  });
+  if (rules) {
+    await invoke(page, "e2e_put_file", {
+      path: "overlays/bindings.toml",
+      text:
+        '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\nclass = "Runebinder|TST"\n' +
+        '[[feature.resource]]\nkey = "bindings"\nname = "Bindings"\nmax = "level(\'Runebinder\') + 1"\nrecharge = "long_rest"\n',
+    });
+  }
+}
+
 /// One of the tests' releases (e2e/update: newer, older, broken), given to
 /// the app instead of GitHub's newest.
 export async function useTestRelease(page: Page, which: "newer" | "older" | "broken") {
@@ -139,8 +160,9 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
       await browser.close();
       if (TARGET === "windows") windows.stop();
     },
-    // Starting the app (and its WebView) the first time takes a while.
-    { scope: "worker", timeout: 120_000 },
+    // Starting the app (and its WebView) the first time takes a while: on
+    // CI's emulator, just installed, over two minutes.
+    { scope: "worker", timeout: 300_000 },
   ],
   page: async ({ app, seed: what }, use, info) => {
     // On a computer every test starts in the app's own window size (its

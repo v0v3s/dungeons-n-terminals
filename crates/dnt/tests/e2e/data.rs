@@ -58,7 +58,7 @@ fn importing_again_updates_instead_of_doubling() {
     assert_eq!(before, after);
 
     let mut t = Tui::scenario("data.import-later", home);
-    t.wait("Browse").wait("All 2041");
+    t.wait("Browse").wait("All 2044");
     t.send("/").typed("mirefolk").wait("1 results");
 }
 
@@ -66,7 +66,7 @@ fn importing_again_updates_instead_of_doubling() {
 fn imported_lists_sources_with_counts_and_the_homebrew() {
     let home = Home::data();
     let listed = stdout(&run("data.list", &home, &["imported"]));
-    assert_eq!(count(&listed, "TST").as_deref(), Some("18"), "{listed}");
+    assert_eq!(count(&listed, "TST").as_deref(), Some("21"), "{listed}");
     assert_eq!(count(&listed, "TSX").as_deref(), Some("3"), "{listed}");
     assert!(listed.contains("Homebrew (enable per campaign)"), "{listed}");
     let brew = listed.lines().find(|l| l.starts_with("TSTB")).unwrap_or_else(|| panic!("{listed}"));
@@ -96,7 +96,7 @@ fn forgetting_homebrew_keeps_the_data() {
     assert!(count(&listed, "TST").is_some() && !listed.contains("TSTB"), "{listed}");
 
     let mut t = Tui::scenario("data.forget-homebrew", home);
-    t.wait("All 2041");
+    t.wait("All 2044");
     t.send("4").send(TAB).send(TAB).wait("Books · E2E");
     assert!(!t.shows("Proving Grounds Brew"), "{}", t.screen());
 }

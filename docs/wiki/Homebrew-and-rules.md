@@ -34,6 +34,16 @@ Targets include `ac`, `speed`, `hp.max`, `initiative`, `save.dex`,
 effects `add`, `set`, `max`, `min` or `mul`, with an optional `when`.
 A toggle (`[[feature.toggle]]`) turns effects on and off from the sheet.
 
+A class's features are its own. A book's class made from another (its
+version of the Barbarian, say) shares that class's features, but not
+its rules: it has rules of its own, which name it.
+
+```toml
+[[feature]]
+id = "classFeature:Rage|Barbarian|XPHB|1"
+class = "Shaman|WoW"                   # the class these rules are for
+```
+
 ### The rules library
 
 The [rules library](https://github.com/v0v3s/dnt-rules) has rules for the

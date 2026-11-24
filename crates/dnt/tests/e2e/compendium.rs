@@ -19,7 +19,7 @@ fn results_update_as_you_type() {
     t.typed("yph").wait("1 results").wait("You inscribe a glyph that later unleashes a magical effect.");
     assert!(!t.shows("Glaive"), "{}", t.screen());
     t.send(BACKSPACE).send(BACKSPACE).send(BACKSPACE).wait("Glaive");
-    t.send(&ctrl('u')).wait("2041 results");
+    t.send(&ctrl('u')).wait("2044 results");
 }
 
 #[test]
@@ -44,11 +44,11 @@ fn filters_narrow_a_search() {
 #[test]
 fn tab_switches_the_category() {
     let mut t = Tui::scenario("compendium.category", Home::campaign());
-    t.send("1").wait("2041 results");
+    t.send("1").wait("2044 results");
     t.send(TAB).wait("340 results");
     assert!(selected(&t).contains("Acid Arrow"), "{}", t.screen());
-    t.send(TAB).wait("27 results").wait("Barbarian");
-    t.send(BACKTAB).send(BACKTAB).wait("2041 results");
+    t.send(TAB).wait("29 results").wait("Barbarian");
+    t.send(BACKTAB).send(BACKTAB).wait("2044 results");
     // The last category, backwards from All.
     t.send(BACKTAB).wait("195 results").wait("Ability Check");
 }
@@ -56,7 +56,7 @@ fn tab_switches_the_category() {
 #[test]
 fn o_orders_the_results() {
     let mut t = Tui::scenario("compendium.order", Home::campaign());
-    t.send("1").wait("2041 results").send(TAB).wait("340 results");
+    t.send("1").wait("2044 results").send(TAB).wait("340 results");
     t.send("o").wait("name A–Z");
     assert!(selected(&t).contains("Acid Arrow"), "{}", t.screen());
     t.send("o").wait("name Z–A");

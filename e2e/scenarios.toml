@@ -430,6 +430,12 @@ id = "levelup.subclass"
 does = "Choose the subclass at the level the class gets it."
 targets = ["tui", "app"]
 
+
+[[scenario]]
+id = "levelup.subclass-from-base"
+does = "A class made from another (a book's version of it) offers that class's subclasses too, with its own."
+targets = ["tui", "app"]
+
 [[scenario]]
 id = "levelup.asi"
 does = "At an ability score improvement, raise scores or take a feat."
@@ -751,6 +757,12 @@ id = "rules.library-conflict"
 does = "Rules of the library that differ from yours ask before importing: overwrite or keep each one, or all at once; kept ones stay yours, overwritten ones are replaced where they were."
 targets = ["tui", "app"]
 
+
+[[scenario]]
+id = "rules.for-a-class"
+does = "A class made from another has its own rules for the features they share: the library lists them as rules of their own (the feature, at that class's level), and importing them changes that class only, never the other one."
+targets = ["tui", "app"]
+
 [[scenario]]
 id = "features.mastery-swap"
 does = "Swap a weapon mastery."
@@ -781,6 +793,17 @@ targets = ["tui", "app"]
 [[scenario]]
 id = "spells.cast-free"
 does = "Cast a spell for free (an innate use), which comes back on a rest."
+targets = ["tui", "app"]
+
+
+[[scenario]]
+id = "spells.prepared-free"
+does = "A spell always prepared that is also cast without a slot once a day is listed both ways: always prepared, and its free casts."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "spells.cast-resource"
+does = "A spell cast by spending a resource (a class's points) says what it costs, and casting it spends that resource when the rules track it."
 targets = ["tui", "app"]
 
 [[scenario]]

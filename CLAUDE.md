@@ -30,6 +30,17 @@ scenario's frontend as `not` to get past it.
 
 Running them: `e2e/README.md`.
 
+## THE OTHER RULE: no game data in the code. Rules do the automation.
+
+The code reads the data format and runs rules; it never knows a book's
+content. No feature, class, spell, item or creature names, and no
+numbers from a book, in the code (the SRD is data too: a package in
+`data/srd`, not code). What a feature does is a rule (an overlay, see
+`crates/dnt-rules/src/overlay.rs`): dnt's built-in rules or the rules
+library. When a rule cannot say what a feature does, improve the rules
+engine so it can — never special-case the feature in the code.
+Invented names in unit tests are test data, not game data.
+
 ## Also
 
 - Never mention the source site of the game data, anywhere (code, docs,

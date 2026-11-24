@@ -582,7 +582,18 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     let mut resources = innate;
     let mut toggles = Vec::new();
     for f in &features {
-        for o in overlays.for_entity(&lib.entity(f.entity).key) {
+        // A class's feature has the rules of the class it came with.
+        let e = lib.entity(f.entity);
+        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
+            .then(|| format!("{}|{}", str_of(&e.data, "className").unwrap_or(""), str_of(&e.data, "classSource").unwrap_or("")));
+        let through = match f.source {
+            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => {
+                let c = lib.entity(classes[ci].entity);
+                Some(format!("{}|{}", c.name, c.source))
+            }
+            _ => None,
+        };
+        for o in overlays.for_feature(&e.key, own.as_deref(), through.as_deref()) {
             o.apply(&mut model);
             resources.extend(o.resources.iter().map(|r| (r.clone(), o.name.clone())));
             toggles.extend(o.toggles.iter().map(|t| (t.clone(), o.name.clone())));
@@ -961,5 +972,55 @@ recharge = "long_rest"
         let b = build(&character(&["Wizard", "Fighter", "Fighter", "Fighter", "Fighter"]), &library(), &set);
         assert_eq!(b.resources.len(), 1);
         assert_eq!(b.evaluate().int("resource.second_wind.max"), Some(3), "uses the Fighter level, not total");
+    }
+
+    #[test]
+    fn a_class_made_from_another_has_its_own_rules_for_the_features_it_shares() {
+        let mut lib = library();
+        lib.load_json(&json!({"class": [
+            {"name": "Warrior", "source": "B", "hd": {"faces": 10}, "proficiency": ["str", "con"],
+             "classFeatures": ["Second Wind|Fighter|T|1"]}
+        ]}));
+        let (overlay, diags) = Overlay::parse(
+            r#"
+[[feature]]
+id = "classFeature:Second Wind|Fighter|T|1"
+[[feature.resource]]
+key = "second_wind"
+name = "Second Wind"
+max = "level('Fighter') + 1"
+recharge = "long_rest"
+
+[[feature]]
+id = "classFeature:Second Wind|Fighter|T|1"
+class = "Warrior|B"
+[[feature.resource]]
+key = "second_wind"
+name = "Second Wind"
+max = "level('Warrior') + 10"
+recharge = "long_rest"
+"#,
+        )
+        .unwrap();
+        assert!(diags.is_empty(), "{diags:?}");
+        let mut set = OverlaySet::default();
+        set.add(overlay);
+        let mut warrior = character(&["Warrior", "Warrior"]);
+        warrior.levels.iter_mut().for_each(|l| l.class = "class:Warrior|B".into());
+        let b = build(&warrior, &lib, &set);
+        assert_eq!(b.resources.len(), 1, "the Warrior's rules, not the Fighter's");
+        assert_eq!(b.evaluate().int("resource.second_wind.max"), Some(12));
+        let b = build(&character(&["Fighter"]), &lib, &set);
+        assert_eq!(b.resources.len(), 1, "the Fighter's rules, not the Warrior's");
+        assert_eq!(b.evaluate().int("resource.second_wind.max"), Some(2));
+
+        // Without rules of its own, the Warrior's feature has none.
+        let (fighter_only, _) = Overlay::parse(
+            "[[feature]]\nid = \"classFeature:Second Wind|Fighter|T|1\"\n[[feature.resource]]\nkey = \"sw\"\nname = \"SW\"\nmax = \"1\"\nrecharge = \"long_rest\"\n",
+        )
+        .unwrap();
+        let mut set = OverlaySet::default();
+        set.add(fighter_only);
+        assert!(build(&warrior, &lib, &set).resources.is_empty());
     }
 }

@@ -638,6 +638,9 @@ pub enum SpellRow {
         class_id: Option<String>,
         /// Shown again among the favorites.
         in_favorites: bool,
+        /// What a cast without a slot spends, when a resource pays for it
+        /// (`1 Soul Fragment`).
+        cost: Option<String>,
         /// The casting class's slug, for a class spell's attack and DC.
         caster: Option<String>,
     },
@@ -708,6 +711,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 class_id,
                 in_favorites,
                 caster: caster.clone(),
+                cost: None,
             }
         };
         out.push(match row {
@@ -781,8 +785,13 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                         // No free cast left: cast it with a slot, if at all.
                         (format!("{left}/{n} free"), left > 0)
                     }
+                    Grant::Resource { name, cost } => (Grant::resource_text(name, *cost), true),
                 };
-                spell(id, "granted", text, None, free)
+                let mut row = spell(id, "granted", text.clone(), None, free);
+                if let (SpellRow::Spell { cost, .. }, Grant::Resource { .. }) = (&mut row, how) {
+                    *cost = Some(text);
+                }
+                row
             }
             Row::GrantChoice { key, filter, missing, .. } => SpellRow::Choice {
                 key: key.clone(),

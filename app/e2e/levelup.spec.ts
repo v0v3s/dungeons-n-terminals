@@ -223,3 +223,24 @@ test("open choices are also made from the sheet's menu", { tag: "@choices.pendin
   // One left, for later.
   await expect(page.getByRole("button", { name: /^1 choice/ })).toBeVisible();
 });
+
+test("a class made from another offers its subclasses too", { tag: "@levelup.subclass-from-base" }, async ({ page }) => {
+  await invoke(page, "e2e_put_file", {
+    path: "characters/dabbler.toml",
+    text:
+      'name = "Dabbler"\nspecies = "race:Halfling|SRD52"\nbackground = "background:Sage|SRD52"\n\n' +
+      '[abilities]\nstr = 8\ndex = 12\ncon = 14\nint = 15\nwis = 10\ncha = 13\n\n[[levels]]\nclass = "class:Wizard|SRD52"\n',
+  });
+  await openSheet(page, "Overview", "Dabbler");
+  await more(page, "Dabbler", "Level up…");
+  await dialog(page, "Level up").locator("li button", { hasText: "New class: Runebinder" }).click();
+  // Its own subclass, and the Hexer's.
+  await expect(dialog(page, "Level up")).toContainText("Choose a subclass");
+  for (const name of ["The Grove", "The Lantern", "The Tide"]) await expect(dialog(page, "Level up")).toContainText(name);
+  await pick(page, ["The Tide"]);
+  await pick(page, ["Average"]);
+  await apply(page);
+  await expect(identity(page)).toContainText("Runebinder 1");
+  await expect(page.getByRole("button", { name: "Warnings" })).toHaveCount(0);
+});
+
