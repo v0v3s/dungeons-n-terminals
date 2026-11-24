@@ -160,8 +160,9 @@ export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
       await browser.close();
       if (TARGET === "windows") windows.stop();
     },
-    // Starting the app (and its WebView) the first time takes a while.
-    { scope: "worker", timeout: 120_000 },
+    // Starting the app (and its WebView) the first time takes a while: on
+    // CI's emulator, just installed, over two minutes.
+    { scope: "worker", timeout: 300_000 },
   ],
   page: async ({ app, seed: what }, use, info) => {
     // On a computer every test starts in the app's own window size (its
