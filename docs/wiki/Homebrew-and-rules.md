@@ -151,9 +151,12 @@ skills = ["survival"]
 tools = ["Brewer's Supplies"]
 ```
 
-A choice can pick one of the rule's own `options`; formulas know the
-pick as `choice.<key>`. A subclass whose data has several named spell
-lists asks which one when it is gained, and `choice.<subclass>` is it.
+A choice can pick the rule's own `options`; formulas know the pick as
+`choice.<key>`, and each option picked as `choice.<key>.<option>`. A
+subclass whose data has several named spell lists asks which one when it
+is gained, and `choice.<subclass>` is it. An action with a `when` is
+there while it holds. `all_options = true` gains every option a
+feature's text lists, for a feature that gives them all.
 
 ```toml
 [[feature.choice]]

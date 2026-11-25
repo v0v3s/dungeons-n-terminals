@@ -765,7 +765,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "rules.actions"
-does = "A rule gives an action of its own, listed with the attacks: an attack roll, or a save against its DC, with damage or healing dice, or temporary hit points; a use pays its resource, and none left stops it."
+does = "A rule gives an action of its own, listed with the attacks: an attack roll, or a save against its DC, with damage or healing dice, or temporary hit points; a use pays its resource, and none left stops it; an action with a when is there only while it holds."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -780,7 +780,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "rules.options"
-does = "A rule asks to choose one of its own options, which other rules read (choice.<key>); a subclass with several named spell lists asks which, and grants that list's spells."
+does = "A rule asks to choose its own options, which other rules read (choice.<key>, choice.<key>.<option>); a subclass with several named spell lists asks which, and grants that list's spells; a rule can gain every option a feature lists instead of one chosen (all_options)."
 targets = ["tui", "app"]
 
 [[scenario]]

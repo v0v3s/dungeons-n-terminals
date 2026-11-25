@@ -34,9 +34,11 @@ become the release page.
 - The sheet shows traits: creature type, other speeds, senses, defenses
   and tools, from the species' data and the rules (`sense.darkvision`,
   `speed.fly`, `creature_type` are stats rules change).
-- A choice of one of a rule's own options (`pick = "option"`), which
-  formulas read as `choice.<key>`; a subclass with several named spell
-  lists asks which one, and grants that one's spells.
+- A choice of a rule's own options (`pick = "option"`), which formulas
+  read as `choice.<key>` and `choice.<key>.<option>`; a subclass with
+  several named spell lists asks which one, and grants that one's
+  spells. `all_options` gains every option a feature lists, for one that
+  gives them all; an action's `when` says while it is there.
 - `d20.bonus`, added to every d20 test, for rules to change.
 - A rules file's `[multiclass]` table: the multiclass spellcaster's slots
   and the score a primary ability needs to multiclass.
@@ -54,8 +56,8 @@ become the release page.
   they do is dnt's built-in rules for them; the multiclass spellcaster's
   table is a rule too.
 - The rules file schema has `attack`, `offhand`, `choice`, `summary`,
-  `levels`, `roll`, `action`, `defense`, `proficiency` and
-  `multiclass`.
+  `levels`, `roll`, `action`, `defense`, `proficiency`, `all_options`
+  and `multiclass`.
 
 ## v1.11.0 - 2026-11-24
 

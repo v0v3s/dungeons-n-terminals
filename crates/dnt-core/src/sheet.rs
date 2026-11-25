@@ -470,12 +470,18 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
     }
 }
 
+/// Whether an action is there now: no `when`, or it holds.
+pub fn available(ev: &Evaluation, a: &dnt_rules::overlay::ActionRule) -> bool {
+    a.when.is_none() || ev.get(&format!("action.{}.on", dnt_rules::class_table::slug(&a.name))) == Some(&Value::Bool(true))
+}
+
 /// The actions the rules give, with their numbers.
 pub fn actions(s: &CharacterSession) -> Vec<ActionRow> {
     let ev = &s.ev;
     s.build
         .actions
         .iter()
+        .filter(|(a, _)| available(&s.ev, a))
         .map(|(a, origin)| {
             let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
             let what = if a.attack.is_some() {

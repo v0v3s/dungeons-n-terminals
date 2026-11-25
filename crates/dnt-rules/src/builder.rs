@@ -166,7 +166,9 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                 if crate::choices::is_skill(v) {
                     expertise.push(v.clone());
                 } else if let Some(option) = crate::choices::option_of(v) {
-                    model.inputs.insert(format!("choice.{}", crate::class_table::slug(key)), Value::Str(option.to_string()));
+                    let key = crate::class_table::slug(key);
+                    model.inputs.entry(format!("choice.{key}")).or_insert_with(|| Value::Str(option.to_string()));
+                    model.inputs.insert(format!("choice.{key}.{}", crate::class_table::slug(option)), Value::Bool(true));
                 } else {
                     level_picks.push((l.class.clone(), v.clone()));
                 }
@@ -481,6 +483,24 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
+    // A feature whose rules gain every option its text lists: they join it.
+    let mut gained = Vec::new();
+    for f in &features {
+        let through = match f.source {
+            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => Some(classes[ci].entity),
+            _ => continue,
+        };
+        if overlays.for_had(lib, f.entity, through).iter().any(|o| o.all_options) {
+            for r in crate::choices::option_refs(&lib.entity(f.entity).data) {
+                if let Some(e) = resolve_id(lib, &r) {
+                    let level = lib.entity(e).data.get("level").and_then(Json::as_i64).unwrap_or(f.level);
+                    gained.push(ActiveFeature { entity: e, source: f.source, level });
+                }
+            }
+        }
+    }
+    features.extend(gained);
+
     // Group features: each class then its subclass (by level), then
     // species, background, feats, options and weapon masteries.
     let rank = |s: FeatureSource| match s {
@@ -643,7 +663,8 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     traits(&mut model, species, &mut defenses);
     for (a, origin) in &actions {
         let key = |part: &str| format!("action.{}.{part}", crate::class_table::slug(&a.name));
-        let parts = [("attack", &a.attack), ("dc", &a.dc), ("damage", &a.damage), ("heal", &a.heal), ("temp_hp", &a.temp_hp)];
+        let parts =
+            [("attack", &a.attack), ("dc", &a.dc), ("damage", &a.damage), ("heal", &a.heal), ("temp_hp", &a.temp_hp), ("on", &a.when)];
         for (part, f) in parts {
             if let Some(f) = f {
                 model.stats.push(StatDef { key: key(part), base: f.clone(), origin: origin.clone() });
@@ -1220,5 +1241,54 @@ when = "choice.runeforging == 'Frost'"
         assert_eq!(b.defenses[0].0.resist, ["cold"], "the species'");
         assert_eq!(b.defenses[1].0.resist, ["fire"]);
         assert_eq!(ev.get("defense.1.on"), Some(&Value::Bool(true)));
+    }
+
+    #[test]
+    fn rules_gain_every_option_read_each_pick_and_hide_actions() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "class": [{"name": "Twin", "source": "T", "hd": {"faces": 8}, "classFeatures": ["Twin Gifts|Twin|T|1"]}],
+            "classFeature": [
+                {"name": "Twin Gifts", "source": "T", "className": "Twin", "classSource": "T", "level": 1, "entries": [{"type": "options", "entries": [
+                    {"type": "refClassFeature", "classFeature": "Left Gift|Twin|T|1"},
+                    {"type": "refClassFeature", "classFeature": "Right Gift|Twin|T|1"}]}]},
+                {"name": "Left Gift", "source": "T", "className": "Twin", "classSource": "T", "level": 1, "entries": ["x"]},
+                {"name": "Right Gift", "source": "T", "className": "Twin", "classSource": "T", "level": 1, "entries": ["x"]}
+            ]
+        }));
+        let rules = r#"
+[[feature]]
+id = "classFeature:Twin Gifts|Twin|T|1"
+all_options = true
+[[feature.choice]]
+key = "Charms"
+pick = "option"
+count = "2"
+options = ["Moon", "Sun", "Star"]
+[[feature.action]]
+name = "Moonbeam"
+damage = "dice(1, 6)"
+when = "choice.charms.moon"
+[[feature.action]]
+name = "Starfall"
+damage = "dice(1, 6)"
+when = "choice.charms.star"
+"#;
+        let mut set = OverlaySet::default();
+        set.add(Overlay::parse(rules).unwrap().0);
+        let mut c = Character::default();
+        let mut level = Level { class: "class:Twin|T".into(), hp: Default::default(), choices: Default::default() };
+        level.choices.picks.insert("Charms".into(), vec!["option:Moon".into(), "option:Sun".into()]);
+        c.levels.push(level);
+
+        let b = build(&c, &lib, &set);
+        let names: Vec<&str> = b.features.iter().map(|f| lib.entity(f.entity).name.as_str()).collect();
+        assert!(names.contains(&"Left Gift") && names.contains(&"Right Gift"), "both gained: {names:?}");
+        let class = lib.get(&dnt_data::Key::new(Kind::Class, &["Twin", "T"])).unwrap();
+        let asked = crate::choices::level_choices(&lib, &set, &c, class, None, 1, &Default::default(), &[]);
+        assert!(asked.iter().all(|q| q.key != "Twin Gifts"), "nothing to choose: {asked:?}");
+        let ev = b.evaluate();
+        assert_eq!(ev.get("action.moonbeam.on"), Some(&Value::Bool(true)), "Moon is picked");
+        assert_ne!(ev.get("action.starfall.on"), Some(&Value::Bool(true)), "Star is not");
     }
 }

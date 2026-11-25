@@ -313,6 +313,10 @@ pub fn level_choices(
     };
     for f in at(level) {
         let e = lib.entity(f);
+        // Its rules gain every option it lists: nothing to choose.
+        if rules.for_had(lib, f, Some(class)).iter().any(|o| o.all_options) {
+            continue;
+        }
         let mut blocks = Vec::new();
         option_blocks(e.data.get("entries").unwrap_or(&Json::Null), &mut blocks);
         for (count, refs) in blocks {
@@ -416,6 +420,13 @@ fn expertise_options(c: &Character, skills: &[String]) -> Vec<ChoiceOption> {
             warning: None,
         })
         .collect()
+}
+
+/// Every option an entity's text lists (`subclassFeature:…`, …).
+pub fn option_refs(data: &Json) -> Vec<String> {
+    let mut blocks = Vec::new();
+    option_blocks(data.get("entries").unwrap_or(&Json::Null), &mut blocks);
+    blocks.into_iter().flat_map(|(_, refs)| refs).collect()
 }
 
 /// A rule's option a pick names (stored as `option:<name>`).

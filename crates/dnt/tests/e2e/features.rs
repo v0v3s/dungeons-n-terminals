@@ -297,10 +297,13 @@ fn a_rule_gives_an_action() {
         "[[feature.resource]]\nkey = \"breath\"\nname = \"Breath\"\nmax = \"1\"\nrecharge = \"long_rest\"\n",
         "[[feature.action]]\nname = \"Sea Breath\"\nsave = \"dex\"\ndc = \"13\"\ndamage = \"dice(2, 6)\"\ndamage_type = \"cold\"\nresource = \"breath\"\n",
         "[[feature.action]]\nname = \"Feathers\"\ntemp_hp = \"4\"\n",
+        // Not yet: from level 5.
+        "[[feature.action]]\nname = \"Gale\"\ndamage = \"dice(4, 6)\"\nwhen = \"level >= 5\"\n",
     ));
     let mut t = Tui::scenario("rules.actions", home);
     crate::sheet_play::open(&mut t, "Tester");
     t.wait("Actions").wait("Sea Breath");
+    assert!(!t.shows("Gale"), "not before level 5: {}", t.screen());
     assert!(t.line("Sea Breath").contains("DC 13 Dexterity  2d6 cold  1 Breath (1 left)"), "{}", t.screen());
     // After the four attacks.
     crate::sheet_play::to(&mut t, crate::sheet_play::FIRST_ATTACK + 4);
@@ -351,7 +354,7 @@ fn a_rule_asks_for_an_option_and_a_subclass_for_its_spell_list() {
     // A rune to choose; the Fire rune makes the Hexer faster.
     std::fs::write(
         dir.join("runes.toml"),
-        "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\n[[feature.choice]]\nkey = \"Rune\"\npick = \"option\"\noptions = [\"Ice\", \"Fire\"]\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"10\"\nwhen = \"choice.rune == 'Fire'\"\n",
+        "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\n[[feature.choice]]\nkey = \"Rune\"\npick = \"option\"\noptions = [\"Ice\", \"Fire\"]\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"10\"\nwhen = \"choice.rune.fire\"\n",
     )
     .unwrap();
     let mut t = Tui::scenario("rules.options", home);
@@ -369,6 +372,25 @@ fn a_rule_asks_for_an_option_and_a_subclass_for_its_spell_list() {
     t.send(TAB).send(TAB).wait("╭ Spells");
     t.wait("Burning Hands");
     assert!(!t.screen().contains("Fog Cloud"), "the other list: {}", t.screen());
+}
+
+/// A level 1 Cleric, whose Divine Order lists two orders.
+const VOW: &str = "name = \"Vow\"\nspecies = \"race:Human|SRD52\"\n\n[abilities]\nstr = 14\ndex = 10\ncon = 13\nint = 8\nwis = 15\ncha = 12\n\n[[levels]]\nclass = \"class:Cleric|SRD52\"\n";
+
+#[test]
+fn a_rule_gains_every_option_a_feature_lists() {
+    let home = Home::party();
+    character_file(&home, "vow", VOW);
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    // Both orders, not one to choose.
+    std::fs::write(dir.join("orders.toml"), "[[feature]]\nid = \"classFeature:Divine Order|Cleric|SRD52|1\"\nall_options = true\n")
+        .unwrap();
+    let mut t = Tui::scenario("rules.options", home);
+    t.send("2").wait("Vow").send("G").send(ENTER).wait("◆ Vow").wait("Armor Class");
+    assert!(!t.shows("choice(s) to make"), "{}", t.screen());
+    t.send(TAB).wait("╭ Features");
+    t.wait("Protector").wait("Thaumaturge");
 }
 
 #[test]

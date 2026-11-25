@@ -148,7 +148,10 @@
 //!
 //! A choice can also pick one of a rule's own options (`pick = "option"`,
 //! `options = [...]`), which formulas know as `choice.<key>`
-//! (`when = "choice.runeforging == 'Blood'"`). Senses (`sense.darkvision`,
+//! (`when = "choice.runeforging == 'Blood'"`), and each option picked as
+//! `choice.<key>.<option>` (true). An action with a `when` is there while
+//! it holds. `all_options = true` says the options the feature lists in
+//! its text are all gained, not one chosen. Senses (`sense.darkvision`,
 //! `sense.blindsight`, …), other speeds (`speed.fly`, …) and the
 //! creature type (`creature_type`) are stats effects can change.
 //!
@@ -232,6 +235,8 @@ pub struct FeatureOverlay {
     pub levels: Vec<String>,
     /// How it changes rolls.
     pub rolls: Vec<RollRule>,
+    /// The options its text lists are all gained, not one chosen.
+    pub all_options: bool,
     /// Actions of its own.
     pub actions: Vec<ActionRule>,
     pub defenses: Vec<DefenseRule>,
@@ -258,6 +263,8 @@ pub struct ActionRule {
     pub resource: Option<String>,
     pub cost: i64,
     pub note: Option<String>,
+    /// There while this holds.
+    pub when: Option<Formula>,
 }
 
 /// Damage and conditions a feature defends against, while `when` holds.
@@ -447,6 +454,8 @@ struct RawFeature {
     #[serde(default)]
     roll: Vec<RawRoll>,
     #[serde(default)]
+    all_options: bool,
+    #[serde(default)]
     action: Vec<RawAction>,
     #[serde(default)]
     defense: Vec<RawDefense>,
@@ -468,6 +477,7 @@ struct RawAction {
     resource: Option<String>,
     cost: Option<i64>,
     note: Option<String>,
+    when: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -913,6 +923,7 @@ impl Overlay {
                 let damage = opt(&a.damage, "damage", &mut diags);
                 let heal = opt(&a.heal, "heal", &mut diags);
                 let temp_hp = opt(&a.temp_hp, "temp_hp", &mut diags);
+                let when = opt(&a.when, "when", &mut diags);
                 if a.save.is_some() != a.dc.is_some() {
                     diags.push(Diagnostic { location: loc(""), message: "a save has a `dc`, and a `dc` is a save's".into() });
                     ok = false;
@@ -945,6 +956,7 @@ impl Overlay {
                         resource: a.resource,
                         cost: a.cost.unwrap_or(1).max(1),
                         note: a.note,
+                        when,
                     });
                 }
             }
@@ -1002,6 +1014,7 @@ impl Overlay {
                 summary: f.summary,
                 levels: f.levels,
                 rolls,
+                all_options: f.all_options,
                 actions,
                 defenses,
                 proficiencies,

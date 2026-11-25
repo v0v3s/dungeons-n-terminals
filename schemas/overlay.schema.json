@@ -239,7 +239,7 @@
                 },
                 "pick": {
                   "enum": ["ability_increase", "feat", "expertise", "weapon_mastery", "option"],
-                  "description": "Ability scores to increase (or a feat instead), a feat, skills to gain Expertise in, weapons to master, or one of the rule's options (formulas know it as choice.<key>)."
+                  "description": "Ability scores to increase (or a feat instead), a feat, skills to gain Expertise in, weapons to master, or the rule's options (formulas know them as choice.<key>, and each picked as choice.<key>.<option>)."
                 },
                 "count": {
                   "type": "string",
@@ -391,6 +391,10 @@
                 "note": {
                   "type": "string",
                   "description": "Shown with the action and its roll."
+                },
+                "when": {
+                  "type": "string",
+                  "description": "Formula: the action is there while this holds."
                 }
               },
               "dependentRequired": {
@@ -471,6 +475,10 @@
                 }
               }
             }
+          },
+          "all_options": {
+            "type": "boolean",
+            "description": "The options its text lists are all gained, not one chosen."
           }
         }
       }

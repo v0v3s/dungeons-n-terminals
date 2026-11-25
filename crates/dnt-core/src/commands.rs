@@ -394,8 +394,13 @@ impl CharacterSession {
                 Outcome::changed(format!("{} {}", leveled.name, c.state.exhaustion))
             }
             Command::UseAction { name } => {
-                let a =
-                    self.build.actions.iter().find(|(a, _)| a.name == name).map(|(a, _)| a).ok_or_else(|| format!("No action {name}"))?;
+                let a = self
+                    .build
+                    .actions
+                    .iter()
+                    .find(|(a, _)| a.name == name && crate::sheet::available(ev, a))
+                    .map(|(a, _)| a)
+                    .ok_or_else(|| format!("No action {name}"))?;
                 if let Some(key) = &a.resource {
                     if !play::spend_resource(c, ev, key, a.cost) {
                         let what = self.build.resources.iter().find(|(r, _)| &r.key == key).map_or(key.clone(), |(r, _)| r.name.clone());
