@@ -342,8 +342,22 @@ pub fn text_grants(data: &Json) -> Vec<Granted> {
 /// Spells granted by an entity's `additionalSpells` at `level` (class level
 /// for subclasses, character level otherwise). Only the first alternative
 /// is used; variants such as Magic Initiate; Cleric are separate entities.
-pub fn granted_spells(data: &Json, level: i64) -> Vec<Granted> {
-    let Some(alt) = data.get("additionalSpells").and_then(Json::as_array).and_then(|a| a.first()) else {
+/// The names of the data's alternative spell lists, when it names them.
+pub fn spell_lists(data: &Json) -> Vec<String> {
+    data.get("additionalSpells")
+        .and_then(Json::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|a| a.get("name").and_then(Json::as_str).map(str::to_string))
+        .collect()
+}
+
+/// `list`: of several alternatives, the one chosen (by name); the first
+/// without one.
+pub fn granted_spells(data: &Json, level: i64, list: Option<&str>) -> Vec<Granted> {
+    let alts = data.get("additionalSpells").and_then(Json::as_array);
+    let chosen = alts.and_then(|a| a.iter().find(|x| list.is_some() && x.get("name").and_then(Json::as_str) == list));
+    let Some(alt) = chosen.or_else(|| alts.and_then(|a| a.first())) else {
         return Vec::new();
     };
     let resource = alt.get("resourceName").and_then(Json::as_str).unwrap_or("Resource");
@@ -664,18 +678,18 @@ mod tests {
     #[test]
     fn grants() {
         let life = json!({"additionalSpells": [{"prepared": {"3": ["aid|xphb", "bless|xphb"], "5": ["revivify|xphb"]}}]});
-        assert_eq!(granted_spells(&life, 4).len(), 2);
-        assert_eq!(granted_spells(&life, 5).len(), 3);
+        assert_eq!(granted_spells(&life, 4, None).len(), 2);
+        assert_eq!(granted_spells(&life, 5, None).len(), 3);
 
         let mi = json!({"additionalSpells": [{"innate": {"_": {"daily": {"1": [{"choose": "level=1|class=Cleric"}]}}},
             "known": {"_": [{"choose": "level=0|class=Cleric", "count": 2}]}}]});
-        let g = granted_spells(&mi, 1);
+        let g = granted_spells(&mi, 1, None);
         assert!(g.contains(&Granted::Choice { filter: "level=0|class=Cleric".into(), count: 2, grant: Grant::Known }));
         assert!(g.contains(&Granted::Choice { filter: "level=1|class=Cleric".into(), count: 1, grant: Grant::Innate(Some(1)) }));
 
         let drow = json!({"additionalSpells": [{"known": {"1": ["dancing lights|xphb#c"]},
             "innate": {"3": {"daily": {"1": ["faerie fire|xphb"]}}, "5": {"daily": {"1": ["darkness|xphb"]}}}}]});
-        let g = granted_spells(&drow, 3);
+        let g = granted_spells(&drow, 3, None);
         assert_eq!(g.len(), 2);
         assert!(g.contains(&Granted::Spell { id: "spell:dancing lights|xphb".into(), grant: Grant::Known }));
         assert_eq!(describe_filter("level=0|class=Cleric"), "Cleric cantrip");
@@ -688,19 +702,25 @@ mod tests {
             "prepared": {"3": {"daily": {"1": ["healing word|t"]}}, "5": {"daily": {"1": ["aid|t"]}}}}]});
         let spell = |id: &str, grant: Grant| Granted::Spell { id: id.into(), grant };
         assert_eq!(
-            granted_spells(&lineage, 3),
+            granted_spells(&lineage, 3, None),
             [
                 spell("spell:healing word|t", Grant::Prepared),
                 spell("spell:healing word|t", Grant::Innate(Some(1))),
                 spell("spell:light|t", Grant::Known)
             ]
         );
-        assert_eq!(granted_spells(&lineage, 5).len(), 5);
+        assert_eq!(granted_spells(&lineage, 5, None).len(), 5);
+        // Named lists: the one chosen, or the first.
+        let runes = json!({"additionalSpells": [{"name": "Ice", "prepared": {"3": ["frost|t"]}},
+                                                {"name": "Fire", "prepared": {"3": ["flame|t"]}}]});
+        assert_eq!(spell_lists(&runes), ["Ice", "Fire"]);
+        assert_eq!(granted_spells(&runes, 3, Some("Fire")), [Granted::Spell { id: "spell:flame|t".into(), grant: Grant::Prepared }]);
+        assert_eq!(granted_spells(&runes, 3, None), [Granted::Spell { id: "spell:frost|t".into(), grant: Grant::Prepared }]);
         let hunter = json!({"additionalSpells": [{"resourceName": "Soul Shard",
             "innate": {"3": {"resource": {"1": ["jump|t"]}}, "11": {"resource": {"2": ["counterspell|t"]}}}}]});
         let shard = |cost| Grant::Resource { name: "Soul Shard".into(), cost };
-        assert_eq!(granted_spells(&hunter, 3), [spell("spell:jump|t", shard(1))]);
-        assert!(granted_spells(&hunter, 11).contains(&spell("spell:counterspell|t", shard(2))));
+        assert_eq!(granted_spells(&hunter, 3, None), [spell("spell:jump|t", shard(1))]);
+        assert!(granted_spells(&hunter, 11, None).contains(&spell("spell:counterspell|t", shard(2))));
         assert_eq!(Grant::resource_text("Soul Shard", 2), "2 Soul Shards");
         assert_eq!(Grant::resource_text("Rage", 1), "1 Rage");
     }

@@ -282,6 +282,95 @@ fn a_rule_says_what_a_condition_does() {
     assert!(line.contains("disadvantage (Charmed)"), "{line}");
 }
 
+/// Rules for the Tester's species (Human), in a file of the player's.
+fn human_rules(rules: &str) -> Home {
+    let home = Home::party();
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("human.toml"), format!("[[feature]]\nid = \"race:Human|SRD52\"\n{rules}")).unwrap();
+    home
+}
+
+#[test]
+fn a_rule_gives_an_action() {
+    let home = human_rules(concat!(
+        "[[feature.resource]]\nkey = \"breath\"\nname = \"Breath\"\nmax = \"1\"\nrecharge = \"long_rest\"\n",
+        "[[feature.action]]\nname = \"Sea Breath\"\nsave = \"dex\"\ndc = \"13\"\ndamage = \"dice(2, 6)\"\ndamage_type = \"cold\"\nresource = \"breath\"\n",
+        "[[feature.action]]\nname = \"Feathers\"\ntemp_hp = \"4\"\n",
+    ));
+    let mut t = Tui::scenario("rules.actions", home);
+    crate::sheet_play::open(&mut t, "Tester");
+    t.wait("Actions").wait("Sea Breath");
+    assert!(t.line("Sea Breath").contains("DC 13 Dexterity  2d6 cold  1 Breath (1 left)"), "{}", t.screen());
+    // After the four attacks.
+    crate::sheet_play::to(&mut t, crate::sheet_play::FIRST_ATTACK + 4);
+    t.send("r");
+    crate::sheet_play::wait_status(&mut t, "Sea Breath: DC 13 Dexterity save");
+    assert!(crate::sheet_play::status(&t).contains("cold damage"), "{}", crate::sheet_play::status(&t));
+    t.send("r");
+    crate::sheet_play::wait_status(&mut t, "No Breath left");
+    t.send("j").send("r");
+    crate::sheet_play::wait_status(&mut t, "Feathers: 4 temporary hit points");
+    assert!(t.line("Hit Points").contains("+4 temp"), "{}", t.screen());
+}
+
+#[test]
+fn the_sheet_shows_traits_from_the_rules() {
+    let home = human_rules(concat!(
+        "[[feature.effect]]\ntarget = \"sense.darkvision\"\nmax = \"60\"\n",
+        "[[feature.effect]]\ntarget = \"speed.fly\"\nmax = \"speed\"\n",
+        "[[feature.effect]]\ntarget = \"creature_type\"\nset = \"'fey'\"\n",
+        "[[feature.defense]]\nresist = [\"cold\"]\nconditions = [\"prone\"]\n",
+        "[[feature.proficiency]]\nskills = [\"survival\"]\ntools = [\"Navigator's Tools\"]\n",
+    ));
+    let mut t = Tui::scenario("rules.traits", home);
+    crate::sheet_play::open(&mut t, "Tester");
+    t.wait("Senses");
+    for (label, what) in [
+        ("Type", "fey"),
+        ("Speeds", "fly 30 ft."),
+        ("Senses", "darkvision 60 ft."),
+        ("Resists", "cold"),
+        ("Immune", "prone"),
+        ("Tools", "Navigator's Tools"),
+    ] {
+        assert!(t.line(&format!("{label:<12}")).contains(what), "{label}: {}", t.screen());
+    }
+    assert!(t.line("Survival").contains("● Survival"), "proficient: {}", t.screen());
+}
+
+/// A level 1 Hexer of the Tide, whose two spell lists are to choose from.
+const TIDAL: &str = "name = \"Tidal\"\nspecies = \"race:Halfling|SRD52\"\n\n[abilities]\nstr = 8\ndex = 14\ncon = 12\nint = 10\nwis = 13\ncha = 15\n\n[[levels]]\nclass = \"class:Hexer|TST\"\n\n[subclasses]\n\"class:Hexer|TST\" = \"subclass:Tide|Hexer|TST|TST\"\n";
+
+#[test]
+fn a_rule_asks_for_an_option_and_a_subclass_for_its_spell_list() {
+    let home = Home::party();
+    character_file(&home, "tidal", TIDAL);
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    // A rune to choose; the Fire rune makes the Hexer faster.
+    std::fs::write(
+        dir.join("runes.toml"),
+        "[[feature]]\nid = \"classFeature:Hexer Patron|Hexer|TST|1\"\n[[feature.choice]]\nkey = \"Rune\"\npick = \"option\"\noptions = [\"Ice\", \"Fire\"]\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"10\"\nwhen = \"choice.rune == 'Fire'\"\n",
+    )
+    .unwrap();
+    let mut t = Tui::scenario("rules.options", home);
+    t.send("2").wait("Tidal").send("G").send(ENTER).wait("◆ Tidal").wait("Armor Class");
+    see(&mut t, "2 choice(s) to make press c");
+    t.send("c");
+    see(&mut t, "The Tide");
+    t.typed("Flow");
+    t.send(ENTER);
+    see(&mut t, "Rune");
+    t.typed("Fire");
+    t.send(ENTER);
+    see(&mut t, "All choices made");
+    assert_eq!(crate::sheet_play::stat_box(&t, "Speed"), "40");
+    t.send(TAB).send(TAB).wait("╭ Spells");
+    t.wait("Burning Hands");
+    assert!(!t.screen().contains("Fog Cloud"), "the other list: {}", t.screen());
+}
+
 #[test]
 fn a_rule_asks_for_a_choice() {
     let home = crate::steps::with_wren(false);

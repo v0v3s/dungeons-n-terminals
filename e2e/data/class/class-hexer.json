@@ -102,6 +102,24 @@
    "edition": "one",
    "subclassFeatures": [
     "The Tide|Hexer|TST|Tide|TST|1"
+   ],
+   "additionalSpells": [
+    {
+     "name": "Ebb",
+     "prepared": {
+      "1": [
+       "fog cloud|srd52"
+      ]
+     }
+    },
+    {
+     "name": "Flow",
+     "prepared": {
+      "1": [
+       "burning hands|srd52"
+      ]
+     }
+    }
    ]
   }
  ],

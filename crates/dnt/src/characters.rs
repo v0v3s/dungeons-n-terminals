@@ -50,6 +50,8 @@ pub enum Item {
     Toggle(String),
     /// An attack by slug (`attack.<slug>.*` stats).
     Attack(String),
+    /// An action a rule gives, by name.
+    Action(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,6 +210,7 @@ impl Sheet {
             out.push(Item::Stat(k.into()));
         }
         out.extend(self.build.attacks.iter().map(|a| Item::Attack(a.slug.clone())));
+        out.extend(self.build.actions.iter().map(|(a, _)| Item::Action(a.name.clone())));
         out.extend(SKILLS.iter().map(|(k, _, _)| Item::Stat(format!("skill.{k}"))));
         out.extend(self.build.resources.iter().map(|(r, _)| Item::Resource(r.key.clone())));
         for level in 1..=9 {
@@ -912,6 +915,10 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         KeyCode::Char('r') if matches!(items.get(sheet.cursor), Some(Item::HitDie(_))) => {
             let Some(Item::HitDie(faces)) = items.get(sheet.cursor) else { unreachable!() };
             return run(sheet, lib, overlays, Command::RollHitDie { faces: *faces });
+        }
+        KeyCode::Char('r') if matches!(items.get(sheet.cursor), Some(Item::Action(_))) => {
+            let Some(Item::Action(name)) = items.get(sheet.cursor) else { unreachable!() };
+            return run(sheet, lib, overlays, Command::UseAction { name: name.clone() });
         }
         KeyCode::Char('r') => return roll_item(sheet, false),
         KeyCode::Char('R') => return roll_item(sheet, true),

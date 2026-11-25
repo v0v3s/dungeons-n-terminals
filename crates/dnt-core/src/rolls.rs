@@ -7,6 +7,7 @@ use dnt_rules::attacks::Attack;
 use dnt_rules::character::Hand;
 use dnt_rules::conditions::{self, RollKind};
 use dnt_rules::formula::{Env, Formula};
+use dnt_rules::overlay::ActionRule;
 use dnt_rules::roll::{self, Advantage, DamageRules, Rng};
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::{Evaluation, Value};
@@ -237,6 +238,46 @@ pub fn attack(sheet: &mut CharacterSession, a: &Attack) -> Rolled {
     let crit = r.natural_20().then_some(true).or(r.natural_1().then_some(false));
     let rolled = Rolled { title: a.name.clone(), result: hit, detail: detail(&r, &why), extra, crit };
     sheet.roller.push(rolled)
+}
+
+/// A feature's action: its attack roll, or its save's DC, or the
+/// temporary hit points it gives; then its damage (doubled dice on a
+/// natural 20) or healing.
+pub fn action(sheet: &mut CharacterSession, a: &ActionRule) -> Rolled {
+    let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
+    let ev = sheet.ev.clone();
+    let mut critical = false;
+    let (result, mut detail_text, crit) = if a.attack.is_some() {
+        let bonus = ev.int(&key("attack")).unwrap_or(0);
+        let (m, why) = mode(sheet, RollKind::Attack);
+        let r = roll::d20(&mut sheet.roller.rng, bonus, m);
+        critical = r.natural_20();
+        let hit = match (critical, r.natural_1()) {
+            (true, _) => "critical hit".to_string(),
+            (_, true) => "miss (natural 1)".to_string(),
+            _ => format!("{} to hit", r.total),
+        };
+        (hit, detail(&r, &why), r.natural_20().then_some(true).or(r.natural_1().then_some(false)))
+    } else if let Some(ab) = &a.save {
+        (format!("DC {} {} save", ev.int(&key("dc")).unwrap_or(0), ability_name(ab)), String::new(), None)
+    } else if let Some(n) = ev.int(&key("temp_hp")) {
+        (format!("{n} temporary hit points"), String::new(), None)
+    } else {
+        ("used".to_string(), String::new(), None)
+    };
+    let mut extra = Vec::new();
+    let rules = DamageRules { critical, ..Default::default() };
+    if let Some(d) = roll_stat(&mut sheet.roller.rng, &ev, &key("damage"), rules) {
+        let kind = a.damage_type.as_deref().map_or(String::new(), |t| format!(" {t}"));
+        extra.push(format!("{}{kind} damage ({})", d.total, d.describe()));
+    }
+    if let Some(d) = roll_stat(&mut sheet.roller.rng, &ev, &key("heal"), DamageRules::default()) {
+        extra.push(format!("{} healed ({})", d.total, d.describe()));
+    }
+    if let Some(note) = &a.note {
+        detail_text = if detail_text.is_empty() { note.clone() } else { format!("{detail_text} · {note}") };
+    }
+    sheet.roller.push(Rolled { title: a.name.clone(), result, detail: detail_text, extra, crit })
 }
 
 /// A spell: its attack roll or save DC, and its damage or healing at

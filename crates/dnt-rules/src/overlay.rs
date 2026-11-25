@@ -123,6 +123,35 @@
 //! primary_score = 13
 //! ```
 //!
+//! A rule can give the character an action of its own (an attack, a save
+//! with its DC, damage or healing dice, temporary hit points, paid with a
+//! resource), defenses (damage resisted, immune or vulnerable, conditions
+//! immune) while `when` holds, and proficiencies (skills, saves, tools):
+//!
+//! ```toml
+//! [[feature.action]]
+//! name = "Frost Breath"
+//! save = "con"
+//! dc = "8 + mod.con + prof"
+//! damage = "dice(2, 6)"
+//! damage_type = "cold"
+//! resource = "breath"
+//!
+//! [[feature.defense]]
+//! resist = ["cold"]
+//! when = "toggle('frost_form')"
+//!
+//! [[feature.proficiency]]
+//! skills = ["survival"]
+//! tools = ["Brewer's Supplies"]
+//! ```
+//!
+//! A choice can also pick one of a rule's own options (`pick = "option"`,
+//! `options = [...]`), which formulas know as `choice.<key>`
+//! (`when = "choice.runeforging == 'Blood'"`). Senses (`sense.darkvision`,
+//! `sense.blindsight`, …), other speeds (`speed.fly`, …) and the
+//! creature type (`creature_type`) are stats effects can change.
+//!
 //! An id with a `*` part names every entity that has anything there:
 //! `classFeature:Ability Score Improvement|*|*|*` is every class's.
 //!
@@ -145,6 +174,7 @@ use serde::{Deserialize, Serialize};
 use crate::engine::{Effect, Model, Op, StatDef};
 use crate::formula::Formula;
 use crate::spells::{Grant, Granted};
+use crate::standard::{ABILITIES, SKILLS};
 use crate::value::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -202,6 +232,54 @@ pub struct FeatureOverlay {
     pub levels: Vec<String>,
     /// How it changes rolls.
     pub rolls: Vec<RollRule>,
+    /// Actions of its own.
+    pub actions: Vec<ActionRule>,
+    pub defenses: Vec<DefenseRule>,
+    pub proficiencies: Vec<ProficiencyRule>,
+}
+
+/// An action a feature gives: an attack roll or a save against its DC,
+/// with damage or healing dice, or temporary hit points.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActionRule {
+    pub name: String,
+    /// The attack bonus, for an attack roll.
+    pub attack: Option<Formula>,
+    /// The ability of the target's save, and its DC.
+    pub save: Option<String>,
+    pub dc: Option<Formula>,
+    /// Dice (`dice(2, 6) + mod.con`).
+    pub damage: Option<Formula>,
+    pub damage_type: Option<String>,
+    pub heal: Option<Formula>,
+    /// Temporary hit points the character gains.
+    pub temp_hp: Option<Formula>,
+    /// What it costs: uses of a resource (its key).
+    pub resource: Option<String>,
+    pub cost: i64,
+    pub note: Option<String>,
+}
+
+/// Damage and conditions a feature defends against, while `when` holds.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct DefenseRule {
+    /// Damage types (`all` for every one).
+    pub resist: Vec<String>,
+    pub immune: Vec<String>,
+    pub vulnerable: Vec<String>,
+    /// Conditions it is immune to.
+    pub conditions: Vec<String>,
+    pub when: Option<Formula>,
+}
+
+/// Proficiencies a feature gives.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ProficiencyRule {
+    /// Skill keys (`sleight_of_hand`).
+    pub skills: Vec<String>,
+    /// Ability keys of saves.
+    pub saves: Vec<String>,
+    pub tools: Vec<String>,
 }
 
 /// What a roll rule does to the rolls it picks.
@@ -260,6 +338,8 @@ pub enum Pick {
     Expertise,
     /// Weapons to master.
     WeaponMastery,
+    /// One of the rule's own options.
+    Option,
 }
 
 /// A choice a feature asks for when it is gained.
@@ -269,10 +349,12 @@ pub struct ChoiceRule {
     pub key: String,
     pub pick: Pick,
     /// How many the feature gives in all at a class level (Expertise,
-    /// Weapon Mastery).
+    /// Weapon Mastery, an option).
     pub count: Option<Formula>,
     /// The feat categories it offers (the data's: `G`, `EB`).
     pub feats: Vec<String>,
+    /// What an `option` choice offers.
+    pub options: Vec<String>,
 }
 
 /// How a rule changes the attacks with some weapons.
@@ -364,6 +446,53 @@ struct RawFeature {
     levels: Vec<String>,
     #[serde(default)]
     roll: Vec<RawRoll>,
+    #[serde(default)]
+    action: Vec<RawAction>,
+    #[serde(default)]
+    defense: Vec<RawDefense>,
+    #[serde(default)]
+    proficiency: Vec<RawProficiency>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAction {
+    name: String,
+    attack: Option<String>,
+    save: Option<String>,
+    dc: Option<String>,
+    damage: Option<String>,
+    damage_type: Option<String>,
+    heal: Option<String>,
+    temp_hp: Option<String>,
+    resource: Option<String>,
+    cost: Option<i64>,
+    note: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDefense {
+    #[serde(default)]
+    resist: Vec<String>,
+    #[serde(default)]
+    immune: Vec<String>,
+    #[serde(default)]
+    vulnerable: Vec<String>,
+    #[serde(default)]
+    conditions: Vec<String>,
+    when: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawProficiency {
+    #[serde(default)]
+    skills: Vec<String>,
+    #[serde(default)]
+    saves: Vec<String>,
+    #[serde(default)]
+    tools: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -382,6 +511,8 @@ struct RawChoice {
     count: Option<String>,
     #[serde(default)]
     feats: Vec<String>,
+    #[serde(default)]
+    options: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -700,16 +831,30 @@ impl Overlay {
                     "feat" => Pick::Feat,
                     "expertise" => Pick::Expertise,
                     "weapon_mastery" => Pick::WeaponMastery,
+                    "option" => Pick::Option,
                     other => {
                         diags.push(Diagnostic {
                             location: loc(".pick"),
-                            message: format!("`{other}`: expected `ability_increase`, `feat`, `expertise` or `weapon_mastery`"),
+                            message: format!("`{other}`: expected `ability_increase`, `feat`, `expertise`, `weapon_mastery` or `option`"),
                         });
                         continue;
                     }
                 };
+                if (pick == Pick::Option) != !c.options.is_empty() {
+                    let message = match pick {
+                        Pick::Option => "an `option` choice lists its `options`".to_string(),
+                        _ => format!("`{}` has no `options`", c.pick),
+                    };
+                    diags.push(Diagnostic { location: loc(".options"), message });
+                    continue;
+                }
                 let counted = matches!(pick, Pick::Expertise | Pick::WeaponMastery);
                 let count = match (&c.count, counted) {
+                    (None, false) if pick == Pick::Option => Some(Formula::constant(Value::int(1))),
+                    (Some(src), false) if pick == Pick::Option => match formula(src, loc(".count"), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
                     (Some(src), true) => match formula(src, loc(".count"), &mut diags) {
                         Some(f) => Some(f),
                         None => continue,
@@ -728,7 +873,7 @@ impl Overlay {
                     diags.push(Diagnostic { location: loc(".feats"), message: format!("`{}` offers no feats", c.pick) });
                     continue;
                 }
-                choices.push(ChoiceRule { key: c.key.unwrap_or_else(|| name.clone()), pick, count, feats: c.feats });
+                choices.push(ChoiceRule { key: c.key.unwrap_or_else(|| name.clone()), pick, count, feats: c.feats, options: c.options });
             }
 
             let mut rolls = Vec::new();
@@ -751,6 +896,92 @@ impl Overlay {
                 }
             }
 
+            let mut actions = Vec::new();
+            for (ai, a) in f.action.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".action[{ai}]{field}"));
+                let mut ok = true;
+                let mut opt = |src: &Option<String>, field: &str, diags: &mut Vec<Diagnostic>| match src {
+                    Some(src) => {
+                        let f = formula(src, loc(&format!(".{field}")), diags);
+                        ok &= f.is_some();
+                        f
+                    }
+                    None => None,
+                };
+                let attack = opt(&a.attack, "attack", &mut diags);
+                let dc = opt(&a.dc, "dc", &mut diags);
+                let damage = opt(&a.damage, "damage", &mut diags);
+                let heal = opt(&a.heal, "heal", &mut diags);
+                let temp_hp = opt(&a.temp_hp, "temp_hp", &mut diags);
+                if a.save.is_some() != a.dc.is_some() {
+                    diags.push(Diagnostic { location: loc(""), message: "a save has a `dc`, and a `dc` is a save's".into() });
+                    ok = false;
+                }
+                if a.save.as_deref().is_some_and(|ab| !ABILITIES.iter().any(|(k, _)| *k == ab)) {
+                    diags.push(Diagnostic { location: loc(".save"), message: "`save` is an ability: `str` … `cha`".into() });
+                    ok = false;
+                }
+                if a.cost.is_some() && a.resource.is_none() {
+                    diags.push(Diagnostic { location: loc(".cost"), message: "`cost` is what it takes of a `resource`".into() });
+                    ok = false;
+                }
+                if ok && [&attack, &dc, &damage, &heal, &temp_hp].iter().all(|f| f.is_none()) {
+                    diags.push(Diagnostic {
+                        location: loc(""),
+                        message: "an action does something: `attack`, `save`, `damage`, `heal` or `temp_hp`".into(),
+                    });
+                    ok = false;
+                }
+                if ok {
+                    actions.push(ActionRule {
+                        name: a.name,
+                        attack,
+                        save: a.save,
+                        dc,
+                        damage,
+                        damage_type: a.damage_type,
+                        heal,
+                        temp_hp,
+                        resource: a.resource,
+                        cost: a.cost.unwrap_or(1).max(1),
+                        note: a.note,
+                    });
+                }
+            }
+
+            let mut defenses = Vec::new();
+            for (di, d) in f.defense.into_iter().enumerate() {
+                let when = match &d.when {
+                    Some(w) => match formula(w, at(&format!(".defense[{di}].when")), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    None => None,
+                };
+                let lower = |v: Vec<String>| v.into_iter().map(|s| s.to_lowercase()).collect::<Vec<_>>();
+                defenses.push(DefenseRule {
+                    resist: lower(d.resist),
+                    immune: lower(d.immune),
+                    vulnerable: lower(d.vulnerable),
+                    conditions: lower(d.conditions),
+                    when,
+                });
+            }
+
+            let mut proficiencies = Vec::new();
+            for (pi, p) in f.proficiency.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".proficiency[{pi}].{field}"));
+                if let Some(bad) = p.skills.iter().find(|k| !SKILLS.iter().any(|(s, _, _)| s == k)) {
+                    diags.push(Diagnostic { location: loc("skills"), message: format!("`{bad}` is not a skill key (`sleight_of_hand`)") });
+                    continue;
+                }
+                if let Some(bad) = p.saves.iter().find(|k| !ABILITIES.iter().any(|(a, _)| a == k)) {
+                    diags.push(Diagnostic { location: loc("saves"), message: format!("`{bad}` is not an ability: `str` … `cha`") });
+                    continue;
+                }
+                proficiencies.push(ProficiencyRule { skills: p.skills, saves: p.saves, tools: p.tools });
+            }
+
             if !f.levels.is_empty() && !keys.iter().any(|k| k.kind == Kind::Condition) {
                 diags.push(Diagnostic { location: at(".levels"), message: "only a condition has `levels`".into() });
                 continue;
@@ -771,6 +1002,9 @@ impl Overlay {
                 summary: f.summary,
                 levels: f.levels,
                 rolls,
+                actions,
+                defenses,
+                proficiencies,
             });
         }
         let multiclass = match raw.multiclass {

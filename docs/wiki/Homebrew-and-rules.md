@@ -124,6 +124,49 @@ target = "d20.bonus"
 add = "-2 * exhaustion"
 ```
 
+A rule gives an action of its own, listed with the attacks: an `attack`
+bonus, or a `save` against its `dc`, with `damage` or `heal` dice (a
+formula: `dice(2, 6) + mod.con`), or `temp_hp`; a use can take a
+`resource`. It gives defenses (damage it resists, is immune or
+vulnerable to, `conditions` it is immune to) while `when` holds, and
+proficiencies (skills, saves, tools). The species' senses, other speeds
+and creature type are stats rules can change: `sense.darkvision`,
+`sense.blindsight`, `speed.fly`, `creature_type`.
+
+```toml
+[[feature.action]]
+name = "Frost Breath"
+save = "con"
+dc = "8 + mod.con + prof"
+damage = "dice(2, 6)"
+damage_type = "cold"
+resource = "breath"
+
+[[feature.defense]]
+resist = ["cold"]
+when = "toggle('frost_form')"
+
+[[feature.proficiency]]
+skills = ["survival"]
+tools = ["Brewer's Supplies"]
+```
+
+A choice can pick one of the rule's own `options`; formulas know the
+pick as `choice.<key>`. A subclass whose data has several named spell
+lists asks which one when it is gained, and `choice.<subclass>` is it.
+
+```toml
+[[feature.choice]]
+key = "Rune"
+pick = "option"
+options = ["Blood", "Frost", "Unholy"]
+
+[[feature.effect]]
+target = "speed"
+add = "10"
+when = "choice.rune == 'Frost'"
+```
+
 A `[multiclass]` table holds the multiclass spellcaster's slots (a row of
 slots of levels 1–9 per combined caster level) and `primary_score`, what
 a class's primary ability needs to multiclass when the class lists no

@@ -120,6 +120,8 @@ fn a_level_in_another_class() {
     // The Hexer's subclass comes at its first level.
     answer(&mut t, "Choose a subclass", "Tide");
     answer(&mut t, "Hit points for this level", "Average");
+    // The Tide's two spell lists: one to choose.
+    answer(&mut t, "The Tide: choose one", "Flow");
     see(&mut t, "✓ Subclass: The Tide");
     see(&mut t, "This becomes character level 1 in this class.");
     confirm(&mut t, 2);
@@ -263,6 +265,8 @@ fn a_class_made_from_another_offers_its_subclasses_too() {
     t.wait("The Grove").wait("The Lantern").wait("The Tide");
     answer(&mut t, "Choose a subclass", "Tide");
     answer(&mut t, "Hit points for this level", "Average");
+    // The Tide's two spell lists: one to choose.
+    answer(&mut t, "The Tide: choose one", "Flow");
     see(&mut t, "✓ Subclass: The Tide");
     confirm(&mut t, 2);
     see(&mut t, "Wizard 1 / Runebinder 1 · Level 2");

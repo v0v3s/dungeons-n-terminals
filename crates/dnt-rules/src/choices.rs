@@ -24,6 +24,8 @@ pub enum ChoiceKind {
     SubFeature,
     Expertise,
     WeaponMastery,
+    /// One of a rule's own options.
+    Option,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -337,6 +339,19 @@ pub fn level_choices(
         }
     }
 
+    // A subclass's spell lists to choose from (the data's named
+    // alternatives), when the subclass is gained.
+    if let Some(sub) = subclass.filter(|_| crate::levelup::subclass_level(owners[0]) == Some(level)) {
+        let lists = crate::spells::spell_lists(&lib.entity(sub).data);
+        if lists.len() > 1 {
+            let options = lists
+                .iter()
+                .map(|n| ChoiceOption { value: format!("option:{n}"), label: n.clone(), hint: String::new(), warning: None })
+                .collect();
+            out.push(Choice { key: lib.entity(sub).name.clone(), kind: ChoiceKind::Option, count: 1, options });
+        }
+    }
+
     // The rules' choices that count (Expertise, Weapon Mastery): what the
     // features had give in all now, less what they gave a level before.
     let columns: Vec<_> = class_columns(&lib.entity(class).data)
@@ -350,25 +365,32 @@ pub fn level_choices(
         m
     };
     let (now, before) = (env(level), env(level - 1));
-    let mut counted: Vec<(String, Pick, i64)> = Vec::new();
+    let mut counted: Vec<(String, Pick, i64, Vec<String>)> = Vec::new();
     for l in 1..=level {
         for f in at(l) {
             for o in rules.for_had(lib, f, Some(class)) {
-                for r in o.choices.iter().filter(|r| matches!(r.pick, Pick::Expertise | Pick::WeaponMastery)) {
+                for r in o.choices.iter().filter(|r| matches!(r.pick, Pick::Expertise | Pick::WeaponMastery | Pick::Option)) {
                     let Some(count) = &r.count else { continue };
                     let total = |env: &HashMap<String, Value>| count.eval(env).map(|v| matches_num(&v)).unwrap_or(0);
                     let new = total(&now) - if l < level { total(&before) } else { 0 };
-                    match counted.iter_mut().find(|(k, _, _)| *k == r.key) {
-                        Some((_, _, n)) => *n += new,
-                        None => counted.push((r.key.clone(), r.pick, new)),
+                    match counted.iter_mut().find(|(k, _, _, _)| *k == r.key) {
+                        Some((_, _, n, _)) => *n += new,
+                        None => counted.push((r.key.clone(), r.pick, new, r.options.clone())),
                     }
                 }
             }
         }
     }
-    for (key, pick, count) in counted.into_iter().filter(|(_, _, n)| *n > 0) {
+    for (key, pick, count, offered) in counted.into_iter().filter(|(_, _, n, _)| *n > 0) {
         let (kind, options) = match pick {
             Pick::Expertise => (ChoiceKind::Expertise, expertise_options(c, skills)),
+            Pick::Option => (
+                ChoiceKind::Option,
+                offered
+                    .iter()
+                    .map(|o| ChoiceOption { value: format!("option:{o}"), label: o.clone(), hint: String::new(), warning: None })
+                    .collect(),
+            ),
             _ => (ChoiceKind::WeaponMastery, mastery_weapons(lib, filter, &taken)),
         };
         out.push(Choice { key, kind, count: count as usize, options });
@@ -394,6 +416,11 @@ fn expertise_options(c: &Character, skills: &[String]) -> Vec<ChoiceOption> {
             warning: None,
         })
         .collect()
+}
+
+/// A rule's option a pick names (stored as `option:<name>`).
+pub fn option_of(v: &str) -> Option<&str> {
+    v.strip_prefix("option:")
 }
 
 /// Whether a pick is a skill (an Expertise), not an entity.

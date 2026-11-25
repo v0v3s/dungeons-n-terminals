@@ -727,6 +727,38 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
         }
         lines.push(Line::from(spans).style(base));
     }
+    // Actions the rules give: what they roll, and what they cost.
+    let actions = dnt_core::sheet::actions(&sheet.session);
+    if !actions.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::styled("Actions", theme.label));
+        for a in &actions {
+            let base = row_style(sheet, &Item::Action(a.name.clone()), theme);
+            if base != Style::new() {
+                selected = lines.len();
+            }
+            let faint = if base == Style::new() { theme.dim } else { theme.muted };
+            let mut spans = vec![
+                Span::raw("      "),
+                Span::styled(format!("{}  ", a.name), base.add_modifier(Modifier::BOLD)),
+                Span::styled(format!("{}  ", a.what), base.fg(theme.accent)),
+                Span::styled(format!("{}  ", a.dice), base),
+            ];
+            if let Some(cost) = &a.cost {
+                spans.push(Span::styled(format!("{cost}  "), base.patch(faint)));
+            }
+            if let Some(note) = &a.note {
+                spans.push(Span::styled(note.clone(), base.patch(faint)));
+            }
+            let used: usize = spans.iter().map(|s| s.content.width()).sum();
+            if used > width {
+                let last = spans.pop().expect("a span");
+                let left = width.saturating_sub(used - last.content.width());
+                spans.push(Span::styled(truncate(&last.content, left), last.style));
+            }
+            lines.push(Line::from(spans).style(base));
+        }
+    }
     // Extra damage on some hits (Sneak Attack, Radiant Strikes): the value
     // and, from the feature, when it applies.
     let riders: Vec<(&String, &dnt_rules::StatResult)> = ev.stats.iter().filter(|(k, _)| k.starts_with("rider.")).collect();
@@ -853,7 +885,9 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
 
     // Middle: combat tiles, HP, resources.
     let riders = sheet.session.ev.stats.keys().filter(|k| k.starts_with("rider.")).count() as u16;
-    let attacks_h = (sheet.session.build.attacks.len() as u16 + 7 + if riders > 0 { riders + 2 } else { 0 }).min(22);
+    let actions = sheet.session.build.actions.len() as u16;
+    let extra = |n: u16| if n > 0 { n + 2 } else { 0 };
+    let attacks_h = (sheet.session.build.attacks.len() as u16 + 7 + extra(riders) + extra(actions)).min(24);
     let [tiles, _, attacks, _, rest] = Layout::vertical([
         Constraint::Length(5),
         Constraint::Length(1),
@@ -966,6 +1000,23 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
             let style = if last { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
             lines.push(Line::styled(format!("{:<12}{}: {}", "", l.name, truncate(l.at(st.exhaustion), width.saturating_sub(24))), style));
         }
+    }
+    // Traits: what the character is, senses and withstands.
+    let t = dnt_core::sheet::traits(&sheet.session);
+    let rows = [
+        ("Type", t.creature_type.clone().into_iter().collect::<Vec<_>>()),
+        ("Speeds", t.speeds.clone()),
+        ("Senses", t.senses.clone()),
+        ("Resists", t.resistances.clone()),
+        ("Immune", t.immunities.iter().chain(&t.condition_immunities).cloned().collect()),
+        ("Vulnerable", t.vulnerabilities.clone()),
+        ("Tools", t.tools.clone()),
+    ];
+    for (label, items) in rows.iter().filter(|(_, v)| !v.is_empty()) {
+        lines.push(Line::from(vec![
+            Span::styled(format!("{label:<12}"), theme.label),
+            Span::raw(truncate(&items.join(" · "), width.saturating_sub(12))),
+        ]));
     }
     // The last few rolls, newest first.
     if !sheet.session.roller.log.is_empty() {

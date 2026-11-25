@@ -25,6 +25,18 @@ become the release page.
   `roll.save and roll.dex`, …). A rule for a condition applies while the
   character has it, with a `summary`; a condition with `levels`
   (Exhaustion) says what each level does.
+- Rules give actions (`[[feature.action]]`), listed with the attacks: an
+  attack roll or a save against a DC, damage or healing dice, temporary
+  hit points, paid with a resource.
+- Rules give defenses (`[[feature.defense]]`: damage resisted, immune or
+  vulnerable, conditions immune) and proficiencies
+  (`[[feature.proficiency]]`: skills, saves, tools).
+- The sheet shows traits: creature type, other speeds, senses, defenses
+  and tools, from the species' data and the rules (`sense.darkvision`,
+  `speed.fly`, `creature_type` are stats rules change).
+- A choice of one of a rule's own options (`pick = "option"`), which
+  formulas read as `choice.<key>`; a subclass with several named spell
+  lists asks which one, and grants that one's spells.
 - `d20.bonus`, added to every d20 test, for rules to change.
 - A rules file's `[multiclass]` table: the multiclass spellcaster's slots
   and the score a primary ability needs to multiclass.
@@ -42,7 +54,8 @@ become the release page.
   they do is dnt's built-in rules for them; the multiclass spellcaster's
   table is a rule too.
 - The rules file schema has `attack`, `offhand`, `choice`, `summary`,
-  `levels`, `roll` and `multiclass`.
+  `levels`, `roll`, `action`, `defense`, `proficiency` and
+  `multiclass`.
 
 ## v1.11.0 - 2026-11-24
 

@@ -147,6 +147,36 @@ pub struct Toggle {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ActionRow {
+    pub name: String,
+    /// The rule it comes from.
+    pub origin: String,
+    /// `+5 to hit`, `DC 13 Constitution`, `7 temporary hit points`.
+    pub what: String,
+    /// `2d6 cold`, `heals 1d8 + 3`.
+    pub dice: String,
+    /// What a use costs, with what is left: `1 Soul Fragment (2 left)`.
+    pub cost: Option<String>,
+    pub note: Option<String>,
+}
+
+/// What the character is, senses, moves by and withstands, beyond the
+/// numbers: the species' data and the rules'.
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct Traits {
+    pub creature_type: Option<String>,
+    /// `fly 30 ft.`
+    pub speeds: Vec<String>,
+    /// `darkvision 60 ft.`
+    pub senses: Vec<String>,
+    pub resistances: Vec<String>,
+    pub immunities: Vec<String>,
+    pub vulnerabilities: Vec<String>,
+    pub condition_immunities: Vec<String>,
+    pub tools: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct AttackRow {
     pub slug: String,
     pub name: String,
@@ -200,6 +230,9 @@ pub struct Overview {
     pub held: Vec<String>,
     pub attacks: Vec<AttackRow>,
     pub riders: Vec<Rider>,
+    /// Actions the rules give.
+    pub actions: Vec<ActionRow>,
+    pub traits: Traits,
 }
 
 pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
@@ -432,7 +465,81 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
         held,
         attacks,
         riders,
+        actions: actions(s),
+        traits: traits(s),
     }
+}
+
+/// The actions the rules give, with their numbers.
+pub fn actions(s: &CharacterSession) -> Vec<ActionRow> {
+    let ev = &s.ev;
+    s.build
+        .actions
+        .iter()
+        .map(|(a, origin)| {
+            let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
+            let what = if a.attack.is_some() {
+                format!("{} to hit", signed(ev, &key("attack")))
+            } else if let Some(ab) = &a.save {
+                let name = ABILITIES.iter().find(|(k, _)| k == ab).map_or(ab.as_str(), |(_, n)| n);
+                format!("DC {} {name}", ev.int(&key("dc")).unwrap_or(0))
+            } else if let Some(n) = ev.int(&key("temp_hp")) {
+                format!("{n} temporary hit points")
+            } else {
+                String::new()
+            };
+            let mut dice = Vec::new();
+            if let Some(d) = ev.get(&key("damage")) {
+                dice.push(format!("{d}{}", a.damage_type.as_deref().map_or(String::new(), |t| format!(" {t}"))));
+            }
+            if let Some(d) = ev.get(&key("heal")) {
+                dice.push(format!("heals {d}"));
+            }
+            let cost = a.resource.as_ref().map(|k| {
+                let name = s.build.resources.iter().find(|(r, _)| &r.key == k).map_or(k.clone(), |(r, _)| r.name.clone());
+                format!("{} {name} ({} left)", a.cost, play::resource_left(s.character(), ev, k))
+            });
+            ActionRow { name: a.name.clone(), origin: origin.clone(), what, dice: dice.join(", "), cost, note: a.note.clone() }
+        })
+        .collect()
+}
+
+/// The traits: the stats (senses, speeds, creature type) that are set,
+/// and the defenses in force, each named once.
+pub fn traits(s: &CharacterSession) -> Traits {
+    let ev = &s.ev;
+    let ranged = |prefix: &str, kinds: &[&str]| -> Vec<String> {
+        kinds.iter().filter_map(|k| ev.int(&format!("{prefix}.{k}")).filter(|n| *n > 0).map(|n| format!("{k} {n} ft."))).collect()
+    };
+    let mut t = Traits {
+        creature_type: match ev.get("creature_type") {
+            Some(Value::Str(k)) if !k.is_empty() => Some(k.clone()),
+            _ => None,
+        },
+        speeds: ranged("speed", &["fly", "swim", "climb", "burrow"]),
+        senses: ranged("sense", &["darkvision", "blindsight", "tremorsense", "truesight"]),
+        ..Traits::default()
+    };
+    let add = |list: &mut Vec<String>, items: &[String]| {
+        for i in items {
+            if !list.contains(i) {
+                list.push(i.clone());
+            }
+        }
+    };
+    for (i, (d, _)) in s.build.defenses.iter().enumerate() {
+        if d.when.is_some() && ev.get(&format!("defense.{i}.on")) != Some(&Value::Bool(true)) {
+            continue;
+        }
+        add(&mut t.resistances, &d.resist);
+        add(&mut t.immunities, &d.immune);
+        add(&mut t.vulnerabilities, &d.vulnerable);
+        add(&mut t.condition_immunities, &d.conditions);
+    }
+    let tools: Vec<String> =
+        s.character().proficiencies.tools.iter().cloned().chain(s.build.tools.iter().map(|(t, _)| t.clone())).collect();
+    add(&mut t.tools, &tools);
+    t
 }
 
 /// Every condition the character can have (from the books in use, and

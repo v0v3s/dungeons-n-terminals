@@ -238,12 +238,12 @@
                   "description": "What it is called, and what the character file keeps it under; the rule's name if missing."
                 },
                 "pick": {
-                  "enum": ["ability_increase", "feat", "expertise", "weapon_mastery"],
-                  "description": "Ability scores to increase (or a feat instead), a feat, skills to gain Expertise in, or weapons to master."
+                  "enum": ["ability_increase", "feat", "expertise", "weapon_mastery", "option"],
+                  "description": "Ability scores to increase (or a feat instead), a feat, skills to gain Expertise in, weapons to master, or one of the rule's options (formulas know it as choice.<key>)."
                 },
                 "count": {
                   "type": "string",
-                  "description": "Formula (expertise, weapon_mastery): how many the feature gives in all at a class level; the class table's columns are at that level."
+                  "description": "Formula (expertise, weapon_mastery; option, 1 without): how many the feature gives in all at a class level; the class table's columns are at that level."
                 },
                 "feats": {
                   "type": "array",
@@ -251,6 +251,14 @@
                     "type": "string"
                   },
                   "description": "ability_increase, feat: the feat categories offered (the data's, e.g. G, EB); feats without a category always are."
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "description": "option: what it offers."
                 }
               },
               "allOf": [
@@ -265,8 +273,33 @@
                   "then": {
                     "required": ["count"],
                     "not": { "required": ["feats"] }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "pick": {
+                        "const": "option"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["options"],
+                    "not": { "required": ["feats"] }
                   },
                   "else": {
+                    "not": { "required": ["options"] }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "pick": {
+                        "enum": ["ability_increase", "feat"]
+                      }
+                    }
+                  },
+                  "then": {
                     "not": { "required": ["count"] }
                   }
                 }
@@ -304,6 +337,137 @@
                 "note": {
                   "type": "string",
                   "description": "Why, shown with a fail."
+                }
+              }
+            }
+          },
+          "action": {
+            "type": "array",
+            "description": "Actions of its own, listed with the attacks.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "attack": {
+                  "type": "string",
+                  "description": "Formula: the attack bonus, for an attack roll."
+                },
+                "save": {
+                  "enum": ["str", "dex", "con", "int", "wis", "cha"],
+                  "description": "The ability of the target's save (with dc)."
+                },
+                "dc": {
+                  "type": "string",
+                  "description": "Formula: the save's DC."
+                },
+                "damage": {
+                  "type": "string",
+                  "description": "Formula of dice: dice(2, 6) + mod.con."
+                },
+                "damage_type": {
+                  "type": "string"
+                },
+                "heal": {
+                  "type": "string",
+                  "description": "Formula of dice: the healing."
+                },
+                "temp_hp": {
+                  "type": "string",
+                  "description": "Formula: temporary hit points the character gains."
+                },
+                "resource": {
+                  "type": "string",
+                  "description": "The key of the resource a use takes."
+                },
+                "cost": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Uses of the resource it takes (1 without)."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Shown with the action and its roll."
+                }
+              },
+              "dependentRequired": {
+                "save": ["dc"],
+                "dc": ["save"],
+                "cost": ["resource"]
+              }
+            }
+          },
+          "defense": {
+            "type": "array",
+            "description": "Damage and conditions it defends against.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "resist": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Damage types resisted (all for every one)."
+                },
+                "immune": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Damage types it is immune to."
+                },
+                "vulnerable": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Damage types it is vulnerable to."
+                },
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Conditions it is immune to."
+                },
+                "when": {
+                  "type": "string",
+                  "description": "Formula: while this holds."
+                }
+              }
+            }
+          },
+          "proficiency": {
+            "type": "array",
+            "description": "Proficiencies it gives.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Skill keys (sleight_of_hand)."
+                },
+                "saves": {
+                  "type": "array",
+                  "items": {
+                    "enum": ["str", "dex", "con", "int", "wis", "cha"]
+                  },
+                  "description": "Saves, by ability."
+                },
+                "tools": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }

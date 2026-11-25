@@ -239,6 +239,8 @@ test("a class made from another offers its subclasses too", { tag: "@levelup.sub
   for (const name of ["The Grove", "The Lantern", "The Tide"]) await expect(dialog(page, "Level up")).toContainText(name);
   await pick(page, ["The Tide"]);
   await pick(page, ["Average"]);
+  // The Tide's two spell lists: one to choose.
+  await pick(page, ["Flow"]);
   await apply(page);
   await expect(identity(page)).toContainText("Runebinder 1");
   await expect(page.getByRole("button", { name: "Warnings" })).toHaveCount(0);

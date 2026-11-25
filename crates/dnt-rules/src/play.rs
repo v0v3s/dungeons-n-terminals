@@ -372,6 +372,9 @@ mod tests {
             attack_rules: Default::default(),
             roll_rules: Vec::new(),
             conditions: Vec::new(),
+            actions: Vec::new(),
+            defenses: Vec::new(),
+            tools: Vec::new(),
             warnings: Vec::new(),
         };
         let ev = build.evaluate();

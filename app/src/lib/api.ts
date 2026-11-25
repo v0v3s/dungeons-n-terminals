@@ -304,6 +304,34 @@ export interface Overview {
   held: string[];
   attacks: AttackRow[];
   riders: { value: string; name: string; when: string }[];
+  /** Actions the rules give. */
+  actions: ActionRow[];
+  traits: Traits;
+}
+
+export interface ActionRow {
+  name: string;
+  /** The rule it comes from. */
+  origin: string;
+  /** `+5 to hit`, `DC 13 Constitution`, `7 temporary hit points`. */
+  what: string;
+  /** `2d6 cold`, `heals 1d8 + 3`. */
+  dice: string;
+  /** What a use costs, with what is left. */
+  cost: string | null;
+  note: string | null;
+}
+
+/** What the character is, senses, moves by and withstands. */
+export interface Traits {
+  creature_type: string | null;
+  speeds: string[];
+  senses: string[];
+  resistances: string[];
+  immunities: string[];
+  vulnerabilities: string[];
+  condition_immunities: string[];
+  tools: string[];
 }
 
 export interface Feature {
