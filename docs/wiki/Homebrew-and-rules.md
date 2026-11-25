@@ -34,6 +34,20 @@ Targets include `ac`, `speed`, `hp.max`, `initiative`, `save.dex`,
 effects `add`, `set`, `max`, `min` or `mul`, with an optional `when`.
 A toggle (`[[feature.toggle]]`) turns effects on and off from the sheet.
 
+Rules grant spells too: a spell, or a choice of spells (by the data's
+filter), always prepared, known, or cast free. A free cast is `uses`
+times a day, at will without `uses`, or paid with a `resource`.
+
+```toml
+[[feature]]
+id = "classFeature:Mystic Arcanum|Warlock|XPHB|11"
+
+[[feature.spell]]
+choose = "level=6|class=Warlock"       # or: spell = "spell:Fireball|XPHB"
+grant = "free"                         # prepared, known or free
+uses = 1                               # or: resource = "Soul Fragment"
+```
+
 A class's features are its own. A book's class made from another (its
 version of the Barbarian, say) shares that class's features, but not
 its rules: it has rules of its own, which name it.

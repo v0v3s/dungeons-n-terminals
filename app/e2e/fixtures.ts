@@ -39,7 +39,7 @@ export async function useTestRulesLibrary(page: Page) {
 /// Wren, a level 1 Runebinder (the invented class made from the Hexer):
 /// always prepared Shield with a free cast, Jump for a Binding. With
 /// `rules`, the Runebinder's own rules for Hexer Patron: Bindings to spend.
-export async function wren(page: Page, rules: boolean) {
+export async function wren(page: Page, rules: boolean, gifts = false) {
   await invoke(page, "e2e_put_file", {
     path: "characters/wren.toml",
     text:
@@ -53,6 +53,17 @@ export async function wren(page: Page, rules: boolean) {
       text:
         '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\nclass = "Runebinder|TST"\n' +
         '[[feature.resource]]\nkey = "bindings"\nname = "Bindings"\nmax = "level(\'Runebinder\') + 1"\nrecharge = "long_rest"\n',
+    });
+  }
+  // A rule that grants spells: a cantrip, and a level 1 Wizard spell to
+  // choose, cast free once a day.
+  if (gifts) {
+    await invoke(page, "e2e_put_file", {
+      path: "overlays/gifts.toml",
+      text:
+        '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\nclass = "Runebinder|TST"\nname = "Patron\'s Gifts"\n' +
+        '[[feature.spell]]\nspell = "spell:Light|SRD52"\ngrant = "known"\n' +
+        '[[feature.spell]]\nchoose = "level=1|class=Wizard"\ngrant = "free"\nuses = 1\n',
     });
   }
 }
@@ -138,24 +149,54 @@ async function seed(page: Page, what: Seed) {
   await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
 }
 
+/// Reach the app's page: connect to its WebView and wait for the page and
+/// its frontend, each in a time of its own. A step that does not finish
+/// (a page that came before Playwright listened for it, on a phone just
+/// installed) starts over, a few times, and the error says which it was.
+async function reach() {
+  let last = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    // On a computer, each try starts the app: the last one goes first.
+    if (attempt > 1 && TARGET === "windows") windows.stop();
+    const endpoint = TARGET === "windows" ? await windows.connect() : await android.connect();
+    // An Android WebView has no browser contexts to manage: Playwright's
+    // defaults for the context (downloads, emulation) are left alone.
+    const browser = await chromium.connectOverCDP(endpoint, { noDefaults: TARGET === "android", timeout: 60_000 }).catch((e) => {
+      last = `connecting to the WebView: ${e}`;
+      return null;
+    });
+    if (!browser) continue;
+    // The WebView's page may come a moment after its DevTools port.
+    const context = browser.contexts()[0];
+    const page = context.pages()[0] ?? (await context.waitForEvent("page", { timeout: 30_000 }).catch(() => null));
+    if (!page) {
+      last = "the WebView has no page";
+      await browser.close();
+      continue;
+    }
+    // The frontend is up when it can call the app.
+    const up = await page
+      .waitForFunction(() => (window as any).__TAURI_INTERNALS__, null, { timeout: 60_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (up) return { browser, page };
+    last = "the page never reached the app";
+    await browser.close();
+  }
+  throw new Error(`The app could not be reached (${last})`);
+}
+
 export const test = base.extend<{ page: Page; seed: Seed }, { app: Page }>({
   seed: ["party", { option: true }],
   app: [
     async ({}, use) => {
-      const endpoint = TARGET === "windows" ? await windows.connect() : await android.connect();
-      // An Android WebView has no browser contexts to manage: Playwright's
-      // defaults for the context (downloads, emulation) are left alone.
-      const browser = await chromium.connectOverCDP(endpoint, { noDefaults: TARGET === "android" });
-      // The WebView's page may come a moment after its DevTools port.
-      const context = browser.contexts()[0];
-      const page = context.pages()[0] ?? (await context.waitForEvent("page"));
+      const { browser, page } = await reach();
+      const context = page.context();
       // A test that does not answer the file dialogs cancels them: the
       // system's own would stop the run (fakeFilePicker answers them).
       await context.addInitScript(() => ((window as any).dntE2eFiles = { open: null, save: null }));
       // Links out are caught, not opened in a browser (opened() reads them).
       await context.addInitScript(() => ((window as any).dntE2eLinks = []));
-      // The frontend is up when it can call the app.
-      await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
       await use(page);
       await browser.close();
       if (TARGET === "windows") windows.stop();

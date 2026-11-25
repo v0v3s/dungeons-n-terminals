@@ -314,3 +314,19 @@ fn a_spell_cast_with_a_resource_spends_it() {
     t.send(BACKTAB).send(BACKTAB).wait("Bindings");
     assert!(t.line("Bindings").contains("1/2"), "{}", t.screen());
 }
+
+#[test]
+fn a_rule_grants_a_spell_and_a_choice_of_spells() {
+    let mut t = Tui::scenario("rules.grant-spells", crate::steps::with_gifts(crate::steps::with_wren(false)));
+    wren_spells(&mut t);
+    t.wait("Patron's Gifts").wait("◆ Light");
+    let s = t.screen();
+    let group = s.find("Patron's Gifts").unwrap();
+    assert!(s[group..].contains("◆ Light"), "{s}");
+    // The choice is the last row.
+    t.wait("+ choose 1 Wizard spell (level 1)");
+    t.send("G").send(ENTER).wait("Choose 1 Wizard");
+    t.typed("sleep").send(" ").send(ENTER).wait("Added Sleep");
+    // Chosen, it is cast free once a day.
+    assert!(t.line("◆ Sleep").contains("1/1 free"), "{}", t.screen());
+}

@@ -471,6 +471,22 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     };
     features.sort_by_key(|f| (rank(f.source), f.level));
 
+    // A feature's rules. A class's feature has the rules of the class it
+    // came with.
+    let rules_for = |f: &ActiveFeature| {
+        let e = lib.entity(f.entity);
+        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
+            .then(|| format!("{}|{}", str_of(&e.data, "className").unwrap_or(""), str_of(&e.data, "classSource").unwrap_or("")));
+        let through = match f.source {
+            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => {
+                let c = lib.entity(classes[ci].entity);
+                Some(format!("{}|{}", c.name, c.source))
+            }
+            _ => None,
+        };
+        overlays.for_feature(&e.key, own.as_deref(), through.as_deref())
+    };
+
     // ---- spells granted by features ----
     let mut granted = Vec::new();
     // Classes (Favored Enemy's Hunter's Mark) and subclasses at their
@@ -514,29 +530,13 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
         }
     }
-    // Mystic Arcanum (Warlock 11, 13, 15, 17): a level 6–9 Warlock spell
-    // each, cast once per long rest without a slot.
-    let mut arcana: Vec<i64> = features
-        .iter()
-        .map(|f| lib.entity(f.entity))
-        .filter(|e| e.kind == Kind::ClassFeature && e.name.starts_with("Mystic Arcanum"))
-        .filter(|e| e.data.get("className").and_then(Json::as_str) == Some("Warlock"))
-        .filter_map(|e| e.data.get("level").and_then(Json::as_i64))
-        .filter(|l| *l >= 11)
-        .map(|l| 6 + (l - 11) / 2)
-        .collect();
-    arcana.sort();
-    arcana.dedup();
-    if !arcana.is_empty() {
-        let grants = arcana
-            .iter()
-            .map(|lvl| spells::Granted::Choice {
-                filter: format!("level={lvl}|class=Warlock"),
-                count: 1,
-                grant: spells::Grant::Innate(Some(1)),
-            })
-            .collect();
-        sets.push(("Mystic Arcanum".into(), "classFeature:Mystic Arcanum|Warlock".into(), grants));
+    // Spells the rules grant (Mystic Arcanum's spells).
+    for f in &features {
+        for o in rules_for(f) {
+            if !o.spells.is_empty() {
+                sets.push((o.name.clone(), o.ident(), o.spells.clone()));
+            }
+        }
     }
     let mut innate: Vec<(Resource, String)> = Vec::new();
     for (origin, key, grants) in sets {
@@ -582,18 +582,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     let mut resources = innate;
     let mut toggles = Vec::new();
     for f in &features {
-        // A class's feature has the rules of the class it came with.
-        let e = lib.entity(f.entity);
-        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
-            .then(|| format!("{}|{}", str_of(&e.data, "className").unwrap_or(""), str_of(&e.data, "classSource").unwrap_or("")));
-        let through = match f.source {
-            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => {
-                let c = lib.entity(classes[ci].entity);
-                Some(format!("{}|{}", c.name, c.source))
-            }
-            _ => None,
-        };
-        for o in overlays.for_feature(&e.key, own.as_deref(), through.as_deref()) {
+        for o in rules_for(f) {
             o.apply(&mut model);
             resources.extend(o.resources.iter().map(|r| (r.clone(), o.name.clone())));
             toggles.extend(o.toggles.iter().map(|t| (t.clone(), o.name.clone())));
@@ -859,23 +848,51 @@ mod tests {
     }
 
     #[test]
-    fn mystic_arcanum() {
+    fn rules_grant_spells() {
         let lib = library();
+        let rules = |text: &str| {
+            let mut set = OverlaySet::default();
+            set.add(Overlay::parse(text).unwrap().0);
+            set
+        };
+        let set = rules(
+            r#"
+            [[feature]]
+            id = "classFeature:Mystic Arcanum|Warlock|T|11"
+            name = "Arcanum 6"
+            [[feature.spell]]
+            choose = "level=6|class=Warlock"
+            grant = "free"
+            uses = 1
+
+            [[feature]]
+            id = "classFeature:Mystic Arcanum|Warlock|T|13"
+            name = "Arcanum 7"
+            [[feature.spell]]
+            choose = "level=7|class=Warlock"
+            grant = "free"
+            uses = 1
+            [[feature.spell]]
+            spell = "spell:Eyebite|T"
+            grant = "known"
+            "#,
+        );
         let mut c = character(&["Warlock"; 12]);
-        let b = build(&c, &lib, &OverlaySet::default());
-        let arcanum = b.granted.iter().find(|g| g.origin == "Mystic Arcanum").expect("level 11 arcanum");
+        let b = build(&c, &lib, &set);
+        let arcanum = b.granted.iter().find(|g| g.origin == "Arcanum 6").expect("the level 11 feature's spells");
         assert_eq!(arcanum.grants.len(), 1);
         assert!(
             matches!(&arcanum.grants[0], spells::Granted::Choice { filter, grant: spells::Grant::Innate(Some(1)), .. } if filter == "level=6|class=Warlock")
         );
-        // A chosen arcanum is a free cast per long rest.
+        assert!(b.granted.iter().all(|g| g.origin != "Arcanum 7"), "not before its level");
+        // A spell chosen for a free cast per long rest is a resource.
         c.spells.chosen.insert(format!("{}#0", arcanum.key), vec!["spell:Eyebite|T".into()]);
-        let b = build(&c, &lib, &OverlaySet::default());
+        let b = build(&c, &lib, &set);
         assert!(b.resources.iter().any(|(r, _)| r.key == "innate_eyebite"));
-        let c = character(&["Warlock"; 13]);
-        let b = build(&c, &lib, &OverlaySet::default());
-        assert_eq!(b.granted.iter().find(|g| g.origin == "Mystic Arcanum").unwrap().grants.len(), 2);
-        assert!(build(&character(&["Warlock"; 3]), &lib, &OverlaySet::default()).granted.iter().all(|g| g.origin != "Mystic Arcanum"));
+        let b = build(&character(&["Warlock"; 13]), &lib, &set);
+        let seven = b.granted.iter().find(|g| g.origin == "Arcanum 7").unwrap();
+        assert!(matches!(&seven.grants[1], spells::Granted::Spell { id, grant: spells::Grant::Known } if id == "spell:eyebite|t"));
+        assert!(build(&character(&["Warlock"; 13]), &lib, &OverlaySet::default()).granted.is_empty(), "no rules, no spells");
     }
 
     #[test]

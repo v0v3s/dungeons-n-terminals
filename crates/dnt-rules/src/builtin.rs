@@ -3,7 +3,8 @@
 use crate::overlay::{Diagnostic, Overlay, OverlaySet};
 
 /// (file name, contents) of every built-in overlay.
-pub const FILES: &[(&str, &str)] = &[("xphb.toml", include_str!("../overlays/xphb.toml"))];
+pub const FILES: &[(&str, &str)] =
+    &[("xphb.toml", include_str!("../overlays/xphb.toml")), ("srd.toml", include_str!("../overlays/srd.toml"))];
 
 /// Parse all built-in overlays. Diagnostics indicate a bug in dnt itself.
 pub fn overlays() -> (OverlaySet, Vec<Diagnostic>) {

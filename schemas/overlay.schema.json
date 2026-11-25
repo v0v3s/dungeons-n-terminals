@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/overlay.schema.json",
   "title": "dnt rules (overlay) file",
-  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles and effects to characters that have it. Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
+  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles, effects and spells to characters that have it. Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
   "type": "object",
   "properties": {
     "feature": {
@@ -12,8 +12,19 @@
         "required": ["id"],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`." },
-          "name": { "type": "string", "description": "Shown as the origin of effects; the entity's name if missing." },
+          "id": {
+            "type": "string",
+            "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Shown as the origin of effects; the entity's name if missing."
+          },
+          "class": {
+            "type": "string",
+            "pattern": "^[^|]+\\|[^|]+$",
+            "description": "For a class's feature: the class these rules are for (`Shaman|WoW`), when another class than the one the feature names has it."
+          },
           "resource": {
             "type": "array",
             "items": {
@@ -21,11 +32,24 @@
               "required": ["key", "name", "max", "recharge"],
               "additionalProperties": false,
               "properties": {
-                "key": { "type": "string", "pattern": "^[a-z0-9_]+$" },
-                "name": { "type": "string" },
-                "max": { "type": "string", "description": "Formula." },
-                "recharge": { "enum": ["short_rest", "long_rest", "dawn", "manual"] },
-                "short_rest_regain": { "type": "string", "description": "Formula: how many come back on a short rest (for long-rest resources)." }
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]+$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "max": {
+                  "type": "string",
+                  "description": "Formula."
+                },
+                "recharge": {
+                  "enum": ["short_rest", "long_rest", "dawn", "manual"]
+                },
+                "short_rest_regain": {
+                  "type": "string",
+                  "description": "Formula: how many come back on a short rest (for long-rest resources)."
+                }
               }
             }
           },
@@ -35,7 +59,15 @@
               "type": "object",
               "required": ["key", "name"],
               "additionalProperties": false,
-              "properties": { "key": { "type": "string", "pattern": "^[a-z0-9_]+$" }, "name": { "type": "string" } }
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]+$"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
             }
           },
           "effect": {
@@ -46,14 +78,33 @@
               "additionalProperties": false,
               "minProperties": 2,
               "properties": {
-                "target": { "type": "string", "description": "A stat: ac, speed, hp.max, initiative, save.dex, skill.stealth, attack.bonus, attack.damage, attack.melee.damage, attack.ranged.bonus, attack.one_handed.damage, attack.strength.damage, attack.heavy.damage, attack.unarmed.damage, attack.offhand.full_mod, rider.<key>, resource.<key>.max, …" },
-                "add": { "type": "string" },
-                "set": { "type": "string" },
-                "max": { "type": "string" },
-                "min": { "type": "string" },
-                "mul": { "type": "string" },
-                "when": { "type": "string", "description": "Formula that must be true, e.g. `toggle('raging')`." },
-                "origin": { "type": "string", "description": "Shown in breakdowns; for riders, `Name: when it applies`." }
+                "target": {
+                  "type": "string",
+                  "description": "A stat: ac, speed, hp.max, initiative, save.dex, skill.stealth, attack.bonus, attack.damage, attack.melee.damage, attack.ranged.bonus, attack.one_handed.damage, attack.strength.damage, attack.heavy.damage, attack.unarmed.damage, attack.offhand.full_mod, rider.<key>, resource.<key>.max, …"
+                },
+                "add": {
+                  "type": "string"
+                },
+                "set": {
+                  "type": "string"
+                },
+                "max": {
+                  "type": "string"
+                },
+                "min": {
+                  "type": "string"
+                },
+                "mul": {
+                  "type": "string"
+                },
+                "when": {
+                  "type": "string",
+                  "description": "Formula that must be true, e.g. `toggle('raging')`."
+                },
+                "origin": {
+                  "type": "string",
+                  "description": "Shown in breakdowns; for riders, `Name: when it applies`."
+                }
               },
               "oneOf": [
                 { "required": ["add"] },
@@ -62,6 +113,53 @@
                 { "required": ["min"] },
                 { "required": ["mul"] }
               ]
+            }
+          },
+          "spell": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["grant"],
+              "additionalProperties": false,
+              "properties": {
+                "spell": {
+                  "type": "string",
+                  "pattern": "^spell:",
+                  "description": "A spell, e.g. `spell:Find Familiar|XPHB`."
+                },
+                "choose": {
+                  "type": "string",
+                  "description": "A choice of spells: the data format's filter, e.g. `level=0|class=Wizard`."
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "How many to choose (1 if missing)."
+                },
+                "grant": {
+                  "enum": ["prepared", "known", "free"],
+                  "description": "Always prepared, known, or cast without a slot."
+                },
+                "uses": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "A free cast: casts per long rest (at will if missing)."
+                },
+                "resource": {
+                  "type": "string",
+                  "description": "A free cast paid with a resource, by its name, e.g. `Soul Fragment`."
+                },
+                "cost": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "What a cast takes of the resource (1 if missing)."
+                }
+              },
+              "oneOf": [
+                { "required": ["spell"] },
+                { "required": ["choose"] }
+              ],
+              "not": { "required": ["uses", "resource"] }
             }
           }
         }
