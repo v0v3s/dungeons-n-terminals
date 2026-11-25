@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/overlay.schema.json",
   "title": "dnt rules (overlay) file",
-  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles, effects and spells to characters that have it. Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
+  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles, effects, spells, and rules for attacks, rolls and choices to characters that have it (a condition's, while they have it). Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
   "type": "object",
   "properties": {
     "feature": {
@@ -272,7 +272,65 @@
                 }
               ]
             }
+          },
+          "summary": {
+            "type": "string",
+            "description": "What it does, in a line (shown with a condition)."
+          },
+          "levels": {
+            "type": "array",
+            "description": "A condition had at a level (Exhaustion): what each level does, in a line. Its formulas have the level as exhaustion.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "roll": {
+            "type": "array",
+            "description": "How it changes rolls.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["rolls", "mode"],
+              "properties": {
+                "rolls": {
+                  "type": "string",
+                  "description": "Formula: which rolls (roll.attack, roll.check, roll.save, roll.initiative, roll.str … roll.cha, exhaustion)."
+                },
+                "mode": {
+                  "enum": ["advantage", "disadvantage", "fail"],
+                  "description": "Advantage, Disadvantage, or a fail without rolling."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Why, shown with a fail."
+                }
+              }
+            }
           }
+        }
+      }
+    },
+    "multiclass": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The multiclassing tables (the last file's that has one).",
+      "properties": {
+        "slots": {
+          "type": "array",
+          "description": "Spell slots of levels 1–9 per combined caster level, from 1: a row per level, e.g. [4, 3, 2].",
+          "items": {
+            "type": "array",
+            "maxItems": 9,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "primary_score": {
+          "type": "integer",
+          "description": "The score a class's primary ability needs to multiclass, when the class lists no requirements."
         }
       }
     }

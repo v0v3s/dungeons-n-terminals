@@ -489,7 +489,7 @@ fn weapon_attack(
     let mut notes = Vec::new();
 
     // Attack bonus: ability + proficiency + magic + features.
-    model.stats.push(StatDef::new(&key("bonus"), &key("mod"), label));
+    model.stats.push(StatDef::new(&key("bonus"), &format!("{} + d20.bonus", key("mod")), label));
     if proficient {
         let what = w.category.as_deref().map(|c| format!("proficiency ({c} weapons)")).unwrap_or_else(|| "proficiency".into());
         model.effects.push(effect(&key("bonus"), "prof", &what));
@@ -611,7 +611,7 @@ fn damage_dice(model: &Model, dice: &str, die: Option<&(Formula, String)>, origi
 /// bludgeoning (Martial Arts and similar overlays change `attack.unarmed.*`).
 fn unarmed(model: &mut Model) -> Attack {
     model.stats.push(StatDef::new("attack.unarmed.mod", "mod.str", "Strength"));
-    model.stats.push(StatDef::new("attack.unarmed.bonus", "attack.unarmed.mod", "Strength"));
+    model.stats.push(StatDef::new("attack.unarmed.bonus", "attack.unarmed.mod + d20.bonus", "Strength"));
     model.effects.push(effect("attack.unarmed.bonus", "prof", "proficiency (unarmed strike)"));
     model.stats.push(StatDef::new("attack.unarmed.damage", "1 + attack.unarmed.mod", "1 + Strength"));
     copy_group_effects(model, &["attack", "attack.melee"], "bonus", "attack.unarmed.bonus");

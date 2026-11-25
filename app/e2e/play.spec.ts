@@ -282,6 +282,26 @@ test("concentration on a spell is ended from the overview", { tag: "@concentrati
   await expect(conc).toHaveCount(0);
 });
 
+test("a rule says what a condition does", { tag: "@rules.conditions" }, async ({ page }) => {
+  // Charmed, as a rules file of the player's says: slower, and unsure.
+  await invoke(page, "e2e_put_file", {
+    path: "overlays/charmed.toml",
+    text: '[[feature]]\nid = "condition:Charmed|SRD52"\nsummary = "Dazed and slow"\n[[feature.effect]]\ntarget = "speed"\nadd = "-10"\n[[feature.roll]]\nrolls = "roll.check"\nmode = "disadvantage"\n',
+  });
+  await openSheet(page);
+  await chip(page).getByRole("button", { name: "No conditions" }).click();
+  const conditions = dialog(page, "Conditions");
+  const charmed = conditions.locator("button.cond", { hasText: "Charmed" });
+  await expect(charmed).toContainText("Dazed and slow");
+  await charmed.click();
+  await expect(conditions.locator("button.cond.on")).toHaveText(/Charmed/);
+  await page.keyboard.press("Escape");
+  await expect(tile(page, "Speed")).toContainText("20");
+  // Initiative is a Dexterity check.
+  await tile(page, "Init").click();
+  await expect(roll(page)).toContainText("disadvantage (Charmed)");
+});
+
 test("a rule changes the attacks with the weapons it picks", { tag: "@rules.attacks" }, async ({ page }) => {
   // Light weapons: a d8, when it is better, and a note.
   await invoke(page, "e2e_put_file", {

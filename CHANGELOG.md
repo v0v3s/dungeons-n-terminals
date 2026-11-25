@@ -20,6 +20,14 @@ become the release page.
   weapons to master (how many by a formula of the class table's columns).
 - A rule's id can have a `*` part, naming every entity with anything
   there (`classFeature:Ability Score Improvement|*|*|*`).
+- Rules change rolls (`[[feature.roll]]`): advantage, disadvantage or a
+  fail without rolling, for the rolls a filter picks (`roll.attack`,
+  `roll.save and roll.dex`, …). A rule for a condition applies while the
+  character has it, with a `summary`; a condition with `levels`
+  (Exhaustion) says what each level does.
+- `d20.bonus`, added to every d20 test, for rules to change.
+- A rules file's `[multiclass]` table: the multiclass spellcaster's slots
+  and the score a primary ability needs to multiclass.
 
 ### Changed
 
@@ -30,7 +38,11 @@ become the release page.
 - Ability Score Improvement, Epic Boon, Expertise and Weapon Mastery are
   rules now too. A class made from another (a book's version of a class)
   asks for them through its own rules.
-- The rules file schema has `attack`, `offhand` and `choice`.
+- Conditions are the books' (the SRD's 15, a book's own too), and what
+  they do is dnt's built-in rules for them; the multiclass spellcaster's
+  table is a rule too.
+- The rules file schema has `attack`, `offhand`, `choice`, `summary`,
+  `levels`, `roll` and `multiclass`.
 
 ## v1.11.0 - 2026-11-24
 

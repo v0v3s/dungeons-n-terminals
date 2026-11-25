@@ -52,7 +52,7 @@ pub struct LevelUp {
 
 impl LevelUp {
     pub fn start(lib: &Library, rules: &OverlaySet, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> LevelUp {
-        let items = levelup::class_options(lib, c, ev, filter)
+        let items = levelup::class_options(lib, rules, c, ev, filter)
             .into_iter()
             .map(|o| {
                 let label = if o.level > 0 {

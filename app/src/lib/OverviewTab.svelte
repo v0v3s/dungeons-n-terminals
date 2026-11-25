@@ -26,7 +26,7 @@
     return m ? { main: m[1], alt: m[2] } : { main: a.damage, alt: "" };
   }
   /// No conditions and no exhaustion: the chip just says Conditions.
-  const none = $derived(!o.conditions.length && !o.exhaustion);
+  const none = $derived(!o.conditions.length && !(o.exhaustion && o.exhaustion_name));
   const hpColor = $derived(pct <= 25 ? "var(--red)" : pct <= 50 ? "var(--yellow)" : "var(--green)");
   /// Tile labels on a phone, where five fit a row.
   const SHORT: Record<string, string> = {
@@ -240,7 +240,7 @@
 
   <div class="state">
     <button class="chip" class:on={!none} aria-label={none ? "No conditions" : undefined} onclick={onconditions}>
-      {none ? "Conditions" : [...o.conditions.map((c) => c.name), ...(o.exhaustion ? [`Exhaustion ${o.exhaustion}`] : [])].join(" · ")}
+      {none ? "Conditions" : [...o.conditions.map((c) => c.name), ...(o.exhaustion && o.exhaustion_name ? [`${o.exhaustion_name} ${o.exhaustion}`] : [])].join(" · ")}
     </button>
     {#if o.concentration}
       <button class="chip conc" onclick={() => ctx.act({ command: "end_concentration" })}>◎ {o.concentration} ✕</button>
@@ -250,7 +250,7 @@
   </div>
   {#if desktop.current}<RollMode mode={o.next_roll} {ctx} />{/if}
   {#each o.conditions as c (c.name)}<p class="dim small">{c.name}: {c.summary}</p>{/each}
-  {#if o.exhaustion}<p class="dim small">Exhaustion: {o.exhaustion_summary}</p>{/if}
+  {#if o.exhaustion && o.exhaustion_name}<p class="dim small">{o.exhaustion_name}: {o.exhaustion_summary}</p>{/if}
 
   {#if o.rolls.length}
     <!-- The latest rolls, folded away under the numbers: the status line

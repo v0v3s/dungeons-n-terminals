@@ -182,6 +182,10 @@ pub struct Overview {
     pub tiles: Vec<Tile>,
     pub hp: Hp,
     pub conditions: Vec<Condition>,
+    /// The condition had at a level (Exhaustion), if the rules have one:
+    /// its name and how many levels it has.
+    pub exhaustion_name: Option<String>,
+    pub exhaustion_max: i64,
     pub exhaustion: i64,
     pub exhaustion_summary: String,
     pub concentration: Option<String>,
@@ -395,7 +399,8 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             Some(Rider { value: format!("+{v}"), name: name.into(), when: when.into() })
         })
         .collect();
-    let modern = s.edition == play::Edition::Modern;
+    let leveled = conditions::leveled(&build.conditions);
+    let summary = |name: &str| build.conditions.iter().find(|c| c.name.eq_ignore_ascii_case(name)).map_or("", |c| c.summary.as_str());
     Overview {
         abilities,
         casting,
@@ -409,9 +414,11 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             death_failures: st.death_failures,
             dead: st.dead,
         },
-        conditions: st.conditions.iter().map(|c| Condition { name: c.clone(), summary: conditions::summary(c).into() }).collect(),
+        conditions: st.conditions.iter().map(|c| Condition { name: c.clone(), summary: summary(c).into() }).collect(),
+        exhaustion_name: leveled.map(|c| c.name.clone()),
+        exhaustion_max: leveled.map_or(0, |c| c.levels.len() as i64),
         exhaustion: st.exhaustion,
-        exhaustion_summary: conditions::exhaustion_summary(st.exhaustion, modern),
+        exhaustion_summary: leveled.map_or(String::new(), |c| c.at(st.exhaustion).to_string()),
         concentration: st.concentration.clone(),
         rolls: s.roller.log.iter().take(6).cloned().collect(),
         next_roll: format!("{:?}", s.roller.next).to_lowercase(),
@@ -428,17 +435,18 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
     }
 }
 
-/// Every condition, with whether the character has it.
+/// Every condition the character can have (from the books in use, and
+/// those they have), with whether they have it. The one had at a level
+/// is not among them.
 pub fn conditions(s: &CharacterSession) -> Vec<(Condition, bool)> {
     let st = &s.character().state;
-    conditions::CONDITIONS
+    s.build
+        .conditions
         .iter()
-        .map(|c| {
-            (
-                Condition { name: c.to_string(), summary: conditions::summary(c).into() },
-                st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c)),
-            )
-        })
+        .filter(|c| c.levels.is_empty())
+        .map(|c| (c, st.conditions.iter().any(|x| x.eq_ignore_ascii_case(&c.name))))
+        .filter(|(c, had)| *had || s.filter.source_enabled(&c.source))
+        .map(|(c, had)| (Condition { name: c.name.clone(), summary: c.summary.clone() }, had))
         .collect()
 }
 

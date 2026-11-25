@@ -289,6 +289,9 @@ export interface Overview {
   tiles: { key: string; label: string; value: string }[];
   hp: { current: number; max: number; temp: number; death_successes: number; death_failures: number; dead: boolean };
   conditions: Condition[];
+  /** The condition had at a level (Exhaustion), if the rules have one, and its levels. */
+  exhaustion_name: string | null;
+  exhaustion_max: number;
   exhaustion: number;
   exhaustion_summary: string;
   concentration: string | null;

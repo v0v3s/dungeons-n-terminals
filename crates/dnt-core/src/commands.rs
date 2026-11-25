@@ -357,10 +357,13 @@ impl CharacterSession {
                 Outcome::changed(msg)
             }
             Command::SetCondition { condition, on } => {
-                let name = dnt_rules::conditions::CONDITIONS
+                let name = &self
+                    .build
+                    .conditions
                     .iter()
-                    .find(|n| n.eq_ignore_ascii_case(&condition))
-                    .ok_or_else(|| format!("{condition} is not a condition"))?;
+                    .find(|c| c.levels.is_empty() && c.name.eq_ignore_ascii_case(&condition))
+                    .ok_or_else(|| format!("{condition} is not a condition"))?
+                    .name;
                 let had = c.state.conditions.iter().position(|x| x.eq_ignore_ascii_case(name));
                 match (had, on) {
                     (Some(i), false) => {
@@ -372,8 +375,9 @@ impl CharacterSession {
                 Outcome::changed(if on { name.to_string() } else { format!("No longer {name}") })
             }
             Command::SetExhaustion { level } => {
-                c.state.exhaustion = level.clamp(0, 6);
-                Outcome::changed(format!("Exhaustion {}", c.state.exhaustion))
+                let leveled = dnt_rules::conditions::leveled(&self.build.conditions).ok_or("The rules have no condition with levels")?;
+                c.state.exhaustion = level.clamp(0, leveled.levels.len() as i64);
+                Outcome::changed(format!("{} {}", leveled.name, c.state.exhaustion))
             }
             Command::EndConcentration => match c.state.concentration.take() {
                 Some(name) => Outcome::changed(format!("Stopped concentrating on {name}")),
@@ -612,7 +616,8 @@ mod tests {
         lib.load_json(&json!({
             "baseitem": [{"name": "Club", "source": "T", "type": "M|T", "weapon": true, "weaponCategory": "simple", "dmg1": "1d4", "dmgType": "B"}],
             "item": [{"name": "Cloak", "source": "T", "wondrous": true},
-                     {"name": "Sack", "source": "T", "weight": 0.5, "containerCapacity": {"weight": [30]}}]
+                     {"name": "Sack", "source": "T", "weight": 0.5, "containerCapacity": {"weight": [30]}}],
+            "condition": [{"name": "Poisoned", "source": "T"}]
         }));
         let file =
             CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: Character { name: "A".into(), ..Default::default() } };

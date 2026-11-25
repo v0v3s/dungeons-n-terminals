@@ -80,6 +80,49 @@
 //! count = "class.fighter.weapon_mastery"
 //! ```
 //!
+//! A rule can change rolls: for the rolls a filter picks (`roll.attack`,
+//! `roll.check`, `roll.save`, `roll.initiative`, and the ability rolled
+//! with: `roll.str` … `roll.cha`), advantage, disadvantage, or a fail
+//! without rolling (with a note saying why). Rules for a condition apply
+//! while the character has it; a `summary` says what it does in a line:
+//!
+//! ```toml
+//! [[feature]]
+//! id = "condition:Restrained|XPHB"
+//! summary = "Speed 0; Disadvantage on attacks and Dex saves"
+//!
+//! [[feature.effect]]
+//! target = "speed"
+//! min = "0"
+//!
+//! [[feature.roll]]
+//! rolls = "roll.attack or (roll.save and roll.dex)"
+//! mode = "disadvantage"
+//! ```
+//!
+//! A condition with `levels` (Exhaustion) is had at a level, what each
+//! level does in a line; its formulas have the level as `exhaustion`:
+//!
+//! ```toml
+//! [[feature]]
+//! id = "condition:Exhaustion|XPHB"
+//! levels = ["−2 to d20 tests, −5 ft. speed", "…", "death"]
+//!
+//! [[feature.effect]]
+//! target = "d20.bonus"   # every d20 test: saves, checks, attacks
+//! add = "-2 * exhaustion"
+//! ```
+//!
+//! A file's `[multiclass]` table has the multiclass spellcaster's slots
+//! (levels 1–9, per combined caster level) and the score a class's
+//! primary ability needs when its data lists no requirements:
+//!
+//! ```toml
+//! [multiclass]
+//! slots = [[2], [3], [4, 2]]   # …to level 20
+//! primary_score = 13
+//! ```
+//!
 //! An id with a `*` part names every entity that has anything there:
 //! `classFeature:Ability Score Improvement|*|*|*` is every class's.
 //!
@@ -153,6 +196,57 @@ pub struct FeatureOverlay {
     pub offhand: Vec<OffhandRule>,
     /// Choices it asks for when gained.
     pub choices: Vec<ChoiceRule>,
+    /// What it does, in a line (a condition's).
+    pub summary: Option<String>,
+    /// A condition had at a level: what each level does, in a line.
+    pub levels: Vec<String>,
+    /// How it changes rolls.
+    pub rolls: Vec<RollRule>,
+}
+
+/// What a roll rule does to the rolls it picks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RollMode {
+    Advantage,
+    Disadvantage,
+    /// The roll fails without rolling.
+    Fail,
+}
+
+/// How a rule changes rolls: those its filter picks.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RollRule {
+    /// The rule's name.
+    pub origin: String,
+    pub rolls: Formula,
+    pub mode: RollMode,
+    /// Why, shown with the roll (a fail's).
+    pub note: Option<String>,
+}
+
+/// The multiclassing tables of a `[multiclass]` table.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Multiclass {
+    /// Spell slots of levels 1–9 per combined caster level (from 1).
+    pub slots: Vec<Vec<i64>>,
+    /// The score a class's primary ability needs, when its data lists no
+    /// requirements.
+    pub primary_score: Option<i64>,
+}
+
+impl Multiclass {
+    /// Slots for a combined caster level (none at 0; the last row above).
+    pub fn slots_for(&self, caster_level: i64) -> [i64; 9] {
+        let mut out = [0; 9];
+        if caster_level > 0 && !self.slots.is_empty() {
+            if let Some(row) = self.slots.get((caster_level as usize).min(self.slots.len()) - 1) {
+                for (o, n) in out.iter_mut().zip(row) {
+                    *o = *n;
+                }
+            }
+        }
+        out
+    }
 }
 
 /// What a choice picks.
@@ -234,6 +328,15 @@ impl std::fmt::Display for Diagnostic {
 struct RawFile {
     #[serde(default)]
     feature: Vec<RawFeature>,
+    multiclass: Option<RawMulticlass>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawMulticlass {
+    #[serde(default)]
+    slots: Vec<Vec<i64>>,
+    primary_score: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -256,6 +359,19 @@ struct RawFeature {
     offhand: Vec<RawOffhand>,
     #[serde(default)]
     choice: Vec<RawChoice>,
+    summary: Option<String>,
+    #[serde(default)]
+    levels: Vec<String>,
+    #[serde(default)]
+    roll: Vec<RawRoll>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawRoll {
+    rolls: String,
+    mode: String,
+    note: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -333,6 +449,7 @@ struct RawEffect {
 #[derive(Debug, Clone, Default)]
 pub struct Overlay {
     pub features: Vec<FeatureOverlay>,
+    pub multiclass: Option<Multiclass>,
 }
 
 fn valid_key(k: &str) -> bool {
@@ -614,9 +731,60 @@ impl Overlay {
                 choices.push(ChoiceRule { key: c.key.unwrap_or_else(|| name.clone()), pick, count, feats: c.feats });
             }
 
-            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells, attacks, offhand, choices });
+            let mut rolls = Vec::new();
+            for (ri, r) in f.roll.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".roll[{ri}]{field}"));
+                let mode = match r.mode.as_str() {
+                    "advantage" => RollMode::Advantage,
+                    "disadvantage" => RollMode::Disadvantage,
+                    "fail" => RollMode::Fail,
+                    other => {
+                        diags.push(Diagnostic {
+                            location: loc(".mode"),
+                            message: format!("`{other}`: expected `advantage`, `disadvantage` or `fail`"),
+                        });
+                        continue;
+                    }
+                };
+                if let Some(filter) = formula(&r.rolls, loc(".rolls"), &mut diags) {
+                    rolls.push(RollRule { origin: name.clone(), rolls: filter, mode, note: r.note });
+                }
+            }
+
+            if !f.levels.is_empty() && !keys.iter().any(|k| k.kind == Kind::Condition) {
+                diags.push(Diagnostic { location: at(".levels"), message: "only a condition has `levels`".into() });
+                continue;
+            }
+
+            features.push(FeatureOverlay {
+                id: f.id,
+                keys,
+                name,
+                class,
+                resources,
+                toggles,
+                effects,
+                spells,
+                attacks,
+                offhand,
+                choices,
+                summary: f.summary,
+                levels: f.levels,
+                rolls,
+            });
         }
-        Ok((Overlay { features }, diags))
+        let multiclass = match raw.multiclass {
+            Some(m) if m.slots.iter().any(|row| row.len() > 9 || row.iter().any(|n| *n < 0)) => {
+                diags.push(Diagnostic {
+                    location: "multiclass.slots".into(),
+                    message: "a row has up to 9 numbers of slots (levels 1–9), none below 0".into(),
+                });
+                None
+            }
+            Some(m) => Some(Multiclass { slots: m.slots, primary_score: m.primary_score }),
+            None => None,
+        };
+        Ok((Overlay { features, multiclass }, diags))
     }
 
     /// Feature ids that do not exist in the library (likely typos, or a
@@ -637,6 +805,8 @@ pub struct OverlaySet {
     /// Rules whose id has a `*` part (every class's Ability Score
     /// Improvement): checked against each entity.
     patterns: Vec<FeatureOverlay>,
+    /// The last loaded file's `[multiclass]`.
+    pub multiclass: Multiclass,
 }
 
 /// Whether a key has a `*` part.
@@ -653,6 +823,9 @@ pub fn pattern_matches(pattern: &Key, key: &Key) -> bool {
 
 impl OverlaySet {
     pub fn add(&mut self, overlay: Overlay) {
+        if let Some(m) = overlay.multiclass {
+            self.multiclass = m;
+        }
         for f in overlay.features {
             if f.keys.iter().any(is_pattern) {
                 self.patterns.push(f);

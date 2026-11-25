@@ -257,6 +257,32 @@ fn a_rule_changes_attacks() {
 }
 
 #[test]
+fn a_rule_says_what_a_condition_does() {
+    let home = Home::party();
+    let dir = home.store().overlays_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    // Charmed, as a rules file of the player's says: slower, and unsure.
+    std::fs::write(
+        dir.join("charmed.toml"),
+        "[[feature]]\nid = \"condition:Charmed|SRD52\"\nsummary = \"Dazed and slow\"\n[[feature.effect]]\ntarget = \"speed\"\nadd = \"-10\"\n[[feature.roll]]\nrolls = \"roll.check\"\nmode = \"disadvantage\"\n",
+    )
+    .unwrap();
+    let mut t = Tui::scenario("rules.conditions", home);
+    crate::sheet_play::open(&mut t, "Tester");
+    t.send("C").wait("╭ Conditions");
+    assert!(t.line("○ Charmed").contains("Dazed and slow"), "{}", t.screen());
+    t.send("j").send(" ");
+    crate::sheet_play::wait_status(&mut t, "Charmed");
+    t.send(ESC).wait_gone("╭ Conditions");
+    assert_eq!(crate::sheet_play::stat_box(&t, "Speed"), "20");
+    crate::sheet_play::to(&mut t, crate::sheet_play::STRENGTH);
+    t.send("r");
+    crate::sheet_play::wait_status(&mut t, "Strength check: ");
+    let line = crate::sheet_play::status(&t);
+    assert!(line.contains("disadvantage (Charmed)"), "{line}");
+}
+
+#[test]
 fn a_rule_asks_for_a_choice() {
     let home = crate::steps::with_wren(false);
     let dir = home.store().overlays_dir();

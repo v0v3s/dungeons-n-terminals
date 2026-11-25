@@ -597,8 +597,8 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 };
             }
             Popup::Conditions(cursor) => {
-                let names = dnt_rules::conditions::CONDITIONS;
-                let n = names.len() + 1;
+                let names: Vec<String> = dnt_core::sheet::conditions(&sheet.session).into_iter().map(|(c, _)| c.name).collect();
+                let n = names.len() + usize::from(dnt_rules::conditions::leveled(&sheet.session.build.conditions).is_some());
                 let st = &sheet.session.character().state;
                 let command = match key.code {
                     KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('C') => {
@@ -606,7 +606,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         return Action::None;
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        sheet.popup = Some(Popup::Conditions((cursor + 1).min(n - 1)));
+                        sheet.popup = Some(Popup::Conditions((cursor + 1).min(n.saturating_sub(1))));
                         return Action::None;
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
@@ -616,9 +616,9 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     KeyCode::Char('+' | '=') => Command::SetExhaustion { level: st.exhaustion + 1 },
                     KeyCode::Char('-') => Command::SetExhaustion { level: st.exhaustion - 1 },
                     KeyCode::Char(' ') | KeyCode::Enter if cursor < names.len() => {
-                        let c = names[cursor];
+                        let c = &names[cursor];
                         let on = !st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c));
-                        Command::SetCondition { condition: c.to_string(), on }
+                        Command::SetCondition { condition: c.clone(), on }
                     }
                     _ => {
                         sheet.popup = Some(Popup::Conditions(cursor));

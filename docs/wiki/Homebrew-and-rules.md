@@ -93,6 +93,42 @@ pick = "weapon_mastery"
 count = "class.fighter.weapon_mastery" # the table's column, at each level
 ```
 
+A rule changes rolls: for the rolls `rolls` picks (`roll.attack`,
+`roll.check`, `roll.save`, `roll.initiative`, and the ability:
+`roll.str` … `roll.cha`), `advantage`, `disadvantage`, or a `fail`
+without rolling. A condition's rules apply while the character has it,
+with a `summary` in a line; a condition with `levels` (Exhaustion) is had
+at a level, which its formulas know as `exhaustion`. `d20.bonus` is
+added to every d20 test. The conditions are the books', and dnt's rules
+for them are its built-in rules: a rules file of yours can change them.
+
+```toml
+[[feature]]
+id = "condition:Restrained|XPHB"
+summary = "Speed 0; Disadvantage on attacks and Dex saves"
+
+[[feature.effect]]
+target = "speed"
+min = "0"
+
+[[feature.roll]]
+rolls = "roll.attack or (roll.save and roll.dex)"
+mode = "disadvantage"
+
+[[feature]]
+id = "condition:Exhaustion|XPHB"
+levels = ["−2 to d20 tests, −5 ft. speed", "…", "death"]
+
+[[feature.effect]]
+target = "d20.bonus"
+add = "-2 * exhaustion"
+```
+
+A `[multiclass]` table holds the multiclass spellcaster's slots (a row of
+slots of levels 1–9 per combined caster level) and `primary_score`, what
+a class's primary ability needs to multiclass when the class lists no
+requirements.
+
 A class's features are its own. A book's class made from another (its
 version of the Barbarian, say) shares that class's features, but not
 its rules: it has rules of its own, which name it.

@@ -1,48 +1,77 @@
-//! Conditions and exhaustion: what they do to the character's numbers and
-//! to their rolls.
+//! Conditions: the library's, and what their rules (and any feature's)
+//! do to the character's rolls. Their effects on the numbers are the
+//! rules' effects, applied by the builder while the character has them.
 
-use crate::engine::{Effect, Op};
-use crate::formula::Formula;
+use std::collections::HashMap;
+
+use dnt_data::{EntityId, Kind, Library};
+
+use crate::overlay::{OverlaySet, RollMode, RollRule};
 use crate::roll::Advantage;
-use crate::standard::{ABILITIES, SKILLS};
+use crate::standard::ABILITIES;
+use crate::value::Value;
 
-/// The conditions a character can have (Exhaustion is a level instead).
-pub const CONDITIONS: [&str; 14] = [
-    "Blinded",
-    "Charmed",
-    "Deafened",
-    "Frightened",
-    "Grappled",
-    "Incapacitated",
-    "Invisible",
-    "Paralyzed",
-    "Petrified",
-    "Poisoned",
-    "Prone",
-    "Restrained",
-    "Stunned",
-    "Unconscious",
-];
+/// A condition the character can have, as its rules say.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Condition {
+    pub name: String,
+    pub entity: EntityId,
+    /// Its book.
+    pub source: String,
+    /// What it does, in a line.
+    pub summary: String,
+    /// Had at a level (Exhaustion): what each level does, in a line.
+    pub levels: Vec<String>,
+}
 
-/// What a condition means for the character, in a line.
-pub fn summary(condition: &str) -> &'static str {
-    match condition.to_lowercase().as_str() {
-        "blinded" => "Disadvantage on attacks; attacks against you have Advantage; fail sight checks",
-        "charmed" => "Can't attack the charmer; it has Advantage on social checks against you",
-        "deafened" => "Fail checks that need hearing",
-        "frightened" => "Disadvantage on checks and attacks while you see the source; can't move closer",
-        "grappled" => "Speed 0; Disadvantage on attacks against anyone but the grappler",
-        "incapacitated" => "No actions, Bonus Actions or Reactions; no Concentration; Disadvantage on Initiative",
-        "invisible" => "Advantage on attacks and Initiative; attacks against you have Disadvantage",
-        "paralyzed" => "Incapacitated, speed 0, fail Str and Dex saves; hits within 5 ft. are critical",
-        "petrified" => "Incapacitated, speed 0, fail Str and Dex saves; resistance to all damage",
-        "poisoned" => "Disadvantage on attack rolls and ability checks",
-        "prone" => "Disadvantage on attacks; attacks within 5 ft. have Advantage against you",
-        "restrained" => "Speed 0; Disadvantage on attacks and Dex saves",
-        "stunned" => "Incapacitated, fail Str and Dex saves; attacks against you have Advantage",
-        "unconscious" => "Incapacitated, Prone, speed 0, fail Str and Dex saves; hits within 5 ft. are critical",
-        _ => "",
+impl Condition {
+    /// What the condition does at a level (0 for one without levels).
+    pub fn at(&self, level: i64) -> &str {
+        match level {
+            l if l < 1 => &self.summary,
+            l => self.levels.get(l as usize - 1).or(self.levels.last()).map_or("", String::as_str),
+        }
     }
+}
+
+/// Every condition in the library, one per name: of those with a name,
+/// the one from the book of `class` (the starting class), else of its
+/// edition, else the first.
+pub fn available(lib: &Library, rules: &OverlaySet, class: Option<EntityId>) -> Vec<Condition> {
+    let mut by_name: Vec<(String, Vec<EntityId>)> = Vec::new();
+    for (id, e) in lib.entities().iter().enumerate().filter(|(_, e)| e.kind == Kind::Condition) {
+        match by_name.iter_mut().find(|(n, _)| n.eq_ignore_ascii_case(&e.name)) {
+            Some((_, ids)) => ids.push(id),
+            None => by_name.push((e.name.clone(), vec![id])),
+        }
+    }
+    let rank = |id: EntityId| match class {
+        Some(c) if lib.entity(c).source == lib.entity(id).source => 0,
+        Some(c) if crate::builder::is_2024(lib, c) == crate::builder::is_2024(lib, id) => 1,
+        _ => 2,
+    };
+    let mut out: Vec<Condition> = by_name
+        .into_iter()
+        .map(|(name, ids)| {
+            let id = *ids.iter().min_by_key(|id| rank(**id)).expect("a name has an entity");
+            let e = lib.entity(id);
+            let own = rules.for_entity(&e.key);
+            Condition {
+                name,
+                entity: id,
+                source: e.source.clone(),
+                summary: own.iter().find_map(|o| o.summary.clone()).unwrap_or_default(),
+                levels: own.iter().find(|o| !o.levels.is_empty()).map(|o| o.levels.clone()).unwrap_or_default(),
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// The condition had at a level (Exhaustion), if the rules have one.
+pub fn leveled(conditions: &[Condition]) -> Option<&Condition> {
+    conditions.iter().find(|c| !c.levels.is_empty())
 }
 
 /// What is being rolled.
@@ -52,193 +81,188 @@ pub enum RollKind<'a> {
     /// An ability check (skills included), by ability key.
     Check(&'a str),
     Save(&'a str),
+    /// A Dexterity check.
     Initiative,
 }
 
-fn has(conditions: &[String], name: &str) -> bool {
-    conditions.iter().any(|c| c.eq_ignore_ascii_case(name))
+/// What a roll rule's filter knows of a roll: `roll.attack`, `roll.check`,
+/// `roll.save`, `roll.initiative`, `roll.str` … `roll.cha`, and the
+/// exhaustion level.
+fn roll_vars(kind: RollKind, exhaustion: i64) -> HashMap<String, Value> {
+    let (what, ability) = match kind {
+        RollKind::Attack => ("attack", None),
+        RollKind::Check(ab) => ("check", Some(ab)),
+        RollKind::Save(ab) => ("save", Some(ab)),
+        RollKind::Initiative => ("initiative", Some("dex")),
+    };
+    let mut vars = HashMap::new();
+    for w in ["attack", "check", "save", "initiative"] {
+        let on = w == what || (w == "check" && what == "initiative");
+        vars.insert(format!("roll.{w}"), Value::Bool(on));
+    }
+    for (ab, _) in ABILITIES {
+        vars.insert(format!("roll.{ab}"), Value::Bool(ability == Some(ab)));
+    }
+    vars.insert("exhaustion".into(), Value::int(exhaustion));
+    vars
 }
 
-/// Advantage and disadvantage the character's conditions give a roll, with
-/// the reason for each.
-pub fn advantage(conditions: &[String], exhaustion: i64, rules_2024: bool, kind: RollKind) -> Vec<(Advantage, String)> {
-    let mut out = Vec::new();
-    let mut add = |a: Advantage, why: &str| out.push((a, why.to_string()));
-    let incapacitated = ["Incapacitated", "Paralyzed", "Petrified", "Stunned", "Unconscious"].iter().any(|c| has(conditions, c));
-    match kind {
-        RollKind::Attack => {
-            for c in ["Blinded", "Frightened", "Poisoned", "Prone", "Restrained"] {
-                if has(conditions, c) {
-                    add(Advantage::Disadvantage, c);
-                }
-            }
-            if has(conditions, "Invisible") {
-                add(Advantage::Advantage, "Invisible");
-            }
-        }
-        RollKind::Check(_) | RollKind::Initiative => {
-            for c in ["Frightened", "Poisoned"] {
-                if has(conditions, c) {
-                    add(Advantage::Disadvantage, c);
-                }
-            }
-            if kind == RollKind::Initiative {
-                if has(conditions, "Invisible") {
-                    add(Advantage::Advantage, "Invisible");
-                }
-                if incapacitated && rules_2024 {
-                    add(Advantage::Disadvantage, "Incapacitated");
-                }
-            }
-        }
-        RollKind::Save(ab) => {
-            if ab == "dex" && has(conditions, "Restrained") {
-                add(Advantage::Disadvantage, "Restrained");
-            }
-        }
-    }
-    // 2014 exhaustion: disadvantage on checks from level 1, on attacks and
-    // saves from level 3.
-    if !rules_2024 && exhaustion > 0 {
-        match kind {
-            RollKind::Check(_) | RollKind::Initiative => add(Advantage::Disadvantage, "Exhaustion"),
-            RollKind::Attack | RollKind::Save(_) if exhaustion >= 3 => add(Advantage::Disadvantage, "Exhaustion"),
-            _ => {}
-        }
-    }
-    out
+fn picked<'r>(rules: &'r [RollRule], kind: RollKind, exhaustion: i64) -> impl Iterator<Item = &'r RollRule> {
+    let vars = roll_vars(kind, exhaustion);
+    rules.iter().filter(move |r| matches!(r.rolls.eval(&vars), Ok(Value::Bool(true))))
 }
 
-/// What the exhaustion level means, in a line.
-pub fn exhaustion_summary(level: i64, rules_2024: bool) -> String {
-    match (level.clamp(0, 6), rules_2024) {
-        (0, _) => String::new(),
-        (6, _) => "death".into(),
-        (l, true) => format!("−{} to d20 tests, −{} ft. speed", 2 * l, 5 * l),
-        (l, false) => {
-            let mut parts = vec!["disadvantage on ability checks"];
-            if l >= 2 {
-                parts.push("speed halved");
-            }
-            if l >= 3 {
-                parts.push("disadvantage on attacks and saves");
-            }
-            if l >= 4 {
-                parts.push("hit point maximum halved");
-            }
-            if l >= 5 {
-                parts.push("speed 0");
-            }
-            parts.join(", ")
-        }
-    }
+/// Advantage and disadvantage the rules give a roll, with the reason for
+/// each.
+pub fn advantage(rules: &[RollRule], kind: RollKind, exhaustion: i64) -> Vec<(Advantage, String)> {
+    picked(rules, kind, exhaustion)
+        .filter_map(|r| match r.mode {
+            RollMode::Advantage => Some((Advantage::Advantage, r.origin.clone())),
+            RollMode::Disadvantage => Some((Advantage::Disadvantage, r.origin.clone())),
+            RollMode::Fail => None,
+        })
+        .collect()
 }
 
-/// Rolls the character fails without rolling.
-pub fn auto_fail(conditions: &[String], kind: RollKind) -> Option<String> {
-    let RollKind::Save(ab @ ("str" | "dex")) = kind else { return None };
-    ["Paralyzed", "Petrified", "Stunned", "Unconscious"]
-        .iter()
-        .find(|c| has(conditions, c))
-        .map(|c| format!("{c}: Strength and Dexterity saves fail ({})", if ab == "str" { "Strength" } else { "Dexterity" }))
-}
-
-fn effect(target: &str, op: Op, value: &str, origin: &str) -> Effect {
-    Effect { target: target.into(), op, value: Formula::parse(value).expect("built-in formula"), when: None, origin: origin.into() }
-}
-
-/// Effects on the character's numbers: speed 0 and 2024 exhaustion
-/// (−2 per level to d20 tests, −5 ft. speed per level).
-pub fn effects(conditions: &[String], exhaustion: i64, rules_2024: bool) -> Vec<Effect> {
-    let mut out = Vec::new();
-    if let Some(c) = ["Grappled", "Restrained", "Paralyzed", "Petrified", "Unconscious"].iter().find(|c| has(conditions, c)) {
-        out.push(effect("speed", Op::Min, "0", c));
-    }
-    let exhaustion = exhaustion.clamp(0, 6);
-    if exhaustion > 0 && rules_2024 {
-        let origin = format!("Exhaustion {exhaustion}");
-        let penalty = format!("{}", -2 * exhaustion);
-        for (ab, _) in ABILITIES {
-            out.push(effect(&format!("save.{ab}"), Op::Add, &penalty, &origin));
-        }
-        for (k, _, _) in SKILLS {
-            out.push(effect(&format!("skill.{k}"), Op::Add, &penalty, &origin));
-        }
-        for t in ["initiative", "attack.bonus", "d20.penalty"] {
-            out.push(effect(t, Op::Add, &penalty, &origin));
-        }
-        out.push(effect("speed", Op::Add, &format!("{}", -5 * exhaustion), &origin));
-    }
-    // 2014: speed halved from level 2, hit point maximum halved from 4,
-    // speed 0 from 5 (disadvantage comes with the rolls).
-    if !rules_2024 {
-        if exhaustion >= 2 {
-            out.push(effect("speed", Op::Mul, "1 / 2", "Exhaustion 2+: speed halved"));
-        }
-        if exhaustion >= 4 {
-            out.push(effect("hp.max", Op::Mul, "1 / 2", "Exhaustion 4+: hit point maximum halved"));
-        }
-        if exhaustion >= 5 {
-            out.push(effect("speed", Op::Min, "0", "Exhaustion 5"));
-        }
-    }
-    out
+/// A roll the rules make fail without rolling, and why.
+pub fn auto_fail(rules: &[RollRule], kind: RollKind, exhaustion: i64) -> Option<String> {
+    picked(rules, kind, exhaustion).find(|r| r.mode == RollMode::Fail).map(|r| match &r.note {
+        Some(note) => format!("{}: {note}", r.origin),
+        None => format!("{}: fails", r.origin),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::overlay::Overlay;
 
-    fn c(names: &[&str]) -> Vec<String> {
-        names.iter().map(|s| s.to_string()).collect()
+    const RULES: &str = r#"
+[[feature]]
+id = "condition:Tangled|T"
+summary = "Speed 0; Disadvantage on attacks"
+[[feature.effect]]
+target = "speed"
+min = "0"
+[[feature.roll]]
+rolls = "roll.attack or (roll.save and roll.dex)"
+mode = "disadvantage"
+
+[[feature]]
+id = "condition:Hidden|T"
+[[feature.roll]]
+rolls = "roll.attack or roll.initiative"
+mode = "advantage"
+
+[[feature]]
+id = "condition:Frozen|T"
+[[feature.roll]]
+rolls = "roll.save and (roll.str or roll.dex)"
+mode = "fail"
+note = "Strength and Dexterity saves fail"
+
+[[feature]]
+id = "condition:Weary|T"
+levels = ["slow", "slower", "gone"]
+[[feature.effect]]
+target = "d20.bonus"
+add = "-2 * exhaustion"
+[[feature.roll]]
+rolls = "exhaustion >= 2 and roll.check"
+mode = "disadvantage"
+"#;
+
+    fn setup() -> (Library, OverlaySet) {
+        let mut lib = Library::new();
+        lib.load_json(&serde_json::json!({"condition": [
+            {"name": "Tangled", "source": "T"}, {"name": "Hidden", "source": "T"},
+            {"name": "Frozen", "source": "T"}, {"name": "Weary", "source": "T"},
+            {"name": "Tangled", "source": "U"}
+        ]}));
+        let mut rules = OverlaySet::default();
+        let (o, d) = Overlay::parse(RULES).unwrap();
+        assert!(d.is_empty(), "{d:?}");
+        rules.add(o);
+        (lib, rules)
+    }
+
+    fn rolls_of(lib: &Library, rules: &OverlaySet, names: &[&str]) -> Vec<RollRule> {
+        let all = available(lib, rules, None);
+        all.iter()
+            .filter(|c| names.contains(&c.name.as_str()))
+            .flat_map(|c| rules.for_entity(&lib.entity(c.entity).key))
+            .flat_map(|o| o.rolls.clone())
+            .collect()
     }
 
     #[test]
-    fn roll_modes() {
-        let p = c(&["poisoned", "Invisible"]);
-        let a = advantage(&p, 0, true, RollKind::Attack);
-        assert_eq!(Advantage::combine(&a.iter().map(|(x, _)| *x).collect::<Vec<_>>()), Advantage::Normal, "they cancel");
-        assert_eq!(advantage(&p, 0, true, RollKind::Check("wis"))[0].0, Advantage::Disadvantage);
-        assert!(advantage(&c(&["Restrained"]), 0, true, RollKind::Save("dex")).iter().any(|(a, _)| *a == Advantage::Disadvantage));
-        assert!(advantage(&[], 3, false, RollKind::Save("con")).iter().any(|(_, w)| w == "Exhaustion"), "2014 level 3");
-        assert!(advantage(&[], 3, true, RollKind::Save("con")).is_empty(), "2024 uses a penalty instead");
-        assert!(auto_fail(&c(&["Stunned"]), RollKind::Save("dex")).is_some());
-        assert!(auto_fail(&c(&["Stunned"]), RollKind::Save("wis")).is_none());
+    fn conditions_come_from_the_library_with_their_rules() {
+        let (lib, rules) = setup();
+        let all = available(&lib, &rules, None);
+        assert_eq!(all.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["Frozen", "Hidden", "Tangled", "Weary"], "one per name");
+        let tangled = all.iter().find(|c| c.name == "Tangled").unwrap();
+        assert_eq!(tangled.summary, "Speed 0; Disadvantage on attacks");
+        let weary = leveled(&all).unwrap();
+        assert_eq!(weary.name, "Weary");
+        assert_eq!(weary.at(2), "slower");
+        assert_eq!(weary.at(9), "gone", "past the last level: the last");
     }
 
     #[test]
-    fn classic_exhaustion() {
-        use crate::engine::Model;
-        let mut m = Model { stats: crate::standard::stats(), inputs: crate::standard::default_inputs(), ..Model::default() };
-        for (ab, _) in ABILITIES {
-            m.inputs.insert(format!("base.{ab}"), crate::value::Value::int(10));
-        }
-        m.inputs.insert("level".into(), crate::value::Value::int(1));
-        m.inputs.insert("hp.base".into(), crate::value::Value::int(11));
-        m.effects = effects(&[], 4, false);
-        let ev = m.evaluate();
-        assert_eq!(ev.int("speed"), Some(15), "30 halved");
-        assert_eq!(ev.int("hp.max"), Some(5), "11 halved, rounded down");
-        assert!(exhaustion_summary(4, false).contains("hit point maximum halved"));
-        assert_eq!(exhaustion_summary(6, true), "death");
+    fn rules_change_rolls() {
+        let (lib, rules) = setup();
+        let r = rolls_of(&lib, &rules, &["Tangled", "Hidden"]);
+        let modes = |k| advantage(&r, k, 0).into_iter().map(|(a, _)| a).collect::<Vec<_>>();
+        assert_eq!(Advantage::combine(&modes(RollKind::Attack)), Advantage::Normal, "they cancel");
+        assert_eq!(modes(RollKind::Save("dex")), [Advantage::Disadvantage]);
+        assert!(modes(RollKind::Save("con")).is_empty());
+        assert_eq!(modes(RollKind::Initiative), [Advantage::Advantage]);
+
+        let frozen = rolls_of(&lib, &rules, &["Frozen"]);
+        assert_eq!(auto_fail(&frozen, RollKind::Save("str"), 0).as_deref(), Some("Frozen: Strength and Dexterity saves fail"));
+        assert!(auto_fail(&frozen, RollKind::Save("wis"), 0).is_none());
+
+        let weary = rolls_of(&lib, &rules, &["Weary"]);
+        assert!(advantage(&weary, RollKind::Check("wis"), 1).is_empty());
+        assert_eq!(advantage(&weary, RollKind::Initiative, 2).len(), 1, "initiative is a check");
     }
 
     #[test]
-    fn numbers_on_the_sheet() {
+    fn built_in_rules_on_the_sheet() {
         use crate::builder::build;
         use crate::character::Character;
-        use crate::overlay::OverlaySet;
-        let lib = dnt_data::Library::new();
+        let rules = crate::builtin::overlays().0;
+        let lib = Library::srd();
         let mut ch = Character::default();
         ch.state.exhaustion = 2;
-        let ev = build(&ch, &lib, &OverlaySet::default()).evaluate();
+        let b = build(&ch, &lib, &rules);
+        let ev = b.evaluate();
         assert_eq!(ev.int("speed"), Some(20), "2024: -5 ft. per level");
         assert_eq!(ev.int("save.str"), Some(-4));
         assert_eq!(ev.int("skill.stealth"), Some(-4));
-        assert_eq!(ev.int("d20.penalty"), Some(-4));
+        assert_eq!(ev.int("initiative"), Some(-4));
         assert_eq!(ev.int("passive.perception"), Some(10), "passive scores roll nothing");
         assert_eq!(ev.int("attack.unarmed.bonus"), Some(ev.int("prof").unwrap() - 4), "proficiency, -4");
-        ch.state.conditions = vec!["Grappled".into()];
-        assert_eq!(build(&ch, &lib, &OverlaySet::default()).evaluate().int("speed"), Some(0));
+        assert_eq!(leveled(&b.conditions).unwrap().at(2), "−4 to d20 tests, −10 ft. speed");
+        assert_eq!(b.conditions.len(), 15, "the SRD's");
+
+        ch.state.exhaustion = 0;
+        ch.state.conditions = vec!["Grappled".into(), "Stunned".into()];
+        let b = build(&ch, &lib, &rules);
+        assert_eq!(b.evaluate().int("speed"), Some(0));
+        assert!(auto_fail(&b.roll_rules, RollKind::Save("dex"), 0).is_some());
+        assert_eq!(advantage(&b.roll_rules, RollKind::Initiative, 0).len(), 1, "2024: Incapacitated");
+
+        // 2014: a book's conditions have the 2014 rules.
+        let mut lib = Library::new();
+        lib.load_json(&serde_json::json!({"condition": [{"name": "Exhaustion", "source": "PHB"}, {"name": "Stunned", "source": "PHB"}]}));
+        let mut ch = Character::default();
+        ch.state.exhaustion = 3;
+        ch.state.conditions = vec!["Stunned".into()];
+        let b = build(&ch, &lib, &rules);
+        assert_eq!(b.evaluate().int("speed"), Some(15), "30 halved");
+        let e = b.evaluate().int("exhaustion").unwrap();
+        assert_eq!(advantage(&b.roll_rules, RollKind::Save("con"), e).len(), 1, "level 3: saves");
+        assert!(advantage(&b.roll_rules, RollKind::Initiative, e).iter().all(|(_, w)| w == "Exhaustion"), "2014: no Incapacitated");
     }
 }

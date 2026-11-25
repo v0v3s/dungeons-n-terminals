@@ -769,6 +769,11 @@ does = "A rule changes attacks with the weapons its filter picks (by their prope
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "rules.conditions"
+does = "A rule says what a condition does while the character has it: a summary in a line, effects on the numbers, and advantage, disadvantage or a fail on the rolls its filter picks; a condition with levels (Exhaustion) says what each level does."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "rules.choices"
 does = "A rule asks for a choice when its feature is gained: abilities to increase or a feat instead, a feat (of the categories it names), skills to gain Expertise in, or weapons to master (how many by a formula, the class table's columns at that level). It is asked on levelling up, or as a choice still to make; an id with a * part is every class's feature of that name."
 targets = ["tui", "app"]

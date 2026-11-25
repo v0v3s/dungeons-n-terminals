@@ -71,6 +71,11 @@ pub struct Build {
     pub weapon_proficiency: attacks::WeaponProficiency,
     /// The rules that change attacks (a monk weapon, the off-hand attack).
     pub attack_rules: attacks::AttackRules,
+    /// The rules that change rolls, from the features and the conditions
+    /// the character has.
+    pub roll_rules: Vec<crate::overlay::RollRule>,
+    /// The conditions the character can have.
+    pub conditions: Vec<crate::conditions::Condition>,
     pub warnings: Vec<String>,
 }
 
@@ -245,7 +250,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         if let Some(ab) = &c.casting_ability {
             let s = &c.slug;
             model.stats.push(StatDef::new(&format!("spell.{s}.mod"), &format!("mod.{ab}"), "spellcasting ability"));
-            model.stats.push(StatDef::new(&format!("spell.{s}.attack"), &format!("spell.{s}.mod + prof"), "ability + proficiency"));
+            model.stats.push(StatDef::new(
+                &format!("spell.{s}.attack"),
+                &format!("spell.{s}.mod + prof + d20.bonus"),
+                "ability + proficiency",
+            ));
             model.stats.push(StatDef::new(&format!("spell.{s}.dc"), &format!("8 + spell.{s}.mod + prof"), "8 + ability + proficiency"));
         }
     }
@@ -262,14 +271,14 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                 .collect();
             if own.iter().all(|n| *n < 0) {
                 let cl = only.progression.unwrap().caster_levels(only.level);
-                multiclass::slots_for(cl).map(i64::from)
+                overlays.multiclass.slots_for(cl)
             } else {
                 std::array::from_fn(|i| own[i].max(0))
             }
         }
         many => {
             let cl = multiclass::caster_level(&many.iter().map(|c| (c.progression.unwrap(), c.level)).collect::<Vec<_>>());
-            multiclass::slots_for(cl).map(i64::from)
+            overlays.multiclass.slots_for(cl)
         }
     };
     for (i, n) in slots.iter().enumerate() {
@@ -577,6 +586,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     let mut resources = innate;
     let mut toggles = Vec::new();
     let mut attack_rules = attacks::AttackRules::default();
+    let mut roll_rules = Vec::new();
     for f in &features {
         for o in rules_for(f) {
             o.apply(&mut model);
@@ -584,24 +594,25 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             attack_rules.offhand.extend(o.offhand.iter().cloned());
             resources.extend(o.resources.iter().map(|r| (r.clone(), o.name.clone())));
             toggles.extend(o.toggles.iter().map(|t| (t.clone(), o.name.clone())));
+            roll_rules.extend(o.rolls.iter().cloned());
         }
     }
 
-    // ---- conditions and exhaustion (before attacks, which copy attack.bonus) ----
-    let rules_2024 = classes.first().is_none_or(|c| is_2024(lib, c.entity));
+    // ---- conditions (before attacks, which copy attack.bonus): their rules ----
+    let conditions = crate::conditions::available(lib, overlays, classes.first().map(|c| c.entity));
     let state = &character.state;
-    model.effects.extend(crate::conditions::effects(&state.conditions, state.exhaustion, rules_2024));
-    if rules_2024 && state.exhaustion > 0 {
-        for c in &classes {
-            if c.casting_ability.is_some() {
-                model.effects.push(Effect {
-                    target: format!("spell.{}.attack", c.slug),
-                    op: Op::Add,
-                    value: Formula::constant(Value::int(-2 * state.exhaustion.min(6))),
-                    when: None,
-                    origin: format!("Exhaustion {}", state.exhaustion.min(6)),
-                });
-            }
+    let leveled = crate::conditions::leveled(&conditions);
+    let exhaustion = leveled.map_or(0, |c| state.exhaustion.clamp(0, c.levels.len() as i64));
+    let origin = leveled.map_or(String::new(), |c| c.name.clone());
+    model.stats.push(StatDef { key: "exhaustion".into(), base: Formula::constant(Value::int(exhaustion)), origin });
+    let had = conditions.iter().filter(|c| match c.levels.is_empty() {
+        true => state.conditions.iter().any(|n| n.eq_ignore_ascii_case(&c.name)),
+        false => exhaustion > 0,
+    });
+    for c in had {
+        for o in overlays.for_entity(&lib.entity(c.entity).key) {
+            o.apply(&mut model);
+            roll_rules.extend(o.rolls.iter().cloned());
         }
     }
 
@@ -634,7 +645,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         let ev = model.evaluate();
         let score = |ab: &str| ev.int(ab).unwrap_or(0);
         for c in &classes {
-            let reqs = multiclass::requirements(&lib.entity(c.entity).data);
+            let reqs = multiclass::requirements(&lib.entity(c.entity).data, overlays.multiclass.primary_score);
             if !reqs.is_empty() && !reqs.iter().any(|r| r.met(&score)) {
                 let need = reqs.iter().map(|r| r.describe()).collect::<Vec<_>>().join("; or ");
                 warnings.push(format!("multiclassing {} requires {need}", c.name));
@@ -642,7 +653,20 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
-    Build { model, classes, features, resources, toggles, granted, attacks, weapon_proficiency, attack_rules, warnings }
+    Build {
+        model,
+        classes,
+        features,
+        resources,
+        toggles,
+        granted,
+        attacks,
+        weapon_proficiency,
+        attack_rules,
+        roll_rules,
+        conditions,
+        warnings,
+    }
 }
 
 fn collect_refs(v: &Json, out: &mut Vec<(Kind, String)>) {
@@ -711,8 +735,8 @@ mod tests {
     fn library() -> Library {
         let mut wizard_rows = Vec::new();
         for l in 1..=20 {
-            let s = multiclass::slots_for(l);
-            wizard_rows.push([s[0] as i64, s[1] as i64]);
+            let s = crate::builtin::overlays().0.multiclass.slots_for(l);
+            wizard_rows.push([s[0], s[1]]);
         }
         let mut lib = Library::new();
         lib.load_json(&json!({
@@ -794,7 +818,7 @@ mod tests {
     fn multiclass_slots_combine_caster_levels() {
         let mut c = character(&["Wizard", "Wizard", "Wizard", "Fighter", "Fighter", "Fighter"]);
         eldritch_knight(&mut c);
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         assert_eq!(b.class_summary(), "Wizard 3 / Fighter 3");
         let ev = b.evaluate();
         // Caster level 3 + floor(3/3) = 4 → 4/3 slots.
@@ -807,7 +831,7 @@ mod tests {
     #[test]
     fn pact_magic_stays_separate() {
         let c = character(&["Wizard", "Warlock", "Warlock", "Warlock"]);
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         let ev = b.evaluate();
         assert_eq!(ev.int("slots.1.max"), Some(2), "wizard 1 alone");
         assert_eq!(ev.int("pact.slots.max"), Some(2));
@@ -896,12 +920,12 @@ mod tests {
         let mut c = character(&["Wizard", "Fighter"]);
         c.abilities.str = 8;
         c.abilities.int = 12;
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         assert!(b.warnings.iter().any(|w| w.contains("Fighter requires Strength 13 or Dexterity 13")), "{:?}", b.warnings);
         assert!(b.warnings.iter().any(|w| w.contains("Wizard requires Intelligence 13")));
         // A +1 Int bonus fixes the Wizard requirement.
         c.ability_bonus.push(AbilityBonus { origin: "Background".into(), scores: [("int".to_string(), 1)].into() });
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         assert!(!b.warnings.iter().any(|w| w.contains("Wizard requires")));
     }
 

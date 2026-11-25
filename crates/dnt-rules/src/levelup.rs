@@ -95,10 +95,10 @@ pub struct ClassOption {
 
 /// Classes the character can advance: current classes first, then every
 /// other class enabled by `filter`.
-pub fn class_options(lib: &Library, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> Vec<ClassOption> {
+pub fn class_options(lib: &Library, rules: &OverlaySet, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> Vec<ClassOption> {
     let score = |ab: &str| ev.int(ab).unwrap_or(0);
     let unmet = |entity: EntityId| -> Option<String> {
-        let reqs = multiclass::requirements(&lib.entity(entity).data);
+        let reqs = multiclass::requirements(&lib.entity(entity).data, rules.multiclass.primary_score);
         if reqs.is_empty() || reqs.iter().any(|r| r.met(&score)) {
             None
         } else {

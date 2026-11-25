@@ -245,41 +245,47 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
     match sheet.popup.clone() {
         Some(Popup::Overlay(_)) => {}
         Some(Popup::Conditions(cursor)) => {
-            let names = dnt_rules::conditions::CONDITIONS;
+            let list = dnt_core::sheet::conditions(&sheet.session);
+            let leveled = dnt_rules::conditions::leveled(&sheet.session.build.conditions);
             let st = &sheet.session.file.character.state;
-            let rect = centered(area, 96.min(area.width), names.len() as u16 + 7);
+            let rect = centered(area, 96.min(area.width), list.len() as u16 + if leveled.is_some() { 7 } else { 5 });
             frame.render_widget(Clear, rect);
+            let keys = match leveled {
+                Some(l) => format!(" space toggle · + - {} · esc done ", l.name.to_lowercase()),
+                None => " space toggle · esc done ".into(),
+            };
             let block = pane(pane_title("Conditions", true, theme), true, theme)
                 .padding(Padding::new(2, 2, 1, 0))
-                .title_bottom(Line::styled(" space toggle · + - exhaustion · esc done ", theme.dim).right_aligned());
+                .title_bottom(Line::styled(keys, theme.dim).right_aligned());
             let mut lines = Vec::new();
-            for (i, c) in names.iter().enumerate() {
-                let on = st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c));
+            for (i, (c, on)) in list.iter().enumerate() {
+                let (c, on) = (&c.name, *on);
                 let base = if i == cursor { theme.selected } else { Style::new() };
                 lines.push(
                     Line::from(vec![
                         Span::styled(if on { "◉ " } else { "○ " }, if on { base.fg(Color::Magenta) } else { base.patch(theme.dim) }),
                         Span::styled(format!("{c:<15}"), if on { base.add_modifier(Modifier::BOLD) } else { base }),
-                        Span::styled(dnt_rules::conditions::summary(c), base.patch(theme.dim)),
+                        Span::styled(list[i].0.summary.clone(), base.patch(theme.dim)),
                     ])
                     .style(base),
                 );
             }
-            let base = if cursor == names.len() { theme.selected } else { Style::new() };
-            let lvl = st.exhaustion;
-            let what = dnt_rules::conditions::exhaustion_summary(lvl, sheet.session.edition == dnt_rules::play::Edition::Modern);
-            lines.push(Line::default());
-            lines.push(
-                Line::from(vec![
-                    Span::styled(format!("  {:<15}", "Exhaustion"), base),
-                    Span::styled(
-                        format!("{lvl}  "),
-                        base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(what, base.patch(theme.dim)),
-                ])
-                .style(base),
-            );
+            if let Some(l) = leveled {
+                let base = if cursor == list.len() { theme.selected } else { Style::new() };
+                let lvl = st.exhaustion;
+                lines.push(Line::default());
+                lines.push(
+                    Line::from(vec![
+                        Span::styled(format!("  {:<15}", l.name), base),
+                        Span::styled(
+                            format!("{lvl}  "),
+                            base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(l.at(lvl).to_string(), base.patch(theme.dim)),
+                    ])
+                    .style(base),
+                );
+            }
             frame.render_widget(Paragraph::new(lines).block(block), rect);
         }
         Some(Popup::Breakdown(key)) => draw_breakdown(frame, area, lib, sheet, &key, theme),
@@ -933,10 +939,12 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     }
     // Conditions (C to change) and what they do.
     let st = &ch.state;
-    if !st.conditions.is_empty() || st.exhaustion > 0 {
+    let known = &sheet.session.build.conditions;
+    let leveled = dnt_rules::conditions::leveled(known).filter(|_| st.exhaustion > 0);
+    if !st.conditions.is_empty() || leveled.is_some() {
         let mut names: Vec<String> = st.conditions.clone();
-        if st.exhaustion > 0 {
-            names.push(format!("Exhaustion {}", st.exhaustion));
+        if let Some(l) = leveled {
+            names.push(format!("{} {}", l.name, st.exhaustion));
         }
         lines.push(Line::from(vec![
             Span::styled(format!("{:<12}", "Conditions"), theme.label),
@@ -945,14 +953,18 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         ]));
         for c in &st.conditions {
             lines.push(Line::styled(
-                format!("{:<12}{}", "", truncate(dnt_rules::conditions::summary(c), width.saturating_sub(12))),
+                format!(
+                    "{:<12}{}",
+                    "",
+                    truncate(known.iter().find(|k| k.name.eq_ignore_ascii_case(c)).map_or("", |k| &k.summary), width.saturating_sub(12))
+                ),
                 theme.dim,
             ));
         }
-        if st.exhaustion > 0 {
-            let what = dnt_rules::conditions::exhaustion_summary(st.exhaustion, sheet.session.edition == dnt_rules::play::Edition::Modern);
-            let style = if st.exhaustion >= 6 { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
-            lines.push(Line::styled(format!("{:<12}Exhaustion: {}", "", truncate(&what, width.saturating_sub(24))), style));
+        if let Some(l) = leveled {
+            let last = st.exhaustion >= l.levels.len() as i64;
+            let style = if last { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
+            lines.push(Line::styled(format!("{:<12}{}: {}", "", l.name, truncate(l.at(st.exhaustion), width.saturating_sub(24))), style));
         }
     }
     // The last few rolls, newest first.

@@ -83,10 +83,14 @@ fn rules_2024(sheet: &CharacterSession) -> bool {
     sheet.edition == dnt_rules::play::Edition::Modern
 }
 
-/// The roll's mode from conditions and the one-shot choice, and why.
+fn exhaustion(sheet: &CharacterSession) -> i64 {
+    sheet.ev.int("exhaustion").unwrap_or(0)
+}
+
+/// The roll's mode from the rules (conditions, features) and the one-shot
+/// choice, and why.
 fn mode(sheet: &mut CharacterSession, kind: RollKind) -> (Advantage, Vec<String>) {
-    let st = &sheet.file.character.state;
-    let mut sources = conditions::advantage(&st.conditions, st.exhaustion, rules_2024(sheet), kind);
+    let mut sources = conditions::advantage(&sheet.build.roll_rules, kind, exhaustion(sheet));
     let next = std::mem::take(&mut sheet.roller.next);
     if next != Advantage::Normal {
         sources.push((next, "chosen".into()));
@@ -105,7 +109,7 @@ fn detail(r: &roll::D20, why: &[String]) -> String {
 }
 
 fn d20_test(sheet: &mut CharacterSession, title: String, modifier: i64, kind: RollKind) -> Rolled {
-    if let Some(why) = conditions::auto_fail(&sheet.file.character.state.conditions, kind) {
+    if let Some(why) = conditions::auto_fail(&sheet.build.roll_rules, kind, exhaustion(sheet)) {
         return sheet.roller.push(Rolled { title, result: "fails".into(), detail: why, extra: Vec::new(), crit: None });
     }
     let (m, why) = mode(sheet, kind);
@@ -124,7 +128,7 @@ pub fn check(sheet: &mut CharacterSession, ab: &str, skill: Option<(&str, &str)>
     let ev = &sheet.ev;
     let (title, modifier) = match skill {
         Some((key, name)) => (name.to_string(), ev.int(&format!("skill.{key}")).unwrap_or(0)),
-        None => (format!("{} check", ability_name(ab)), ev.int(&format!("mod.{ab}")).unwrap_or(0) + ev.int("d20.penalty").unwrap_or(0)),
+        None => (format!("{} check", ability_name(ab)), ev.int(&format!("mod.{ab}")).unwrap_or(0) + ev.int("d20.bonus").unwrap_or(0)),
     };
     d20_test(sheet, title, modifier, RollKind::Check(ab))
 }
@@ -379,19 +383,20 @@ pub fn spell_rolls(lib: &Library, spell: EntityId) -> bool {
 mod tests {
     use super::*;
     use dnt_rules::character::{Character, InventoryItem};
-    use dnt_rules::overlay::OverlaySet;
     use dnt_store::CharacterFile;
     use serde_json::json;
 
     fn sheet(conditions: &[&str]) -> (Library, CharacterSession) {
         let mut lib = Library::new();
         lib.load_json(&json!({"baseitem": [{"name": "Club", "source": "T", "type": "M|T", "weapon": true, "weaponCategory": "simple",
-                                             "dmg1": "1d4", "dmgType": "B"}]}));
+                                             "dmg1": "1d4", "dmgType": "B"}],
+                          "condition": [{"name": "Stunned", "source": "SRD52"}]}));
         let mut c = Character { name: "A".into(), ..Character::default() };
         c.inventory.push(InventoryItem { item: Some("item:Club|T".into()), hand: Some(Hand::Main), ..Default::default() });
         c.state.conditions = conditions.iter().map(|s| s.to_string()).collect();
         let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
-        let s = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
+        // The built-in rules say what Stunned does.
+        let s = CharacterSession::new(file, &lib, &dnt_rules::builtin::overlays().0, &Default::default());
         (lib, s)
     }
 
