@@ -292,5 +292,5 @@ test("a rule changes the attacks with the weapons it picks", { tag: "@rules.atta
   await expect(attack(page, "Dagger").locator("button.arow")).toContainText("1d8 + 2");
   await expect(attack(page, "Dagger").locator(".anotes")).toContainText("quick");
   // Not a Light weapon: its own die.
-  await expect(attack(page, "Quarterstaff").locator(".anotes")).not.toContainText("quick");
+  await expect(attack(page, STAFF).locator(".anotes")).not.toContainText("quick");
 });
