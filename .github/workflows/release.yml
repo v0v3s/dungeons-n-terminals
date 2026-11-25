@@ -7,6 +7,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # Starts a release by hand when a push's event is lost.
+  workflow_dispatch:
 
 permissions:
   contents: write
