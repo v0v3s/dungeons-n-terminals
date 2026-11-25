@@ -147,6 +147,36 @@ pub struct Toggle {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ActionRow {
+    pub name: String,
+    /// The rule it comes from.
+    pub origin: String,
+    /// `+5 to hit`, `DC 13 Constitution`, `7 temporary hit points`.
+    pub what: String,
+    /// `2d6 cold`, `heals 1d8 + 3`.
+    pub dice: String,
+    /// What a use costs, with what is left: `1 Soul Fragment (2 left)`.
+    pub cost: Option<String>,
+    pub note: Option<String>,
+}
+
+/// What the character is, senses, moves by and withstands, beyond the
+/// numbers: the species' data and the rules'.
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct Traits {
+    pub creature_type: Option<String>,
+    /// `fly 30 ft.`
+    pub speeds: Vec<String>,
+    /// `darkvision 60 ft.`
+    pub senses: Vec<String>,
+    pub resistances: Vec<String>,
+    pub immunities: Vec<String>,
+    pub vulnerabilities: Vec<String>,
+    pub condition_immunities: Vec<String>,
+    pub tools: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct AttackRow {
     pub slug: String,
     pub name: String,
@@ -182,6 +212,10 @@ pub struct Overview {
     pub tiles: Vec<Tile>,
     pub hp: Hp,
     pub conditions: Vec<Condition>,
+    /// The condition had at a level (Exhaustion), if the rules have one:
+    /// its name and how many levels it has.
+    pub exhaustion_name: Option<String>,
+    pub exhaustion_max: i64,
     pub exhaustion: i64,
     pub exhaustion_summary: String,
     pub concentration: Option<String>,
@@ -196,6 +230,9 @@ pub struct Overview {
     pub held: Vec<String>,
     pub attacks: Vec<AttackRow>,
     pub riders: Vec<Rider>,
+    /// Actions the rules give.
+    pub actions: Vec<ActionRow>,
+    pub traits: Traits,
 }
 
 pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
@@ -344,8 +381,8 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
                 (Some(Hand::Pair), Some(off)) => notes.push(format!("off hand {off}")),
                 _ => {}
             }
-            if a.monk_weapon {
-                notes.push("monk weapon".into());
+            if let Some(kind) = &a.kind {
+                notes.push(kind.clone());
             }
             if let Some(m) = &a.mastery {
                 notes.push(format!("mastery: {m}"));
@@ -395,7 +432,8 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             Some(Rider { value: format!("+{v}"), name: name.into(), when: when.into() })
         })
         .collect();
-    let modern = s.edition == play::Edition::Modern;
+    let leveled = conditions::leveled(&build.conditions);
+    let summary = |name: &str| build.conditions.iter().find(|c| c.name.eq_ignore_ascii_case(name)).map_or("", |c| c.summary.as_str());
     Overview {
         abilities,
         casting,
@@ -409,9 +447,11 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
             death_failures: st.death_failures,
             dead: st.dead,
         },
-        conditions: st.conditions.iter().map(|c| Condition { name: c.clone(), summary: conditions::summary(c).into() }).collect(),
+        conditions: st.conditions.iter().map(|c| Condition { name: c.clone(), summary: summary(c).into() }).collect(),
+        exhaustion_name: leveled.map(|c| c.name.clone()),
+        exhaustion_max: leveled.map_or(0, |c| c.levels.len() as i64),
         exhaustion: st.exhaustion,
-        exhaustion_summary: conditions::exhaustion_summary(st.exhaustion, modern),
+        exhaustion_summary: leveled.map_or(String::new(), |c| c.at(st.exhaustion).to_string()),
         concentration: st.concentration.clone(),
         rolls: s.roller.log.iter().take(6).cloned().collect(),
         next_roll: format!("{:?}", s.roller.next).to_lowercase(),
@@ -425,20 +465,101 @@ pub fn overview(lib: &Library, s: &CharacterSession) -> Overview {
         held,
         attacks,
         riders,
+        actions: actions(s),
+        traits: traits(s),
     }
 }
 
-/// Every condition, with whether the character has it.
+/// Whether an action is there now: no `when`, or it holds.
+pub fn available(ev: &Evaluation, a: &dnt_rules::overlay::ActionRule) -> bool {
+    a.when.is_none() || ev.get(&format!("action.{}.on", dnt_rules::class_table::slug(&a.name))) == Some(&Value::Bool(true))
+}
+
+/// The actions the rules give, with their numbers.
+pub fn actions(s: &CharacterSession) -> Vec<ActionRow> {
+    let ev = &s.ev;
+    s.build
+        .actions
+        .iter()
+        .filter(|(a, _)| available(&s.ev, a))
+        .map(|(a, origin)| {
+            let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
+            let what = if a.attack.is_some() {
+                format!("{} to hit", signed(ev, &key("attack")))
+            } else if let Some(ab) = &a.save {
+                let name = ABILITIES.iter().find(|(k, _)| k == ab).map_or(ab.as_str(), |(_, n)| n);
+                format!("DC {} {name}", ev.int(&key("dc")).unwrap_or(0))
+            } else if let Some(n) = ev.int(&key("temp_hp")) {
+                format!("{n} temporary hit points")
+            } else {
+                String::new()
+            };
+            let mut dice = Vec::new();
+            if let Some(d) = ev.get(&key("damage")) {
+                dice.push(format!("{d}{}", a.damage_type.as_deref().map_or(String::new(), |t| format!(" {t}"))));
+            }
+            if let Some(d) = ev.get(&key("heal")) {
+                dice.push(format!("heals {d}"));
+            }
+            let cost = a.resource.as_ref().map(|k| {
+                let name = s.build.resources.iter().find(|(r, _)| &r.key == k).map_or(k.clone(), |(r, _)| r.name.clone());
+                format!("{} {name} ({} left)", a.cost, play::resource_left(s.character(), ev, k))
+            });
+            ActionRow { name: a.name.clone(), origin: origin.clone(), what, dice: dice.join(", "), cost, note: a.note.clone() }
+        })
+        .collect()
+}
+
+/// The traits: the stats (senses, speeds, creature type) that are set,
+/// and the defenses in force, each named once.
+pub fn traits(s: &CharacterSession) -> Traits {
+    let ev = &s.ev;
+    let ranged = |prefix: &str, kinds: &[&str]| -> Vec<String> {
+        kinds.iter().filter_map(|k| ev.int(&format!("{prefix}.{k}")).filter(|n| *n > 0).map(|n| format!("{k} {n} ft."))).collect()
+    };
+    let mut t = Traits {
+        creature_type: match ev.get("creature_type") {
+            Some(Value::Str(k)) if !k.is_empty() => Some(k.clone()),
+            _ => None,
+        },
+        speeds: ranged("speed", &["fly", "swim", "climb", "burrow"]),
+        senses: ranged("sense", &["darkvision", "blindsight", "tremorsense", "truesight"]),
+        ..Traits::default()
+    };
+    let add = |list: &mut Vec<String>, items: &[String]| {
+        for i in items {
+            if !list.contains(i) {
+                list.push(i.clone());
+            }
+        }
+    };
+    for (i, (d, _)) in s.build.defenses.iter().enumerate() {
+        if d.when.is_some() && ev.get(&format!("defense.{i}.on")) != Some(&Value::Bool(true)) {
+            continue;
+        }
+        add(&mut t.resistances, &d.resist);
+        add(&mut t.immunities, &d.immune);
+        add(&mut t.vulnerabilities, &d.vulnerable);
+        add(&mut t.condition_immunities, &d.conditions);
+    }
+    let tools: Vec<String> =
+        s.character().proficiencies.tools.iter().cloned().chain(s.build.tools.iter().map(|(t, _)| t.clone())).collect();
+    add(&mut t.tools, &tools);
+    t
+}
+
+/// Every condition the character can have (from the books in use, and
+/// those they have), with whether they have it. The one had at a level
+/// is not among them.
 pub fn conditions(s: &CharacterSession) -> Vec<(Condition, bool)> {
     let st = &s.character().state;
-    conditions::CONDITIONS
+    s.build
+        .conditions
         .iter()
-        .map(|c| {
-            (
-                Condition { name: c.to_string(), summary: conditions::summary(c).into() },
-                st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c)),
-            )
-        })
+        .filter(|c| c.levels.is_empty())
+        .map(|c| (c, st.conditions.iter().any(|x| x.eq_ignore_ascii_case(&c.name))))
+        .filter(|(c, had)| *had || s.filter.source_enabled(&c.source))
+        .map(|(c, had)| (Condition { name: c.name.clone(), summary: c.summary.clone() }, had))
         .collect()
 }
 
@@ -834,13 +955,19 @@ pub struct Line {
     /// Its container settings as typed (`30`, `no limit weightless`); empty
     /// when it is not a container.
     pub container: String,
-    /// A weapon a monk might use: whether it counts as a monk weapon.
-    /// `None` for other lines, and for characters without Martial Arts
-    /// (unless marked by hand).
-    pub monk_weapon: Option<bool>,
+    /// A weapon of the kind a rule has (a monk weapon), or not. `None`
+    /// for other lines, and without such a rule (unless marked by hand).
+    pub weapon_kind: Option<WeaponKind>,
     /// Something to wear or hold (a weapon, armor, a shield, a ring, …), or
     /// worn or held already: the inventory offers to equip it.
     pub equippable: bool,
+}
+
+/// The kind of weapon a rule has (`monk weapon`), and whether a line is one.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WeaponKind {
+    pub name: String,
+    pub on: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -922,10 +1049,13 @@ pub fn inventory(lib: &Library, s: &CharacterSession) -> Inventory {
                             || equipment::armor_kind(d).is_some()
                             || equipment::guess_slot(ch, &line_name(lib, line), d) != Slot::Other
                     }),
-                monk_weapon: entity
+                weapon_kind: entity
                     .and_then(|e| dnt_rules::attacks::Weapon::from_item(&lib.entity(e).name.to_lowercase(), &lib.entity(e).data))
-                    .filter(|_| s.build.martial_arts.is_some() || line.monk_weapon.is_some())
-                    .map(|w| line.monk_weapon.unwrap_or_else(|| s.build.martial_arts.is_some_and(|m| m.preset(&w)))),
+                    .filter(|_| s.build.attack_rules.kind().is_some() || line.weapon_kind.is_some())
+                    .map(|w| WeaponKind {
+                        name: s.build.attack_rules.kind().unwrap_or("marked weapon").to_string(),
+                        on: line.weapon_kind.unwrap_or_else(|| s.build.attack_rules.preset(&w)),
+                    }),
             }
         })
         .collect();
@@ -1001,7 +1131,7 @@ mod tests {
         assert_eq!(title("mod.str").as_deref(), Some("Strength modifier"));
         assert_eq!(title("hit_dice.d10.max").as_deref(), Some("Hit dice d10"));
         let club = &inv.lines[0];
-        assert_eq!((club.pack, club.container.as_str(), club.monk_weapon), (false, "", None), "no Martial Arts: no monk weapon choice");
+        assert_eq!((club.pack, club.container.as_str(), &club.weapon_kind), (false, "", &None), "no rule: no kind of weapon");
         // All of it goes over the wire.
         serde_json::to_string(&(h, o, inv, features(&lib, &OverlaySet::default(), &s), spells(&lib, &s))).unwrap();
     }

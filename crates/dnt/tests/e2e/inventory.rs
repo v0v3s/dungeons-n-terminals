@@ -330,14 +330,14 @@ fn a_monk_weapon_without_martial_arts() {
     let mut t = Tui::scenario("inventory.monk-weapon", Home::party());
     inventory_of(&mut t, "Tester");
     to_item(&mut t, "Dagger");
-    t.send("m").wait("Dagger is marked as a monk weapon (it counts once you have Martial Arts)");
-    // Without Martial Arts it does not count: the attack stays the same.
+    t.send("m").wait("Dagger is marked (it counts once a rule has a kind of weapon)");
+    // Without a rule's kind of weapon it does not count: the attack stays the same.
     t.send(TAB).send(TAB).wait("Armor Class");
     assert!(t.line("  Dagger ").contains("1d4 + 2 piercing"), "{}", t.screen());
     // The mark was kept: pressed again, it goes.
     t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     to_item(&mut t, "Dagger");
-    t.send("m").wait("Dagger is not a monk weapon");
+    t.send("m").wait("Dagger is not marked");
 }
 
 #[test]

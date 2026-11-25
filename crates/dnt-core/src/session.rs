@@ -35,7 +35,7 @@ impl CharacterSession {
         let ev = build.evaluate();
         let edition = Edition::of(&build, lib);
         CharacterSession {
-            pending: choices::pending(lib, &file.character, filter),
+            pending: choices::pending(lib, overlays, &file.character, filter),
             filter: filter.clone(),
             file,
             build,
@@ -49,7 +49,7 @@ impl CharacterSession {
     pub fn rebuild(&mut self, lib: &Library, overlays: &OverlaySet) {
         self.build = build(&self.file.character, lib, overlays);
         self.ev = self.build.evaluate();
-        self.pending = choices::pending(lib, &self.file.character, &self.filter);
+        self.pending = choices::pending(lib, overlays, &self.file.character, &self.filter);
     }
 
     pub fn character(&self) -> &Character {

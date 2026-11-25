@@ -5,6 +5,7 @@ use dnt_core::flow::{self, Answer, Question};
 use dnt_core::levelup;
 use dnt_data::{Library, SourceFilter};
 use dnt_rules::character::Character;
+use dnt_rules::overlay::OverlaySet;
 use dnt_rules::Evaluation;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
@@ -50,8 +51,8 @@ fn stage(q: &Question) -> Stage {
 }
 
 impl LevelUp {
-    pub fn start(lib: &Library, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> LevelUp {
-        let flow = levelup::LevelUp::start(lib, c, ev, filter);
+    pub fn start(lib: &Library, rules: &OverlaySet, c: &Character, ev: &Evaluation, filter: &SourceFilter) -> LevelUp {
+        let flow = levelup::LevelUp::start(lib, rules, c, ev, filter);
         LevelUp { stage: stage(&flow.question), flow }
     }
 

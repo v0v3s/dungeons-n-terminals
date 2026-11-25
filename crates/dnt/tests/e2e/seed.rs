@@ -97,7 +97,7 @@ fn party() -> &'static Value {
 fn create(ws: &Workspace, name: &str, prefer: &[&str]) {
     let lib = ws.lib.as_ref().expect("the library");
     let filter = ws.filter();
-    let mut flow = NewCharacter::new(name.to_string(), lib, &filter);
+    let mut flow = NewCharacter::new(name.to_string(), lib, &ws.overlays, &filter);
     for _ in 0..60 {
         let answer = match flow.question().clone() {
             Question::Confirm => {

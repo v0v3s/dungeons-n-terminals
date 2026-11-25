@@ -12,7 +12,7 @@ use dnt_rules::choices;
 use dnt_rules::equipment;
 use dnt_rules::levelup;
 use dnt_rules::origin::{self, AbilityGrant};
-use dnt_rules::overlay::resolve_id;
+use dnt_rules::overlay::{resolve_id, OverlaySet};
 use dnt_rules::standard::{ABILITIES, SKILLS};
 use serde::Serialize;
 use serde_json::Value as Json;
@@ -97,6 +97,8 @@ struct State {
 pub struct NewCharacter {
     state: State,
     history: Vec<State>,
+    /// The rules as they were when it began (the choices features ask for).
+    rules: OverlaySet,
 }
 
 /// The steps as a checklist shows them: each from its first step to the
@@ -285,7 +287,7 @@ fn describe_alternative(origin: &str, parts: &[AbilityGrant]) -> String {
 }
 
 impl NewCharacter {
-    pub fn new(name: String, lib: &Library, filter: &SourceFilter) -> NewCharacter {
+    pub fn new(name: String, lib: &Library, rules: &OverlaySet, filter: &SourceFilter) -> NewCharacter {
         let state = State {
             step: Step::Species,
             question: Question::Confirm,
@@ -305,7 +307,7 @@ impl NewCharacter {
             equipment_choice: None,
             any_items: Vec::new(),
         };
-        let mut w = NewCharacter { state, history: Vec::new() };
+        let mut w = NewCharacter { state, history: Vec::new(), rules: rules.clone() };
         w.enter(Step::Species, lib, filter);
         w
     }
@@ -645,7 +647,7 @@ impl NewCharacter {
                     let mut before = st.ch.clone();
                     before.levels.clear();
                     let skills = st.ch.proficiencies.skills.clone();
-                    let found = choices::level_choices(lib, &before, class, subclass, 1, filter, &skills);
+                    let found = choices::level_choices(lib, &self.rules, &before, class, subclass, 1, filter, &skills);
                     st.feature_choices = Some(found.into_iter().filter(|c| !c.options.is_empty()).collect());
                 }
                 let Some(choice) = st.feature_choices.as_ref().and_then(|q| q.first()) else { return false };
@@ -950,7 +952,7 @@ mod tests {
                        "startingProficiencies": {"skills": [{"choose": {"from": ["athletics", "acrobatics"], "count": 1}}]}}]
         }));
         let filter = SourceFilter::default();
-        let mut w = NewCharacter::new("Ada".into(), &lib, &filter);
+        let mut w = NewCharacter::new("Ada".into(), &lib, &OverlaySet::default(), &filter);
         assert!(w.finish().is_err(), "not done yet");
         assert!(w.answer(&lib, &filter, Answer::Scores(STANDARD_ARRAY)).is_err(), "scores do not answer a species question");
 
@@ -990,7 +992,7 @@ mod tests {
                        "primaryAbility": [{"str": true}, {"dex": true}], "proficiency": ["str", "con"]}]
         }));
         let filter = SourceFilter::default();
-        let mut w = NewCharacter::new("Ada".into(), &lib, &filter);
+        let mut w = NewCharacter::new("Ada".into(), &lib, &OverlaySet::default(), &filter);
         let hints = |w: &NewCharacter| match w.question() {
             Question::Pick { choices, .. } => choices.iter().map(|c| c.hint.clone()).collect::<Vec<_>>(),
             _ => panic!("a pick"),

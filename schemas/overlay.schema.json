@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/v0v3s/dungeons-n-terminals/schemas/overlay.schema.json",
   "title": "dnt rules (overlay) file",
-  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles, effects and spells to characters that have it. Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
+  "description": "A TOML file of rules for features, in <data>/library/overlays/. Each feature names an entity and adds resources, toggles, effects, spells, and rules for attacks, rolls and choices to characters that have it (a condition's, while they have it). Formulas use the stat names of the sheet (level, prof, mod.str, class.<class>.level, class table columns, …) and functions such as scale(), if(), max(), level('Class'), toggle('key').",
   "type": "object",
   "properties": {
     "feature": {
@@ -14,7 +14,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`."
+            "description": "`<type>:<reference>`, e.g. `classFeature:Rage|Barbarian|XPHB|1`, `feat:Tough|XPHB`, `race:Dwarf|XPHB`. A `*` part names every entity with anything there: `classFeature:Ability Score Improvement|*|*|*`."
           },
           "name": {
             "type": "string",
@@ -161,7 +161,348 @@
               ],
               "not": { "required": ["uses", "resource"] }
             }
+          },
+          "attack": {
+            "type": "array",
+            "description": "How it changes attacks with the weapons `weapons` picks.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "weapons": {
+                  "type": "string",
+                  "description": "Formula: which weapons, by their facts: weapon.melee, weapon.ranged, weapon.simple, weapon.martial, weapon.name, weapon.both_hands and the properties (weapon.light, weapon.heavy, weapon.finesse, weapon.two_handed, weapon.versatile, weapon.thrown, weapon.reach, weapon.ammunition, weapon.loading). All weapons if missing."
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "What those weapons are called (`monk weapon`): the player marks weapons in or out of the kind."
+                },
+                "ability": {
+                  "type": "string",
+                  "description": "Formula: the ability modifier for their attack and damage rolls, e.g. `max(mod.str, mod.dex)`."
+                },
+                "die": {
+                  "type": "string",
+                  "description": "Formula: a damage die used instead of the weapon's when it is better."
+                },
+                "dice_min": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "description": "Each damage die counts at least this."
+                },
+                "reroll": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Damage dice of this or less are rolled again, once."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Shown with the attack."
+                }
+              }
+            }
+          },
+          "offhand": {
+            "type": "array",
+            "description": "Weapons it lets attack off hand, besides Light weapons in both hands.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "main": {
+                  "type": "string",
+                  "description": "Formula: what the main hand's weapon must be (main.light, main.melee, … as for weapon.*)."
+                },
+                "off": {
+                  "type": "string",
+                  "description": "Formula: what the off hand's weapon must be (weapon.*)."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "What it needs, shown when the weapons do not have it."
+                }
+              }
+            }
+          },
+          "choice": {
+            "type": "array",
+            "description": "Choices it asks for when gained (a class's or subclass's feature).",
+            "items": {
+              "type": "object",
+              "required": ["pick"],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "What it is called, and what the character file keeps it under; the rule's name if missing."
+                },
+                "pick": {
+                  "enum": ["ability_increase", "feat", "expertise", "weapon_mastery", "option"],
+                  "description": "Ability scores to increase (or a feat instead), a feat, skills to gain Expertise in, weapons to master, or the rule's options (formulas know them as choice.<key>, and each picked as choice.<key>.<option>)."
+                },
+                "count": {
+                  "type": "string",
+                  "description": "Formula (expertise, weapon_mastery; option, 1 without): how many the feature gives in all at a class level; the class table's columns are at that level."
+                },
+                "feats": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "ability_increase, feat: the feat categories offered (the data's, e.g. G, EB); feats without a category always are."
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "description": "option: what it offers."
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "pick": {
+                        "enum": ["expertise", "weapon_mastery"]
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["count"],
+                    "not": { "required": ["feats"] }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "pick": {
+                        "const": "option"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["options"],
+                    "not": { "required": ["feats"] }
+                  },
+                  "else": {
+                    "not": { "required": ["options"] }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "pick": {
+                        "enum": ["ability_increase", "feat"]
+                      }
+                    }
+                  },
+                  "then": {
+                    "not": { "required": ["count"] }
+                  }
+                }
+              ]
+            }
+          },
+          "summary": {
+            "type": "string",
+            "description": "What it does, in a line (shown with a condition)."
+          },
+          "levels": {
+            "type": "array",
+            "description": "A condition had at a level (Exhaustion): what each level does, in a line. Its formulas have the level as exhaustion.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "roll": {
+            "type": "array",
+            "description": "How it changes rolls.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["rolls", "mode"],
+              "properties": {
+                "rolls": {
+                  "type": "string",
+                  "description": "Formula: which rolls (roll.attack, roll.check, roll.save, roll.initiative, roll.str … roll.cha, exhaustion)."
+                },
+                "mode": {
+                  "enum": ["advantage", "disadvantage", "fail"],
+                  "description": "Advantage, Disadvantage, or a fail without rolling."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Why, shown with a fail."
+                }
+              }
+            }
+          },
+          "action": {
+            "type": "array",
+            "description": "Actions of its own, listed with the attacks.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "attack": {
+                  "type": "string",
+                  "description": "Formula: the attack bonus, for an attack roll."
+                },
+                "save": {
+                  "enum": ["str", "dex", "con", "int", "wis", "cha"],
+                  "description": "The ability of the target's save (with dc)."
+                },
+                "dc": {
+                  "type": "string",
+                  "description": "Formula: the save's DC."
+                },
+                "damage": {
+                  "type": "string",
+                  "description": "Formula of dice: dice(2, 6) + mod.con."
+                },
+                "damage_type": {
+                  "type": "string"
+                },
+                "heal": {
+                  "type": "string",
+                  "description": "Formula of dice: the healing."
+                },
+                "temp_hp": {
+                  "type": "string",
+                  "description": "Formula: temporary hit points the character gains."
+                },
+                "resource": {
+                  "type": "string",
+                  "description": "The key of the resource a use takes."
+                },
+                "cost": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Uses of the resource it takes (1 without)."
+                },
+                "note": {
+                  "type": "string",
+                  "description": "Shown with the action and its roll."
+                },
+                "when": {
+                  "type": "string",
+                  "description": "Formula: the action is there while this holds."
+                }
+              },
+              "dependentRequired": {
+                "save": ["dc"],
+                "dc": ["save"],
+                "cost": ["resource"]
+              }
+            }
+          },
+          "defense": {
+            "type": "array",
+            "description": "Damage and conditions it defends against.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "resist": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Damage types resisted (all for every one)."
+                },
+                "immune": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Damage types it is immune to."
+                },
+                "vulnerable": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Damage types it is vulnerable to."
+                },
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Conditions it is immune to."
+                },
+                "when": {
+                  "type": "string",
+                  "description": "Formula: while this holds."
+                }
+              }
+            }
+          },
+          "proficiency": {
+            "type": "array",
+            "description": "Proficiencies it gives.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Skill keys (sleight_of_hand)."
+                },
+                "saves": {
+                  "type": "array",
+                  "items": {
+                    "enum": ["str", "dex", "con", "int", "wis", "cha"]
+                  },
+                  "description": "Saves, by ability."
+                },
+                "tools": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "all_options": {
+            "type": "boolean",
+            "description": "The options its text lists are all gained, not one chosen."
           }
+        }
+      }
+    },
+    "multiclass": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The multiclassing tables (the last file's that has one).",
+      "properties": {
+        "slots": {
+          "type": "array",
+          "description": "Spell slots of levels 1–9 per combined caster level, from 1: a row per level, e.g. [4, 3, 2].",
+          "items": {
+            "type": "array",
+            "maxItems": 9,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "primary_score": {
+          "type": "integer",
+          "description": "The score a class's primary ability needs to multiclass, when the class lists no requirements."
         }
       }
     }

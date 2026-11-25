@@ -245,41 +245,47 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
     match sheet.popup.clone() {
         Some(Popup::Overlay(_)) => {}
         Some(Popup::Conditions(cursor)) => {
-            let names = dnt_rules::conditions::CONDITIONS;
+            let list = dnt_core::sheet::conditions(&sheet.session);
+            let leveled = dnt_rules::conditions::leveled(&sheet.session.build.conditions);
             let st = &sheet.session.file.character.state;
-            let rect = centered(area, 96.min(area.width), names.len() as u16 + 7);
+            let rect = centered(area, 96.min(area.width), list.len() as u16 + if leveled.is_some() { 7 } else { 5 });
             frame.render_widget(Clear, rect);
+            let keys = match leveled {
+                Some(l) => format!(" space toggle · + - {} · esc done ", l.name.to_lowercase()),
+                None => " space toggle · esc done ".into(),
+            };
             let block = pane(pane_title("Conditions", true, theme), true, theme)
                 .padding(Padding::new(2, 2, 1, 0))
-                .title_bottom(Line::styled(" space toggle · + - exhaustion · esc done ", theme.dim).right_aligned());
+                .title_bottom(Line::styled(keys, theme.dim).right_aligned());
             let mut lines = Vec::new();
-            for (i, c) in names.iter().enumerate() {
-                let on = st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c));
+            for (i, (c, on)) in list.iter().enumerate() {
+                let (c, on) = (&c.name, *on);
                 let base = if i == cursor { theme.selected } else { Style::new() };
                 lines.push(
                     Line::from(vec![
                         Span::styled(if on { "◉ " } else { "○ " }, if on { base.fg(Color::Magenta) } else { base.patch(theme.dim) }),
                         Span::styled(format!("{c:<15}"), if on { base.add_modifier(Modifier::BOLD) } else { base }),
-                        Span::styled(dnt_rules::conditions::summary(c), base.patch(theme.dim)),
+                        Span::styled(list[i].0.summary.clone(), base.patch(theme.dim)),
                     ])
                     .style(base),
                 );
             }
-            let base = if cursor == names.len() { theme.selected } else { Style::new() };
-            let lvl = st.exhaustion;
-            let what = dnt_rules::conditions::exhaustion_summary(lvl, sheet.session.edition == dnt_rules::play::Edition::Modern);
-            lines.push(Line::default());
-            lines.push(
-                Line::from(vec![
-                    Span::styled(format!("  {:<15}", "Exhaustion"), base),
-                    Span::styled(
-                        format!("{lvl}  "),
-                        base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(what, base.patch(theme.dim)),
-                ])
-                .style(base),
-            );
+            if let Some(l) = leveled {
+                let base = if cursor == list.len() { theme.selected } else { Style::new() };
+                let lvl = st.exhaustion;
+                lines.push(Line::default());
+                lines.push(
+                    Line::from(vec![
+                        Span::styled(format!("  {:<15}", l.name), base),
+                        Span::styled(
+                            format!("{lvl}  "),
+                            base.fg(if lvl > 0 { Color::Magenta } else { Color::Reset }).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(l.at(lvl).to_string(), base.patch(theme.dim)),
+                    ])
+                    .style(base),
+                );
+            }
             frame.render_widget(Paragraph::new(lines).block(block), rect);
         }
         Some(Popup::Breakdown(key)) => draw_breakdown(frame, area, lib, sheet, &key, theme),
@@ -658,8 +664,8 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
         for n in &a.notes {
             notes.push(Span::styled(format!("{n}  "), base.fg(Color::Red)));
         }
-        if a.monk_weapon {
-            notes.push(Span::styled("monk weapon  ", base.fg(theme.accent)));
+        if let Some(kind) = &a.kind {
+            notes.push(Span::styled(format!("{kind}  "), base.fg(theme.accent)));
         }
         if let Some(m) = &a.mastery {
             notes.push(Span::styled(format!("mastery: {m}  "), base.fg(theme.accent)));
@@ -720,6 +726,38 @@ fn draw_attacks(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, the
             spans = out;
         }
         lines.push(Line::from(spans).style(base));
+    }
+    // Actions the rules give: what they roll, and what they cost.
+    let actions = dnt_core::sheet::actions(&sheet.session);
+    if !actions.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::styled("Actions", theme.label));
+        for a in &actions {
+            let base = row_style(sheet, &Item::Action(a.name.clone()), theme);
+            if base != Style::new() {
+                selected = lines.len();
+            }
+            let faint = if base == Style::new() { theme.dim } else { theme.muted };
+            let mut spans = vec![
+                Span::raw("      "),
+                Span::styled(format!("{}  ", a.name), base.add_modifier(Modifier::BOLD)),
+                Span::styled(format!("{}  ", a.what), base.fg(theme.accent)),
+                Span::styled(format!("{}  ", a.dice), base),
+            ];
+            if let Some(cost) = &a.cost {
+                spans.push(Span::styled(format!("{cost}  "), base.patch(faint)));
+            }
+            if let Some(note) = &a.note {
+                spans.push(Span::styled(note.clone(), base.patch(faint)));
+            }
+            let used: usize = spans.iter().map(|s| s.content.width()).sum();
+            if used > width {
+                let last = spans.pop().expect("a span");
+                let left = width.saturating_sub(used - last.content.width());
+                spans.push(Span::styled(truncate(&last.content, left), last.style));
+            }
+            lines.push(Line::from(spans).style(base));
+        }
     }
     // Extra damage on some hits (Sneak Attack, Radiant Strikes): the value
     // and, from the feature, when it applies.
@@ -847,7 +885,9 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
 
     // Middle: combat tiles, HP, resources.
     let riders = sheet.session.ev.stats.keys().filter(|k| k.starts_with("rider.")).count() as u16;
-    let attacks_h = (sheet.session.build.attacks.len() as u16 + 7 + if riders > 0 { riders + 2 } else { 0 }).min(22);
+    let actions = sheet.session.build.actions.len() as u16;
+    let extra = |n: u16| if n > 0 { n + 2 } else { 0 };
+    let attacks_h = (sheet.session.build.attacks.len() as u16 + 7 + extra(riders) + extra(actions)).min(24);
     let [tiles, _, attacks, _, rest] = Layout::vertical([
         Constraint::Length(5),
         Constraint::Length(1),
@@ -933,10 +973,12 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
     }
     // Conditions (C to change) and what they do.
     let st = &ch.state;
-    if !st.conditions.is_empty() || st.exhaustion > 0 {
+    let known = &sheet.session.build.conditions;
+    let leveled = dnt_rules::conditions::leveled(known).filter(|_| st.exhaustion > 0);
+    if !st.conditions.is_empty() || leveled.is_some() {
         let mut names: Vec<String> = st.conditions.clone();
-        if st.exhaustion > 0 {
-            names.push(format!("Exhaustion {}", st.exhaustion));
+        if let Some(l) = leveled {
+            names.push(format!("{} {}", l.name, st.exhaustion));
         }
         lines.push(Line::from(vec![
             Span::styled(format!("{:<12}", "Conditions"), theme.label),
@@ -945,15 +987,36 @@ fn draw_overview(frame: &mut Frame, area: Rect, lib: &Library, sheet: &Sheet, th
         ]));
         for c in &st.conditions {
             lines.push(Line::styled(
-                format!("{:<12}{}", "", truncate(dnt_rules::conditions::summary(c), width.saturating_sub(12))),
+                format!(
+                    "{:<12}{}",
+                    "",
+                    truncate(known.iter().find(|k| k.name.eq_ignore_ascii_case(c)).map_or("", |k| &k.summary), width.saturating_sub(12))
+                ),
                 theme.dim,
             ));
         }
-        if st.exhaustion > 0 {
-            let what = dnt_rules::conditions::exhaustion_summary(st.exhaustion, sheet.session.edition == dnt_rules::play::Edition::Modern);
-            let style = if st.exhaustion >= 6 { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
-            lines.push(Line::styled(format!("{:<12}Exhaustion: {}", "", truncate(&what, width.saturating_sub(24))), style));
+        if let Some(l) = leveled {
+            let last = st.exhaustion >= l.levels.len() as i64;
+            let style = if last { Style::new().fg(Color::Red).add_modifier(Modifier::BOLD) } else { theme.dim };
+            lines.push(Line::styled(format!("{:<12}{}: {}", "", l.name, truncate(l.at(st.exhaustion), width.saturating_sub(24))), style));
         }
+    }
+    // Traits: what the character is, senses and withstands.
+    let t = dnt_core::sheet::traits(&sheet.session);
+    let rows = [
+        ("Type", t.creature_type.clone().into_iter().collect::<Vec<_>>()),
+        ("Speeds", t.speeds.clone()),
+        ("Senses", t.senses.clone()),
+        ("Resists", t.resistances.clone()),
+        ("Immune", t.immunities.iter().chain(&t.condition_immunities).cloned().collect()),
+        ("Vulnerable", t.vulnerabilities.clone()),
+        ("Tools", t.tools.clone()),
+    ];
+    for (label, items) in rows.iter().filter(|(_, v)| !v.is_empty()) {
+        lines.push(Line::from(vec![
+            Span::styled(format!("{label:<12}"), theme.label),
+            Span::raw(truncate(&items.join(" · "), width.saturating_sub(12))),
+        ]));
     }
     // The last few rolls, newest first.
     if !sheet.session.roller.log.is_empty() {
@@ -1494,8 +1557,8 @@ fn draw_inventory(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Shee
             (_, Some(h)) => format!(" {}", h.label()),
             _ => entity.and_then(|e| equipment::armor_kind(&lib.entity(e).data)).map(|k| format!(" {k}")).unwrap_or_default(),
         };
-        if entity.is_some() && sheet.session.build.attacks.iter().any(|a| a.item == entity && a.monk_weapon) {
-            kind.push_str(" monk weapon");
+        if let Some(k) = sheet.session.build.attacks.iter().filter(|a| entity.is_some() && a.item == entity).find_map(|a| a.kind.as_ref()) {
+            kind.push_str(&format!(" {k}"));
         }
         let weight = if w > 0.0 { format!("{w:.1}") } else { "—".into() };
         // Containers: a fold marker and how full they are.

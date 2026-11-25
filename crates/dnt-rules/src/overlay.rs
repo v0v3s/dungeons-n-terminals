@@ -38,6 +38,126 @@
 //! uses = 1
 //! ```
 //!
+//! A rule can change attacks: for the weapons a filter picks (their
+//! properties: `weapon.melee`, `weapon.simple`, `weapon.light`, …), the
+//! ability they use, a damage die used when better, each damage die
+//! counting at least `dice_min` or rerolled at `reroll` or less, and a
+//! note. With a `kind`, those weapons are a kind the player marks weapons
+//! in or out of (the filter says which are, until marked):
+//!
+//! ```toml
+//! [[feature]]
+//! id = "classFeature:Martial Arts|Monk|XPHB|1"
+//!
+//! [[feature.attack]]
+//! kind = "monk weapon"
+//! weapons = "weapon.melee and (weapon.simple or (weapon.martial and weapon.light))"
+//! ability = "max(mod.str, mod.dex)"
+//! die = "class.monk.martial_arts"
+//! ```
+//!
+//! and which weapons allow the off-hand attack (besides Light ones in
+//! both hands), with what is needed when they do not:
+//!
+//! ```toml
+//! [[feature.offhand]]
+//! main = "main.light"
+//! off = "weapon.melee and not weapon.two_handed"
+//! note = "the main weapon must be Light, this one a melee weapon without Two-Handed"
+//! ```
+//!
+//! A rule can ask for a choice when its feature is gained: abilities to
+//! increase (or a feat instead), a feat, skills to gain Expertise in, or
+//! weapons to master. `count` is how many the feature gives in all at a
+//! class level (a formula: the class table's columns are at that level):
+//!
+//! ```toml
+//! [[feature]]
+//! id = "classFeature:Weapon Mastery|Fighter|XPHB|1"
+//!
+//! [[feature.choice]]
+//! pick = "weapon_mastery"
+//! count = "class.fighter.weapon_mastery"
+//! ```
+//!
+//! A rule can change rolls: for the rolls a filter picks (`roll.attack`,
+//! `roll.check`, `roll.save`, `roll.initiative`, and the ability rolled
+//! with: `roll.str` … `roll.cha`), advantage, disadvantage, or a fail
+//! without rolling (with a note saying why). Rules for a condition apply
+//! while the character has it; a `summary` says what it does in a line:
+//!
+//! ```toml
+//! [[feature]]
+//! id = "condition:Restrained|XPHB"
+//! summary = "Speed 0; Disadvantage on attacks and Dex saves"
+//!
+//! [[feature.effect]]
+//! target = "speed"
+//! min = "0"
+//!
+//! [[feature.roll]]
+//! rolls = "roll.attack or (roll.save and roll.dex)"
+//! mode = "disadvantage"
+//! ```
+//!
+//! A condition with `levels` (Exhaustion) is had at a level, what each
+//! level does in a line; its formulas have the level as `exhaustion`:
+//!
+//! ```toml
+//! [[feature]]
+//! id = "condition:Exhaustion|XPHB"
+//! levels = ["−2 to d20 tests, −5 ft. speed", "…", "death"]
+//!
+//! [[feature.effect]]
+//! target = "d20.bonus"   # every d20 test: saves, checks, attacks
+//! add = "-2 * exhaustion"
+//! ```
+//!
+//! A file's `[multiclass]` table has the multiclass spellcaster's slots
+//! (levels 1–9, per combined caster level) and the score a class's
+//! primary ability needs when its data lists no requirements:
+//!
+//! ```toml
+//! [multiclass]
+//! slots = [[2], [3], [4, 2]]   # …to level 20
+//! primary_score = 13
+//! ```
+//!
+//! A rule can give the character an action of its own (an attack, a save
+//! with its DC, damage or healing dice, temporary hit points, paid with a
+//! resource), defenses (damage resisted, immune or vulnerable, conditions
+//! immune) while `when` holds, and proficiencies (skills, saves, tools):
+//!
+//! ```toml
+//! [[feature.action]]
+//! name = "Frost Breath"
+//! save = "con"
+//! dc = "8 + mod.con + prof"
+//! damage = "dice(2, 6)"
+//! damage_type = "cold"
+//! resource = "breath"
+//!
+//! [[feature.defense]]
+//! resist = ["cold"]
+//! when = "toggle('frost_form')"
+//!
+//! [[feature.proficiency]]
+//! skills = ["survival"]
+//! tools = ["Brewer's Supplies"]
+//! ```
+//!
+//! A choice can also pick one of a rule's own options (`pick = "option"`,
+//! `options = [...]`), which formulas know as `choice.<key>`
+//! (`when = "choice.runeforging == 'Blood'"`), and each option picked as
+//! `choice.<key>.<option>` (true). An action with a `when` is there while
+//! it holds. `all_options = true` says the options the feature lists in
+//! its text are all gained, not one chosen. Senses (`sense.darkvision`,
+//! `sense.blindsight`, …), other speeds (`speed.fly`, …) and the
+//! creature type (`creature_type`) are stats effects can change.
+//!
+//! An id with a `*` part names every entity that has anything there:
+//! `classFeature:Ability Score Improvement|*|*|*` is every class's.
+//!
 //! A class's features are its own: rules for one apply when it comes with
 //! the class it names (the Barbarian's Rage, for a Barbarian). Another
 //! class that has it too (a book's class made from the Barbarian) has its
@@ -57,6 +177,7 @@ use serde::{Deserialize, Serialize};
 use crate::engine::{Effect, Model, Op, StatDef};
 use crate::formula::Formula;
 use crate::spells::{Grant, Granted};
+use crate::standard::{ABILITIES, SKILLS};
 use crate::value::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -102,6 +223,177 @@ pub struct FeatureOverlay {
     pub effects: Vec<Effect>,
     /// Spells it grants.
     pub spells: Vec<Granted>,
+    /// How it changes attacks.
+    pub attacks: Vec<AttackRule>,
+    /// Weapons it lets attack off hand.
+    pub offhand: Vec<OffhandRule>,
+    /// Choices it asks for when gained.
+    pub choices: Vec<ChoiceRule>,
+    /// What it does, in a line (a condition's).
+    pub summary: Option<String>,
+    /// A condition had at a level: what each level does, in a line.
+    pub levels: Vec<String>,
+    /// How it changes rolls.
+    pub rolls: Vec<RollRule>,
+    /// The options its text lists are all gained, not one chosen.
+    pub all_options: bool,
+    /// Actions of its own.
+    pub actions: Vec<ActionRule>,
+    pub defenses: Vec<DefenseRule>,
+    pub proficiencies: Vec<ProficiencyRule>,
+}
+
+/// An action a feature gives: an attack roll or a save against its DC,
+/// with damage or healing dice, or temporary hit points.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActionRule {
+    pub name: String,
+    /// The attack bonus, for an attack roll.
+    pub attack: Option<Formula>,
+    /// The ability of the target's save, and its DC.
+    pub save: Option<String>,
+    pub dc: Option<Formula>,
+    /// Dice (`dice(2, 6) + mod.con`).
+    pub damage: Option<Formula>,
+    pub damage_type: Option<String>,
+    pub heal: Option<Formula>,
+    /// Temporary hit points the character gains.
+    pub temp_hp: Option<Formula>,
+    /// What it costs: uses of a resource (its key).
+    pub resource: Option<String>,
+    pub cost: i64,
+    pub note: Option<String>,
+    /// There while this holds.
+    pub when: Option<Formula>,
+}
+
+/// Damage and conditions a feature defends against, while `when` holds.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct DefenseRule {
+    /// Damage types (`all` for every one).
+    pub resist: Vec<String>,
+    pub immune: Vec<String>,
+    pub vulnerable: Vec<String>,
+    /// Conditions it is immune to.
+    pub conditions: Vec<String>,
+    pub when: Option<Formula>,
+}
+
+/// Proficiencies a feature gives.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ProficiencyRule {
+    /// Skill keys (`sleight_of_hand`).
+    pub skills: Vec<String>,
+    /// Ability keys of saves.
+    pub saves: Vec<String>,
+    pub tools: Vec<String>,
+}
+
+/// What a roll rule does to the rolls it picks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RollMode {
+    Advantage,
+    Disadvantage,
+    /// The roll fails without rolling.
+    Fail,
+}
+
+/// How a rule changes rolls: those its filter picks.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RollRule {
+    /// The rule's name.
+    pub origin: String,
+    pub rolls: Formula,
+    pub mode: RollMode,
+    /// Why, shown with the roll (a fail's).
+    pub note: Option<String>,
+}
+
+/// The multiclassing tables of a `[multiclass]` table.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Multiclass {
+    /// Spell slots of levels 1–9 per combined caster level (from 1).
+    pub slots: Vec<Vec<i64>>,
+    /// The score a class's primary ability needs, when its data lists no
+    /// requirements.
+    pub primary_score: Option<i64>,
+}
+
+impl Multiclass {
+    /// Slots for a combined caster level (none at 0; the last row above).
+    pub fn slots_for(&self, caster_level: i64) -> [i64; 9] {
+        let mut out = [0; 9];
+        if caster_level > 0 && !self.slots.is_empty() {
+            if let Some(row) = self.slots.get((caster_level as usize).min(self.slots.len()) - 1) {
+                for (o, n) in out.iter_mut().zip(row) {
+                    *o = *n;
+                }
+            }
+        }
+        out
+    }
+}
+
+/// What a choice picks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pick {
+    /// Ability scores to increase (2 points), or a feat instead.
+    AbilityIncrease,
+    /// A feat.
+    Feat,
+    /// Proficient skills to gain Expertise in.
+    Expertise,
+    /// Weapons to master.
+    WeaponMastery,
+    /// One of the rule's own options.
+    Option,
+}
+
+/// A choice a feature asks for when it is gained.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChoiceRule {
+    /// What it is called, and what the character file keeps it under.
+    pub key: String,
+    pub pick: Pick,
+    /// How many the feature gives in all at a class level (Expertise,
+    /// Weapon Mastery, an option).
+    pub count: Option<Formula>,
+    /// The feat categories it offers (the data's: `G`, `EB`).
+    pub feats: Vec<String>,
+    /// What an `option` choice offers.
+    pub options: Vec<String>,
+}
+
+/// How a rule changes the attacks with some weapons.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AttackRule {
+    /// The rule's name.
+    pub origin: String,
+    /// Which weapons (all without one).
+    pub weapons: Option<Formula>,
+    /// What those weapons are called, when the player marks weapons in or
+    /// out (`monk weapon`).
+    pub kind: Option<String>,
+    /// The ability modifier for attack and damage rolls.
+    pub ability: Option<Formula>,
+    /// A damage die used instead of the weapon's when it is better.
+    pub die: Option<Formula>,
+    /// Each damage die counts at least this.
+    pub dice_min: Option<i64>,
+    /// Damage dice of this or less are rolled again, once.
+    pub reroll: Option<i64>,
+    /// Shown with the attack.
+    pub note: Option<String>,
+}
+
+/// Weapons a rule lets attack off hand: the main hand's (`main.*`) and the
+/// off hand's (`weapon.*`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct OffhandRule {
+    pub main: Option<Formula>,
+    pub off: Option<Formula>,
+    /// What it needs, shown when the weapons do not have it.
+    pub note: Option<String>,
 }
 
 /// A problem found while loading an overlay. Loading continues past these.
@@ -125,6 +417,15 @@ impl std::fmt::Display for Diagnostic {
 struct RawFile {
     #[serde(default)]
     feature: Vec<RawFeature>,
+    multiclass: Option<RawMulticlass>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawMulticlass {
+    #[serde(default)]
+    slots: Vec<Vec<i64>>,
+    primary_score: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -141,6 +442,107 @@ struct RawFeature {
     effect: Vec<RawEffect>,
     #[serde(default)]
     spell: Vec<RawSpell>,
+    #[serde(default)]
+    attack: Vec<RawAttack>,
+    #[serde(default)]
+    offhand: Vec<RawOffhand>,
+    #[serde(default)]
+    choice: Vec<RawChoice>,
+    summary: Option<String>,
+    #[serde(default)]
+    levels: Vec<String>,
+    #[serde(default)]
+    roll: Vec<RawRoll>,
+    #[serde(default)]
+    all_options: bool,
+    #[serde(default)]
+    action: Vec<RawAction>,
+    #[serde(default)]
+    defense: Vec<RawDefense>,
+    #[serde(default)]
+    proficiency: Vec<RawProficiency>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAction {
+    name: String,
+    attack: Option<String>,
+    save: Option<String>,
+    dc: Option<String>,
+    damage: Option<String>,
+    damage_type: Option<String>,
+    heal: Option<String>,
+    temp_hp: Option<String>,
+    resource: Option<String>,
+    cost: Option<i64>,
+    note: Option<String>,
+    when: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawDefense {
+    #[serde(default)]
+    resist: Vec<String>,
+    #[serde(default)]
+    immune: Vec<String>,
+    #[serde(default)]
+    vulnerable: Vec<String>,
+    #[serde(default)]
+    conditions: Vec<String>,
+    when: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawProficiency {
+    #[serde(default)]
+    skills: Vec<String>,
+    #[serde(default)]
+    saves: Vec<String>,
+    #[serde(default)]
+    tools: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawRoll {
+    rolls: String,
+    mode: String,
+    note: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawChoice {
+    key: Option<String>,
+    pick: String,
+    count: Option<String>,
+    #[serde(default)]
+    feats: Vec<String>,
+    #[serde(default)]
+    options: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAttack {
+    weapons: Option<String>,
+    kind: Option<String>,
+    ability: Option<String>,
+    die: Option<String>,
+    dice_min: Option<i64>,
+    reroll: Option<i64>,
+    note: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawOffhand {
+    main: Option<String>,
+    off: Option<String>,
+    note: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -188,6 +590,7 @@ struct RawEffect {
 #[derive(Debug, Clone, Default)]
 pub struct Overlay {
     pub features: Vec<FeatureOverlay>,
+    pub multiclass: Option<Multiclass>,
 }
 
 fn valid_key(k: &str) -> bool {
@@ -374,15 +777,271 @@ impl Overlay {
                 }
             }
 
-            features.push(FeatureOverlay { id: f.id, keys, name, class, resources, toggles, effects, spells });
+            let mut attacks = Vec::new();
+            for (ai, a) in f.attack.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".attack[{ai}]{field}"));
+                let mut ok = true;
+                let mut opt = |src: &Option<String>, field: &str, diags: &mut Vec<Diagnostic>| match src {
+                    Some(src) => {
+                        let f = formula(src, loc(&format!(".{field}")), diags);
+                        ok &= f.is_some();
+                        f
+                    }
+                    None => None,
+                };
+                let (weapons, ability, die) =
+                    (opt(&a.weapons, "weapons", &mut diags), opt(&a.ability, "ability", &mut diags), opt(&a.die, "die", &mut diags));
+                if a.kind.is_some() && a.weapons.is_none() {
+                    diags.push(Diagnostic { location: loc(".kind"), message: "a kind of weapon needs `weapons`: which are".into() });
+                    ok = false;
+                }
+                if a.dice_min.is_some_and(|n| n < 2) || a.reroll.is_some_and(|n| n < 1) {
+                    diags.push(Diagnostic { location: loc(""), message: "`dice_min` is 2 or more, `reroll` 1 or more".into() });
+                    ok = false;
+                }
+                let changes =
+                    [a.kind.is_some(), ability.is_some(), die.is_some(), a.dice_min.is_some(), a.reroll.is_some(), a.note.is_some()];
+                if ok && !changes.contains(&true) {
+                    diags.push(Diagnostic {
+                        location: loc(""),
+                        message: "an attack rule changes something: `kind`, `ability`, `die`, `dice_min`, `reroll` or `note`".into(),
+                    });
+                    ok = false;
+                }
+                if ok {
+                    attacks.push(AttackRule {
+                        origin: name.clone(),
+                        weapons,
+                        kind: a.kind,
+                        ability,
+                        die,
+                        dice_min: a.dice_min,
+                        reroll: a.reroll,
+                        note: a.note,
+                    });
+                }
+            }
+
+            let mut offhand = Vec::new();
+            for (oi, o) in f.offhand.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".offhand[{oi}].{field}"));
+                let main = o.main.as_deref().map(|src| formula(src, loc("main"), &mut diags));
+                let off = o.off.as_deref().map(|src| formula(src, loc("off"), &mut diags));
+                if matches!(main, Some(None)) || matches!(off, Some(None)) {
+                    continue;
+                }
+                offhand.push(OffhandRule { main: main.flatten(), off: off.flatten(), note: o.note });
+            }
+
+            let mut choices = Vec::new();
+            for (ci, c) in f.choice.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".choice[{ci}]{field}"));
+                let pick = match c.pick.as_str() {
+                    "ability_increase" => Pick::AbilityIncrease,
+                    "feat" => Pick::Feat,
+                    "expertise" => Pick::Expertise,
+                    "weapon_mastery" => Pick::WeaponMastery,
+                    "option" => Pick::Option,
+                    other => {
+                        diags.push(Diagnostic {
+                            location: loc(".pick"),
+                            message: format!("`{other}`: expected `ability_increase`, `feat`, `expertise`, `weapon_mastery` or `option`"),
+                        });
+                        continue;
+                    }
+                };
+                if (pick == Pick::Option) != !c.options.is_empty() {
+                    let message = match pick {
+                        Pick::Option => "an `option` choice lists its `options`".to_string(),
+                        _ => format!("`{}` has no `options`", c.pick),
+                    };
+                    diags.push(Diagnostic { location: loc(".options"), message });
+                    continue;
+                }
+                let counted = matches!(pick, Pick::Expertise | Pick::WeaponMastery);
+                let count = match (&c.count, counted) {
+                    (None, false) if pick == Pick::Option => Some(Formula::constant(Value::int(1))),
+                    (Some(src), false) if pick == Pick::Option => match formula(src, loc(".count"), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    (Some(src), true) => match formula(src, loc(".count"), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    (None, true) => {
+                        diags.push(Diagnostic { location: loc(""), message: format!("`{}` needs a `count`", c.pick) });
+                        continue;
+                    }
+                    (Some(_), false) => {
+                        diags.push(Diagnostic { location: loc(".count"), message: format!("`{}` has no `count`", c.pick) });
+                        continue;
+                    }
+                    (None, false) => None,
+                };
+                if !c.feats.is_empty() && counted {
+                    diags.push(Diagnostic { location: loc(".feats"), message: format!("`{}` offers no feats", c.pick) });
+                    continue;
+                }
+                choices.push(ChoiceRule { key: c.key.unwrap_or_else(|| name.clone()), pick, count, feats: c.feats, options: c.options });
+            }
+
+            let mut rolls = Vec::new();
+            for (ri, r) in f.roll.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".roll[{ri}]{field}"));
+                let mode = match r.mode.as_str() {
+                    "advantage" => RollMode::Advantage,
+                    "disadvantage" => RollMode::Disadvantage,
+                    "fail" => RollMode::Fail,
+                    other => {
+                        diags.push(Diagnostic {
+                            location: loc(".mode"),
+                            message: format!("`{other}`: expected `advantage`, `disadvantage` or `fail`"),
+                        });
+                        continue;
+                    }
+                };
+                if let Some(filter) = formula(&r.rolls, loc(".rolls"), &mut diags) {
+                    rolls.push(RollRule { origin: name.clone(), rolls: filter, mode, note: r.note });
+                }
+            }
+
+            let mut actions = Vec::new();
+            for (ai, a) in f.action.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".action[{ai}]{field}"));
+                let mut ok = true;
+                let mut opt = |src: &Option<String>, field: &str, diags: &mut Vec<Diagnostic>| match src {
+                    Some(src) => {
+                        let f = formula(src, loc(&format!(".{field}")), diags);
+                        ok &= f.is_some();
+                        f
+                    }
+                    None => None,
+                };
+                let attack = opt(&a.attack, "attack", &mut diags);
+                let dc = opt(&a.dc, "dc", &mut diags);
+                let damage = opt(&a.damage, "damage", &mut diags);
+                let heal = opt(&a.heal, "heal", &mut diags);
+                let temp_hp = opt(&a.temp_hp, "temp_hp", &mut diags);
+                let when = opt(&a.when, "when", &mut diags);
+                if a.save.is_some() != a.dc.is_some() {
+                    diags.push(Diagnostic { location: loc(""), message: "a save has a `dc`, and a `dc` is a save's".into() });
+                    ok = false;
+                }
+                if a.save.as_deref().is_some_and(|ab| !ABILITIES.iter().any(|(k, _)| *k == ab)) {
+                    diags.push(Diagnostic { location: loc(".save"), message: "`save` is an ability: `str` … `cha`".into() });
+                    ok = false;
+                }
+                if a.cost.is_some() && a.resource.is_none() {
+                    diags.push(Diagnostic { location: loc(".cost"), message: "`cost` is what it takes of a `resource`".into() });
+                    ok = false;
+                }
+                if ok && [&attack, &dc, &damage, &heal, &temp_hp].iter().all(|f| f.is_none()) {
+                    diags.push(Diagnostic {
+                        location: loc(""),
+                        message: "an action does something: `attack`, `save`, `damage`, `heal` or `temp_hp`".into(),
+                    });
+                    ok = false;
+                }
+                if ok {
+                    actions.push(ActionRule {
+                        name: a.name,
+                        attack,
+                        save: a.save,
+                        dc,
+                        damage,
+                        damage_type: a.damage_type,
+                        heal,
+                        temp_hp,
+                        resource: a.resource,
+                        cost: a.cost.unwrap_or(1).max(1),
+                        note: a.note,
+                        when,
+                    });
+                }
+            }
+
+            let mut defenses = Vec::new();
+            for (di, d) in f.defense.into_iter().enumerate() {
+                let when = match &d.when {
+                    Some(w) => match formula(w, at(&format!(".defense[{di}].when")), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    None => None,
+                };
+                let lower = |v: Vec<String>| v.into_iter().map(|s| s.to_lowercase()).collect::<Vec<_>>();
+                defenses.push(DefenseRule {
+                    resist: lower(d.resist),
+                    immune: lower(d.immune),
+                    vulnerable: lower(d.vulnerable),
+                    conditions: lower(d.conditions),
+                    when,
+                });
+            }
+
+            let mut proficiencies = Vec::new();
+            for (pi, p) in f.proficiency.into_iter().enumerate() {
+                let loc = |field: &str| at(&format!(".proficiency[{pi}].{field}"));
+                if let Some(bad) = p.skills.iter().find(|k| !SKILLS.iter().any(|(s, _, _)| s == k)) {
+                    diags.push(Diagnostic { location: loc("skills"), message: format!("`{bad}` is not a skill key (`sleight_of_hand`)") });
+                    continue;
+                }
+                if let Some(bad) = p.saves.iter().find(|k| !ABILITIES.iter().any(|(a, _)| a == k)) {
+                    diags.push(Diagnostic { location: loc("saves"), message: format!("`{bad}` is not an ability: `str` … `cha`") });
+                    continue;
+                }
+                proficiencies.push(ProficiencyRule { skills: p.skills, saves: p.saves, tools: p.tools });
+            }
+
+            if !f.levels.is_empty() && !keys.iter().any(|k| k.kind == Kind::Condition) {
+                diags.push(Diagnostic { location: at(".levels"), message: "only a condition has `levels`".into() });
+                continue;
+            }
+
+            features.push(FeatureOverlay {
+                id: f.id,
+                keys,
+                name,
+                class,
+                resources,
+                toggles,
+                effects,
+                spells,
+                attacks,
+                offhand,
+                choices,
+                summary: f.summary,
+                levels: f.levels,
+                rolls,
+                all_options: f.all_options,
+                actions,
+                defenses,
+                proficiencies,
+            });
         }
-        Ok((Overlay { features }, diags))
+        let multiclass = match raw.multiclass {
+            Some(m) if m.slots.iter().any(|row| row.len() > 9 || row.iter().any(|n| *n < 0)) => {
+                diags.push(Diagnostic {
+                    location: "multiclass.slots".into(),
+                    message: "a row has up to 9 numbers of slots (levels 1–9), none below 0".into(),
+                });
+                None
+            }
+            Some(m) => Some(Multiclass { slots: m.slots, primary_score: m.primary_score }),
+            None => None,
+        };
+        Ok((Overlay { features, multiclass }, diags))
     }
 
     /// Feature ids that do not exist in the library (likely typos, or a
     /// homebrew source that is not loaded).
     pub fn unresolved<'a>(&'a self, lib: &Library) -> Vec<&'a str> {
-        self.features.iter().filter(|f| !f.keys.iter().any(|k| lib.get(k).is_some())).map(|f| f.id.as_str()).collect()
+        let names = |k: &Key| match is_pattern(k) {
+            true => lib.entities().iter().any(|e| pattern_matches(k, &e.key)),
+            false => lib.get(k).is_some(),
+        };
+        self.features.iter().filter(|f| !f.keys.iter().any(names)).map(|f| f.id.as_str()).collect()
     }
 }
 
@@ -390,11 +1049,35 @@ impl Overlay {
 #[derive(Debug, Default, Clone)]
 pub struct OverlaySet {
     by_key: HashMap<Key, Vec<FeatureOverlay>>,
+    /// Rules whose id has a `*` part (every class's Ability Score
+    /// Improvement): checked against each entity.
+    patterns: Vec<FeatureOverlay>,
+    /// The last loaded file's `[multiclass]`.
+    pub multiclass: Multiclass,
+}
+
+/// Whether a key has a `*` part.
+pub fn is_pattern(k: &Key) -> bool {
+    k.path.split('|').any(|p| p == "*")
+}
+
+/// Whether a key (or a pattern) is one a pattern names: each part the
+/// same, or `*` in the pattern.
+pub fn pattern_matches(pattern: &Key, key: &Key) -> bool {
+    let (p, k): (Vec<&str>, Vec<&str>) = (pattern.path.split('|').collect(), key.path.split('|').collect());
+    pattern.kind == key.kind && p.len() == k.len() && p.iter().zip(&k).all(|(p, k)| *p == "*" || p == k)
 }
 
 impl OverlaySet {
     pub fn add(&mut self, overlay: Overlay) {
+        if let Some(m) = overlay.multiclass {
+            self.multiclass = m;
+        }
         for f in overlay.features {
+            if f.keys.iter().any(is_pattern) {
+                self.patterns.push(f);
+                continue;
+            }
             for k in &f.keys {
                 self.by_key.entry(k.clone()).or_default().push(f.clone());
             }
@@ -405,6 +1088,7 @@ impl OverlaySet {
     /// same entities and class (a user's version of a built-in overlay).
     pub fn replace(&mut self, overlay: Overlay) {
         for f in &overlay.features {
+            self.patterns.retain(|o| !(o.keys == f.keys && same_class(&o.class, &f.class)));
             for k in &f.keys {
                 if let Some(list) = self.by_key.get_mut(k) {
                     list.retain(|o| !same_class(&o.class, &f.class));
@@ -419,11 +1103,14 @@ impl OverlaySet {
         if let Some(list) = self.by_key.get_mut(key) {
             list.retain(|o| o.class.is_some());
         }
+        self.patterns.retain(|o| o.class.is_some() || !o.keys.contains(key));
     }
 
-    /// Every overlay for an entity, whichever class each is for.
-    pub fn for_entity(&self, key: &Key) -> &[FeatureOverlay] {
-        self.by_key.get(key).map(Vec::as_slice).unwrap_or_default()
+    /// Every overlay for an entity, whichever class each is for: its own,
+    /// then those whose id has a `*` part that names it.
+    pub fn for_entity(&self, key: &Key) -> Vec<&FeatureOverlay> {
+        let own = self.by_key.get(key).into_iter().flatten();
+        own.chain(self.patterns.iter().filter(|o| o.keys.iter().any(|p| pattern_matches(p, key)))).collect()
     }
 
     /// The overlays for a feature as a character has it: a class's
@@ -437,7 +1124,7 @@ impl OverlaySet {
             _ => true,
         };
         self.for_entity(key)
-            .iter()
+            .into_iter()
             .filter(|o| match &o.class {
                 None => own_class,
                 Some(c) => through.is_some_and(|t| c.eq_ignore_ascii_case(t)),
@@ -445,12 +1132,23 @@ impl OverlaySet {
             .collect()
     }
 
+    /// The rules for a feature as a character has it: through `class`
+    /// (the class entity it came with), for a class's or subclass's feature.
+    pub fn for_had(&self, lib: &Library, feature: dnt_data::EntityId, class: Option<dnt_data::EntityId>) -> Vec<&FeatureOverlay> {
+        let e = lib.entity(feature);
+        let field = |k: &str| e.data.get(k).and_then(serde_json::Value::as_str).unwrap_or("");
+        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
+            .then(|| format!("{}|{}", field("className"), field("classSource")));
+        let through = class.map(|c| format!("{}|{}", lib.entity(c).name, lib.entity(c).source));
+        self.for_feature(&e.key, own.as_deref(), through.as_deref())
+    }
+
     pub fn len(&self) -> usize {
-        self.by_key.values().flatten().map(FeatureOverlay::ident).collect::<std::collections::HashSet<_>>().len()
+        self.by_key.values().flatten().chain(&self.patterns).map(FeatureOverlay::ident).collect::<std::collections::HashSet<_>>().len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.by_key.is_empty()
+        self.by_key.is_empty() && self.patterns.is_empty()
     }
 }
 
@@ -569,7 +1267,7 @@ mod class_tests {
         set.replace(Overlay::parse(SHAMAN_RAGE).unwrap().0);
         assert_eq!(set.for_entity(&key).len(), 2);
         set.remove(&key);
-        let left: Vec<String> = set.for_entity(&key).iter().map(FeatureOverlay::ident).collect();
+        let left: Vec<String> = set.for_entity(&key).into_iter().map(FeatureOverlay::ident).collect();
         assert_eq!(left, ["classFeature:Rage|Barbarian|T|1@Shaman|B"]);
     }
 
@@ -734,6 +1432,94 @@ grant = "learned"
         );
         assert!(diags[1].message.contains("not a spell"), "{}", diags[1].message);
         assert!(diags[4].message.contains("`prepared`, `known` or `free`"));
+    }
+
+    #[test]
+    fn changes_attacks_and_names_mistakes() {
+        let text = r#"
+[[feature]]
+id = "feat:Iron Fists|T"
+[[feature.attack]]
+kind = "fist weapon"
+weapons = "weapon.melee and weapon.simple"
+die = "1d6"
+[[feature.attack]]
+weapons = "weapon.heavy"
+[[feature.attack]]
+kind = "fist weapon"
+[[feature.attack]]
+weapons = "weapon.melee and"
+note = "x"
+[[feature.attack]]
+dice_min = 1
+[[feature.offhand]]
+off = "weapon.melee"
+note = "any melee weapon"
+[[feature.offhand]]
+main = "main."
+"#;
+        let (overlay, diags) = Overlay::parse(text).unwrap();
+        let f = &overlay.features[0];
+        assert_eq!(f.attacks.len(), 1);
+        assert_eq!((f.attacks[0].kind.as_deref(), f.attacks[0].origin.as_str()), (Some("fist weapon"), "Iron Fists"));
+        assert_eq!(f.offhand.len(), 1);
+        let locations: Vec<&str> = diags.iter().map(|d| d.location.as_str()).collect();
+        assert_eq!(
+            locations,
+            [
+                "feature[0].attack[1]",
+                "feature[0].attack[2].kind",
+                "feature[0].attack[3].weapons",
+                "feature[0].attack[4]",
+                "feature[0].offhand[1].main"
+            ]
+        );
+        assert!(diags[0].message.contains("changes something"), "{}", diags[0].message);
+    }
+
+    #[test]
+    fn asks_for_choices_and_names_mistakes() {
+        let text = r#"
+[[feature]]
+id = "classFeature:Ability Score Improvement|*|*|*"
+[[feature.choice]]
+pick = "ability_increase"
+feats = ["G"]
+[[feature.choice]]
+key = "Sharp Eye"
+pick = "expertise"
+count = "1"
+[[feature.choice]]
+pick = "expertise"
+[[feature.choice]]
+pick = "feat"
+count = "1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+feats = ["G"]
+[[feature.choice]]
+pick = "skills"
+"#;
+        let (overlay, diags) = Overlay::parse(text).unwrap();
+        let c = &overlay.features[0].choices;
+        assert_eq!(c.len(), 2);
+        assert_eq!(
+            (c[0].key.as_str(), c[0].pick, c[0].feats.as_slice()),
+            ("Ability Score Improvement", Pick::AbilityIncrease, &["G".to_string()][..])
+        );
+        assert_eq!((c[1].key.as_str(), c[1].pick), ("Sharp Eye", Pick::Expertise));
+        let locations: Vec<&str> = diags.iter().map(|d| d.location.as_str()).collect();
+        assert_eq!(
+            locations,
+            ["feature[0].choice[2]", "feature[0].choice[3].count", "feature[0].choice[4].feats", "feature[0].choice[5].pick"]
+        );
+        // A `*` part names every class's feature of that name.
+        let mut set = OverlaySet::default();
+        set.add(overlay);
+        let fighter = Key::new(Kind::ClassFeature, &["Ability Score Improvement", "Fighter", "T", "4", "T"]);
+        let other = Key::new(Kind::ClassFeature, &["Extra Attack", "Fighter", "T", "5", "T"]);
+        assert_eq!((set.for_entity(&fighter).len(), set.for_entity(&other).len()), (1, 0));
     }
 
     #[test]

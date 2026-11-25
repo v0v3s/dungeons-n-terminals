@@ -55,6 +55,9 @@ int = 10
 wis = 13
 cha = 15
 
+[proficiencies]
+skills = ["history"]
+
 [[levels]]
 class = "class:Runebinder|TST"
 

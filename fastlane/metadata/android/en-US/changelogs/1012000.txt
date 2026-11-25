@@ -1,0 +1,2 @@
+- Rules change attacks ([[feature.attack]]): for the weapons a filter picks by their properties, the ability they use, a damage die used when it is better, dice that count at least a number or are rolled again, a note, and a kind of weapon to mark weapons in or out of.
+- Rules ask for choices ([[feature.choice]]) when their feature is gained: abilities to increase or a feat instead, a feat, Expertise, or weapons to master (how many by a formula of the class table's columns).

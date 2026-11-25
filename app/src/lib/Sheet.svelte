@@ -265,7 +265,7 @@
   }
 
   async function exhaustion(d: number) {
-    const level = Math.max(0, Math.min(6, sheet.overview.exhaustion + d));
+    const level = Math.max(0, Math.min(sheet.overview.exhaustion_max, sheet.overview.exhaustion + d));
     if (await act({ command: "set_exhaustion", level })) dialog = { kind: "conditions", list: await api.conditions() };
   }
 
@@ -788,13 +788,15 @@
           <span class="dim">{c.summary}</span>
         </button>
       {/each}
-      <div class="exh">
-        <span class="cname">Exhaustion</span>
-        <button class="ghost" onclick={() => exhaustion(-1)}>−</button>
-        <b>{sheet.overview.exhaustion}</b>
-        <button class="ghost" onclick={() => exhaustion(1)}>+</button>
-        <span class="dim">{sheet.overview.exhaustion_summary}</span>
-      </div>
+      {#if sheet.overview.exhaustion_name}
+        <div class="exh">
+          <span class="cname">{sheet.overview.exhaustion_name}</span>
+          <button class="ghost" onclick={() => exhaustion(-1)}>−</button>
+          <b>{sheet.overview.exhaustion}</b>
+          <button class="ghost" onclick={() => exhaustion(1)}>+</button>
+          <span class="dim">{sheet.overview.exhaustion_summary}</span>
+        </div>
+      {/if}
     </div>
   </Modal>
 {:else if dialog?.kind === "levelup"}

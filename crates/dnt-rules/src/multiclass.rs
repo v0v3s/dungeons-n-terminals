@@ -44,41 +44,9 @@ impl Progression {
     }
 }
 
-/// The multiclass spellcaster table: slots of levels 1–9 per caster level.
-pub const SLOTS: [[u8; 9]; 20] = [
-    [2, 0, 0, 0, 0, 0, 0, 0, 0],
-    [3, 0, 0, 0, 0, 0, 0, 0, 0],
-    [4, 2, 0, 0, 0, 0, 0, 0, 0],
-    [4, 3, 0, 0, 0, 0, 0, 0, 0],
-    [4, 3, 2, 0, 0, 0, 0, 0, 0],
-    [4, 3, 3, 0, 0, 0, 0, 0, 0],
-    [4, 3, 3, 1, 0, 0, 0, 0, 0],
-    [4, 3, 3, 2, 0, 0, 0, 0, 0],
-    [4, 3, 3, 3, 1, 0, 0, 0, 0],
-    [4, 3, 3, 3, 2, 0, 0, 0, 0],
-    [4, 3, 3, 3, 2, 1, 0, 0, 0],
-    [4, 3, 3, 3, 2, 1, 0, 0, 0],
-    [4, 3, 3, 3, 2, 1, 1, 0, 0],
-    [4, 3, 3, 3, 2, 1, 1, 0, 0],
-    [4, 3, 3, 3, 2, 1, 1, 1, 0],
-    [4, 3, 3, 3, 2, 1, 1, 1, 0],
-    [4, 3, 3, 3, 2, 1, 1, 1, 1],
-    [4, 3, 3, 3, 3, 1, 1, 1, 1],
-    [4, 3, 3, 3, 3, 2, 1, 1, 1],
-    [4, 3, 3, 3, 3, 2, 2, 1, 1],
-];
-
 /// Combined caster level of several (progression, class level) pairs.
 pub fn caster_level(classes: &[(Progression, i64)]) -> i64 {
     classes.iter().map(|(p, l)| p.caster_levels(*l)).sum()
-}
-
-/// Slots for a combined caster level (0 → none; above 20 → as 20).
-pub fn slots_for(caster_level: i64) -> [u8; 9] {
-    if caster_level <= 0 {
-        return [0; 9];
-    }
-    SLOTS[(caster_level.min(20) - 1) as usize]
 }
 
 /// One way of qualifying: every `all` minimum, plus at least one `any`
@@ -112,9 +80,9 @@ fn ability_order(a: &str) -> usize {
 }
 
 /// Multiclass requirements of a class: alternatives, any of which qualifies.
-/// 2014 classes list `multiclassing.requirements`; 2024 classes require 13
-/// in their primary ability.
-pub fn requirements(class: &Json) -> Vec<Requirement> {
+/// Classes list `multiclassing.requirements`, or need `primary_score` (the
+/// rules') in their primary ability.
+pub fn requirements(class: &Json, primary_score: Option<i64>) -> Vec<Requirement> {
     let scores = |o: &serde_json::Map<String, Json>| -> Vec<(String, i64)> {
         let mut v: Vec<(String, i64)> = o.iter().filter_map(|(k, v)| Some((k.clone(), v.as_i64()?))).collect();
         v.sort_by_key(|(a, _)| ability_order(a));
@@ -125,6 +93,7 @@ pub fn requirements(class: &Json) -> Vec<Requirement> {
         let any = req.get("or").and_then(Json::as_array).into_iter().flatten().filter_map(Json::as_object).flat_map(scores).collect();
         return vec![Requirement { all, any }];
     }
+    let Some(score) = primary_score else { return Vec::new() };
     class
         .get("primaryAbility")
         .and_then(Json::as_array)
@@ -132,7 +101,7 @@ pub fn requirements(class: &Json) -> Vec<Requirement> {
         .flatten()
         .filter_map(Json::as_object)
         .map(|o| Requirement {
-            all: o.iter().filter(|(_, v)| v.as_bool() == Some(true)).map(|(k, _)| (k.clone(), 13)).collect(),
+            all: o.iter().filter(|(_, v)| v.as_bool() == Some(true)).map(|(k, _)| (k.clone(), score)).collect(),
             any: Vec::new(),
         })
         .collect()
@@ -148,17 +117,18 @@ mod tests {
         assert_eq!(caster_level(&[(Progression::Full, 3), (Progression::Half, 5)]), 5);
         assert_eq!(caster_level(&[(Progression::Full, 3), (Progression::HalfUp, 5)]), 6);
         assert_eq!(caster_level(&[(Progression::Third, 8), (Progression::Pact, 5)]), 2);
-        assert_eq!(slots_for(6), [4, 3, 3, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(slots_for(0), [0; 9]);
-        assert_eq!(slots_for(25), SLOTS[19]);
+        let rules = crate::overlay::Multiclass { slots: vec![vec![2], vec![3], vec![4, 2]], primary_score: None };
+        assert_eq!(rules.slots_for(2), [3, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(rules.slots_for(0), [0; 9]);
+        assert_eq!(rules.slots_for(25), [4, 2, 0, 0, 0, 0, 0, 0, 0], "the last row");
     }
 
     #[test]
     fn requirements_2014() {
         let paladin = json!({"multiclassing": {"requirements": {"str": 13, "cha": 13}}});
         let fighter = json!({"multiclassing": {"requirements": {"or": [{"str": 13, "dex": 13}]}}});
-        let p = &requirements(&paladin)[0];
-        let f = &requirements(&fighter)[0];
+        let p = &requirements(&paladin, None)[0];
+        let f = &requirements(&fighter, None)[0];
         let scores = |s: &str| match s {
             "str" => 8,
             "dex" => 14,
@@ -174,7 +144,8 @@ mod tests {
     #[test]
     fn requirements_2024_primary_ability() {
         let fighter = json!({"primaryAbility": [{"str": true}, {"dex": true}]});
-        let reqs = requirements(&fighter);
+        assert!(requirements(&fighter, None).is_empty(), "no rules, no requirement");
+        let reqs = requirements(&fighter, Some(13));
         assert_eq!(reqs.len(), 2);
         assert!(reqs.iter().any(|r| r.met(&|a| if a == "dex" { 13 } else { 8 })));
         assert!(!reqs.iter().any(|r| r.met(&|_| 12)));

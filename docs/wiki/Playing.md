@@ -33,7 +33,9 @@ your own (`Ring of Warmth, 3, dawn`); removing it asks first.
 ## Conditions
 
 The *conditions* chip turns conditions on and off and sets the exhaustion
-level (`C`). Concentration shows as a chip; tap it to end it.
+level (`C`). The conditions are those of your books, and their rules say
+what each does: to your numbers, and advantage or disadvantage on your
+rolls. Concentration shows as a chip; tap it to end it.
 
 ## Attacks
 

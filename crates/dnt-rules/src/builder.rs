@@ -15,7 +15,7 @@ use crate::engine::{Effect, Evaluation, Model, Op, StatDef};
 use crate::equipment;
 use crate::formula::Formula;
 use crate::multiclass::{self, Progression};
-use crate::overlay::{resolve_id, OverlaySet, Resource, Toggle};
+use crate::overlay::{resolve_id, ActionRule, DefenseRule, FeatureOverlay, OverlaySet, Resource, Toggle};
 use crate::spells;
 use crate::standard::{self, ABILITIES};
 use crate::value::Value;
@@ -69,8 +69,21 @@ pub struct Build {
     /// Weapon attacks (carried weapons and the unarmed strike).
     pub attacks: Vec<attacks::Attack>,
     pub weapon_proficiency: attacks::WeaponProficiency,
-    /// The Monk's Martial Arts, if the character has it.
-    pub martial_arts: Option<attacks::MartialArts>,
+    /// The rules that change attacks (a monk weapon, the off-hand attack).
+    pub attack_rules: attacks::AttackRules,
+    /// The rules that change rolls, from the features and the conditions
+    /// the character has.
+    pub roll_rules: Vec<crate::overlay::RollRule>,
+    /// The conditions the character can have.
+    pub conditions: Vec<crate::conditions::Condition>,
+    /// Actions the rules give, with the rule's name: their numbers are the
+    /// stats `action.<name>.attack`, `.dc`, `.damage`, `.heal`, `.temp_hp`.
+    pub actions: Vec<(ActionRule, String)>,
+    /// Defenses (the species', the rules'), with where each comes from:
+    /// one with a `when` holds while `defense.<n>.on` is true.
+    pub defenses: Vec<(DefenseRule, String)>,
+    /// Tool proficiencies the rules give, with the rule's name.
+    pub tools: Vec<(String, String)>,
     pub warnings: Vec<String>,
 }
 
@@ -142,15 +155,23 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                 op: Op::Add,
                 value: Formula::constant(Value::int(*v)),
                 when: None,
-                origin: format!("Ability Score Improvement ({class_name} {n})"),
+                origin: format!("{class_name} {n}: ability scores"),
             });
         }
         level_feats.extend(l.choices.feat.iter().cloned());
+        // A skill picked is an Expertise, an option a rule's own (formulas
+        // have it as `choice.<key>`); anything else a feature.
         for (key, values) in &l.choices.picks {
-            if key == "Expertise" {
-                expertise.extend(values.iter().cloned());
-            } else {
-                level_picks.extend(values.iter().map(|v| (l.class.clone(), v.clone())));
+            for v in values {
+                if crate::choices::is_skill(v) {
+                    expertise.push(v.clone());
+                } else if let Some(option) = crate::choices::option_of(v) {
+                    let key = crate::class_table::slug(key);
+                    model.inputs.entry(format!("choice.{key}")).or_insert_with(|| Value::Str(option.to_string()));
+                    model.inputs.insert(format!("choice.{key}.{}", crate::class_table::slug(option)), Value::Bool(true));
+                } else {
+                    level_picks.push((l.class.clone(), v.clone()));
+                }
             }
         }
     }
@@ -244,7 +265,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         if let Some(ab) = &c.casting_ability {
             let s = &c.slug;
             model.stats.push(StatDef::new(&format!("spell.{s}.mod"), &format!("mod.{ab}"), "spellcasting ability"));
-            model.stats.push(StatDef::new(&format!("spell.{s}.attack"), &format!("spell.{s}.mod + prof"), "ability + proficiency"));
+            model.stats.push(StatDef::new(
+                &format!("spell.{s}.attack"),
+                &format!("spell.{s}.mod + prof + d20.bonus"),
+                "ability + proficiency",
+            ));
             model.stats.push(StatDef::new(&format!("spell.{s}.dc"), &format!("8 + spell.{s}.mod + prof"), "8 + ability + proficiency"));
         }
     }
@@ -261,14 +286,14 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                 .collect();
             if own.iter().all(|n| *n < 0) {
                 let cl = only.progression.unwrap().caster_levels(only.level);
-                multiclass::slots_for(cl).map(i64::from)
+                overlays.multiclass.slots_for(cl)
             } else {
                 std::array::from_fn(|i| own[i].max(0))
             }
         }
         many => {
             let cl = multiclass::caster_level(&many.iter().map(|c| (c.progression.unwrap(), c.level)).collect::<Vec<_>>());
-            multiclass::slots_for(cl).map(i64::from)
+            overlays.multiclass.slots_for(cl)
         }
     };
     for (i, n) in slots.iter().enumerate() {
@@ -458,6 +483,24 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
+    // A feature whose rules gain every option its text lists: they join it.
+    let mut gained = Vec::new();
+    for f in &features {
+        let through = match f.source {
+            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => Some(classes[ci].entity),
+            _ => continue,
+        };
+        if overlays.for_had(lib, f.entity, through).iter().any(|o| o.all_options) {
+            for r in crate::choices::option_refs(&lib.entity(f.entity).data) {
+                if let Some(e) = resolve_id(lib, &r) {
+                    let level = lib.entity(e).data.get("level").and_then(Json::as_i64).unwrap_or(f.level);
+                    gained.push(ActiveFeature { entity: e, source: f.source, level });
+                }
+            }
+        }
+    }
+    features.extend(gained);
+
     // Group features: each class then its subclass (by level), then
     // species, background, feats, options and weapon masteries.
     let rank = |s: FeatureSource| match s {
@@ -474,17 +517,11 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     // A feature's rules. A class's feature has the rules of the class it
     // came with.
     let rules_for = |f: &ActiveFeature| {
-        let e = lib.entity(f.entity);
-        let own = matches!(e.kind, Kind::ClassFeature | Kind::SubclassFeature)
-            .then(|| format!("{}|{}", str_of(&e.data, "className").unwrap_or(""), str_of(&e.data, "classSource").unwrap_or("")));
         let through = match f.source {
-            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => {
-                let c = lib.entity(classes[ci].entity);
-                Some(format!("{}|{}", c.name, c.source))
-            }
+            FeatureSource::Class(ci) | FeatureSource::Subclass(ci) => Some(classes[ci].entity),
             _ => None,
         };
-        overlays.for_feature(&e.key, own.as_deref(), through.as_deref())
+        overlays.for_had(lib, f.entity, through)
     };
 
     // ---- spells granted by features ----
@@ -500,7 +537,12 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     }
     let mut sets: Vec<(String, String, Vec<spells::Granted>)> = Vec::new();
     for (e, level) in sources {
-        let grants = spells::granted_spells(&lib.entity(e).data, level);
+        // Of several named lists, the one chosen (`choice.<its name>`).
+        let list = match model.inputs.get(&format!("choice.{}", crate::class_table::slug(&lib.entity(e).name))) {
+            Some(Value::Str(name)) => Some(name.as_str()),
+            _ => None,
+        };
+        let grants = spells::granted_spells(&lib.entity(e).data, level, list);
         if !grants.is_empty() {
             let ent = lib.entity(e);
             sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
@@ -581,29 +623,57 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
     // ---- overlays ----
     let mut resources = innate;
     let mut toggles = Vec::new();
+    let mut attack_rules = attacks::AttackRules::default();
+    let mut roll_rules = Vec::new();
+    let (mut actions, mut defenses, mut tools) = (Vec::new(), Vec::new(), Vec::new());
     for f in &features {
         for o in rules_for(f) {
+            gains(o, &mut model, &mut actions, &mut defenses, &mut tools);
             o.apply(&mut model);
+            attack_rules.attacks.extend(o.attacks.iter().cloned());
+            attack_rules.offhand.extend(o.offhand.iter().cloned());
             resources.extend(o.resources.iter().map(|r| (r.clone(), o.name.clone())));
             toggles.extend(o.toggles.iter().map(|t| (t.clone(), o.name.clone())));
+            roll_rules.extend(o.rolls.iter().cloned());
         }
     }
 
-    // ---- conditions and exhaustion (before attacks, which copy attack.bonus) ----
-    let rules_2024 = classes.first().is_none_or(|c| is_2024(lib, c.entity));
+    // ---- conditions (before attacks, which copy attack.bonus): their rules ----
+    let conditions = crate::conditions::available(lib, overlays, classes.first().map(|c| c.entity));
     let state = &character.state;
-    model.effects.extend(crate::conditions::effects(&state.conditions, state.exhaustion, rules_2024));
-    if rules_2024 && state.exhaustion > 0 {
-        for c in &classes {
-            if c.casting_ability.is_some() {
-                model.effects.push(Effect {
-                    target: format!("spell.{}.attack", c.slug),
-                    op: Op::Add,
-                    value: Formula::constant(Value::int(-2 * state.exhaustion.min(6))),
-                    when: None,
-                    origin: format!("Exhaustion {}", state.exhaustion.min(6)),
-                });
+    let leveled = crate::conditions::leveled(&conditions);
+    let exhaustion = leveled.map_or(0, |c| state.exhaustion.clamp(0, c.levels.len() as i64));
+    let origin = leveled.map_or(String::new(), |c| c.name.clone());
+    model.stats.push(StatDef { key: "exhaustion".into(), base: Formula::constant(Value::int(exhaustion)), origin });
+    let had = conditions.iter().filter(|c| match c.levels.is_empty() {
+        true => state.conditions.iter().any(|n| n.eq_ignore_ascii_case(&c.name)),
+        false => exhaustion > 0,
+    });
+    for c in had {
+        for o in overlays.for_entity(&lib.entity(c.entity).key) {
+            gains(o, &mut model, &mut actions, &mut defenses, &mut tools);
+            o.apply(&mut model);
+            roll_rules.extend(o.rolls.iter().cloned());
+        }
+    }
+
+    // ---- traits: senses, speeds, creature type and defenses (the
+    // species' data, then the rules'), actions ----
+    let species = features.iter().find(|f| f.source == FeatureSource::Species).map(|f| lib.entity(f.entity));
+    traits(&mut model, species, &mut defenses);
+    for (a, origin) in &actions {
+        let key = |part: &str| format!("action.{}.{part}", crate::class_table::slug(&a.name));
+        let parts =
+            [("attack", &a.attack), ("dc", &a.dc), ("damage", &a.damage), ("heal", &a.heal), ("temp_hp", &a.temp_hp), ("on", &a.when)];
+        for (part, f) in parts {
+            if let Some(f) = f {
+                model.stats.push(StatDef { key: key(part), base: f.clone(), origin: origin.clone() });
             }
+        }
+    }
+    for (i, (d, origin)) in defenses.iter().enumerate() {
+        if let Some(w) = &d.when {
+            model.stats.push(StatDef { key: format!("defense.{i}.on"), base: w.clone(), origin: origin.clone() });
         }
     }
 
@@ -616,23 +686,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         .collect();
     let weapon_proficiency = attacks::weapon_proficiency(lib, character, &class_entities, &proficiency_sources);
     let mastered: Vec<EntityId> = features.iter().filter(|f| f.source == FeatureSource::Mastery).map(|f| f.entity).collect();
-    let martial_arts = features.iter().find_map(|f| {
-        let e = lib.entity(f.entity);
-        let monk = e.data.get("className").and_then(Json::as_str) == Some("Monk");
-        (e.kind == Kind::ClassFeature && monk && e.name == "Martial Arts")
-            .then(|| attacks::MartialArts { rules_2024: is_2024(lib, f.entity) })
-    });
-    let dual_wielder = features.iter().find_map(|f| {
-        let e = lib.entity(f.entity);
-        (e.kind == Kind::Feat && e.name == "Dual Wielder").then(|| attacks::DualWielder { rules_2024: is_2024(lib, f.entity) })
-    });
-    let great_weapon = features.iter().find_map(|f| {
-        let e = lib.entity(f.entity);
-        // A 2024 feat, or a 2014 fighting style (an optional feature).
-        (matches!(e.kind, Kind::Feat | Kind::OptionalFeature) && e.name == "Great Weapon Fighting").then(|| is_2024(lib, f.entity))
-    });
-    let found = attacks::AttackFeatures { martial_arts, dual_wielder, great_weapon };
-    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, found);
+    let attacks = attacks::add_attacks(&mut model, lib, character, &weapon_proficiency, &mastered, &attack_rules);
 
     // ---- state that feeds stats, and overrides ----
     for (k, on) in &character.state.toggles {
@@ -652,7 +706,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         let ev = model.evaluate();
         let score = |ab: &str| ev.int(ab).unwrap_or(0);
         for c in &classes {
-            let reqs = multiclass::requirements(&lib.entity(c.entity).data);
+            let reqs = multiclass::requirements(&lib.entity(c.entity).data, overlays.multiclass.primary_score);
             if !reqs.is_empty() && !reqs.iter().any(|r| r.met(&score)) {
                 let need = reqs.iter().map(|r| r.describe()).collect::<Vec<_>>().join("; or ");
                 warnings.push(format!("multiclassing {} requires {need}", c.name));
@@ -660,7 +714,23 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         }
     }
 
-    Build { model, classes, features, resources, toggles, granted, attacks, weapon_proficiency, martial_arts, warnings }
+    Build {
+        model,
+        classes,
+        features,
+        resources,
+        toggles,
+        granted,
+        attacks,
+        weapon_proficiency,
+        attack_rules,
+        roll_rules,
+        conditions,
+        actions,
+        defenses,
+        tools,
+        warnings,
+    }
 }
 
 fn collect_refs(v: &Json, out: &mut Vec<(Kind, String)>) {
@@ -707,6 +777,76 @@ pub fn is_2024(lib: &Library, entity: EntityId) -> bool {
     e.source == "XPHB"
 }
 
+/// What a rule gives besides its effects: actions, defenses, and
+/// proficiencies (skills and saves on the sheet, tools listed).
+fn gains(
+    o: &FeatureOverlay,
+    model: &mut Model,
+    actions: &mut Vec<(ActionRule, String)>,
+    defenses: &mut Vec<(DefenseRule, String)>,
+    tools: &mut Vec<(String, String)>,
+) {
+    actions.extend(o.actions.iter().map(|a| (a.clone(), o.name.clone())));
+    defenses.extend(o.defenses.iter().map(|d| (d.clone(), o.name.clone())));
+    for p in &o.proficiencies {
+        let keys = p.skills.iter().map(|k| format!("prof.skill.{k}")).chain(p.saves.iter().map(|a| format!("prof.save.{a}")));
+        for key in keys {
+            let proficient = matches!(model.inputs.get(&key), Some(Value::Num(n)) if n.is_int() && n.floor() >= 1);
+            if !proficient {
+                model.inputs.insert(key, Value::int(1));
+            }
+        }
+        tools.extend(p.tools.iter().map(|t| (t.clone(), o.name.clone())));
+    }
+}
+
+/// The species' senses, other speeds, creature type and defenses, as the
+/// data has them: stats rules can change (`sense.darkvision`, `speed.fly`,
+/// `creature_type`).
+fn traits(model: &mut Model, species: Option<&dnt_data::Entity>, defenses: &mut Vec<(DefenseRule, String)>) {
+    let data = species.map(|e| &e.data);
+    let origin = species.map_or("none".to_string(), |e| e.name.clone());
+    let number = |v: Option<&Json>| v.and_then(Json::as_i64).unwrap_or(0);
+    for sense in ["darkvision", "blindsight", "tremorsense", "truesight"] {
+        let range = number(data.and_then(|d| d.get(sense)));
+        model.stats.push(StatDef { key: format!("sense.{sense}"), base: Formula::constant(Value::int(range)), origin: origin.clone() });
+    }
+    let speeds = data.and_then(|d| d.get("speed")).and_then(Json::as_object);
+    for kind in ["fly", "swim", "climb", "burrow"] {
+        // `true`: as fast as walking.
+        let base = match speeds.and_then(|s| s.get(kind)) {
+            Some(Json::Bool(true)) => Formula::parse("speed").expect("a stat"),
+            v => Formula::constant(Value::int(number(v.and_then(|v| v.get("number")).or(v)))),
+        };
+        model.stats.push(StatDef { key: format!("speed.{kind}"), base, origin: origin.clone() });
+    }
+    let kind = data.and_then(|d| d.get("creatureTypes")).and_then(Json::as_array).and_then(|t| t.first()).and_then(Json::as_str);
+    model.stats.push(StatDef {
+        key: "creature_type".into(),
+        base: Formula::constant(Value::Str(kind.unwrap_or("").to_string())),
+        origin: origin.clone(),
+    });
+    let names = |field: &str| -> Vec<String> {
+        data.and_then(|d| d.get(field))
+            .and_then(Json::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Json::as_str)
+            .map(str::to_lowercase)
+            .collect()
+    };
+    let d = DefenseRule {
+        resist: names("resist"),
+        immune: names("immune"),
+        vulnerable: names("vulnerable"),
+        conditions: names("conditionImmune"),
+        when: None,
+    };
+    if d != DefenseRule::default() {
+        defenses.insert(0, (d, origin));
+    }
+}
+
 fn species_speed(d: &Json) -> Option<i64> {
     match d.get("speed")? {
         Json::Number(n) => n.as_i64(),
@@ -729,8 +869,8 @@ mod tests {
     fn library() -> Library {
         let mut wizard_rows = Vec::new();
         for l in 1..=20 {
-            let s = multiclass::slots_for(l);
-            wizard_rows.push([s[0] as i64, s[1] as i64]);
+            let s = crate::builtin::overlays().0.multiclass.slots_for(l);
+            wizard_rows.push([s[0], s[1]]);
         }
         let mut lib = Library::new();
         lib.load_json(&json!({
@@ -812,7 +952,7 @@ mod tests {
     fn multiclass_slots_combine_caster_levels() {
         let mut c = character(&["Wizard", "Wizard", "Wizard", "Fighter", "Fighter", "Fighter"]);
         eldritch_knight(&mut c);
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         assert_eq!(b.class_summary(), "Wizard 3 / Fighter 3");
         let ev = b.evaluate();
         // Caster level 3 + floor(3/3) = 4 → 4/3 slots.
@@ -825,7 +965,7 @@ mod tests {
     #[test]
     fn pact_magic_stays_separate() {
         let c = character(&["Wizard", "Warlock", "Warlock", "Warlock"]);
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         let ev = b.evaluate();
         assert_eq!(ev.int("slots.1.max"), Some(2), "wizard 1 alone");
         assert_eq!(ev.int("pact.slots.max"), Some(2));
@@ -914,12 +1054,12 @@ mod tests {
         let mut c = character(&["Wizard", "Fighter"]);
         c.abilities.str = 8;
         c.abilities.int = 12;
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         assert!(b.warnings.iter().any(|w| w.contains("Fighter requires Strength 13 or Dexterity 13")), "{:?}", b.warnings);
         assert!(b.warnings.iter().any(|w| w.contains("Wizard requires Intelligence 13")));
         // A +1 Int bonus fixes the Wizard requirement.
         c.ability_bonus.push(AbilityBonus { origin: "Background".into(), scores: [("int".to_string(), 1)].into() });
-        let b = build(&c, &library(), &OverlaySet::default());
+        let b = build(&c, &library(), &crate::builtin::overlays().0);
         assert!(!b.warnings.iter().any(|w| w.contains("Wizard requires")));
     }
 
@@ -930,7 +1070,7 @@ mod tests {
         let lib = library();
         let ev = build(&c, &lib, &OverlaySet::default()).evaluate();
         assert_eq!(ev.int("str"), Some(16));
-        assert!(ev.stats["str"].explain().contains("Ability Score Improvement (Fighter 4)"));
+        assert!(ev.stats["str"].explain().contains("Fighter 4: ability scores"));
 
         eldritch_knight(&mut c);
         for _ in 0..2 {
@@ -1039,5 +1179,116 @@ recharge = "long_rest"
         let mut set = OverlaySet::default();
         set.add(fighter_only);
         assert!(build(&warrior, &lib, &set).resources.is_empty());
+    }
+
+    #[test]
+    fn rules_give_actions_defenses_proficiencies_and_options() {
+        let mut lib = library();
+        lib.load_json(&json!({"race": [{"name": "Gull", "source": "T", "speed": {"walk": 30, "fly": true},
+                                        "darkvision": 60, "creatureTypes": ["beast"], "resist": ["cold"]}]}));
+        let rules = r#"
+[[feature]]
+id = "classFeature:Arcane Recovery|Wizard|T|1"
+[[feature.action]]
+name = "Frost Breath"
+save = "con"
+dc = "8 + mod.int + prof"
+damage = "dice(2, 6)"
+damage_type = "cold"
+[[feature.action]]
+name = "Ice Skin"
+temp_hp = "level + mod.int"
+[[feature.defense]]
+resist = ["Fire"]
+conditions = ["frightened"]
+when = "choice.runeforging == 'Frost'"
+[[feature.proficiency]]
+skills = ["survival"]
+saves = ["con"]
+tools = ["Brewer's Supplies"]
+[[feature.choice]]
+key = "Runeforging"
+pick = "option"
+options = ["Blood", "Frost"]
+[[feature.effect]]
+target = "speed.swim"
+max = "speed"
+when = "choice.runeforging == 'Frost'"
+"#;
+        let mut set = OverlaySet::default();
+        let (o, d) = Overlay::parse(rules).unwrap();
+        assert!(d.is_empty(), "{d:?}");
+        set.add(o);
+        let mut c = Character { species: Some("race:Gull|T".into()), ..Character::default() };
+        c.abilities.int = 14;
+        let mut level = Level { class: "class:Wizard|T".into(), hp: Default::default(), choices: Default::default() };
+        level.choices.picks.insert("Runeforging".into(), vec!["option:Frost".into()]);
+        c.levels.push(level);
+
+        let b = build(&c, &lib, &set);
+        let ev = b.evaluate();
+        assert_eq!(ev.int("action.frost_breath.dc"), Some(12), "8 + 2 + 2");
+        assert_eq!(ev.get("action.frost_breath.damage").map(|v| v.to_string()).as_deref(), Some("2d6"));
+        assert_eq!(ev.int("action.ice_skin.temp_hp"), Some(3));
+        assert_eq!(ev.int("skill.survival"), Some(2), "proficient: Wis +0, +2");
+        assert_eq!(ev.int("save.con"), Some(2));
+        assert_eq!(b.tools, [("Brewer's Supplies".to_string(), "Arcane Recovery".to_string())]);
+        // The species' traits, and the rules' while the option is chosen.
+        assert_eq!(ev.int("sense.darkvision"), Some(60));
+        assert_eq!(ev.int("speed.fly"), Some(30), "as fast as walking");
+        assert_eq!(ev.int("speed.swim"), Some(30), "Frost");
+        assert_eq!(ev.get("creature_type"), Some(&Value::Str("beast".into())));
+        assert_eq!(b.defenses[0].0.resist, ["cold"], "the species'");
+        assert_eq!(b.defenses[1].0.resist, ["fire"]);
+        assert_eq!(ev.get("defense.1.on"), Some(&Value::Bool(true)));
+    }
+
+    #[test]
+    fn rules_gain_every_option_read_each_pick_and_hide_actions() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({
+            "class": [{"name": "Twin", "source": "T", "hd": {"faces": 8}, "classFeatures": ["Twin Gifts|Twin|T|1"]}],
+            "classFeature": [
+                {"name": "Twin Gifts", "source": "T", "className": "Twin", "classSource": "T", "level": 1, "entries": [{"type": "options", "entries": [
+                    {"type": "refClassFeature", "classFeature": "Left Gift|Twin|T|1"},
+                    {"type": "refClassFeature", "classFeature": "Right Gift|Twin|T|1"}]}]},
+                {"name": "Left Gift", "source": "T", "className": "Twin", "classSource": "T", "level": 1, "entries": ["x"]},
+                {"name": "Right Gift", "source": "T", "className": "Twin", "classSource": "T", "level": 1, "entries": ["x"]}
+            ]
+        }));
+        let rules = r#"
+[[feature]]
+id = "classFeature:Twin Gifts|Twin|T|1"
+all_options = true
+[[feature.choice]]
+key = "Charms"
+pick = "option"
+count = "2"
+options = ["Moon", "Sun", "Star"]
+[[feature.action]]
+name = "Moonbeam"
+damage = "dice(1, 6)"
+when = "choice.charms.moon"
+[[feature.action]]
+name = "Starfall"
+damage = "dice(1, 6)"
+when = "choice.charms.star"
+"#;
+        let mut set = OverlaySet::default();
+        set.add(Overlay::parse(rules).unwrap().0);
+        let mut c = Character::default();
+        let mut level = Level { class: "class:Twin|T".into(), hp: Default::default(), choices: Default::default() };
+        level.choices.picks.insert("Charms".into(), vec!["option:Moon".into(), "option:Sun".into()]);
+        c.levels.push(level);
+
+        let b = build(&c, &lib, &set);
+        let names: Vec<&str> = b.features.iter().map(|f| lib.entity(f.entity).name.as_str()).collect();
+        assert!(names.contains(&"Left Gift") && names.contains(&"Right Gift"), "both gained: {names:?}");
+        let class = lib.get(&dnt_data::Key::new(Kind::Class, &["Twin", "T"])).unwrap();
+        let asked = crate::choices::level_choices(&lib, &set, &c, class, None, 1, &Default::default(), &[]);
+        assert!(asked.iter().all(|q| q.key != "Twin Gifts"), "nothing to choose: {asked:?}");
+        let ev = b.evaluate();
+        assert_eq!(ev.get("action.moonbeam.on"), Some(&Value::Bool(true)), "Moon is picked");
+        assert_ne!(ev.get("action.starfall.on"), Some(&Value::Bool(true)), "Star is not");
     }
 }

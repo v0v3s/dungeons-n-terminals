@@ -78,6 +78,11 @@ pub enum Command {
         level: i64,
     },
     EndConcentration,
+    /// Use an action a rule gives (by its name): pay its resource, gain its
+    /// temporary hit points, and roll it.
+    UseAction {
+        name: String,
+    },
 
     // ---- inventory (lines are indexes into the inventory) ----
     /// Add a library item (`item:Longsword|XPHB`), inside a container if
@@ -130,8 +135,9 @@ pub enum Command {
     ToggleAttuned {
         line: usize,
     },
-    /// Mark or unmark a monk weapon (back to the rules when they agree).
-    ToggleMonkWeapon {
+    /// Mark a weapon in or out of the kind of weapon a rule has (a monk
+    /// weapon), back to the rule when they agree.
+    ToggleWeaponKind {
         line: usize,
     },
     /// Put a line into a container line, or carry it loose (`None`).
@@ -229,9 +235,18 @@ impl CharacterSession {
             Command::Cast { id, how } => resolve_id(lib, id).map(|e| (e, how.clone(), self.caster_of(lib, id))),
             _ => None,
         };
+        let action = match &command {
+            Command::UseAction { name } => self.build.actions.iter().find(|(a, _)| &a.name == name).map(|(a, _)| a.clone()),
+            _ => None,
+        };
         let mut outcome = self.run(lib, command)?;
         if outcome.changed {
             self.rebuild(lib, overlays);
+        }
+        if let Some(a) = action {
+            let rolled = rolls::action(self, &a);
+            outcome.message = rolled.line();
+            outcome.rolled = Some(rolled);
         }
         if let Some((spell, how, caster)) = cast.filter(|(e, _, _)| rolls::spell_rolls(lib, *e)) {
             let (atk, dc) = rolls::spell_numbers(self, caster.as_deref());
@@ -356,10 +371,13 @@ impl CharacterSession {
                 Outcome::changed(msg)
             }
             Command::SetCondition { condition, on } => {
-                let name = dnt_rules::conditions::CONDITIONS
+                let name = &self
+                    .build
+                    .conditions
                     .iter()
-                    .find(|n| n.eq_ignore_ascii_case(&condition))
-                    .ok_or_else(|| format!("{condition} is not a condition"))?;
+                    .find(|c| c.levels.is_empty() && c.name.eq_ignore_ascii_case(&condition))
+                    .ok_or_else(|| format!("{condition} is not a condition"))?
+                    .name;
                 let had = c.state.conditions.iter().position(|x| x.eq_ignore_ascii_case(name));
                 match (had, on) {
                     (Some(i), false) => {
@@ -371,8 +389,28 @@ impl CharacterSession {
                 Outcome::changed(if on { name.to_string() } else { format!("No longer {name}") })
             }
             Command::SetExhaustion { level } => {
-                c.state.exhaustion = level.clamp(0, 6);
-                Outcome::changed(format!("Exhaustion {}", c.state.exhaustion))
+                let leveled = dnt_rules::conditions::leveled(&self.build.conditions).ok_or("The rules have no condition with levels")?;
+                c.state.exhaustion = level.clamp(0, leveled.levels.len() as i64);
+                Outcome::changed(format!("{} {}", leveled.name, c.state.exhaustion))
+            }
+            Command::UseAction { name } => {
+                let a = self
+                    .build
+                    .actions
+                    .iter()
+                    .find(|(a, _)| a.name == name && crate::sheet::available(ev, a))
+                    .map(|(a, _)| a)
+                    .ok_or_else(|| format!("No action {name}"))?;
+                if let Some(key) = &a.resource {
+                    if !play::spend_resource(c, ev, key, a.cost) {
+                        let what = self.build.resources.iter().find(|(r, _)| &r.key == key).map_or(key.clone(), |(r, _)| r.name.clone());
+                        return Err(format!("No {what} left"));
+                    }
+                }
+                if let Some(n) = ev.int(&format!("action.{}.temp_hp", dnt_rules::class_table::slug(&a.name))) {
+                    play::set_temp_hp(c, n);
+                }
+                Outcome::changed(a.name.clone())
             }
             Command::EndConcentration => match c.state.concentration.take() {
                 Some(name) => Outcome::changed(format!("Stopped concentrating on {name}")),
@@ -476,21 +514,22 @@ impl CharacterSession {
                 }
                 Outcome::changed(msg)
             }
-            Command::ToggleMonkWeapon { line: i } => {
+            Command::ToggleWeaponKind { line: i } => {
                 let l = line(self, i)?;
                 let Some(e) = item_entity(lib, l) else { return Err("Not a library item".into()) };
                 let ent = lib.entity(e);
                 let Some(w) = dnt_rules::attacks::Weapon::from_item(&ent.name.to_lowercase(), &ent.data) else {
                     return Err(format!("{} is not a weapon", ent.name));
                 };
-                let preset = self.build.martial_arts.is_some_and(|m| m.preset(&w));
-                let now = !l.monk_weapon.unwrap_or(preset);
+                let preset = self.build.attack_rules.preset(&w);
+                let now = !l.weapon_kind.unwrap_or(preset);
                 let name = ent.name.clone();
-                self.file.character.inventory[i].monk_weapon = (now != preset).then_some(now);
-                Outcome::changed(match (now, self.build.martial_arts.is_some()) {
-                    (true, true) => format!("{name} is a monk weapon"),
-                    (true, false) => format!("{name} is marked as a monk weapon (it counts once you have Martial Arts)"),
-                    (false, _) => format!("{name} is not a monk weapon"),
+                self.file.character.inventory[i].weapon_kind = (now != preset).then_some(now);
+                Outcome::changed(match (now, self.build.attack_rules.kind()) {
+                    (true, Some(kind)) => format!("{name} is a {kind}"),
+                    (true, None) => format!("{name} is marked (it counts once a rule has a kind of weapon)"),
+                    (false, Some(kind)) => format!("{name} is not a {kind}"),
+                    (false, None) => format!("{name} is not marked"),
                 })
             }
             Command::PutIn { line: i, into } => {
@@ -610,7 +649,8 @@ mod tests {
         lib.load_json(&json!({
             "baseitem": [{"name": "Club", "source": "T", "type": "M|T", "weapon": true, "weaponCategory": "simple", "dmg1": "1d4", "dmgType": "B"}],
             "item": [{"name": "Cloak", "source": "T", "wondrous": true},
-                     {"name": "Sack", "source": "T", "weight": 0.5, "containerCapacity": {"weight": [30]}}]
+                     {"name": "Sack", "source": "T", "weight": 0.5, "containerCapacity": {"weight": [30]}}],
+            "condition": [{"name": "Poisoned", "source": "T"}]
         }));
         let file =
             CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: Character { name: "A".into(), ..Default::default() } };
@@ -626,6 +666,60 @@ mod tests {
         assert_eq!(serde_json::from_str::<Command>(&text).unwrap(), c);
         let w: Command = serde_json::from_str(r#"{"command":"wear","line":0,"slot":"shoulders"}"#).unwrap();
         assert_eq!(w, Command::Wear { line: 0, slot: Slot::Shoulders });
+    }
+
+    #[test]
+    fn a_rule_gives_actions_and_traits() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"race": [{"name": "Gull", "source": "T", "darkvision": 60, "speed": {"walk": 30, "fly": 30}}]}));
+        let rules = r#"
+[[feature]]
+id = "race:Gull|T"
+[[feature.resource]]
+key = "breath"
+name = "Breath"
+max = "1"
+recharge = "long_rest"
+[[feature.action]]
+name = "Sea Breath"
+save = "dex"
+dc = "8 + 2"
+damage = "dice(2, 6)"
+damage_type = "cold"
+resource = "breath"
+[[feature.action]]
+name = "Feathers"
+temp_hp = "4"
+[[feature.defense]]
+resist = ["cold"]
+conditions = ["prone"]
+[[feature.proficiency]]
+tools = ["Navigator's Tools"]
+"#;
+        let mut set = OverlaySet::default();
+        set.add(dnt_rules::overlay::Overlay::parse(rules).unwrap().0);
+        let c = Character { name: "A".into(), species: Some("race:Gull|T".into()), ..Default::default() };
+        let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
+        let mut s = CharacterSession::new(file, &lib, &set, &Default::default());
+
+        let o = crate::sheet::overview(&lib, &s);
+        assert_eq!(o.actions[0].what, "DC 10 Dexterity");
+        assert_eq!(o.actions[0].dice, "2d6 cold");
+        assert_eq!(o.actions[0].cost.as_deref(), Some("1 Breath (1 left)"));
+        assert_eq!(o.traits.senses, ["darkvision 60 ft."]);
+        assert_eq!(o.traits.speeds, ["fly 30 ft."]);
+        assert_eq!(
+            (o.traits.resistances.as_slice(), o.traits.condition_immunities.as_slice()),
+            (&["cold".to_string()][..], &["prone".to_string()][..])
+        );
+        assert_eq!(o.traits.tools, ["Navigator's Tools"]);
+
+        let used = s.apply(&lib, &set, Command::UseAction { name: "Sea Breath".into() }).unwrap();
+        assert!(used.message.starts_with("Sea Breath: DC 10 Dexterity save"), "{}", used.message);
+        assert!(used.message.contains("cold damage"), "{}", used.message);
+        assert_eq!(s.apply(&lib, &set, Command::UseAction { name: "Sea Breath".into() }).unwrap_err(), "No Breath left");
+        s.apply(&lib, &set, Command::UseAction { name: "Feathers".into() }).unwrap();
+        assert_eq!(s.character().state.temp_hp, 4);
     }
 
     #[test]

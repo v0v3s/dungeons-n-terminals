@@ -8,6 +8,59 @@ become the release page.
 
 ## Unreleased
 
+## v1.12.0 - 2026-11-25
+
+### Added
+
+- Rules change attacks (`[[feature.attack]]`): for the weapons a filter
+  picks by their properties, the ability they use, a damage die used
+  when it is better, dice that count at least a number or are rolled
+  again, a note, and a kind of weapon to mark weapons in or out of.
+  `[[feature.offhand]]` says which weapons may attack off hand.
+- Rules ask for choices (`[[feature.choice]]`) when their feature is
+  gained: abilities to increase or a feat instead, a feat, Expertise, or
+  weapons to master (how many by a formula of the class table's columns).
+- A rule's id can have a `*` part, naming every entity with anything
+  there (`classFeature:Ability Score Improvement|*|*|*`).
+- Rules change rolls (`[[feature.roll]]`): advantage, disadvantage or a
+  fail without rolling, for the rolls a filter picks (`roll.attack`,
+  `roll.save and roll.dex`, …). A rule for a condition applies while the
+  character has it, with a `summary`; a condition with `levels`
+  (Exhaustion) says what each level does.
+- Rules give actions (`[[feature.action]]`), listed with the attacks: an
+  attack roll or a save against a DC, damage or healing dice, temporary
+  hit points, paid with a resource.
+- Rules give defenses (`[[feature.defense]]`: damage resisted, immune or
+  vulnerable, conditions immune) and proficiencies
+  (`[[feature.proficiency]]`: skills, saves, tools).
+- The sheet shows traits: creature type, other speeds, senses, defenses
+  and tools, from the species' data and the rules (`sense.darkvision`,
+  `speed.fly`, `creature_type` are stats rules change).
+- A choice of a rule's own options (`pick = "option"`), which formulas
+  read as `choice.<key>` and `choice.<key>.<option>`; a subclass with
+  several named spell lists asks which one, and grants that one's
+  spells. `all_options` gains every option a feature lists, for one that
+  gives them all; an action's `when` says while it is there.
+- `d20.bonus`, added to every d20 test, for rules to change.
+- A rules file's `[multiclass]` table: the multiclass spellcaster's slots
+  and the score a primary ability needs to multiclass.
+
+### Changed
+
+- Martial Arts (monk weapons, their ability and die), Dual Wielder and
+  Great Weapon Fighting are rules now. A weapon marked as a monk
+  weapon keeps its mark. The inventory names the kind of weapon its rule
+  has.
+- Ability Score Improvement, Epic Boon, Expertise and Weapon Mastery are
+  rules now too. A class made from another (a book's version of a class)
+  asks for them through its own rules.
+- Conditions are the books' (the SRD's 15, a book's own too), and what
+  they do is dnt's built-in rules for them; the multiclass spellcaster's
+  table is a rule too.
+- The rules file schema has `attack`, `offhand`, `choice`, `summary`,
+  `levels`, `roll`, `action`, `defense`, `proficiency`, `all_options`
+  and `multiclass`.
+
 ## v1.11.0 - 2026-11-24
 
 ### Added

@@ -7,6 +7,7 @@ use dnt_rules::attacks::Attack;
 use dnt_rules::character::Hand;
 use dnt_rules::conditions::{self, RollKind};
 use dnt_rules::formula::{Env, Formula};
+use dnt_rules::overlay::ActionRule;
 use dnt_rules::roll::{self, Advantage, DamageRules, Rng};
 use dnt_rules::standard::ABILITIES;
 use dnt_rules::{Evaluation, Value};
@@ -83,10 +84,14 @@ fn rules_2024(sheet: &CharacterSession) -> bool {
     sheet.edition == dnt_rules::play::Edition::Modern
 }
 
-/// The roll's mode from conditions and the one-shot choice, and why.
+fn exhaustion(sheet: &CharacterSession) -> i64 {
+    sheet.ev.int("exhaustion").unwrap_or(0)
+}
+
+/// The roll's mode from the rules (conditions, features) and the one-shot
+/// choice, and why.
 fn mode(sheet: &mut CharacterSession, kind: RollKind) -> (Advantage, Vec<String>) {
-    let st = &sheet.file.character.state;
-    let mut sources = conditions::advantage(&st.conditions, st.exhaustion, rules_2024(sheet), kind);
+    let mut sources = conditions::advantage(&sheet.build.roll_rules, kind, exhaustion(sheet));
     let next = std::mem::take(&mut sheet.roller.next);
     if next != Advantage::Normal {
         sources.push((next, "chosen".into()));
@@ -105,7 +110,7 @@ fn detail(r: &roll::D20, why: &[String]) -> String {
 }
 
 fn d20_test(sheet: &mut CharacterSession, title: String, modifier: i64, kind: RollKind) -> Rolled {
-    if let Some(why) = conditions::auto_fail(&sheet.file.character.state.conditions, kind) {
+    if let Some(why) = conditions::auto_fail(&sheet.build.roll_rules, kind, exhaustion(sheet)) {
         return sheet.roller.push(Rolled { title, result: "fails".into(), detail: why, extra: Vec::new(), crit: None });
     }
     let (m, why) = mode(sheet, kind);
@@ -124,7 +129,7 @@ pub fn check(sheet: &mut CharacterSession, ab: &str, skill: Option<(&str, &str)>
     let ev = &sheet.ev;
     let (title, modifier) = match skill {
         Some((key, name)) => (name.to_string(), ev.int(&format!("skill.{key}")).unwrap_or(0)),
-        None => (format!("{} check", ability_name(ab)), ev.int(&format!("mod.{ab}")).unwrap_or(0) + ev.int("d20.penalty").unwrap_or(0)),
+        None => (format!("{} check", ability_name(ab)), ev.int(&format!("mod.{ab}")).unwrap_or(0) + ev.int("d20.bonus").unwrap_or(0)),
     };
     d20_test(sheet, title, modifier, RollKind::Check(ab))
 }
@@ -191,11 +196,7 @@ pub fn attack(sheet: &mut CharacterSession, a: &Attack) -> Rolled {
     let (m, why) = mode(sheet, RollKind::Attack);
     let r = roll::d20(&mut sheet.roller.rng, bonus, m);
     let critical = r.natural_20();
-    let mut rules = DamageRules { critical, ..Default::default() };
-    if let Some(g) = a.great_weapon.filter(|_| a.hand == Some(Hand::Both) || !a.has_versatile) {
-        rules.min_three = g;
-        rules.reroll_low = !g;
-    }
+    let rules = DamageRules { critical, dice_min: a.dice_min, reroll: a.reroll };
     // Which damage: off hand, two-handed (versatile in both hands), or the usual.
     let key = match a.hand {
         Some(Hand::Off) if a.offhand => format!("attack.{}.offhand", a.slug),
@@ -237,6 +238,46 @@ pub fn attack(sheet: &mut CharacterSession, a: &Attack) -> Rolled {
     let crit = r.natural_20().then_some(true).or(r.natural_1().then_some(false));
     let rolled = Rolled { title: a.name.clone(), result: hit, detail: detail(&r, &why), extra, crit };
     sheet.roller.push(rolled)
+}
+
+/// A feature's action: its attack roll, or its save's DC, or the
+/// temporary hit points it gives; then its damage (doubled dice on a
+/// natural 20) or healing.
+pub fn action(sheet: &mut CharacterSession, a: &ActionRule) -> Rolled {
+    let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
+    let ev = sheet.ev.clone();
+    let mut critical = false;
+    let (result, mut detail_text, crit) = if a.attack.is_some() {
+        let bonus = ev.int(&key("attack")).unwrap_or(0);
+        let (m, why) = mode(sheet, RollKind::Attack);
+        let r = roll::d20(&mut sheet.roller.rng, bonus, m);
+        critical = r.natural_20();
+        let hit = match (critical, r.natural_1()) {
+            (true, _) => "critical hit".to_string(),
+            (_, true) => "miss (natural 1)".to_string(),
+            _ => format!("{} to hit", r.total),
+        };
+        (hit, detail(&r, &why), r.natural_20().then_some(true).or(r.natural_1().then_some(false)))
+    } else if let Some(ab) = &a.save {
+        (format!("DC {} {} save", ev.int(&key("dc")).unwrap_or(0), ability_name(ab)), String::new(), None)
+    } else if let Some(n) = ev.int(&key("temp_hp")) {
+        (format!("{n} temporary hit points"), String::new(), None)
+    } else {
+        ("used".to_string(), String::new(), None)
+    };
+    let mut extra = Vec::new();
+    let rules = DamageRules { critical, ..Default::default() };
+    if let Some(d) = roll_stat(&mut sheet.roller.rng, &ev, &key("damage"), rules) {
+        let kind = a.damage_type.as_deref().map_or(String::new(), |t| format!(" {t}"));
+        extra.push(format!("{}{kind} damage ({})", d.total, d.describe()));
+    }
+    if let Some(d) = roll_stat(&mut sheet.roller.rng, &ev, &key("heal"), DamageRules::default()) {
+        extra.push(format!("{} healed ({})", d.total, d.describe()));
+    }
+    if let Some(note) = &a.note {
+        detail_text = if detail_text.is_empty() { note.clone() } else { format!("{detail_text} · {note}") };
+    }
+    sheet.roller.push(Rolled { title: a.name.clone(), result, detail: detail_text, extra, crit })
 }
 
 /// A spell: its attack roll or save DC, and its damage or healing at
@@ -383,19 +424,20 @@ pub fn spell_rolls(lib: &Library, spell: EntityId) -> bool {
 mod tests {
     use super::*;
     use dnt_rules::character::{Character, InventoryItem};
-    use dnt_rules::overlay::OverlaySet;
     use dnt_store::CharacterFile;
     use serde_json::json;
 
     fn sheet(conditions: &[&str]) -> (Library, CharacterSession) {
         let mut lib = Library::new();
         lib.load_json(&json!({"baseitem": [{"name": "Club", "source": "T", "type": "M|T", "weapon": true, "weaponCategory": "simple",
-                                             "dmg1": "1d4", "dmgType": "B"}]}));
+                                             "dmg1": "1d4", "dmgType": "B"}],
+                          "condition": [{"name": "Stunned", "source": "SRD52"}]}));
         let mut c = Character { name: "A".into(), ..Character::default() };
         c.inventory.push(InventoryItem { item: Some("item:Club|T".into()), hand: Some(Hand::Main), ..Default::default() });
         c.state.conditions = conditions.iter().map(|s| s.to_string()).collect();
         let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
-        let s = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
+        // The built-in rules say what Stunned does.
+        let s = CharacterSession::new(file, &lib, &dnt_rules::builtin::overlays().0, &Default::default());
         (lib, s)
     }
 

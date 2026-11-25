@@ -123,8 +123,9 @@
       actions.push(["Add a quick item into it…", () => custom(line)]);
     }
     actions.push([l.fill !== null ? "Container settings…" : "Make it a container…", () => (containerOf = l)]);
-    if (l.monk_weapon !== null) {
-      actions.push([l.monk_weapon ? "Not a monk weapon" : "Count as a monk weapon", () => ctx.act({ command: "toggle_monk_weapon", line })]);
+    if (l.weapon_kind !== null) {
+      const k = l.weapon_kind;
+      actions.push([k.on ? `Not a ${k.name}` : `Count as a ${k.name}`, () => ctx.act({ command: "toggle_weapon_kind", line })]);
     }
     actions.push(["One more", () => ctx.act({ command: "change_quantity", line, delta: 1 })]);
     if (l.quantity > 1) actions.push(["One fewer", () => ctx.act({ command: "change_quantity", line, delta: -1 })]);

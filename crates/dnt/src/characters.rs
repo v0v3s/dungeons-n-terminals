@@ -50,6 +50,8 @@ pub enum Item {
     Toggle(String),
     /// An attack by slug (`attack.<slug>.*` stats).
     Attack(String),
+    /// An action a rule gives, by name.
+    Action(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,6 +210,7 @@ impl Sheet {
             out.push(Item::Stat(k.into()));
         }
         out.extend(self.build.attacks.iter().map(|a| Item::Attack(a.slug.clone())));
+        out.extend(self.build.actions.iter().map(|(a, _)| Item::Action(a.name.clone())));
         out.extend(SKILLS.iter().map(|(k, _, _)| Item::Stat(format!("skill.{k}"))));
         out.extend(self.build.resources.iter().map(|(r, _)| Item::Resource(r.key.clone())));
         for level in 1..=9 {
@@ -358,7 +361,7 @@ impl Characters {
                     let name = name.trim().to_string();
                     self.name_input = None;
                     if !name.is_empty() {
-                        self.wizard = Some(Wizard::new(name, lib, filter));
+                        self.wizard = Some(Wizard::new(name, lib, overlays, filter));
                     }
                 }
                 KeyCode::Backspace => {
@@ -597,8 +600,8 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 };
             }
             Popup::Conditions(cursor) => {
-                let names = dnt_rules::conditions::CONDITIONS;
-                let n = names.len() + 1;
+                let names: Vec<String> = dnt_core::sheet::conditions(&sheet.session).into_iter().map(|(c, _)| c.name).collect();
+                let n = names.len() + usize::from(dnt_rules::conditions::leveled(&sheet.session.build.conditions).is_some());
                 let st = &sheet.session.character().state;
                 let command = match key.code {
                     KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('C') => {
@@ -606,7 +609,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                         return Action::None;
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        sheet.popup = Some(Popup::Conditions((cursor + 1).min(n - 1)));
+                        sheet.popup = Some(Popup::Conditions((cursor + 1).min(n.saturating_sub(1))));
                         return Action::None;
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
@@ -616,9 +619,9 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                     KeyCode::Char('+' | '=') => Command::SetExhaustion { level: st.exhaustion + 1 },
                     KeyCode::Char('-') => Command::SetExhaustion { level: st.exhaustion - 1 },
                     KeyCode::Char(' ') | KeyCode::Enter if cursor < names.len() => {
-                        let c = names[cursor];
+                        let c = &names[cursor];
                         let on = !st.conditions.iter().any(|x| x.eq_ignore_ascii_case(c));
-                        Command::SetCondition { condition: c.to_string(), on }
+                        Command::SetCondition { condition: c.clone(), on }
                     }
                     _ => {
                         sheet.popup = Some(Popup::Conditions(cursor));
@@ -792,7 +795,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             return Action::Export(sheet.session.file.slug.clone(), dnt_core::export::to_markdown(&d), dnt_core::export::to_html(&d));
         }
         KeyCode::Char('u') if !ctrl => {
-            let flow = LevelUp::start(lib, &sheet.session.file.character, &sheet.session.ev, filter);
+            let flow = LevelUp::start(lib, overlays, &sheet.session.file.character, &sheet.session.ev, filter);
             sheet.popup = Some(Popup::LevelUp(Box::new(flow)));
             return Action::None;
         }
@@ -912,6 +915,10 @@ fn overview_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Over
         KeyCode::Char('r') if matches!(items.get(sheet.cursor), Some(Item::HitDie(_))) => {
             let Some(Item::HitDie(faces)) = items.get(sheet.cursor) else { unreachable!() };
             return run(sheet, lib, overlays, Command::RollHitDie { faces: *faces });
+        }
+        KeyCode::Char('r') if matches!(items.get(sheet.cursor), Some(Item::Action(_))) => {
+            let Some(Item::Action(name)) = items.get(sheet.cursor) else { unreachable!() };
+            return run(sheet, lib, overlays, Command::UseAction { name: name.clone() });
         }
         KeyCode::Char('r') => return roll_item(sheet, false),
         KeyCode::Char('R') => return roll_item(sheet, true),
@@ -1151,7 +1158,7 @@ fn inventory_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Ove
             sheet.popup = Some(Popup::AddItem(Box::new(Picker::new("Add an item", items))));
         }
         KeyCode::Char('g') => sheet.popup = Some(Popup::Text(TextPrompt::Currency, String::new())),
-        KeyCode::Char('m') if n > 0 => return run(sheet, lib, overlays, Command::ToggleMonkWeapon { line: i }),
+        KeyCode::Char('m') if n > 0 => return run(sheet, lib, overlays, Command::ToggleWeaponKind { line: i }),
         KeyCode::Char('+' | '=') if n > 0 => return run(sheet, lib, overlays, Command::ChangeQuantity { line: i, delta: 1 }),
         KeyCode::Char('-') if n > 0 => return run(sheet, lib, overlays, Command::ChangeQuantity { line: i, delta: -1 }),
         KeyCode::Char('x') if n > 0 => {

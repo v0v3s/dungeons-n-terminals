@@ -109,6 +109,8 @@ test(
     await step(page, "Choose your starting class", "Hexer");
     await step(page, "Choose a subclass", "The Tide");
     await step(page, "Hexer: choose 2 skill(s)", "Arcana", "Deception");
+    // The Tide's two spell lists: one to choose.
+    await step(page, "The Tide: choose one", "Flow");
     await step(page, "Class (Hexer): starting equipment", "Option A");
     await step(page, "Background (Acolyte): starting equipment", "Option A");
     await step(page, "Choose a holy symbol", "Reliquary");

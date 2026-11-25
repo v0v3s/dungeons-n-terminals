@@ -281,3 +281,133 @@ test("concentration on a spell is ended from the overview", { tag: "@concentrati
   await conc.click();
   await expect(conc).toHaveCount(0);
 });
+
+test("a rule says what a condition does", { tag: "@rules.conditions" }, async ({ page }) => {
+  // Charmed, as a rules file of the player's says: slower, and unsure.
+  await invoke(page, "e2e_put_file", {
+    path: "overlays/charmed.toml",
+    text: '[[feature]]\nid = "condition:Charmed|SRD52"\nsummary = "Dazed and slow"\n[[feature.effect]]\ntarget = "speed"\nadd = "-10"\n[[feature.roll]]\nrolls = "roll.check"\nmode = "disadvantage"\n',
+  });
+  await openSheet(page);
+  await chip(page).getByRole("button", { name: "No conditions" }).click();
+  const conditions = dialog(page, "Conditions");
+  const charmed = conditions.locator("button.cond", { hasText: "Charmed" });
+  await expect(charmed).toContainText("Dazed and slow");
+  await charmed.click();
+  await expect(conditions.locator("button.cond.on")).toHaveText(/Charmed/);
+  await page.keyboard.press("Escape");
+  await expect(tile(page, "Speed")).toContainText("20");
+  // Initiative is a Dexterity check.
+  await tile(page, "Init").click();
+  await expect(roll(page)).toContainText("disadvantage (Charmed)");
+});
+
+/// Rules for the Tester's species (Human), in a file of the player's.
+async function humanRules(page: Page, rules: string) {
+  await invoke(page, "e2e_put_file", { path: "overlays/human.toml", text: `[[feature]]\nid = "race:Human|SRD52"\n${rules}` });
+}
+
+test("a rule gives an action, used from the sheet", { tag: "@rules.actions" }, async ({ page }) => {
+  await humanRules(
+    page,
+    '[[feature.resource]]\nkey = "breath"\nname = "Breath"\nmax = "1"\nrecharge = "long_rest"\n' +
+      '[[feature.action]]\nname = "Sea Breath"\nsave = "dex"\ndc = "13"\ndamage = "dice(2, 6)"\ndamage_type = "cold"\nresource = "breath"\n' +
+      '[[feature.action]]\nname = "Feathers"\ntemp_hp = "4"\n' +
+      // Not yet: from level 5.
+      '[[feature.action]]\nname = "Gale"\ndamage = "dice(4, 6)"\nwhen = "level >= 5"\n',
+  );
+  await openSheet(page);
+  const breath = page.locator(".action", { hasText: "Sea Breath" });
+  await expect(breath).toContainText("DC 13 Dexterity");
+  await expect(breath).toContainText("2d6 cold");
+  await expect(breath).toContainText("1 Breath (1 left)");
+  await expect(page.locator(".action", { hasText: "Gale" })).toHaveCount(0);
+  await breath.locator("button.actrow").click();
+  // The roll: the save's DC, and the damage.
+  for (const part of ["Sea Breath", "13 DC", "Dexterity save", "cold damage"]) await expect(status(page)).toContainText(part);
+  await expect(breath).toContainText("1 Breath (0 left)");
+  await breath.locator("button.actrow").click();
+  await expect(status(page)).toContainText("No Breath left");
+  await page.locator(".action", { hasText: "Feathers" }).locator("button.actrow").click();
+  for (const part of ["Feathers", "4 temporary hit points"]) await expect(status(page)).toContainText(part);
+  await expect(page.locator(".overview")).toContainText("+4");
+});
+
+test("the sheet shows the traits the rules give", { tag: "@rules.traits" }, async ({ page }) => {
+  await humanRules(
+    page,
+    '[[feature.effect]]\ntarget = "sense.darkvision"\nmax = "60"\n' +
+      '[[feature.effect]]\ntarget = "speed.fly"\nmax = "speed"\n' +
+      "[[feature.effect]]\ntarget = \"creature_type\"\nset = \"'fey'\"\n" +
+      '[[feature.defense]]\nresist = ["cold"]\nconditions = ["prone"]\n' +
+      '[[feature.proficiency]]\nskills = ["survival"]\ntools = ["Navigator\'s Tools"]\n',
+  );
+  await openSheet(page);
+  const traits = page.locator(".traits");
+  for (const [label, what] of [
+    ["Type", "fey"],
+    ["Speeds", "fly 30 ft."],
+    ["Senses", "darkvision 60 ft."],
+    ["Resists", "cold"],
+    ["Immune", "prone"],
+    ["Tools", "Navigator's Tools"],
+  ]) {
+    await expect(traits.locator("dt", { hasText: label }).locator("xpath=following-sibling::dd[1]")).toHaveText(what);
+  }
+  await sheetTab(page, "Skills");
+  await expect(page.locator("button.skill", { hasText: "Survival" })).toContainText("+2");
+});
+
+test("a rule asks for one of its options, and a subclass for its spell list", { tag: "@rules.options" }, async ({ page }) => {
+  // A level 1 Hexer of the Tide, whose two spell lists are to choose from.
+  await invoke(page, "e2e_put_file", {
+    path: "characters/tidal.toml",
+    text:
+      'name = "Tidal"\nspecies = "race:Halfling|SRD52"\n\n[abilities]\nstr = 8\ndex = 14\ncon = 12\nint = 10\nwis = 13\ncha = 15\n\n' +
+      '[[levels]]\nclass = "class:Hexer|TST"\n\n[subclasses]\n"class:Hexer|TST" = "subclass:Tide|Hexer|TST|TST"\n',
+  });
+  // A rune to choose; the Fire rune makes the Hexer faster.
+  await invoke(page, "e2e_put_file", {
+    path: "overlays/runes.toml",
+    text:
+      '[[feature]]\nid = "classFeature:Hexer Patron|Hexer|TST|1"\n[[feature.choice]]\nkey = "Rune"\npick = "option"\noptions = ["Ice", "Fire"]\n' +
+      "[[feature.effect]]\ntarget = \"speed\"\nadd = \"10\"\nwhen = \"choice.rune.fire\"\n",
+  });
+  await openSheet(page, "Overview", "Tidal");
+  await page.getByRole("button", { name: /2 choices/ }).click();
+  await pick(page, ["Flow"]);
+  await pick(page, ["Fire"]);
+  await expect(page.getByRole("button", { name: /choices? to make|^\d+ choices?$/ })).toHaveCount(0);
+  await expect(tile(page, "Speed")).toContainText("40");
+  await sheetTab(page, "Spells");
+  await expect(page.locator(".sheet")).toContainText("Burning Hands");
+  await expect(page.locator(".sheet")).not.toContainText("Fog Cloud");
+});
+
+test("a rule gains every option a feature lists", { tag: "@rules.options" }, async ({ page }) => {
+  // A level 1 Cleric, whose Divine Order lists two orders: both, not one to choose.
+  await invoke(page, "e2e_put_file", {
+    path: "characters/vow.toml",
+    text:
+      'name = "Vow"\nspecies = "race:Human|SRD52"\n\n[abilities]\nstr = 14\ndex = 10\ncon = 13\nint = 8\nwis = 15\ncha = 12\n\n' +
+      '[[levels]]\nclass = "class:Cleric|SRD52"\n',
+  });
+  await invoke(page, "e2e_put_file", { path: "overlays/orders.toml", text: '[[feature]]\nid = "classFeature:Divine Order|Cleric|SRD52|1"\nall_options = true\n' });
+  await openSheet(page, "Features", "Vow");
+  await expect(page.getByRole("button", { name: /choices? to make|^\d+ choices?$/ })).toHaveCount(0);
+  await expect(page.locator(".feature", { hasText: "Protector" }).first()).toBeVisible();
+  await expect(page.locator(".feature", { hasText: "Thaumaturge" }).first()).toBeVisible();
+});
+
+test("a rule changes the attacks with the weapons it picks", { tag: "@rules.attacks" }, async ({ page }) => {
+  // Light weapons: a d8, when it is better, and a note.
+  await invoke(page, "e2e_put_file", {
+    path: "overlays/quick.toml",
+    text: '[[feature]]\nid = "feat:Alert|SRD52"\nname = "Quick Blade"\n[[feature.attack]]\nweapons = "weapon.light"\ndie = "1d8"\nnote = "quick"\n',
+  });
+  await openSheet(page, "Overview", "Tester");
+  await expect(attack(page, "Dagger").locator("button.arow")).toContainText("1d8 + 2");
+  await expect(attack(page, "Dagger").locator(".anotes")).toContainText("quick");
+  // Not a Light weapon: its own die.
+  await expect(attack(page, STAFF).locator(".anotes")).not.toContainText("quick");
+});

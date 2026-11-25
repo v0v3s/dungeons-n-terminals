@@ -46,27 +46,32 @@ pub const SKILLS: [(&str, &str, &str); 18] = [
 
 /// Definitions of the standard stats.
 pub fn stats() -> Vec<StatDef> {
-    // Exhaustion (2024) adds to this: it lowers d20 tests.
-    let mut out = vec![StatDef::new("d20.penalty", "0", "no exhaustion")];
+    // Added to every d20 test: saves, checks, initiative and attacks
+    // (rules add to it: Exhaustion).
+    let mut out = vec![StatDef::new("d20.bonus", "0", "d20 tests")];
     for (ab, name) in ABILITIES {
         out.push(StatDef::new(ab, &format!("base.{ab}"), "base score"));
         out.push(StatDef::new(&format!("mod.{ab}"), &format!("mod({ab})"), name));
-        out.push(StatDef::new(&format!("save.{ab}"), &format!("mod.{ab} + prof * prof.save.{ab}"), &format!("{name} + proficiency")));
+        out.push(StatDef::new(
+            &format!("save.{ab}"),
+            &format!("mod.{ab} + prof * prof.save.{ab} + d20.bonus"),
+            &format!("{name} + proficiency"),
+        ));
     }
     out.push(StatDef::new("prof", "2 + floor((level - 1) / 4)", "level"));
     for (key, _, ab) in SKILLS {
         let ability = ABILITIES.iter().find(|(a, _)| *a == ab).unwrap().1;
         out.push(StatDef::new(
             &format!("skill.{key}"),
-            &format!("mod.{ab} + prof * prof.skill.{key}"),
+            &format!("mod.{ab} + prof * prof.skill.{key} + d20.bonus"),
             &format!("{ability} + proficiency"),
         ));
     }
     for skill in ["perception", "investigation", "insight"] {
-        // Exhaustion lowers d20 rolls; passive scores roll nothing.
-        out.push(StatDef::new(&format!("passive.{skill}"), &format!("10 + skill.{skill} - d20.penalty"), "10 + skill"));
+        // Passive scores roll nothing: no d20 bonus.
+        out.push(StatDef::new(&format!("passive.{skill}"), &format!("10 + skill.{skill} - d20.bonus"), "10 + skill"));
     }
-    out.push(StatDef::new("initiative", "mod.dex", "Dexterity"));
+    out.push(StatDef::new("initiative", "mod.dex + d20.bonus", "Dexterity"));
     out.push(StatDef::new(
         "ac",
         "if(armor.none, 10 + mod.dex, armor.base + if(armor.heavy, 0, if(armor.medium, min(mod.dex, 2), mod.dex))) + armor.shield",

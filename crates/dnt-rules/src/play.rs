@@ -369,7 +369,12 @@ mod tests {
             granted: Vec::new(),
             attacks: Vec::new(),
             weapon_proficiency: Default::default(),
-            martial_arts: None,
+            attack_rules: Default::default(),
+            roll_rules: Vec::new(),
+            conditions: Vec::new(),
+            actions: Vec::new(),
+            defenses: Vec::new(),
+            tools: Vec::new(),
             warnings: Vec::new(),
         };
         let ev = build.evaluate();

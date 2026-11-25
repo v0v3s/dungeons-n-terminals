@@ -25,8 +25,22 @@
     const m = a.damage.match(/^(.*\S)\s*\((.+)\)$/);
     return m ? { main: m[1], alt: m[2] } : { main: a.damage, alt: "" };
   }
+  /// The traits there are, as label and text.
+  const traits = $derived(
+    (
+      [
+        ["Type", o.traits.creature_type ? [o.traits.creature_type] : []],
+        ["Speeds", o.traits.speeds],
+        ["Senses", o.traits.senses],
+        ["Resists", o.traits.resistances],
+        ["Immune", [...o.traits.immunities, ...o.traits.condition_immunities]],
+        ["Vulnerable", o.traits.vulnerabilities],
+        ["Tools", o.traits.tools],
+      ] as [string, string[]][]
+    ).filter(([, v]) => v.length),
+  );
   /// No conditions and no exhaustion: the chip just says Conditions.
-  const none = $derived(!o.conditions.length && !o.exhaustion);
+  const none = $derived(!o.conditions.length && !(o.exhaustion && o.exhaustion_name));
   const hpColor = $derived(pct <= 25 ? "var(--red)" : pct <= 50 ? "var(--yellow)" : "var(--green)");
   /// Tile labels on a phone, where five fit a row.
   const SHORT: Record<string, string> = {
@@ -240,7 +254,7 @@
 
   <div class="state">
     <button class="chip" class:on={!none} aria-label={none ? "No conditions" : undefined} onclick={onconditions}>
-      {none ? "Conditions" : [...o.conditions.map((c) => c.name), ...(o.exhaustion ? [`Exhaustion ${o.exhaustion}`] : [])].join(" · ")}
+      {none ? "Conditions" : [...o.conditions.map((c) => c.name), ...(o.exhaustion && o.exhaustion_name ? [`${o.exhaustion_name} ${o.exhaustion}`] : [])].join(" · ")}
     </button>
     {#if o.concentration}
       <button class="chip conc" onclick={() => ctx.act({ command: "end_concentration" })}>◎ {o.concentration} ✕</button>
@@ -250,7 +264,12 @@
   </div>
   {#if desktop.current}<RollMode mode={o.next_roll} {ctx} />{/if}
   {#each o.conditions as c (c.name)}<p class="dim small">{c.name}: {c.summary}</p>{/each}
-  {#if o.exhaustion}<p class="dim small">Exhaustion: {o.exhaustion_summary}</p>{/if}
+  {#if o.exhaustion && o.exhaustion_name}<p class="dim small">{o.exhaustion_name}: {o.exhaustion_summary}</p>{/if}
+  {#if traits.length}
+    <dl class="traits small">
+      {#each traits as [label, items] (label)}<dt class="dim">{label}</dt><dd>{items.join(" · ")}</dd>{/each}
+    </dl>
+  {/if}
 
   {#if o.rolls.length}
     <!-- The latest rolls, folded away under the numbers: the status line
@@ -304,6 +323,23 @@
       <div class="dim riders-title">On a hit</div>
       {#each o.riders as r (r.name)}
         <div class="rider"><b class="acc">{r.value}</b> {r.name} <span class="dim">{r.when}</span></div>
+      {/each}
+    {/if}
+    {#if o.actions.length}
+      <div class="dim riders-title">Actions</div>
+      {#each o.actions as a (a.name)}
+        <div class="action">
+          <button class="actrow" onclick={() => ctx.act({ command: "use_action", name: a.name })}>
+            <span class="aname inhand">{a.name}</span>
+            <b class="acc">{a.what}</b>
+            <span>{a.dice}</span>
+          </button>
+          <div class="anotes">
+            {#if a.cost}<span class="dim">{a.cost}</span>{/if}
+            {#if a.note}<span class="dim">{a.note}</span>{/if}
+            <span class="dim">{a.origin}</span>
+          </div>
+        </div>
       {/each}
     {/if}
   </Pane>
@@ -460,6 +496,9 @@
   .anotes { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0 2ch; padding-left: 6ch; font-size: 0.9em; }
   .note { color: var(--accent); }
   .riders-title { margin-top: 0.75em; }
+  .actrow { display: flex; flex-wrap: wrap; gap: 0 2ch; width: 100%; text-align: left; padding: 0.25em 0; }
+  .traits { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.1em 2ch; margin: 0.5em 0; }
+  .traits dd { margin: 0; }
 
   /* Holding shows a breakdown: no text selection or callout on the way. */
   .tile { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

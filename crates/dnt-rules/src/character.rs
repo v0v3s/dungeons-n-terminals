@@ -253,10 +253,10 @@ pub struct InventoryItem {
     /// What a custom item is, in a few words.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Counts as a monk weapon (`true`) or not (`false`) regardless of the
-    /// Martial Arts rules; unset follows the rules.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub monk_weapon: Option<bool>,
+    /// Counts as the kind of weapon a rule has (a monk weapon) or not,
+    /// whatever the rule's filter says; unset follows the rule.
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "monk_weapon")]
+    pub weapon_kind: Option<bool>,
     /// Where a worn item is worn (with `equipped`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<Slot>,

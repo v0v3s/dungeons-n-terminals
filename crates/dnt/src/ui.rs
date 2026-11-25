@@ -225,7 +225,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
                 ("p", "unpack"),
                 ("w", "container"),
                 ("A", "attune"),
-                ("m", "monk weapon"),
+                ("m", "weapon kind"),
                 ("g", "coins"),
                 ("tab", "tab"),
                 ("esc", "roster"),
