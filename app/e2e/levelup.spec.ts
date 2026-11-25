@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test, wren } from "./fixtures";
 
 /// Choose an action from the sheet's ⋯ menu.
 async function more(page: Page, name: string, action: string) {
@@ -243,7 +243,6 @@ test("a class made from another offers its subclasses too", { tag: "@levelup.sub
   await expect(identity(page)).toContainText("Runebinder 1");
   await expect(page.getByRole("button", { name: "Warnings" })).toHaveCount(0);
 });
-
 
 test("a rule asks for a choice: one skill to gain Expertise in", { tag: "@rules.choices" }, async ({ page }) => {
   await wren(page, false);
