@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.12.0 - 2026-11-25
+
 ### Added
 
 - Rules change attacks (`[[feature.attack]]`): for the weapons a filter
