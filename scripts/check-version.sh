@@ -23,6 +23,8 @@ if [ -n "$next" ]; then
     [ -s "fastlane/metadata/android/en-US/changelogs/$code.txt" ] || { echo "no store changelog for v$next (fastlane/metadata/android/en-US/changelogs/$code.txt): run scripts/release-pr.sh" >&2; exit 1; }
     echo "releases v$next"
 else
-    [ -z "$released" ] || [ "$version" = "$released" ] || { echo "\"$title\" does not release, but Cargo.toml says $version (released: $released)" >&2; exit 1; }
+    # main's version may be merged but not released yet (a lost push event).
+    main=$(git show origin/main:Cargo.toml 2>/dev/null | sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' || true)
+    [ -z "$released" ] || [ "$version" = "$released" ] || [ "$version" = "$main" ] || { echo "\"$title\" does not release, but Cargo.toml says $version (released: $released)" >&2; exit 1; }
     echo "no release"
 fi
