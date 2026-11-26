@@ -8,6 +8,8 @@ become the release page.
 
 ## Unreleased
 
+## v1.12.1 - 2026-11-26
+
 ### Changed
 
 - dnt has only the SRD 5.2.1's rules built in. The rules for the 2014 and
