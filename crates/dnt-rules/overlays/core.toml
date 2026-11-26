@@ -1,7 +1,7 @@
-# dnt's built-in rules for the core rules: what each condition does
-# while a character has it, and the multiclass spellcaster's table. The
-# 2024 rules (XPHB, and so the SRD 5.2.1), then the 2014 ones (PHB).
-# A rules file of your own can replace any of them.
+# dnt's built-in rules for the SRD 5.2.1's core rules: what each
+# condition does while a character has it, and the multiclass
+# spellcaster's table. A rules file of your own can replace any of them;
+# rules for other books are in the rules library.
 
 [multiclass]
 # Spell slots of levels 1-9 per combined caster level, 1 to 20.
@@ -30,11 +30,10 @@ slots = [
 # What a class's primary ability needs to multiclass, when the class lists
 # no requirements (the 2024 classes).
 primary_score = 13
-
 # ---- 2024 ----
 
 [[feature]]
-id = "condition:Blinded|XPHB"
+id = "condition:Blinded|SRD52"
 summary = "Disadvantage on attacks; attacks against you have Advantage; fail sight checks"
 
 [[feature.roll]]
@@ -42,15 +41,15 @@ rolls = "roll.attack"
 mode = "disadvantage"
 
 [[feature]]
-id = "condition:Charmed|XPHB"
+id = "condition:Charmed|SRD52"
 summary = "Can't attack the charmer; it has Advantage on social checks against you"
 
 [[feature]]
-id = "condition:Deafened|XPHB"
+id = "condition:Deafened|SRD52"
 summary = "Fail checks that need hearing"
 
 [[feature]]
-id = "condition:Frightened|XPHB"
+id = "condition:Frightened|SRD52"
 summary = "Disadvantage on checks and attacks while you see the source; can't move closer"
 
 [[feature.roll]]
@@ -58,7 +57,7 @@ rolls = "roll.attack or roll.check"
 mode = "disadvantage"
 
 [[feature]]
-id = "condition:Grappled|XPHB"
+id = "condition:Grappled|SRD52"
 summary = "Speed 0; Disadvantage on attacks against anyone but the grappler"
 
 [[feature.effect]]
@@ -66,7 +65,7 @@ target = "speed"
 min = "0"
 
 [[feature]]
-id = "condition:Incapacitated|XPHB"
+id = "condition:Incapacitated|SRD52"
 summary = "No actions, Bonus Actions or Reactions; no Concentration; Disadvantage on Initiative"
 
 [[feature.roll]]
@@ -74,7 +73,7 @@ rolls = "roll.initiative"
 mode = "disadvantage"
 
 [[feature]]
-id = "condition:Invisible|XPHB"
+id = "condition:Invisible|SRD52"
 summary = "Advantage on attacks and Initiative; attacks against you have Disadvantage"
 
 [[feature.roll]]
@@ -82,7 +81,7 @@ rolls = "roll.attack or roll.initiative"
 mode = "advantage"
 
 [[feature]]
-id = "condition:Paralyzed|XPHB"
+id = "condition:Paralyzed|SRD52"
 summary = "Incapacitated, speed 0, fail Str and Dex saves; hits within 5 ft. are critical"
 
 [[feature.effect]]
@@ -99,7 +98,7 @@ mode = "fail"
 note = "Strength and Dexterity saves fail"
 
 [[feature]]
-id = "condition:Petrified|XPHB"
+id = "condition:Petrified|SRD52"
 summary = "Incapacitated, speed 0, fail Str and Dex saves; resistance to all damage"
 
 [[feature.effect]]
@@ -116,7 +115,7 @@ mode = "fail"
 note = "Strength and Dexterity saves fail"
 
 [[feature]]
-id = "condition:Poisoned|XPHB"
+id = "condition:Poisoned|SRD52"
 summary = "Disadvantage on attack rolls and ability checks"
 
 [[feature.roll]]
@@ -124,7 +123,7 @@ rolls = "roll.attack or roll.check"
 mode = "disadvantage"
 
 [[feature]]
-id = "condition:Prone|XPHB"
+id = "condition:Prone|SRD52"
 summary = "Disadvantage on attacks; attacks within 5 ft. have Advantage against you"
 
 [[feature.roll]]
@@ -132,7 +131,7 @@ rolls = "roll.attack"
 mode = "disadvantage"
 
 [[feature]]
-id = "condition:Restrained|XPHB"
+id = "condition:Restrained|SRD52"
 summary = "Speed 0; Disadvantage on attacks and Dex saves"
 
 [[feature.effect]]
@@ -144,7 +143,7 @@ rolls = "roll.attack or (roll.save and roll.dex)"
 mode = "disadvantage"
 
 [[feature]]
-id = "condition:Stunned|XPHB"
+id = "condition:Stunned|SRD52"
 summary = "Incapacitated, fail Str and Dex saves; attacks against you have Advantage"
 
 [[feature.roll]]
@@ -157,7 +156,7 @@ mode = "fail"
 note = "Strength and Dexterity saves fail"
 
 [[feature]]
-id = "condition:Unconscious|XPHB"
+id = "condition:Unconscious|SRD52"
 summary = "Incapacitated, Prone, speed 0, fail Str and Dex saves; hits within 5 ft. are critical"
 
 [[feature.effect]]
@@ -174,7 +173,7 @@ mode = "fail"
 note = "Strength and Dexterity saves fail"
 
 [[feature]]
-id = "condition:Exhaustion|XPHB"
+id = "condition:Exhaustion|SRD52"
 levels = [
   "−2 to d20 tests, −5 ft. speed",
   "−4 to d20 tests, −10 ft. speed",
@@ -191,162 +190,3 @@ add = "-2 * exhaustion"
 [[feature.effect]]
 target = "speed"
 add = "-5 * exhaustion"
-
-# ---- 2014 ----
-
-[[feature]]
-id = "condition:Blinded|PHB"
-summary = "Disadvantage on attacks; attacks against you have Advantage; fail sight checks"
-
-[[feature.roll]]
-rolls = "roll.attack"
-mode = "disadvantage"
-
-[[feature]]
-id = "condition:Charmed|PHB"
-summary = "Can't attack the charmer; it has Advantage on social checks against you"
-
-[[feature]]
-id = "condition:Deafened|PHB"
-summary = "Fail checks that need hearing"
-
-[[feature]]
-id = "condition:Frightened|PHB"
-summary = "Disadvantage on checks and attacks while you see the source; can't move closer"
-
-[[feature.roll]]
-rolls = "roll.attack or roll.check"
-mode = "disadvantage"
-
-[[feature]]
-id = "condition:Grappled|PHB"
-summary = "Speed 0; Disadvantage on attacks against anyone but the grappler"
-
-[[feature.effect]]
-target = "speed"
-min = "0"
-
-[[feature]]
-id = "condition:Incapacitated|PHB"
-summary = "No actions, Bonus Actions or Reactions; no Concentration; Disadvantage on Initiative"
-
-[[feature]]
-id = "condition:Invisible|PHB"
-summary = "Advantage on attacks and Initiative; attacks against you have Disadvantage"
-
-[[feature.roll]]
-rolls = "roll.attack or roll.initiative"
-mode = "advantage"
-
-[[feature]]
-id = "condition:Paralyzed|PHB"
-summary = "Incapacitated, speed 0, fail Str and Dex saves; hits within 5 ft. are critical"
-
-[[feature.effect]]
-target = "speed"
-min = "0"
-
-[[feature.roll]]
-rolls = "roll.save and (roll.str or roll.dex)"
-mode = "fail"
-note = "Strength and Dexterity saves fail"
-
-[[feature]]
-id = "condition:Petrified|PHB"
-summary = "Incapacitated, speed 0, fail Str and Dex saves; resistance to all damage"
-
-[[feature.effect]]
-target = "speed"
-min = "0"
-
-[[feature.roll]]
-rolls = "roll.save and (roll.str or roll.dex)"
-mode = "fail"
-note = "Strength and Dexterity saves fail"
-
-[[feature]]
-id = "condition:Poisoned|PHB"
-summary = "Disadvantage on attack rolls and ability checks"
-
-[[feature.roll]]
-rolls = "roll.attack or roll.check"
-mode = "disadvantage"
-
-[[feature]]
-id = "condition:Prone|PHB"
-summary = "Disadvantage on attacks; attacks within 5 ft. have Advantage against you"
-
-[[feature.roll]]
-rolls = "roll.attack"
-mode = "disadvantage"
-
-[[feature]]
-id = "condition:Restrained|PHB"
-summary = "Speed 0; Disadvantage on attacks and Dex saves"
-
-[[feature.effect]]
-target = "speed"
-min = "0"
-
-[[feature.roll]]
-rolls = "roll.attack or (roll.save and roll.dex)"
-mode = "disadvantage"
-
-[[feature]]
-id = "condition:Stunned|PHB"
-summary = "Incapacitated, fail Str and Dex saves; attacks against you have Advantage"
-
-[[feature.roll]]
-rolls = "roll.save and (roll.str or roll.dex)"
-mode = "fail"
-note = "Strength and Dexterity saves fail"
-
-[[feature]]
-id = "condition:Unconscious|PHB"
-summary = "Incapacitated, Prone, speed 0, fail Str and Dex saves; hits within 5 ft. are critical"
-
-[[feature.effect]]
-target = "speed"
-min = "0"
-
-[[feature.roll]]
-rolls = "roll.save and (roll.str or roll.dex)"
-mode = "fail"
-note = "Strength and Dexterity saves fail"
-
-[[feature]]
-id = "condition:Exhaustion|PHB"
-levels = [
-  "disadvantage on ability checks",
-  "disadvantage on ability checks, speed halved",
-  "disadvantage on ability checks, speed halved, disadvantage on attacks and saves",
-  "disadvantage on ability checks, speed halved, disadvantage on attacks and saves, hit point maximum halved",
-  "disadvantage on ability checks, speed halved, disadvantage on attacks and saves, hit point maximum halved, speed 0",
-  "death",
-]
-
-[[feature.effect]]
-target = "speed"
-mul = "1 / 2"
-when = "exhaustion >= 2"
-origin = "Exhaustion 2+: speed halved"
-
-[[feature.effect]]
-target = "hp.max"
-mul = "1 / 2"
-when = "exhaustion >= 4"
-origin = "Exhaustion 4+: hit point maximum halved"
-
-[[feature.effect]]
-target = "speed"
-min = "0"
-when = "exhaustion >= 5"
-origin = "Exhaustion 5"
-
-[[feature.roll]]
-rolls = "roll.check"
-mode = "disadvantage"
-
-[[feature.roll]]
-rolls = "exhaustion >= 3 and (roll.attack or roll.save)"
-mode = "disadvantage"

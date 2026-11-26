@@ -197,9 +197,10 @@ weapon, and Great Weapon Fighting's rerolls.
 ## Rules (overlays)
 
 A sheet knows a feature's numbers when there are rules for it. dnt ships
-rules for many 2024 features (Rage, Sneak Attack, fighting styles, Lay on
-Hands, Wild Shape, species traits, …); features with rules show `auto` in
-the Features tab. For anything else, press `O` on the feature to write
+the SRD 5.2.1's rules (Rage, Sneak Attack, fighting styles, Lay on Hands,
+Wild Shape, species traits, conditions, …); the rules for other books are
+in the [rules library](https://github.com/v0v3s/dnt-rules). Features with
+rules show `auto` in the Features tab. For anything else, press `O` on the feature to write
 its rules; the check pane shows what they change on the character as you
 type. A rule file looks like this:
 

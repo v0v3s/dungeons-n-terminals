@@ -253,9 +253,36 @@ mode = "disadvantage"
         assert!(auto_fail(&b.roll_rules, RollKind::Save("dex"), 0).is_some());
         assert_eq!(advantage(&b.roll_rules, RollKind::Initiative, 0).len(), 1, "2024: Incapacitated");
 
-        // 2014: a book's conditions have the 2014 rules.
+        // A book's conditions have the book's rules.
+        let (book, d) = crate::overlay::Overlay::parse(
+            r#"
+[[feature]]
+id = "condition:Exhaustion|T"
+levels = ["checks", "speed halved", "attacks and saves"]
+[[feature.effect]]
+target = "speed"
+mul = "1 / 2"
+when = "exhaustion >= 2"
+[[feature.roll]]
+rolls = "roll.check"
+mode = "disadvantage"
+[[feature.roll]]
+rolls = "exhaustion >= 3 and (roll.attack or roll.save)"
+mode = "disadvantage"
+
+[[feature]]
+id = "condition:Stunned|T"
+[[feature.roll]]
+rolls = "roll.save and (roll.str or roll.dex)"
+mode = "fail"
+"#,
+        )
+        .unwrap();
+        assert!(d.is_empty(), "{d:?}");
+        let mut rules = rules;
+        rules.add(book);
         let mut lib = Library::new();
-        lib.load_json(&serde_json::json!({"condition": [{"name": "Exhaustion", "source": "PHB"}, {"name": "Stunned", "source": "PHB"}]}));
+        lib.load_json(&serde_json::json!({"condition": [{"name": "Exhaustion", "source": "T"}, {"name": "Stunned", "source": "T"}]}));
         let mut ch = Character::default();
         ch.state.exhaustion = 3;
         ch.state.conditions = vec!["Stunned".into()];
@@ -263,6 +290,6 @@ mode = "disadvantage"
         assert_eq!(b.evaluate().int("speed"), Some(15), "30 halved");
         let e = b.evaluate().int("exhaustion").unwrap();
         assert_eq!(advantage(&b.roll_rules, RollKind::Save("con"), e).len(), 1, "level 3: saves");
-        assert!(advantage(&b.roll_rules, RollKind::Initiative, e).iter().all(|(_, w)| w == "Exhaustion"), "2014: no Incapacitated");
+        assert!(advantage(&b.roll_rules, RollKind::Initiative, e).iter().all(|(_, w)| w == "Exhaustion"), "no Incapacitated");
     }
 }

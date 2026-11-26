@@ -8,6 +8,15 @@ become the release page.
 
 ## Unreleased
 
+## v1.12.1 - 2026-11-26
+
+### Changed
+
+- dnt has only the SRD 5.2.1's rules built in. The rules for the 2014 and
+  2024 Player's Handbooks (their conditions, classes, feats and species)
+  are in the rules library: import them from *Data › Rules library*
+  (`dnt rules import books/players-handbook-2024`).
+
 ## v1.12.0 - 2026-11-25
 
 ### Added

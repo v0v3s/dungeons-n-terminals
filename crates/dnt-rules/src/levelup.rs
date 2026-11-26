@@ -201,7 +201,7 @@ mod tests {
                 {"name": "Alert", "source": "T", "category": "O", "entries": ["x"]},
                 {"name": "Tough", "source": "T", "category": "G", "entries": ["x"]},
                 {"name": "Boon of Speed", "source": "T", "category": "EB", "entries": ["x"]},
-                {"name": "Ability Score Improvement", "source": "XPHB", "category": "G", "entries": ["x"]}
+                {"name": "Ability Score Improvement", "source": "SRD52", "category": "G", "entries": ["x"]}
             ]
         }));
         let fighter = lib.get(&dnt_data::Key::new(Kind::Class, &["Fighter", "T"])).unwrap();

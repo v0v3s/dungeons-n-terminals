@@ -294,8 +294,8 @@
   <Pane title="Rules library" focused>
     <p class="dim">
       Rules make the sheet do a feature's maths (its uses, the Armor Class or speed it gives). The rules library
-      (<span class="url">github.com/v0v3s/dnt-rules</span>) has rules for the SRD and for homebrew that dnt does not
-      have built in: pick some, or a whole folder, and they become your rules.
+      (<span class="url">github.com/v0v3s/dnt-rules</span>) has the rules for books other than the SRD (dnt has the SRD's
+      built in) and for homebrew: pick some, or a whole folder, and they become your rules.
     </p>
     <div><button class="action" onclick={() => (library = true)}>Open the rules library…</button></div>
   </Pane>

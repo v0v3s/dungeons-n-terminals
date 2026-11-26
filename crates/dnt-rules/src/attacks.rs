@@ -699,8 +699,8 @@ mod tests {
                  "weaponCategory": "martial", "property": ["V|T"], "dmg1": "1d8", "dmgType": "S", "dmg2": "1d10", "bonusWeapon": "+1"}
             ],
             "feat": [{"name": "Archery", "source": "T", "entries": ["x"]}, {"name": "Dueling", "source": "T", "entries": ["x"]},
-                     {"name": "Dual Wielder", "source": "XPHB", "entries": ["x"]}, {"name": "Dual Wielder", "source": "PHB", "entries": ["x"]},
-                     {"name": "Great Weapon Fighting", "source": "XPHB", "entries": ["x"]}]
+                     {"name": "Dual Wielder", "source": "T", "entries": ["x"]}, {"name": "Two Blades", "source": "T", "entries": ["x"]},
+                     {"name": "Great Weapon Fighting", "source": "SRD52", "entries": ["x"]}]
         }));
         lib
     }
@@ -800,21 +800,44 @@ add = "2"
     fn dual_wielding() {
         use crate::character::Hand;
         let lib = library();
+        // Two ways to wield two weapons: a Light main weapon, or any two
+        // one-handed melee weapons.
+        let (o, d) = Overlay::parse(
+            r#"
+[[feature]]
+id = "feat:Dual Wielder|T"
+[[feature.offhand]]
+main = "main.light"
+off = "weapon.melee and not weapon.two_handed"
+note = "Dual Wielder: the main weapon Light, this one a melee weapon without Two-Handed"
+
+[[feature]]
+id = "feat:Two Blades|T"
+[[feature.offhand]]
+main = "main.melee and not main.two_handed"
+off = "weapon.melee and not weapon.two_handed"
+note = "Two Blades: one-handed melee weapons in both hands"
+"#,
+        )
+        .unwrap();
+        assert!(d.is_empty(), "{d:?}");
+        let mut rules = OverlaySet::default();
+        rules.add(o);
         let held = |feat: Option<&str>, main: &str, off: &str| {
             let mut c = character(&["Fighter"], &[main, off]);
             c.inventory[0].hand = Some(Hand::Main);
             c.inventory[1].hand = Some(Hand::Off);
             c.feats = feat.into_iter().map(str::to_string).collect();
-            let b = build(&c, &lib, &crate::builtin::overlays().0);
+            let b = build(&c, &lib, &rules);
             b.attacks.iter().find(|a| a.offhand).unwrap().notes.clone()
         };
         assert!(!held(None, "Dagger", "Rapier").is_empty(), "Rapier is not Light");
-        assert!(held(Some("feat:Dual Wielder|XPHB"), "Dagger", "Rapier").is_empty(), "2024: Light main, any one-handed off");
-        assert!(!held(Some("feat:Dual Wielder|XPHB"), "Rapier", "Dagger").is_empty(), "2024: the main weapon must be Light");
-        assert!(held(Some("feat:Dual Wielder|PHB"), "Rapier", "Longsword").is_empty(), "2014: any one-handed melee");
-        assert!(!held(Some("feat:Dual Wielder|PHB"), "Rapier", "Greataxe").is_empty());
+        assert!(held(Some("feat:Dual Wielder|T"), "Dagger", "Rapier").is_empty(), "Light main, any one-handed off");
+        assert!(!held(Some("feat:Dual Wielder|T"), "Rapier", "Dagger").is_empty(), "the main weapon must be Light");
+        assert!(held(Some("feat:Two Blades|T"), "Rapier", "Longsword").is_empty(), "any one-handed melee");
+        assert!(!held(Some("feat:Two Blades|T"), "Rapier", "Greataxe").is_empty());
         assert!(
-            held(Some("feat:Dual Wielder|XPHB"), "Rapier", "Dagger")[0].contains("Dual Wielder: the main weapon Light"),
+            held(Some("feat:Dual Wielder|T"), "Rapier", "Dagger")[0].contains("Dual Wielder: the main weapon Light"),
             "the rule says why"
         );
     }
@@ -823,7 +846,7 @@ add = "2"
     fn great_weapon_fighting() {
         let lib = library();
         let mut c = character(&["Fighter"], &["Greataxe", "Longsword", "Rapier", "Longbow"]);
-        c.feats = vec!["feat:Great Weapon Fighting|XPHB".into()];
+        c.feats = vec!["feat:Great Weapon Fighting|SRD52".into()];
         let rules = crate::builtin::overlays().0;
         let b = build(&c, &lib, &rules);
         let by = |b: &crate::builder::Build, n: &str| b.attacks.iter().find(|a| a.name == n).unwrap().clone();
@@ -924,18 +947,18 @@ origin = "Tavern Brawler"
     fn monk_library() -> Library {
         let mut lib = library();
         lib.load_json(&json!({
-            "class": [{"name": "Monk", "source": "XPHB", "hd": {"faces": 8}, "proficiency": ["str", "dex"],
+            "class": [{"name": "Monk", "source": "SRD52", "hd": {"faces": 8}, "proficiency": ["str", "dex"],
                 "startingProficiencies": {"weapons": ["simple",
                     "Martial weapons that have the {@filter Light|items|type=martial weapon|property=light} property"]},
                 "classTableGroups": [{"colLabels": ["Martial Arts"], "rows": [[{"type": "dice", "toRoll": [{"number": 1, "faces": 6}]}]]}],
-                "classFeatures": ["Martial Arts|Monk|XPHB|1"]}],
-            "classFeature": [{"name": "Martial Arts", "source": "XPHB", "className": "Monk", "classSource": "XPHB", "level": 1, "entries": ["x"]}],
+                "classFeatures": ["Martial Arts|Monk|SRD52|1"]}],
+            "classFeature": [{"name": "Martial Arts", "source": "SRD52", "className": "Monk", "classSource": "SRD52", "level": 1, "entries": ["x"]}],
             "baseitem": [
                 {"name": "Shortsword", "source": "T", "type": "M|T", "weaponCategory": "martial", "weapon": true,
                  "property": ["F|T", "L|T"], "dmg1": "1d6", "dmgType": "P"}
             ],
             "item": [
-                {"name": "Nunchaku", "source": "HB", "type": "M|XPHB", "weaponCategory": "simple", "weapon": true, "dmg1": "1d4", "dmgType": "B"}
+                {"name": "Nunchaku", "source": "HB", "type": "M|T", "weaponCategory": "simple", "weapon": true, "dmg1": "1d4", "dmgType": "B"}
             ]
         }));
         lib
@@ -945,7 +968,7 @@ origin = "Tavern Brawler"
         let mut c = Character { name: "M".into(), ..Character::default() };
         c.abilities.str = 10;
         c.abilities.dex = 16;
-        c.levels = vec![Level { class: "class:Monk|XPHB".into(), hp: Default::default(), choices: Default::default() }];
+        c.levels = vec![Level { class: "class:Monk|SRD52".into(), hp: Default::default(), choices: Default::default() }];
         c.inventory =
             items.iter().map(|i| InventoryItem { item: Some(format!("item:{i}")), equipped: true, ..Default::default() }).collect();
         c
