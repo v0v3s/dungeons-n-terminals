@@ -1,9 +1,492 @@
-# Built-in automation for the SRD 5.2.1's own names.
+# dnt's built-in rules for the SRD 5.2.1: what its features do. Rules
+# for other books are in the rules library (github.com/v0v3s/dnt-rules).
 #
-# The SRD has the 2024 rules: the rules in xphb.toml are its rules too
-# (`classFeature:Rage|Barbarian|XPHB|1` is also the SRD's Rage). This file
-# has the features the SRD names differently.
+# Numbers come from class-table columns (`class.<class>.<column>`) wherever
+# the table has them, so this file only says what each feature does.
 # Format: see crates/dnt-rules/src/overlay.rs.
+
+
+# ---- Choices features ask for ----
+
+[[feature]]
+id = "classFeature:Ability Score Improvement|*|*|*"
+[[feature.choice]]
+pick = "ability_increase"
+feats = ["G"]
+
+[[feature]]
+id = "classFeature:Epic Boon|*|*|*"
+[[feature.choice]]
+pick = "feat"
+feats = ["EB", "G"]
+
+[[feature]]
+id = "classFeature:Expertise|*|*|*"
+[[feature.choice]]
+pick = "expertise"
+count = "2"
+
+# The 2024 feat is that choice itself, not one more feat to take.
+[[feature]]
+id = "feat:Ability Score Improvement|SRD52"
+[[feature.choice]]
+pick = "ability_increase"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Barbarian|SRD52|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "class.barbarian.weapon_mastery"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Fighter|SRD52|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "class.fighter.weapon_mastery"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Paladin|SRD52|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Ranger|SRD52|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+
+[[feature]]
+id = "classFeature:Weapon Mastery|Rogue|SRD52|1"
+[[feature.choice]]
+pick = "weapon_mastery"
+count = "2"
+
+
+# ---- Barbarian ----
+
+[[feature]]
+id = "classFeature:Rage|Barbarian|SRD52|1"
+[[feature.resource]]
+key = "rage"
+name = "Rage"
+max = "class.barbarian.rages"
+recharge = "long_rest"
+short_rest_regain = "1"
+[[feature.toggle]]
+key = "raging"
+name = "Raging"
+[[feature.effect]]
+target = "attack.strength.damage"
+add = "class.barbarian.rage_damage"
+when = "toggle('raging')"
+
+[[feature]]
+id = "classFeature:Unarmored Defense|Barbarian|SRD52|1"
+name = "Unarmored Defense (Barbarian)"
+[[feature.effect]]
+target = "ac"
+max = "10 + mod.dex + mod.con + armor.shield"
+when = "armor.none"
+
+[[feature]]
+id = "classFeature:Fast Movement|Barbarian|SRD52|5"
+[[feature.effect]]
+target = "speed"
+add = "10"
+when = "not armor.heavy"
+
+
+# ---- Bard ----
+
+[[feature]]
+id = "classFeature:Bardic Inspiration|Bard|SRD52|1"
+[[feature.resource]]
+key = "bardic_inspiration"
+name = "Bardic Inspiration"
+max = "max(1, mod.cha)"
+recharge = "long_rest"
+short_rest_regain = "if(level('Bard') >= 5, max(1, mod.cha), 0)"
+[[feature.effect]]
+target = "bardic.die"
+set = "class.bard.bardic_die"
+
+[[feature]]
+id = "classFeature:Jack of All Trades|Bard|SRD52|2"
+[[feature.effect]]
+target = "skill.acrobatics"
+add = "floor(prof / 2)"
+when = "prof.skill.acrobatics == 0"
+[[feature.effect]]
+target = "skill.animal_handling"
+add = "floor(prof / 2)"
+when = "prof.skill.animal_handling == 0"
+[[feature.effect]]
+target = "skill.arcana"
+add = "floor(prof / 2)"
+when = "prof.skill.arcana == 0"
+[[feature.effect]]
+target = "skill.athletics"
+add = "floor(prof / 2)"
+when = "prof.skill.athletics == 0"
+[[feature.effect]]
+target = "skill.deception"
+add = "floor(prof / 2)"
+when = "prof.skill.deception == 0"
+[[feature.effect]]
+target = "skill.history"
+add = "floor(prof / 2)"
+when = "prof.skill.history == 0"
+[[feature.effect]]
+target = "skill.insight"
+add = "floor(prof / 2)"
+when = "prof.skill.insight == 0"
+[[feature.effect]]
+target = "skill.intimidation"
+add = "floor(prof / 2)"
+when = "prof.skill.intimidation == 0"
+[[feature.effect]]
+target = "skill.investigation"
+add = "floor(prof / 2)"
+when = "prof.skill.investigation == 0"
+[[feature.effect]]
+target = "skill.medicine"
+add = "floor(prof / 2)"
+when = "prof.skill.medicine == 0"
+[[feature.effect]]
+target = "skill.nature"
+add = "floor(prof / 2)"
+when = "prof.skill.nature == 0"
+[[feature.effect]]
+target = "skill.perception"
+add = "floor(prof / 2)"
+when = "prof.skill.perception == 0"
+[[feature.effect]]
+target = "skill.performance"
+add = "floor(prof / 2)"
+when = "prof.skill.performance == 0"
+[[feature.effect]]
+target = "skill.persuasion"
+add = "floor(prof / 2)"
+when = "prof.skill.persuasion == 0"
+[[feature.effect]]
+target = "skill.religion"
+add = "floor(prof / 2)"
+when = "prof.skill.religion == 0"
+[[feature.effect]]
+target = "skill.sleight_of_hand"
+add = "floor(prof / 2)"
+when = "prof.skill.sleight_of_hand == 0"
+[[feature.effect]]
+target = "skill.stealth"
+add = "floor(prof / 2)"
+when = "prof.skill.stealth == 0"
+[[feature.effect]]
+target = "skill.survival"
+add = "floor(prof / 2)"
+when = "prof.skill.survival == 0"
+
+
+# ---- Cleric ----
+
+[[feature]]
+id = "classFeature:Channel Divinity|Cleric|SRD52|2"
+name = "Channel Divinity (Cleric)"
+[[feature.resource]]
+key = "channel_divinity_cleric"
+name = "Channel Divinity"
+max = "class.cleric.channel_divinity"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+[[feature]]
+id = "classFeature:Divine Intervention|Cleric|SRD52|10"
+[[feature.resource]]
+key = "divine_intervention"
+name = "Divine Intervention"
+max = "1"
+recharge = "long_rest"
+
+
+# ---- Druid ----
+
+[[feature]]
+id = "classFeature:Wild Shape|Druid|SRD52|2"
+[[feature.resource]]
+key = "wild_shape"
+name = "Wild Shape"
+max = "class.druid.wild_shape"
+recharge = "long_rest"
+short_rest_regain = "1"
+[[feature.toggle]]
+key = "wild_shaped"
+name = "Wild Shaped"
+
+
+# ---- Fighter ----
+
+[[feature]]
+id = "classFeature:Second Wind|Fighter|SRD52|1"
+[[feature.resource]]
+key = "second_wind"
+name = "Second Wind"
+max = "class.fighter.second_wind"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+
+# ---- Monk ----
+
+[[feature]]
+id = "classFeature:Monk’s Focus|Monk|SRD52|2"
+[[feature.resource]]
+key = "focus"
+name = "Focus Points"
+max = "class.monk.focus_points"
+recharge = "short_rest"
+
+[[feature]]
+id = "classFeature:Martial Arts|Monk|SRD52|1"
+# Monk weapons: simple melee weapons and Light martial melee weapons.
+[[feature.attack]]
+kind = "monk weapon"
+weapons = "weapon.melee and (weapon.simple or (weapon.martial and weapon.light))"
+ability = "max(mod.str, mod.dex)"
+die = "class.monk.martial_arts"
+[[feature.effect]]
+target = "attack.unarmed.mod"
+set = "max(mod.str, mod.dex)"
+[[feature.effect]]
+target = "attack.unarmed.damage"
+set = "class.monk.martial_arts + attack.unarmed.mod"
+
+[[feature]]
+id = "classFeature:Unarmored Defense|Monk|SRD52|1"
+name = "Unarmored Defense (Monk)"
+[[feature.effect]]
+target = "ac"
+max = "10 + mod.dex + mod.wis"
+when = "armor.none and armor.shield == 0"
+
+[[feature]]
+id = "classFeature:Unarmored Movement|Monk|SRD52|2"
+[[feature.effect]]
+target = "speed"
+add = "class.monk.unarmored_movement"
+when = "armor.none and armor.shield == 0"
+
+
+# ---- Paladin ----
+
+[[feature]]
+id = "classFeature:Lay on Hands|Paladin|SRD52|1"
+[[feature.resource]]
+key = "lay_on_hands"
+name = "Lay on Hands pool"
+max = "5 * level('Paladin')"
+recharge = "long_rest"
+
+[[feature]]
+id = "classFeature:Channel Divinity|Paladin|SRD52|3"
+name = "Channel Divinity (Paladin)"
+[[feature.resource]]
+key = "channel_divinity_paladin"
+name = "Channel Divinity"
+max = "class.paladin.channel_divinity"
+recharge = "long_rest"
+short_rest_regain = "1"
+
+[[feature]]
+id = "classFeature:Aura of Protection|Paladin|SRD52|6"
+[[feature.effect]]
+target = "save.str"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.dex"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.con"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.int"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.wis"
+add = "max(1, mod.cha)"
+[[feature.effect]]
+target = "save.cha"
+add = "max(1, mod.cha)"
+
+
+# ---- Ranger ----
+
+[[feature]]
+id = "classFeature:Favored Enemy|Ranger|SRD52|1"
+[[feature.resource]]
+key = "favored_enemy"
+name = "Favored Enemy (free Hunter's Mark)"
+max = "class.ranger.favored_enemy"
+recharge = "long_rest"
+
+
+# ---- Rogue ----
+
+[[feature]]
+id = "classFeature:Sneak Attack|Rogue|SRD52|1"
+[[feature.effect]]
+target = "rider.sneak_attack"
+set = "class.rogue.sneak_attack"
+origin = "Sneak Attack: once per turn, a Finesse or ranged weapon, with Advantage or an ally next to the target"
+
+
+# ---- Sorcerer ----
+
+[[feature]]
+id = "classFeature:Font of Magic|Sorcerer|SRD52|2"
+[[feature.resource]]
+key = "sorcery_points"
+name = "Sorcery Points"
+max = "class.sorcerer.sorcery_points"
+recharge = "long_rest"
+
+[[feature]]
+id = "classFeature:Innate Sorcery|Sorcerer|SRD52|1"
+[[feature.resource]]
+key = "innate_sorcery"
+name = "Innate Sorcery"
+max = "2"
+recharge = "long_rest"
+[[feature.toggle]]
+key = "innate_sorcery"
+name = "Innate Sorcery active"
+
+
+# ---- Warlock ----
+
+[[feature]]
+id = "classFeature:Magical Cunning|Warlock|SRD52|2"
+[[feature.resource]]
+key = "magical_cunning"
+name = "Magical Cunning"
+max = "1"
+recharge = "long_rest"
+
+
+# ---- Wizard ----
+
+[[feature]]
+id = "classFeature:Arcane Recovery|Wizard|SRD52|1"
+[[feature.resource]]
+key = "arcane_recovery"
+name = "Arcane Recovery"
+max = "1"
+recharge = "long_rest"
+
+
+# ---- Feats ----
+
+[[feature]]
+id = "feat:Alert|SRD52"
+[[feature.effect]]
+target = "initiative"
+add = "prof"
+
+
+# ---- Fighting styles ----
+
+[[feature]]
+id = "feat:Defense|SRD52"
+name = "Defense (Fighting Style)"
+[[feature.effect]]
+target = "ac"
+add = "1"
+when = "not armor.none"
+
+[[feature]]
+id = "feat:Archery|SRD52"
+name = "Archery (Fighting Style)"
+[[feature.effect]]
+target = "attack.ranged.bonus"
+add = "2"
+
+[[feature]]
+id = "feat:Great Weapon Fighting|SRD52"
+name = "Great Weapon Fighting (Fighting Style)"
+[[feature.attack]]
+weapons = "weapon.melee and (weapon.two_handed or (weapon.versatile and weapon.both_hands))"
+dice_min = 3
+note = "Great Weapon Fighting: 1s and 2s on damage dice count as 3s"
+
+[[feature]]
+id = "feat:Two-Weapon Fighting|SRD52"
+name = "Two-Weapon Fighting (Fighting Style)"
+[[feature.effect]]
+target = "attack.offhand.full_mod"
+set = "1"
+
+
+# ---- Extra damage on a hit (shown under the attacks) ----
+
+[[feature]]
+id = "classFeature:Brutal Strike|Barbarian|SRD52|9"
+[[feature.effect]]
+target = "rider.brutal_strike"
+set = "if(class.barbarian.level >= 17, 2d10, 1d10)"
+origin = "Brutal Strike: with Reckless Attack, forgo Advantage on one Strength attack"
+
+[[feature]]
+id = "classFeature:Radiant Strikes|Paladin|SRD52|11"
+[[feature.effect]]
+target = "rider.radiant_strikes"
+set = "1d8"
+origin = "Radiant Strikes: radiant, on every melee weapon or Unarmed Strike hit"
+
+
+# ---- Species ----
+
+[[feature]]
+id = "race:Dwarf|SRD52"
+name = "Dwarven Toughness"
+[[feature.effect]]
+target = "hp.max"
+add = "level"
+
+[[feature]]
+id = "race:Human|SRD52"
+[[feature.resource]]
+key = "heroic_inspiration"
+name = "Heroic Inspiration"
+max = "1"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Orc|SRD52"
+[[feature.resource]]
+key = "adrenaline_rush"
+name = "Adrenaline Rush"
+max = "prof"
+recharge = "short_rest"
+[[feature.resource]]
+key = "relentless_endurance"
+name = "Relentless Endurance"
+max = "1"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Dragonborn|SRD52"
+[[feature.resource]]
+key = "breath_weapon"
+name = "Breath Weapon"
+max = "prof"
+recharge = "long_rest"
+
+[[feature]]
+id = "race:Goliath|SRD52"
+[[feature.resource]]
+key = "giant_ancestry"
+name = "Giant Ancestry"
+max = "prof"
+recharge = "long_rest"
 
 
 # ---- Warlock ----

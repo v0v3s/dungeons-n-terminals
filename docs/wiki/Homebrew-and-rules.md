@@ -10,8 +10,9 @@
 ## Rules
 
 A sheet knows a feature's numbers when there are rules for it. dnt ships
-rules for many 2024 features; features with rules show `auto` in the
-Features tab. For anything else, write them: the feature's *rules* button
+rules for the SRD 5.2.1; rules for other books (the 2014 and 2024
+Player's Handbooks, …) are in the [rules library](#the-rules-library).
+Features with rules show `auto` in the Features tab. For anything else, write them: the feature's *rules* button
 (`O` in the terminal). The check shows what they change as you type.
 
 ```toml
@@ -99,8 +100,9 @@ A rule changes rolls: for the rolls `rolls` picks (`roll.attack`,
 without rolling. A condition's rules apply while the character has it,
 with a `summary` in a line; a condition with `levels` (Exhaustion) is had
 at a level, which its formulas know as `exhaustion`. `d20.bonus` is
-added to every d20 test. The conditions are the books', and dnt's rules
-for them are its built-in rules: a rules file of yours can change them.
+added to every d20 test. The conditions are the books'; dnt has the SRD's
+built in, the rules library has the other books', and a rules file of
+yours can change them.
 
 ```toml
 [[feature]]
@@ -187,9 +189,10 @@ class = "Shaman|WoW"                   # the class these rules are for
 
 ### The rules library
 
-The [rules library](https://github.com/v0v3s/dnt-rules) has rules for the
-SRD and for homebrew that dnt does not have built in, and takes pull
-requests. Open it from *Data › Rules library* (the app), `L` on
+The [rules library](https://github.com/v0v3s/dnt-rules) has the rules for
+every book but the SRD (dnt has those built in), more for the SRD, and
+rules for homebrew, and takes pull requests. Using a book other than the
+SRD, import its rules from here. Open it from *Data › Rules library* (the app), `L` on
 **4 Campaigns** (the terminal app), or `dnt rules`. Tick a folder, a file
 or single rules (`space` in the terminal), then import them (`enter`, or
 `dnt rules import srd`): they become your rules. Each rule says whether it
