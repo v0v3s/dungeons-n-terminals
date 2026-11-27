@@ -17,11 +17,12 @@ pub enum Category {
     Backgrounds,
     Feats,
     Items,
+    Creatures,
     Rules,
 }
 
 impl Category {
-    pub const ORDER: [Category; 9] = [
+    pub const ORDER: [Category; 10] = [
         Category::All,
         Category::Spells,
         Category::Classes,
@@ -30,6 +31,7 @@ impl Category {
         Category::Backgrounds,
         Category::Feats,
         Category::Items,
+        Category::Creatures,
         Category::Rules,
     ];
 
@@ -43,6 +45,7 @@ impl Category {
             Category::Backgrounds => "Backgrounds",
             Category::Feats => "Feats",
             Category::Items => "Items",
+            Category::Creatures => "Creatures",
             Category::Rules => "Rules",
         }
     }
@@ -58,6 +61,7 @@ impl Category {
             Category::Backgrounds => kind == Background,
             Category::Feats => kind == Feat,
             Category::Items => matches!(kind, Item | BaseItem | ItemGroup | MagicVariant | ItemMastery),
+            Category::Creatures => kind == Creature,
             Category::Rules => matches!(kind, Condition | Disease | Status | Action | VariantRule | Sense | Skill | Language),
         }
     }
@@ -73,6 +77,7 @@ impl Category {
             Category::Backgrounds => &[],
             Category::Feats => &[('#', "category")],
             Category::Items => &[('#', "type·rarity"), ('*', "dmg")],
+            Category::Creatures => &[('#', "type·familiar"), ('^', "CR")],
             Category::Rules => &[('#', "kind")],
         }
     }

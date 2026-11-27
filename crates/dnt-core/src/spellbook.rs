@@ -3,6 +3,7 @@
 //! slots from, and the changes behind the spell commands.
 
 use dnt_data::{EntityId, Library, SourceFilter};
+use dnt_rules::builder::GrantedSpells;
 use dnt_rules::character::Character;
 use dnt_rules::overlay::resolve_id;
 use dnt_rules::play;
@@ -64,6 +65,16 @@ impl Row {
     pub fn spell_id(&self) -> Option<&str> {
         match self.inner() {
             Row::ClassSpell { id, .. } | Row::GrantSpell { id, .. } => Some(id),
+            _ => None,
+        }
+    }
+
+    /// Where the character has the spell: its casting class's id, or the
+    /// key of the feature that grants it (see [`origin`]).
+    pub fn origin(&self, casters: &[Caster], granted: &[GrantedSpells]) -> Option<String> {
+        match self.inner() {
+            Row::ClassSpell { caster, .. } => Some(casters.get(*caster)?.id.clone()),
+            Row::GrantSpell { grant, .. } => Some(granted.get(*grant)?.key.clone()),
             _ => None,
         }
     }
@@ -161,15 +172,20 @@ pub fn rows(lib: &Library, s: &CharacterSession) -> Rows {
     Rows { casters, rows }
 }
 
-/// Free places per casting class: (class, cantrips, prepared or known
-/// spells) still to choose. Wizards' spellbooks are not counted.
+/// Free places per casting class: (class, cantrips, spells) still to
+/// choose: a Wizard's spellbook spells, other classes' prepared or known.
 pub fn spell_gaps(ch: &Character, casters: &[Caster]) -> Vec<(String, i64, i64)> {
     casters
         .iter()
         .filter_map(|c| {
             let mine = ch.spells.classes.get(&c.id).cloned().unwrap_or_default();
             let cantrips = (c.limits.cantrips - mine.cantrips.len() as i64).max(0);
-            let spells = (c.limits.spells - mine.prepared.len() as i64).max(0);
+            // A spellbook caster chooses the spells of its book; which to
+            // prepare is a choice of the day, not one still owed.
+            let spells = match c.limits.spellbook {
+                Some(book) => (book - mine.spellbook.len() as i64).max(0),
+                None => (c.limits.spells - mine.prepared.len() as i64).max(0),
+            };
             (cantrips + spells > 0).then(|| (c.name.clone(), cantrips, spells))
         })
         .collect()
@@ -353,10 +369,66 @@ pub fn grant_choices(lib: &Library, ch: &Character, key: &str, filter_text: &str
 
 /// How a spell can be cast: values `slot:N`, `pact` or `ritual`. `None`
 /// when there is no way (no slots at its level).
-pub fn cast_choices(lib: &Library, s: &CharacterSession, spell: EntityId) -> Option<(String, Vec<Choice>)> {
+/// A spell's origin: where the character has it, which says the ability
+/// it is cast with and any way to cast it without a slot. A casting
+/// class's id (`class:Wizard|T`) or the key of the feature that grants it
+/// (`optionalfeature:Pact of the Chain|T`). With none said, the first
+/// place the character has it.
+pub fn origin(lib: &Library, s: &CharacterSession, spell: EntityId) -> Option<String> {
+    let data = rows(lib, s);
+    data.rows
+        .iter()
+        .filter(|r| r.spell_id().and_then(|id| resolve_id(lib, id)) == Some(spell))
+        .find_map(|r| r.origin(&data.casters, &s.build.granted))
+}
+
+/// How the feature `origin` grants `spell` (always prepared, at will, …),
+/// if it does: its cast without a slot, when it grants it twice (always
+/// prepared, and once a day free).
+pub fn grant_of(lib: &Library, granted: &[GrantedSpells], ch: &Character, origin: &str, spell: EntityId) -> Option<Grant> {
+    let g = granted.iter().find(|g| g.key == origin)?;
+    let grants: Vec<Grant> = g
+        .grants
+        .iter()
+        .enumerate()
+        .filter_map(|(i, grant)| match grant {
+            Granted::Spell { id, grant } => (resolve_id(lib, id) == Some(spell)).then(|| grant.clone()),
+            Granted::Choice { grant, .. } => ch
+                .spells
+                .chosen
+                .get(&format!("{}#{i}", g.key))
+                .is_some_and(|ids| ids.iter().any(|id| resolve_id(lib, id) == Some(spell)))
+                .then(|| grant.clone()),
+        })
+        .collect();
+    let free = grants.iter().find(|g| matches!(g, Grant::Innate(_) | Grant::Resource { .. })).cloned();
+    free.or_else(|| grants.into_iter().next())
+}
+
+/// The ways to cast a spell from `origin`: its feature's cast without a
+/// slot, if it has one, then any slot it fits (one pool, whichever class
+/// gave the slot) and the pact slot, then as a ritual.
+pub fn cast_choices(lib: &Library, s: &CharacterSession, spell: EntityId, origin: Option<&str>) -> Option<(String, Vec<Choice>)> {
     let (ch, ev) = (s.character(), &s.ev);
     let level = spells::spell_level(lib, spell) as usize;
     let mut items = Vec::new();
+    let grant = origin.and_then(|o| grant_of(lib, &s.build.granted, ch, o, spell));
+    let feature = origin.and_then(|o| s.build.granted.iter().find(|g| g.key == o)).map_or(String::new(), |g| g.origin.clone());
+    match grant {
+        Some(Grant::Innate(None)) => items.push(Choice::new("No slot", feature, "free")),
+        Some(Grant::Innate(Some(n))) => {
+            let left = play::resource_left(ch, ev, &innate_key(&lib.entity(spell).name));
+            let mut item = Choice::new("Free cast", format!("{left}/{n} left · {feature}"), "free");
+            if left == 0 {
+                item.warning = Some("none left".into());
+            }
+            items.push(item);
+        }
+        Some(Grant::Resource { name, cost }) => {
+            items.push(Choice::new(format!("With {}", Grant::resource_text(&name, cost)), feature, "free"));
+        }
+        _ => {}
+    }
     for l in level.max(1)..=9 {
         let left = play::slots_left(ch, ev, l);
         if play::slot_max(ev, l) > 0 {
@@ -500,6 +572,11 @@ pub(crate) fn toggle_favorite(ch: &mut Character, id: &str) -> bool {
 
 /// Spend what a cast needs (`slot:N`, `pact`, `ritual` or `free` for an
 /// innate cast) and track concentration. Returns a status message.
+/// The resource that counts a spell's free casts per rest.
+pub fn innate_key(spell_name: &str) -> String {
+    format!("innate_{}", dnt_rules::class_table::slug(spell_name))
+}
+
 pub(crate) fn cast(lib: &Library, ch: &mut Character, ev: &Evaluation, spell: EntityId, how: &str) -> Result<String, String> {
     let name = lib.entity(spell).name.clone();
     match how {
@@ -510,8 +587,7 @@ pub(crate) fn cast(lib: &Library, ch: &mut Character, ev: &Evaluation, spell: En
         }
         "ritual" => {}
         "free" => {
-            let key = format!("innate_{}", dnt_rules::class_table::slug(&name));
-            if !play::spend_resource(ch, ev, &key, 1) {
+            if !play::spend_resource(ch, ev, &innate_key(&name), 1) {
                 return Err(format!("No free casts of {name} left"));
             }
         }

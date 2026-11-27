@@ -5,7 +5,9 @@ import { expect, go, invoke, TARGET, test, useTestRelease } from "./fixtures";
 
 /// The release file this app updates with.
 const FILE = TARGET === "windows" ? "dnt-app-windows-x86_64-setup.exe" : "dnt-app-android.apk";
-const updates = (page: Page) => page.locator("section.pane", { has: page.locator(".title", { hasText: "Updates" }) });
+/// About's updates: their part (on a phone, Check for updates is on the
+/// tab's title line, above it).
+const updates = (page: Page) => page.locator(".data .inner");
 
 test("a newer dnt and what is new in it", { tag: "@update.check" }, async ({ page }) => {
   await useTestRelease(page, "newer");

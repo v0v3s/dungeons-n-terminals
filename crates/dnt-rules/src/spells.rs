@@ -354,6 +354,14 @@ pub fn spell_lists(data: &Json) -> Vec<String> {
 
 /// `list`: of several alternatives, the one chosen (by name); the first
 /// without one.
+/// The ability a feature's spells are cast with (`"ability": "cha"`), of
+/// the list chosen as in [`granted_spells`]; none when the player picks it.
+pub fn granted_ability(data: &Json, list: Option<&str>) -> Option<String> {
+    let alts = data.get("additionalSpells").and_then(Json::as_array)?;
+    let chosen = alts.iter().find(|x| list.is_some() && x.get("name").and_then(Json::as_str) == list);
+    chosen.or_else(|| alts.first())?.get("ability")?.as_str().map(str::to_string)
+}
+
 pub fn granted_spells(data: &Json, level: i64, list: Option<&str>) -> Vec<Granted> {
     let alts = data.get("additionalSpells").and_then(Json::as_array);
     let chosen = alts.and_then(|a| a.iter().find(|x| list.is_some() && x.get("name").and_then(Json::as_str) == list));

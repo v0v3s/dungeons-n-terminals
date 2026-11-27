@@ -100,8 +100,12 @@ impl Library {
     /// `src` list them.
     pub fn data_files(src: &impl DataSource) -> Result<Vec<String>, LoadError> {
         let mut files: Vec<String> = DATA_FILES.iter().map(|f| f.to_string()).collect();
-        for dir in ["class", "spells"] {
-            let index = read_json(src, &format!("{dir}/index.json"))?;
+        for dir in ["class", "spells", "bestiary"] {
+            // Creatures are optional: older data and packs have none.
+            let index = match read_json(src, &format!("{dir}/index.json")) {
+                Err(_) if dir == "bestiary" => continue,
+                index => index?,
+            };
             if let Some(map) = index.as_object() {
                 files.extend(map.values().filter_map(Value::as_str).map(|f| format!("{dir}/{f}")));
             }
@@ -513,6 +517,36 @@ impl Library {
         }
     }
 
+    /// Each book entry that is the SRD's (`"srd52": true`, or the SRD's
+    /// name for it) with the SRD entry it stands for: `(srd, book)`. Its
+    /// key is the book's with the book's source named the SRD's
+    /// (`classFeature:Rage|Barbarian|XPHB|1` → `…|Barbarian|SRD52|1`).
+    pub fn srd_twins(&self) -> Vec<(EntityId, EntityId)> {
+        let srd = crate::srd::SOURCE;
+        let mut out = Vec::new();
+        for (book, e) in self.entities.iter().enumerate() {
+            if e.source.eq_ignore_ascii_case(srd) {
+                continue;
+            }
+            let rename = match e.data.get("srd52") {
+                Some(Value::Bool(true)) => None,
+                Some(Value::String(name)) => Some(name.to_lowercase()),
+                _ => continue,
+            };
+            let source = e.source.to_lowercase();
+            let mut parts: Vec<String> =
+                e.key.path.split('|').map(|p| if p == source { srd.to_lowercase() } else { p.to_string() }).collect();
+            if let (Some(name), Some(first)) = (rename, parts.first_mut()) {
+                *first = name;
+            }
+            let key = Key { kind: e.kind, path: parts.join("|") };
+            if let Some(&id) = self.index.get(&key) {
+                out.push((id, book));
+            }
+        }
+        out
+    }
+
     /// A book's entry that is in the SRD says so (`"srd52": true`, or the
     /// SRD's name for it): the built-in SRD's entry is then reprinted as
     /// the book's, which shows instead where the book is enabled.
@@ -674,22 +708,24 @@ impl SourceFilter {
         if !self.source_enabled(&entity.source) {
             return false;
         }
-        if self.hide_reprinted {
-            // Magic variants say it in what their items inherit.
-            let reprinted = entity
-                .data
-                .get("reprintedAs")
-                .or_else(|| entity.data.get("inherits").and_then(|i| i.get("reprintedAs")))
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(|r| r.as_str().or_else(|| r.get("uid").and_then(Value::as_str)))
-                .any(|r| r.split('|').nth(1).is_some_and(|src| self.source_enabled(src)));
-            if reprinted {
-                return false;
-            }
-        }
-        true
+        // The SRD's entries a book reprints are the book's own: hidden even
+        // where older printings show.
+        let srd = entity.source.eq_ignore_ascii_case(crate::srd::SOURCE);
+        !((self.hide_reprinted || srd) && self.reprinted(entity))
+    }
+
+    /// Whether `entity` is reprinted in an enabled source.
+    pub fn reprinted(&self, entity: &Entity) -> bool {
+        // Magic variants say it in what their items inherit.
+        entity
+            .data
+            .get("reprintedAs")
+            .or_else(|| entity.data.get("inherits").and_then(|i| i.get("reprintedAs")))
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|r| r.as_str().or_else(|| r.get("uid").and_then(Value::as_str)))
+            .any(|r| r.split('|').nth(1).is_some_and(|src| self.source_enabled(src)))
     }
 }
 
@@ -840,6 +876,24 @@ mod tests {
             lib.entities().iter().filter(|e| filter.allows(e)).map(|e| format!("{} {}", e.name, e.source)).collect();
         shown.sort();
         assert_eq!(shown, ["+1 Armor XDMG", "Fireball XPHB"]);
+    }
+
+    /// Showing older printings still hides the SRD's copy of a book's entry.
+    #[test]
+    fn the_srds_copy_hides_behind_the_book() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"spell": [
+            {"name": "Fireball", "source": "SRD52"},
+            {"name": "Fireball", "source": "PHB", "reprintedAs": ["Fireball|XPHB"]},
+            {"name": "Fireball", "source": "XPHB", "srd52": true}
+        ]}));
+        let shown = |filter: SourceFilter| {
+            let mut v: Vec<String> = lib.entities().iter().filter(|e| filter.allows(e)).map(|e| e.source.clone()).collect();
+            v.sort();
+            v
+        };
+        assert_eq!(shown(SourceFilter { enabled: None, hide_reprinted: false }), ["PHB", "XPHB"]);
+        assert_eq!(shown(SourceFilter { enabled: Some(["srd52".into(), "phb".into()].into()), hide_reprinted: false }), ["PHB", "SRD52"]);
     }
 
     #[test]

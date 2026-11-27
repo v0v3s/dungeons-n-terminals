@@ -20,10 +20,10 @@ pub trait DataSource: Sync {
 }
 
 /// Files to read before the rest: they list the other files (see
-/// [`crate::Library::data_files`]). `adventures.json` and
-/// `spells/sources.json` may be missing.
+/// [`crate::Library::data_files`]). `adventures.json`,
+/// `spells/sources.json` and `bestiary/index.json` may be missing.
 pub fn index_files() -> &'static [&'static str] {
-    &["books.json", "adventures.json", "class/index.json", "spells/index.json", "spells/sources.json"]
+    &["books.json", "adventures.json", "class/index.json", "spells/index.json", "spells/sources.json", "bestiary/index.json"]
 }
 
 /// A data folder (it, or its `data/` subfolder).

@@ -10,6 +10,8 @@ mod library;
 mod notes;
 mod rules_library;
 mod updates;
+#[cfg(feature = "web-dev")]
+mod webdev;
 
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -129,6 +131,8 @@ pub fn run() {
                 None => app.path().app_data_dir()?,
             };
             let handle = app.handle().clone();
+            #[cfg(feature = "web-dev")]
+            webdev::serve(handle.clone());
             // Off the main thread: the window shows while the library loads.
             std::thread::spawn(move || {
                 let state = handle.state::<App>();

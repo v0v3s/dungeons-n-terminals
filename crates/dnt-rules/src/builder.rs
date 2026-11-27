@@ -94,6 +94,8 @@ pub struct GrantedSpells {
     /// Storage prefix for choices: `<origin id>#<n>` keys `Spells::chosen`.
     pub key: String,
     pub grants: Vec<spells::Granted>,
+    /// The ability its spells are cast with, when the data says.
+    pub ability: Option<String>,
 }
 
 impl Build {
@@ -535,7 +537,8 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             sources.push((f.entity, total));
         }
     }
-    let mut sets: Vec<(String, String, Vec<spells::Granted>)> = Vec::new();
+    type Set = (String, String, Vec<spells::Granted>, Option<String>);
+    let mut sets: Vec<Set> = Vec::new();
     for (e, level) in sources {
         // Of several named lists, the one chosen (`choice.<its name>`).
         let list = match model.inputs.get(&format!("choice.{}", crate::class_table::slug(&lib.entity(e).name))) {
@@ -545,16 +548,17 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
         let grants = spells::granted_spells(&lib.entity(e).data, level, list);
         if !grants.is_empty() {
             let ent = lib.entity(e);
-            sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
+            let ability = spells::granted_ability(&ent.data, list);
+            sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants, ability));
         }
     }
     // Features that grant spells in their text only (Pact of the Chain's
     // Find Familiar, Paladin's Smite's Divine Smite): the spells not
     // already granted above. Gone with the feature (a level undone, an
     // invocation swapped), as the sheet is built from the features.
-    let had = |sets: &Vec<(String, String, Vec<spells::Granted>)>, id: &str| {
+    let had = |sets: &Vec<Set>, id: &str| {
         let name = |i: &str| i.trim_start_matches("spell:").split('|').next().unwrap_or("").to_lowercase();
-        sets.iter().flat_map(|(_, _, g)| g).any(|g| matches!(g, spells::Granted::Spell { id: other, .. } if name(other) == name(id)))
+        sets.iter().flat_map(|(_, _, g, _)| g).any(|g| matches!(g, spells::Granted::Spell { id: other, .. } if name(other) == name(id)))
     };
     for f in &features {
         let ent = lib.entity(f.entity);
@@ -569,19 +573,19 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
             })
             .collect();
         if !grants.is_empty() {
-            sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants));
+            sets.push((ent.name.clone(), format!("{}:{}|{}", ent.kind.json_key(), ent.name, ent.source), grants, None));
         }
     }
     // Spells the rules grant (Mystic Arcanum's spells).
     for f in &features {
         for o in rules_for(f) {
             if !o.spells.is_empty() {
-                sets.push((o.name.clone(), o.ident(), o.spells.clone()));
+                sets.push((o.name.clone(), o.ident(), o.spells.clone(), None));
             }
         }
     }
     let mut innate: Vec<(Resource, String)> = Vec::new();
-    for (origin, key, grants) in sets {
+    for (origin, key, grants, ability) in sets {
         for (i, g) in grants.iter().enumerate() {
             // Innate casts per long rest become trackable resources.
             let (ids, uses) = match g {
@@ -606,7 +610,7 @@ pub fn build(character: &Character, lib: &Library, overlays: &OverlaySet) -> Bui
                 ));
             }
         }
-        granted.push(GrantedSpells { origin, key, grants });
+        granted.push(GrantedSpells { origin, key, grants, ability });
     }
     for (r, _) in &innate {
         model.stats.push(StatDef { key: format!("resource.{}.max", r.key), base: r.max.clone(), origin: r.name.clone() });

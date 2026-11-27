@@ -2,6 +2,7 @@
 //! described in `schemas/` at the repository root.
 
 pub mod copy;
+pub mod creature;
 pub mod doc;
 pub mod forms;
 pub mod homebrew;

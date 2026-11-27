@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import backgrounds  # noqa: E402
 import classes  # noqa: E402
+import creatures  # noqa: E402
 import feats  # noqa: E402
 import glossary  # noqa: E402
 import items  # noqa: E402
@@ -27,7 +28,7 @@ import tags  # noqa: E402
 from tags import SOURCE  # noqa: E402
 
 # Where each part of the SRD is (its pages).
-PAGES = {"skills": (9, 9), "languages": (20, 20), "classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "equipment": (89, 101), "spells": (107, 175), "glossary": (176, 191), "magic items": (204, 253)}
+PAGES = {"skills": (9, 9), "languages": (20, 20), "classes": (28, 82), "origins": (83, 86), "feats": (87, 88), "equipment": (89, 101), "spells": (107, 175), "glossary": (176, 191), "magic items": (204, 253), "monsters": (258, 364)}
 
 BOOK = {
     "name": "System Reference Document 5.2.1",
@@ -61,8 +62,10 @@ def unknown_items(classes, backgrounds, known):
 
 def main(pdf_path, out):
     write(f"{out}/books.json", {"book": [BOOK]})
-    found = spells.spells(pdf.lines(pdf_path, *PAGES["spells"]), pdf_path)
-    write(f"{out}/spells/spells-srd52.json", {"spell": [s for s, _ in found]})
+    spell_lines = pdf.lines(pdf_path, *PAGES["spells"])
+    found = spells.spells(spell_lines, pdf_path)
+    all_spells = [s for s, _ in found]
+    write(f"{out}/spells/spells-srd52.json", {"spell": all_spells})
     write(f"{out}/spells/index.json", {SOURCE: "spells-srd52.json"})
     lists = {s["name"]: {"class": [{"name": c, "source": SOURCE} for c in classes]} for s, classes in found}
     write(f"{out}/spells/sources.json", {SOURCE: lists})
@@ -112,6 +115,15 @@ def main(pdf_path, out):
     write(f"{out}/skills.json", {"skill": glossary.skills(pdf.lines(pdf_path, *PAGES["skills"]), pdf_path)})
     write(f"{out}/languages.json", {"language": glossary.languages(pdf.lines(pdf_path, *PAGES["languages"]), pdf_path)})
     print(", ".join(f"{len(v)} {k}s" for k, v in rules.items()))
+    known = {"spell": names, "item": {i["name"].lower() for i in base + things}}
+    beasts = creatures.creatures(pdf.lines(pdf_path, *PAGES["monsters"]), pdf_path, known)
+    beasts += creatures.in_spells(spell_lines, pdf_path, known, all_spells)
+    missing = creatures.familiars(all_spells, beasts)
+    if missing:
+        print("familiars named but not in the data:", ", ".join(sorted(missing)))
+    write(f"{out}/bestiary/bestiary-srd52.json", {"monster": beasts})
+    write(f"{out}/bestiary/index.json", {SOURCE: "bestiary-srd52.json"})
+    print(f"{len(beasts)} creatures")
     missing = unknown_items(found["class"], [json.load(open(f"{out}/backgrounds.json"))["background"]][0], base + things)
     if missing:
         print("items named but not in the data:", ", ".join(sorted(missing)))

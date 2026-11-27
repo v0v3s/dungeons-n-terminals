@@ -85,6 +85,17 @@ pub fn heal(c: &mut Character, ev: &Evaluation, amount: i64) {
     }
 }
 
+/// Set the hit points by hand (0 to the maximum); above 0 the death saves
+/// are cleared. The temporary hit points stay as they are.
+pub fn set_hp(c: &mut Character, ev: &Evaluation, hp: i64) {
+    let hp = hp.clamp(0, max_hp(ev));
+    c.state.hp = if hp >= max_hp(ev) { None } else { Some(hp) };
+    if hp > 0 {
+        c.state.death_successes = 0;
+        c.state.death_failures = 0;
+    }
+}
+
 /// What a death save did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeathSave {
@@ -393,6 +404,19 @@ mod tests {
         assert_eq!(current_hp(&c, &ev), 2);
         heal(&mut c, &ev, 50);
         assert_eq!(c.state.hp, None, "full HP is stored as None");
+    }
+
+    /// Set by hand: within 0 and the maximum, the temporary ones kept.
+    #[test]
+    fn hit_points_set_by_hand() {
+        let (mut c, _, ev) = setup();
+        set_temp_hp(&mut c, 4);
+        set_hp(&mut c, &ev, 12);
+        assert_eq!((current_hp(&c, &ev), c.state.temp_hp), (12, 4));
+        set_hp(&mut c, &ev, 99);
+        assert_eq!(c.state.hp, None, "no more than the maximum");
+        set_hp(&mut c, &ev, -3);
+        assert_eq!(current_hp(&c, &ev), 0);
     }
 
     #[test]

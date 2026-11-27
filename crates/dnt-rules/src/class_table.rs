@@ -48,11 +48,12 @@ pub fn slug(s: &str) -> String {
     }
 }
 
-/// `1st` → 1, `2nd` → 2, …
+/// `1st` → 1, `2nd` → 2, … (or a bare `1`, as newer data writes a spell
+/// slot column).
 fn ordinal(s: &str) -> Option<i64> {
     let digits: String = s.chars().take_while(char::is_ascii_digit).collect();
     let rest = &s[digits.len()..];
-    (!digits.is_empty() && matches!(rest, "st" | "nd" | "rd" | "th")).then(|| digits.parse().ok())?
+    (!digits.is_empty() && matches!(rest, "" | "st" | "nd" | "rd" | "th")).then(|| digits.parse().ok())?
 }
 
 fn cell_value(cell: &Json) -> Value {
@@ -151,7 +152,7 @@ mod tests {
                     [{"type": "dice", "toRoll": [{"number": 1, "faces": 6}]}, 0, {"type": "bonusSpeed", "value": 0}],
                     [{"type": "dice", "toRoll": [{"number": 1, "faces": 6}]}, 2, {"type": "bonusSpeed", "value": 10}]
                 ]},
-                {"title": "Spell Slots per Spell Level", "colLabels": ["{@filter 1st|spells|level=1}", "2nd"],
+                {"title": "Spell Slots per Spell Level", "colLabels": ["{@filter 1st|spells|level=1}", "2"],
                  "rowsSpellProgression": [[2, 0], [3, 0]]},
                 {"colLabels": ["Sneak Attack", "Slot Level", "Bonus"], "rows": [
                     ["{@dice 1d6}", "1st", "+2"], ["{@dice 2d6}", "—", "+3"]
@@ -164,6 +165,7 @@ mod tests {
         assert_eq!(get("class.monk.focus_points").at(2), Value::int(2));
         assert_eq!(get("class.monk.unarmored_movement").at(2), Value::int(10));
         assert_eq!(get("class.monk.slots.1").at(2), Value::int(3));
+        assert_eq!(get("class.monk.slots.2").at(2), Value::int(0), "a bare 2 is the 2nd level");
         assert_eq!(get("class.monk.sneak_attack").at(2).to_string(), "2d6");
         assert_eq!(get("class.monk.slot_level").at(1), Value::int(1));
         assert_eq!(get("class.monk.slot_level").at(2), Value::int(0));

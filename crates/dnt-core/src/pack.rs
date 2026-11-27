@@ -8,8 +8,8 @@
 //! homebrew/…   each homebrew file with entities dnt knows, as laid out
 //! ```
 //!
-//! Entity files keep only `_meta` and the kinds dnt knows, so creatures,
-//! adventure text, fluff and images are left behind.
+//! Entity files keep only `_meta` and the kinds dnt knows (creatures
+//! among them), so adventure text, fluff and images are left behind.
 
 use std::io::{Seek, Write};
 use std::path::Path;
@@ -142,7 +142,8 @@ mod tests {
         write(&data, "data/class/class-fighter.json", json!({"class": [{"name": "Fighter", "source": "TB"}], "classFluff": []}));
         write(&data, "data/spells/index.json", json!({"TB": "spells-tb.json"}));
         write(&data, "data/spells/spells-tb.json", json!({"spell": [{"name": "Bless", "source": "TB"}]}));
-        write(&data, "data/bestiary/bestiary-tb.json", json!({"monster": [{"name": "Goblin", "source": "TB"}]}));
+        write(&data, "data/bestiary/index.json", json!({"TB": "bestiary-tb.json"}));
+        write(&data, "data/bestiary/bestiary-tb.json", json!({"monster": [{"name": "Goblin", "source": "TB"}], "monsterFluff": []}));
         let meta = json!({"sources": [{"json": "WRD", "full": "The Warden"}]});
         write(&brew, "class/Someone; Warden.json", json!({"_meta": meta, "class": [{"name": "Warden", "source": "WRD"}], "monster": []}));
         write(&brew, "creature/Someone; Beasts.json", json!({"_meta": meta, "monster": [{"name": "Wolf", "source": "WRD"}]}));
@@ -152,7 +153,7 @@ mod tests {
         let mut out = Cursor::new(Vec::new());
         let packed = pack(Some(&data), Some(&brew), &mut out).unwrap();
         std::fs::remove_dir_all(&tmp).unwrap();
-        assert_eq!(packed, Packed { data_files: 5, homebrew_files: 1, skipped: 2 });
+        assert_eq!(packed, Packed { data_files: 7, homebrew_files: 2, skipped: 1 });
 
         let bytes = out.into_inner();
         let zip = zip::ZipArchive::new(Cursor::new(bytes.clone())).unwrap();
@@ -161,20 +162,23 @@ mod tests {
         assert_eq!(
             names,
             [
+                "data/bestiary/bestiary-tb.json",
+                "data/bestiary/index.json",
                 "data/books.json",
                 "data/class/class-fighter.json",
                 "data/class/index.json",
                 "data/spells/index.json",
                 "data/spells/spells-tb.json",
-                "homebrew/class/Someone; Warden.json"
+                "homebrew/class/Someone; Warden.json",
+                "homebrew/creature/Someone; Beasts.json"
             ]
         );
 
         let store = Store::with_fs(Arc::new(MemFs::new()), "/data", "/config.toml");
         let report = import::import_zip(&store, bytes).unwrap();
-        assert_eq!(report.added, 3, "{report:?}");
+        assert_eq!(report.added, 5, "{report:?}");
         // (The test folder lacks most data files; the import says so.)
         assert!(!report.skipped.iter().any(|(f, _)| f.starts_with("homebrew/")), "{:?}", report.skipped);
-        assert_eq!(import::homebrew(&store).len(), 1);
+        assert_eq!(import::homebrew(&store).len(), 1, "one homebrew, two files");
     }
 }

@@ -167,7 +167,7 @@ fn wearing_armor_and_holding_a_weapon_and_a_shield() {
     let mut t = Tui::scenario("inventory.equip", Home::party());
     sheet(&mut t, "Tester", 0);
     assert_eq!(armor_class(&t), "12");
-    t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
+    t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     // Armor is worn in a slot: AC follows.
     add_below(&mut t, "padded", 6, "Padded Armor");
     t.send(" ").wait("Wear Padded Armor").wait("Body").send(ENTER).wait("Wearing Padded Armor (Body)");
@@ -182,18 +182,18 @@ fn wearing_armor_and_holding_a_weapon_and_a_shield() {
     add_below(&mut t, "shield", 8, "Shield");
     t.send(" ").wait_until("the shield is in hand", |s| s.lines().any(|l| l.contains("Off hand") && l.contains("Shield")));
     // Padded Armor 11 + Dexterity 2, and the Shield 2.
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "15", "{}", t.screen());
     assert!(t.line("main  Dagger").contains("1d4 + 2 piercing"), "{}", t.screen());
     // Put away: AC and attacks follow.
-    t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
+    t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     to_item(&mut t, "Padded Armor");
     t.send(" ").wait_until("the armor is off", |s| !s.contains("◉ Padded Armor"));
     to_item(&mut t, "Dagger");
     t.send(" ").wait_until("the dagger is put away", |s| !s.contains("◈ Dagger"));
     to_item(&mut t, "Shield");
     t.send(" ").wait_until("the shield is put away", |s| !s.contains("◈ Shield"));
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "12", "{}", t.screen());
     assert!(!t.shows("main  Dagger"), "{}", t.screen());
 }
@@ -206,14 +206,14 @@ fn attuning_to_an_item_and_ending_it() {
     t.send(" ").wait("Wear Ring of Protection").send(ENTER).wait("Wearing Ring of Protection");
     t.send("A").wait("Attuned to Ring of Protection").wait("Attunement 1 / 3");
     assert!(row(&t, "Ring of Protection").contains("★ Ring of Protection"), "{}", t.screen());
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "13", "{}", t.screen());
     // Its saves bonus too: Strength +2 becomes +3.
     assert!(t.line("Strength").contains("+3"), "{}", t.screen());
-    t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
+    t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     to_item(&mut t, "Ring of Protection");
     t.send("A").wait("Attunement 0 / 3");
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(armor_class(&t), "12", "{}", t.screen());
 }
 
@@ -315,13 +315,13 @@ fn a_monk_weapon_follows_martial_arts() {
     to_item(&mut t, "Dagger");
     t.send("m").wait("Dagger is not a monk weapon");
     assert!(!row(&t, "Dagger").contains("monk weapon"), "{}", t.screen());
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert!(t.line("  Dagger ").contains("1d4 + 4 piercing"), "{}", t.screen());
     // Marked again: the Martial Arts die.
-    t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
+    t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     to_item(&mut t, "Dagger");
     t.send("m").wait("monk weapon");
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert!(t.line("  Dagger ").contains("1d6 + 4 piercing"), "{}", t.screen());
 }
 
@@ -332,10 +332,10 @@ fn a_monk_weapon_without_martial_arts() {
     to_item(&mut t, "Dagger");
     t.send("m").wait("Dagger is marked (it counts once a rule has a kind of weapon)");
     // Without a rule's kind of weapon it does not count: the attack stays the same.
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert!(t.line("  Dagger ").contains("1d4 + 2 piercing"), "{}", t.screen());
     // The mark was kept: pressed again, it goes.
-    t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
+    t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     to_item(&mut t, "Dagger");
     t.send("m").wait("Dagger is not marked");
 }

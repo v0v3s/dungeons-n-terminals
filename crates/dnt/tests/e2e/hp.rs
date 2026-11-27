@@ -137,3 +137,16 @@ fn death_saves_are_rolled_while_dying_and_the_dead_can_be_marked_not_dead() {
     t.wait_gone("✝ Dead");
     t.wait("Death saves");
 }
+
+#[test]
+fn the_hit_points_are_set_by_hand_within_the_maximum() {
+    let mut t = Tui::scenario("hp.set", Home::party());
+    open(&mut t, "Tester");
+    amount(&mut t, "t", 2);
+    t.wait("+2 temp");
+    amount(&mut t, "H", 5);
+    wait_status(&mut t, "Hit points 5/8");
+    assert_eq!(hit_points(&t), "5/8  +2 temp");
+    amount(&mut t, "H", 30);
+    wait_status(&mut t, "Hit points 8/8");
+}

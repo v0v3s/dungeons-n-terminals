@@ -26,6 +26,8 @@ pub enum Kind {
     Sense,
     Action,
     VariantRule,
+    /// A creature's stat block (`monster` in the data format).
+    Creature,
 }
 
 impl Kind {
@@ -53,6 +55,7 @@ impl Kind {
         Kind::Sense,
         Kind::Action,
         Kind::VariantRule,
+        Kind::Creature,
     ];
 
     /// The top-level JSON key holding entities of this kind.
@@ -81,6 +84,7 @@ impl Kind {
             Kind::Sense => "sense",
             Kind::Action => "action",
             Kind::VariantRule => "variantrule",
+            Kind::Creature => "monster",
         }
     }
 
@@ -113,6 +117,7 @@ impl Kind {
             Kind::Sense => "Sense",
             Kind::Action => "Action",
             Kind::VariantRule => "Rule",
+            Kind::Creature => "Creature",
         }
     }
 
@@ -138,6 +143,7 @@ impl Kind {
             "sense" => &[Kind::Sense],
             "action" => &[Kind::Action],
             "variantrule" => &[Kind::VariantRule],
+            "creature" => &[Kind::Creature],
             _ => &[],
         }
     }

@@ -15,6 +15,14 @@
      "source": "SRD52"
     }
    ]
+  },
+  "Call Steed": {
+   "class": [
+    {
+     "name": "Wizard",
+     "source": "SRD52"
+    }
+   ]
   }
  }
 }

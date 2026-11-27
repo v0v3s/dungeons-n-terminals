@@ -13,7 +13,7 @@
     onmenu: () => void;
     onback: () => void;
     /// The screen's actions: what each shows, its name, and what it does.
-    actions?: { label: string; name: string; onclick: () => void }[];
+    actions?: { label: string; name: string; onclick: () => void; flag?: boolean }[];
   } = $props();
 </script>
 
@@ -31,7 +31,7 @@
   {#if actions.length}
     <div class="actions">
       {#each actions as a (a.name)}
-        <button class="action" aria-label={a.name} onclick={a.onclick}>
+        <button class="action" class:flag={a.flag} aria-label={a.name} onclick={a.onclick}>
           {#if a.label.startsWith("@")}<span class="at">@</span>{a.label.slice(1)}{:else}{a.label}{/if}
         </button>
       {/each}
@@ -89,6 +89,16 @@
     border-radius: 4px;
     padding: 0 1.2ch;
     color: var(--fg);
+  }
+  /* Something still to do (spells to choose): a cyan pill. */
+  .action.flag {
+    min-height: 30px;
+    align-self: center;
+    border-color: rgb(125 207 255 / 0.55);
+    border-radius: 99px;
+    background: rgb(125 207 255 / 0.08);
+    color: var(--cyan);
+    font-size: 0.9em;
   }
   .action:active {
     background: var(--dark);

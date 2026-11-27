@@ -241,11 +241,11 @@ fn the_shield_is_taken_up_and_put_away() {
     wait_status(&mut t, "No shield in the inventory");
     // A Shield from the Inventory: the plain one, after eight magic items
     // and gear with "Shield" in the name.
-    t.send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
+    t.send(BACKTAB).send(BACKTAB).send(BACKTAB).wait("╭ Inventory");
     t.send("a").send("Shield").wait("Spellguard Shield");
     t.send(&DOWN.repeat(8)).send(ENTER);
     wait_status(&mut t, "Added Shield");
-    t.send(TAB).send(TAB).wait("Armor Class");
+    t.send(TAB).send(TAB).send(TAB).wait("Armor Class");
     assert_eq!(stat_box(&t, "Armor Class"), "12");
     t.send("S");
     wait_status(&mut t, "Shield: off hand");

@@ -69,3 +69,25 @@ test("deleting a campaign asks first; declining keeps it", { tag: "@campaigns.de
   await expect(card(page, CAMPAIGN)).toBeVisible();
   expect((await invoke<{ campaigns: { name: string }[] }>(page, "status")).campaigns.map((c) => c.name)).toEqual([CAMPAIGN]);
 });
+
+test("on a phone the active campaign is the first section, the others rows under it", { tag: ["@campaigns.phone", "@android"] }, async ({ page }) => {
+  await invoke(page, "create_campaign", { name: "E2E Second", sources: [] });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+  await go(page, "Campaigns");
+  // The active one: its name the title, ⋯ on it, what it uses as rows.
+  const current = page.locator("section.card.current");
+  await expect(current.locator(".name")).toHaveText(CAMPAIGN);
+  expect(await current.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  await expect(current.locator(".lrow").first()).toContainText("Books");
+  await current.getByRole("button", { name: `Books & homebrew of ${CAMPAIGN}` }).click();
+  await page.keyboard.press("Escape");
+  // The others: a section with + new on its line, a row each.
+  await expect(page.locator(".ohead")).toContainText("Other campaigns");
+  await expect(page.locator(".ohead").getByRole("button", { name: "+ New campaign" })).toBeVisible();
+  const other = card(page, "E2E Second");
+  await expect(other).toHaveClass(/\bother\b/);
+  await expect(other).toContainText("all official");
+  await other.getByRole("button", { name: "Make active" }).click();
+  await expect(page.locator("section.card.current .name")).toHaveText("E2E Second");
+});

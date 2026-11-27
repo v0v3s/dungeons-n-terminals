@@ -19,7 +19,7 @@ fn results_update_as_you_type() {
     t.typed("yph").wait("1 results").wait("You inscribe a glyph that later unleashes a magical effect.");
     assert!(!t.shows("Glaive"), "{}", t.screen());
     t.send(BACKSPACE).send(BACKSPACE).send(BACKSPACE).wait("Glaive");
-    t.send(&ctrl('u')).wait("2044 results");
+    t.send(&ctrl('u')).wait("2378 results");
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn filters_narrow_a_search() {
     let mut t = Tui::scenario("compendium.filters", Home::campaign());
     search(&mut t, "@TSX");
     // The older book's Fire Bolt is reprinted in the SRD: only the reprint shows.
-    t.wait("2 results").wait("Mirefolk").wait("Outskirt Gust");
+    t.wait("3 results").wait("Mirefolk").wait("Outskirt Gust").wait("Call Steed");
     assert!(!t.shows("Fire Bolt") && !t.shows("Glaive"), "{}", t.screen());
 
     // Level 1 spells: not the cantrip Acid Splash, not the level 2 Acid Arrow.
@@ -44,11 +44,11 @@ fn filters_narrow_a_search() {
 #[test]
 fn tab_switches_the_category() {
     let mut t = Tui::scenario("compendium.category", Home::campaign());
-    t.send("1").wait("2044 results");
+    t.send("1").wait("2378 results");
     t.send(TAB).wait("340 results");
     assert!(selected(&t).contains("Acid Arrow"), "{}", t.screen());
     t.send(TAB).wait("29 results").wait("Barbarian");
-    t.send(BACKTAB).send(BACKTAB).wait("2044 results");
+    t.send(BACKTAB).send(BACKTAB).wait("2378 results");
     // The last category, backwards from All.
     t.send(BACKTAB).wait("195 results").wait("Ability Check");
 }
@@ -56,7 +56,7 @@ fn tab_switches_the_category() {
 #[test]
 fn o_orders_the_results() {
     let mut t = Tui::scenario("compendium.order", Home::campaign());
-    t.send("1").wait("2044 results").send(TAB).wait("340 results");
+    t.send("1").wait("2378 results").send(TAB).wait("340 results");
     t.send("o").wait("name A–Z");
     assert!(selected(&t).contains("Acid Arrow"), "{}", t.screen());
     t.send("o").wait("name Z–A");
@@ -192,4 +192,41 @@ fn n_creates_a_homebrew_entry_from_a_template() {
     t.send(ESC).wait("Browse");
     t.send("/").typed("frost lance").wait("1 results").send(ENTER);
     t.wait("Spell  ·  E2E (campaign)").wait("Describe what the spell does.");
+}
+
+#[test]
+fn creatures_are_found_and_read_as_stat_blocks() {
+    let mut t = Tui::scenario("compendium.creatures", Home::campaign());
+    // Their category: the SRD's creatures, before the rules.
+    t.send("1").wait("2378 results");
+    t.send(BACKTAB).send(BACKTAB).wait("334 results").wait("Aboleth");
+    t.send(TAB).send(TAB).wait("2378 results");
+    // By kind, and by what they are.
+    search(&mut t, "#creature wolf");
+    t.wait("Dire Wolf").wait("Werewolf").wait("Winter Wolf");
+    t.send(&ctrl('u')).typed("#beast wolf").wait("Dire Wolf").wait_gone("Werewolf");
+    // Below CR 1: the Wolf (1/4), not the Dire Wolf (1).
+    t.send(&ctrl('u')).typed("#creature ^0 wolf").wait("Giant Wolf Spider").wait_gone("Dire Wolf");
+    // What a familiar may be.
+    t.send(&ctrl('u')).typed("#familiar").wait("Owl").wait("Bat");
+    assert!(!t.shows("Wolf"), "{}", t.screen());
+    // A stat block.
+    t.typed(" owl").wait("1 results").send(ENTER);
+    t.wait("Creature  ·  System Reference Document 5.2.1");
+    t.wait("Tiny Beast, Unaligned");
+    let prop = |t: &Tui, name: &str| crate::steps::squash(&t.line(&format!("│  {name} ")));
+    assert!(prop(&t, "AC").contains("AC 11"), "{}", t.screen());
+    assert!(prop(&t, "HP").contains("HP 1 (1d4 - 1)"), "{}", t.screen());
+    assert!(prop(&t, "Speed").contains("5 ft., Fly 60 ft."), "{}", t.screen());
+    // The abilities, one per row: score, modifier, save.
+    crate::steps::see(&mut t, "│ Score Mod Save");
+    for (ability, numbers) in [("STR", "3 -4 -4"), ("DEX", "13 +1 +1"), ("WIS", "12 +1 +1"), ("CHA", "7 -2 -2")] {
+        crate::steps::see(&mut t, &format!("│ {ability} {numbers} │"));
+    }
+    t.wait("Perception +5, Stealth +5");
+    t.wait("darkvision 120 ft., Passive Perception 15");
+    assert!(prop(&t, "CR").contains("CR 0"), "{}", t.screen());
+    // Traits and actions, each with its name run in, under its heading.
+    t.wait("▍Traits").wait("Flyby. The owl doesn’t provoke an Opportunity Attack");
+    t.wait("▍Actions").wait("Talons. Melee Attack Roll: +3, reach 5 ft. Hit: 1 Slashing damage.");
 }

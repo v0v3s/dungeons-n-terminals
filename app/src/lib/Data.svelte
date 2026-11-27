@@ -33,6 +33,9 @@
   const tabs = $derived(dataTabs(status));
   /// The side menu in place of the tab select (a computer, ☰ not hiding it).
   const side = $derived(desktop.current && sidebar.open);
+  /// A phone or a tablet: the tab is the first section's gold title (its
+  /// action on its line), each part a section, no boxes.
+  const phone = $derived(!desktop.current);
   // The problems solved: back to the first tab.
   $effect(() => {
     if (!tabs.some(([t]) => t === tab)) tab = "Import";
@@ -204,12 +207,50 @@
   /// Whether dnt checks for updates by itself.
   let updates: api.UpdateState | null = $state(null);
   api.updateState().then((u) => (updates = u));
+  /// Restore from a zip the user picks.
+  async function restoreFile() {
+    const path = await openFile();
+    if (path) restoring = { path, name: path.split(/[/\\]/).pop() ?? path };
+  }
   async function setAuto(on: boolean) {
     updates = await api.updateAuto(on);
   }
 </script>
 
-<div class="data" class:withnav={side}>
+{#snippet tabActions()}
+  {#if tab === "Import"}
+    <button class="go" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import…"}</button>
+  {:else if tab === "Rules"}
+    <button class="go" aria-label="Open the rules library…" onclick={() => (library = true)}>library…</button>
+  {:else if tab === "Backups"}
+    <button class="ghost" aria-label="Restore from a file…" onclick={restoreFile}>restore…</button>
+    <button class="go" onclick={backUp}>back up now</button>
+  {:else if tab === "About"}
+    {@render checkUpdates()}
+  {/if}
+{/snippet}
+
+{#snippet checkUpdates()}
+  {#if !updates?.store}<button class="ghost" aria-label="Check for updates" onclick={() => checkForUpdate(true)}>check</button>{/if}
+{/snippet}
+
+{#snippet sourceCode()}
+  <button class="ghost" aria-label="Source code" onclick={openSource}>source ↗</button>
+{/snippet}
+
+{#snippet savedCount()}<span class="dim">{backups?.list.length}</span>{/snippet}
+
+{#snippet savedBackups()}
+  {#each backups?.list ?? [] as b (b.name)}
+    <div class="saved">
+      <span class="bname">{b.name}</span>
+      <span class="dim">{size(b.bytes)}</span>
+      <button class="ghost" onclick={() => (restoring = { path: b.path, name: b.name })}>Restore</button>
+    </div>
+  {/each}
+{/snippet}
+
+<div class="data" class:withnav={side} class:phone>
   {#if side}
     <!-- A computer: the parts of Data as a menu on the left (☰ hides it):
          Problems with how many, About with a new dnt to update to. -->
@@ -224,12 +265,17 @@
     </nav>
   {/if}
   <div class="inner">
-  {#if !side}<TabSelect label="Data" options={tabs} value={tab} icon={TAB_ICONS[tab]} onpick={(t) => (tab = t as DataTab)} />{/if}
+  {#if !side}
+    <div class="tabline">
+      <TabSelect label="Data" options={tabs} value={tab} icon={phone ? undefined : TAB_ICONS[tab]} onpick={(t) => (tab = t as DataTab)} />
+      {#if phone}{@render tabActions()}{/if}
+    </div>
+  {/if}
   <!-- What the last action did, whichever tab it came from. -->
   {#if done}<p class="ok">✓ {done}</p>{/if}
   {#if error}<p class="err">{error}</p>{/if}
   {#if tab === "Import"}
-  <Pane title="Import" focused>
+  <Pane title="Import" class="lead" focused section={phone}>
     <p>
       The rules of the SRD 5.2.1 are built in. Your own books and homebrew come from data you import, in the format
       described in the project's <span class="muted">schemas/</span>: a <span class="b">zip</span> of a whole data
@@ -242,9 +288,11 @@
       Homebrew (files that name their sources) is kept apart and stays off until a campaign enables it, under
       Sources › Homebrew. For a large homebrew collection, zip just its .json files, not its images.
     </p>
-    <div>
-      <button class="action" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import…"}</button>
-    </div>
+    {#if !phone}
+      <div>
+        <button class="action" onclick={pick} disabled={busy}>{busy ? "Importing…" : "Import…"}</button>
+      </div>
+    {/if}
     {#if result}
       <p class="ok">✓ {result.summary}</p>
       {#if result.skipped.length}
@@ -259,7 +307,7 @@
   </Pane>
 
   {#if status?.homebrew[0]}
-    <Pane title="Imported homebrew">
+    <Pane title="Imported homebrew" section={phone}>
       <p>
         <b>{status.homebrew[0]}</b> sources, <b>{status.homebrew[1]}</b> entries.
         <span class="dim">Enable them per campaign: Campaigns › Sources › Homebrew, or the compendium's @ button.</span>
@@ -268,7 +316,7 @@
   {/if}
 
   {#if status?.imported.length}
-    <Pane title="Imported sources">
+    <Pane title="Imported sources" section={phone}>
       <details>
         <summary>{status.imported.length} sources, {status.entries} entries</summary>
         <div class="sources">
@@ -281,7 +329,7 @@
   {/if}
 
   {#if status?.loaded || status?.campaigns.length}
-    <Pane title="Start over">
+    <Pane title="Start over" section={phone}>
       <p class="dim">If an import went wrong, remove what was imported and import again.</p>
       <div class="resets">
         {#if status.homebrew[0]}<button class="ghost" onclick={() => (resetting = "homebrew")}>Remove the imported homebrew</button>{/if}
@@ -291,27 +339,26 @@
     </Pane>
   {/if}
   {:else if tab === "Rules"}
-  <Pane title="Rules library" focused>
+  <Pane title="Rules library" class="lead" focused section={phone}>
     <p class="dim">
       Rules make the sheet do a feature's maths (its uses, the Armor Class or speed it gives). The rules library
       (<span class="url">github.com/v0v3s/dnt-rules</span>) has the rules for books other than the SRD (dnt has the SRD's
       built in) and for homebrew: pick some, or a whole folder, and they become your rules.
     </p>
-    <div><button class="action" onclick={() => (library = true)}>Open the rules library…</button></div>
+    {#if !phone}<div><button class="action" onclick={() => (library = true)}>Open the rules library…</button></div>{/if}
   </Pane>
   {:else if tab === "Backups"}
-  <Pane title="Backups" focused>
+  <Pane title="Backups" class="lead" focused section={phone}>
     <p class="dim">
       Everything (campaigns with their characters and notes, the imported data, your homebrew and rules) in one zip, to
       restore here or on another device.
     </p>
-    <div class="resets">
-      <button class="action" onclick={backUp}>Back up now</button>
-      <button class="ghost" onclick={async () => {
-        const path = await openFile();
-        if (path) restoring = { path, name: path.split(/[/\\]/).pop() ?? path };
-      }}>Restore from a file…</button>
-    </div>
+    {#if !phone}
+      <div class="resets">
+        <button class="action" onclick={backUp}>Back up now</button>
+        <button class="ghost" onclick={restoreFile}>Restore from a file…</button>
+      </div>
+    {/if}
     {#if backups}
       <div class="schedule">
         <label>
@@ -337,28 +384,27 @@
         }}>Change…</button>
         {#if backups.chosen}<button class="ghost" onclick={() => moveBackups(null)}>Default</button>{/if}
       </div>
-      {#each backups.list as b (b.name)}
-        <div class="saved">
-          <span class="bname">{b.name}</span>
-          <span class="dim">{size(b.bytes)}</span>
-          <button class="ghost" onclick={() => (restoring = { path: b.path, name: b.name })}>Restore</button>
-        </div>
-      {/each}
+      {#if !phone}{@render savedBackups()}{/if}
     {/if}
   </Pane>
+  {#if phone && backups?.list.length}
+    <Pane title="Saved" section aside={savedCount}>{@render savedBackups()}</Pane>
+  {/if}
   {:else if tab === "Problems"}
-    <Pane title="Problems" focused>
+    <Pane title="Problems" class="lead" focused section={phone}>
       {#each status?.problems ?? [] as p (p)}<p class="err">{p}</p>{/each}
     </Pane>
   {:else}
-  <Pane title="Updates" focused>
+  <Pane title="Updates" class="lead" focused section={phone}>
     <p>dnt {version}</p>
     {#if updates?.store}
       <p class="dim">The app store you installed dnt from keeps it up to date.</p>
     {:else}
-    <div class="row">
-      <button class="action" onclick={() => checkForUpdate(true)}>Check for updates</button>
-    </div>
+    {#if !phone}
+      <div class="row">
+        <button class="action" onclick={() => checkForUpdate(true)}>Check for updates</button>
+      </div>
+    {/if}
     {#if update.newer}
       <p class="ok">dnt {update.newer.version} is out.</p>
       <ReleaseNotes text={update.newer.notes} />
@@ -375,10 +421,10 @@
     {/if}
   </Pane>
 
-  <Pane title="About">
+  <Pane title={phone ? "Credits" : "About"} section={phone} aside={phone ? sourceCode : undefined}>
     <p>Dungeons &amp; Terminals: a D&amp;D 5e companion. It has the SRD 5.2.1 built in, and reads the books you import.</p>
     <p>dnt {version} · MIT license · <span class="url">github.com/v0v3s/dungeons-n-terminals</span></p>
-    <div><button class="ghost" onclick={openSource}>Source code</button></div>
+    {#if !phone}<div><button class="ghost" onclick={openSource}>Source code</button></div>{/if}
     <p class="dim">
       Icons by {iconAuthors.join(" and ")} from <span class="url">game-icons.net</span>, under CC BY 3.0
       (<span class="url">creativecommons.org/licenses/by/3.0</span>).
@@ -393,7 +439,7 @@
   </Pane>
 
   {#if status?.timings.length}
-    <Pane title="Last load">
+    <Pane title="Last load" section={phone}>
       <div class="timings">
         {#each status.timings as [stage, ms], i (i)}
           <div><span>{stage}</span> <span class="dim">{ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`}</span></div>
@@ -697,5 +743,149 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(20ch, 1fr));
     column-gap: 2ch;
+  }
+  /* A phone or a tablet: the tab the first section's gold title with its
+     action beside it; parts as sections (see Pane); the backup settings
+     label rows with their control at the right; small buttons. */
+  .tabline {
+    display: contents;
+  }
+  .phone .tabline {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 34px;
+    border-bottom: 1px solid rgb(224 175 104 / 0.55);
+    margin-bottom: -0.6em;
+  }
+  .phone .tabline :global(.tabsel) {
+    flex: 1;
+    border: 0;
+    padding: 0;
+    min-height: 0;
+  }
+  .phone .tabline :global(.tabsel select) {
+    color: var(--accent);
+    font-size: 1.1em;
+    padding: 0 2ch 0 0;
+    flex: none;
+    field-sizing: content;
+  }
+  .phone .tabline :global(.tabsel .caret) {
+    position: static;
+    color: var(--accent);
+    margin-left: -1.6ch;
+    pointer-events: none;
+  }
+  .phone .tabline :global(.tabsel) {
+    justify-content: flex-start;
+  }
+  .phone .go,
+  .phone .ghost {
+    height: 26px;
+    min-height: 26px;
+    padding: 0 0.7rem;
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+  .go {
+    background: var(--accent);
+    color: var(--black);
+    font-weight: 700;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .go:disabled {
+    opacity: 0.6;
+  }
+  .phone .inner {
+    gap: 1.2em;
+  }
+  /* The tab's first part: the tab line is its title (its own kept for
+     screen readers). */
+  .phone :global(.lead > .title) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .phone p {
+    font-size: 0.93em;
+    margin: 0 0 0.6em;
+  }
+  .phone .resets {
+    flex-direction: row;
+    gap: 0.4rem;
+  }
+  .phone .schedule {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+  }
+  .phone .schedule label,
+  .phone .keep,
+  .phone .where {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1ch;
+    min-height: 38px;
+    border-bottom: 1px solid var(--raised);
+    margin: 0;
+  }
+  .phone .keep {
+    justify-content: flex-start;
+  }
+  .phone .keep .step {
+    width: 30px;
+    height: 26px;
+    min-height: 26px;
+    padding: 0;
+  }
+  .phone .keep .step:first-of-type {
+    margin-left: auto;
+  }
+  .phone .keep b {
+    min-width: 2ch;
+    text-align: center;
+  }
+  .phone .schedule select {
+    height: 26px;
+    font-size: 0.85em;
+  }
+  .phone .where .folder {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+  }
+  .phone .saved {
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+    min-height: 38px;
+    border-bottom: 1px solid var(--raised);
+    margin: 0;
+  }
+  .phone .saved .bname {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .phone .sources div {
+    display: flex;
+    justify-content: space-between;
+    min-height: 34px;
+    align-items: center;
+    border-bottom: 1px solid var(--raised);
   }
 </style>

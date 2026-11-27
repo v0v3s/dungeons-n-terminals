@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, expect, openSheet, status, test } from "./fixtures";
+import { answer, choose, dialog, expect, openSheet, status, test } from "./fixtures";
 
 // Tester, a level 1 Wizard, has 8 hit points and one d6 hit die.
 test.beforeEach(async ({ page }) => {
@@ -100,9 +100,32 @@ test("a hit die is rolled with Constitution and heals", { tag: "@roll.hit-die" }
   await expect(hp(page)).toHaveText(/^\s*1\/8$/);
   const die = page.locator(".tracker", { hasText: "Hit dice" });
   await expect(die.locator(".count")).toHaveText("1/1");
-  await die.getByRole("button", { name: /Roll d6 \+ Con, heal/ }).click();
+  // A computer: the die's own button; a phone: its chip's menu.
+  const button = die.getByRole("button", { name: /Roll d6 \+ Con, heal/ });
+  const computer = (await button.count()) > 0;
+  if (computer) await button.click();
+  else {
+    await die.click();
+    await choose(page, "Hit dice d6", "Roll one and heal");
+  }
   await expect(status(page)).toContainText(/d6/);
   await expect(die.locator(".count")).toHaveText("0/1");
   await expect(hp(page)).not.toHaveText(/^\s*1\/8$/);
-  await expect(die.getByRole("button", { name: /Roll d6 \+ Con, heal/ })).toBeDisabled();
+  // None left: it cannot be rolled.
+  if (computer) await expect(button).toBeDisabled();
+  else {
+    await die.click();
+    await expect(dialog(page, "Hit dice d6").getByRole("button", { name: "Roll one and heal" })).toHaveCount(0);
+  }
+});
+
+test("on a phone a tap on the Hit points title sets them by hand", { tag: ["@hp.set", "@android"] }, async ({ page }) => {
+  await hpButton(page, "Temp").click();
+  await answer(page, "Temporary hit points", "2");
+  await page.locator(".pane.hp .title button").click();
+  await answer(page, "Hit points", "5");
+  await expect(hp(page)).toHaveText(/^\s*5\/8\s*\+2 temp$/);
+  await page.locator(".pane.hp .title button").click();
+  await answer(page, "Hit points", "30");
+  await expect(hp(page)).toHaveText(/^\s*8\/8\s*\+2 temp$/);
 });

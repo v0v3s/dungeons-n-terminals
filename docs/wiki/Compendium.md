@@ -1,5 +1,5 @@
-Every spell, class, species, background, feat, item and rule of the books
-your campaign uses.
+Every spell, class, species, background, feat, item, creature and rule of
+the books your campaign uses.
 
 | | |
 | --- | --- |
@@ -7,7 +7,9 @@ your campaign uses.
 
 - **Search** as you type; narrow it with filters: `@XPHB` (a source),
   `#spell` (a kind), `^3` (a level), `*fire` (a damage type), `"text"` (in
-  the text), `!` (not).
+  the text), `!` (not). Creatures: `#creature`, their type (`#beast`),
+  `#familiar`, `#summon`, and `^` their challenge rating (`^0` for those
+  below 1).
 - **Categories** (chips under the search in the app, `tab` in the
   terminal; on a phone, swipe the results sideways, or pick one from the
   menu) and the **order**: best match, name, source, level or rarity

@@ -69,6 +69,19 @@ export async function wren(page: Page, rules: boolean, gifts = false) {
   }
 }
 
+/// Mira, a level 7 Wizard (Int 16: spell attack +6) with Find Familiar and
+/// Call Steed prepared (a test book's spell that is the SRD's Find Steed),
+/// whose built-in rules give companions.
+export const MIRA =
+  'name = "Mira"\nspecies = "race:Human|SRD52"\nbackground = "background:Sage|SRD52"\n\n' +
+  "[abilities]\nstr = 8\ndex = 14\ncon = 12\nint = 16\nwis = 13\ncha = 10\n\n" +
+  '[[levels]]\nclass = "class:Wizard|SRD52"\n'.repeat(7) + "\n" +
+  '[spells.classes."class:Wizard|SRD52"]\nprepared = ["spell:Find Familiar|SRD52", "spell:Call Steed|TSX"]\n';
+
+export async function mira(page: Page) {
+  await invoke(page, "e2e_put_file", { path: "characters/mira.toml", text: MIRA });
+}
+
 /// One of the tests' releases (e2e/update: newer, older, broken), given to
 /// the app instead of GitHub's newest.
 export async function useTestRelease(page: Page, which: "newer" | "older" | "broken") {
@@ -282,7 +295,7 @@ export async function openSheet(page: Page, tab: Exclude<SheetTab, "Notes"> = "O
   await sheetTab(page, tab);
 }
 
-export type SheetTab = "Overview" | "Skills" | "Spells" | "Inventory" | "Features" | "Notes";
+export type SheetTab = "Overview" | "Skills" | "Spells" | "Inventory" | "Features" | "Companions" | "Notes";
 
 /// A touch screen (a phone or a tablet): the sheet's tabs are icons.
 export const touchScreen = (page: Page) => page.evaluate(() => matchMedia("(pointer: coarse)").matches);
@@ -487,4 +500,13 @@ export async function fits(page: Page, where: string) {
   // Let transitions and lazy content settle.
   await page.waitForTimeout(400);
   expect.soft(await misfits(page), where).toEqual([]);
+}
+
+/// Use one of a tracker's uses, or get one back: its −/+ on a computer;
+/// on a phone, from the menu its row (or chip) opens.
+export async function spend(page: Page, pool: Locator, title: string | RegExp, action: "Use" | "Restore") {
+  const direct = pool.getByRole("button", { name: action, exact: true });
+  if (await direct.count()) return direct.click();
+  await pool.click();
+  await choose(page, title, action);
 }

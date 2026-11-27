@@ -251,6 +251,11 @@ pub async fn rename_campaign(app: State<'_, App>, slug: String, name: String) ->
     status_of(&inner)
 }
 
+/// A category's colour group: its kinds'.
+fn category_group(c: Category) -> &'static str {
+    Kind::ALL.iter().find(|k| c != Category::All && c.contains(**k)).map_or("all", |k| group(*k))
+}
+
 /// The colour group of a kind, as the TUI marks it.
 pub fn group(kind: Kind) -> &'static str {
     use Kind::*;
@@ -262,6 +267,7 @@ pub fn group(kind: Kind) -> &'static str {
         Background => "background",
         Feat => "feat",
         Item | BaseItem | ItemGroup | MagicVariant | ItemMastery => "item",
+        Creature => "creature",
         _ => "rule",
     }
 }
@@ -278,7 +284,8 @@ pub struct Row {
 pub struct Found {
     rows: Vec<Row>,
     total: usize,
-    categories: Vec<(&'static str, usize)>,
+    /// (label, count, its kinds' colour group: "all" for All).
+    categories: Vec<(&'static str, usize, &'static str)>,
     category: usize,
     /// What `#`, `*` and `^` mean in this category.
     hints: &'static [(char, &'static str)],
@@ -318,7 +325,7 @@ pub async fn search(app: State<'_, App>, category: usize, query: String, order: 
     Ok(Found {
         rows,
         total: s.results.len(),
-        categories: Category::ORDER.iter().zip(s.category_counts).map(|(c, n)| (c.label(), n)).collect(),
+        categories: Category::ORDER.iter().zip(s.category_counts).map(|(c, n)| (c.label(), n, category_group(*c))).collect(),
         category,
         hints: s.category.hints(),
         suggestions: s.suggestions.clone(),

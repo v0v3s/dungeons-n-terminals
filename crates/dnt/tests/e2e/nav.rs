@@ -129,7 +129,7 @@ fn every_section_and_sheet_tab_fits_the_window() {
             t.send("j");
         }
         t.send(ENTER).wait("Overview").wait(name);
-        for tab in ["Overview", "Features", "Spells", "Inventory", "Notes"] {
+        for tab in ["Overview", "Features", "Spells", "Inventory", "Companions", "Notes"] {
             fits(&t, &format!("{name}'s {tab}"));
             t.send(TAB);
         }

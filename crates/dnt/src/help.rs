@@ -70,6 +70,7 @@ pub fn groups(context: Context) -> Vec<Group> {
                 Tab::Features => FEATURES,
                 Tab::Spells => SPELLS,
                 Tab::Inventory => INVENTORY,
+                Tab::Companions => COMPANIONS,
                 Tab::Notes => SHEET_NOTES,
             };
             vec![tab_group, SHEET]
@@ -91,6 +92,7 @@ pub fn groups(context: Context) -> Vec<Group> {
         RULES_EDITOR,
         SPELLS,
         INVENTORY,
+        COMPANIONS,
         SHEET_NOTES,
         NOTES_TREE,
         NOTES_EDITOR,
@@ -289,6 +291,7 @@ mod content {
         keys: &[
             ("tab · shift+tab", "next · previous tab"),
             ("d · h · t", "take damage · heal (when dead: not dead) · temporary hit points"),
+            ("H", "set the hit points by hand"),
             ("D", "roll a death save (at 0 hit points)"),
             ("#", "roll dice typed by hand: d20 + prof + dex (the names it knows are listed)"),
             ("s · L", "short rest · long rest"),
@@ -340,7 +343,8 @@ mod content {
             ("j k · g G", "move"),
             ("a", "add spells for the class under the cursor"),
             ("A", "add from all spells, not only the class's list"),
-            ("enter", "cast (choose a slot) · choose spells for a feature"),
+            ("enter", "cast (without a slot when its feature allows, else choose a slot or a ritual; one that gives a companion asks for it) · choose spells for a feature"),
+            ("c", "cast, choosing how (a slot, the pact slot, a ritual, or without a slot)"),
             ("r", "roll the spell's attack and damage"),
             ("p", "prepare or unprepare (spellbook)"),
             ("f", "favorite: listed first"),
@@ -364,6 +368,22 @@ mod content {
             ("w", "container settings: 30 · weightless · no limit · off"),
             ("m", "mark a weapon in or out of a rule's kind of weapon"),
             ("g", "coins: +15gp, -3sp, 20"),
+        ],
+    };
+    pub const COMPANIONS: Group = Group {
+        title: "Sheet: Companions",
+        keys: &[
+            ("j k · g G", "move through each companion's rows"),
+            ("← →", "previous · next companion"),
+            ("a", "add a follower (any creature), or what a feature gives; a spell gives its companion when cast"),
+            ("enter · r", "roll the check, skill, initiative or action under the cursor; on the name, the menu"),
+            ("R", "roll the saving throw of an ability"),
+            ("v", "advantage, then disadvantage, for the next roll"),
+            ("- · +", "damage · heal the companion"),
+            ("m", "menu: stat block, rename, temporary hit points, conditions, away or back, notes, remove"),
+            ("i", "its creature's stat block"),
+            ("C", "its conditions"),
+            ("x", "remove (asks first)"),
         ],
     };
     pub const SHEET_NOTES: Group = Group { title: "Sheet: Notes", keys: &[("enter · i", "open the character's note")] };

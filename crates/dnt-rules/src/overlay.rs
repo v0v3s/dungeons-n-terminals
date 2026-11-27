@@ -155,6 +155,21 @@
 //! `sense.blindsight`, …), other speeds (`speed.fly`, …) and the
 //! creature type (`creature_type`) are stats effects can change.
 //!
+//! A rule can give companions, creatures that serve the character
+//! (see [`crate::companion`]): one creature, or those a filter over
+//! `creature.*` picks, with effects and actions on the companion's sheet
+//! whose formulas know the owner's stats (`owner.<stat>`) and the level
+//! the spell was cast at (`spell_level`):
+//!
+//! ```toml
+//! [[feature]]
+//! id = "spell:Find Familiar|SRD52"
+//! [[feature.companion]]
+//! kind = "Familiar"
+//! creatures = "creature.familiar or (creature.beast and creature.cr == 0)"
+//! types = ["celestial", "fey", "fiend"]
+//! ```
+//!
 //! An id with a `*` part names every entity that has anything there:
 //! `classFeature:Ability Score Improvement|*|*|*` is every class's.
 //!
@@ -241,6 +256,30 @@ pub struct FeatureOverlay {
     pub actions: Vec<ActionRule>,
     pub defenses: Vec<DefenseRule>,
     pub proficiencies: Vec<ProficiencyRule>,
+    /// Creatures that serve the character: a familiar, a steed, a spirit.
+    pub companions: Vec<CompanionRule>,
+}
+
+/// Companions a feature or spell gives: one creature, or any a filter
+/// picks, with rules of their own for the companion's sheet.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompanionRule {
+    /// What the companion is (`Familiar`); the feature's name without one.
+    pub kind: String,
+    /// The creature it is (`creature:Otherworldly Steed|SRD52`)…
+    pub creature: Option<String>,
+    /// …or the creatures it may be: a filter over `creature.*`
+    /// (`creature.familiar or (creature.beast and creature.cr == 0)`).
+    pub creatures: Option<Formula>,
+    /// Creature types to choose from instead of its own (`celestial`).
+    pub types: Vec<String>,
+    /// How many at once (1 without).
+    pub count: Option<Formula>,
+    /// Effects on the companion's stats; formulas know its own stats, the
+    /// owner's as `owner.<stat>`, and `spell_level` for a spell's.
+    pub effects: Vec<Effect>,
+    /// Actions of its own, with the same formulas.
+    pub actions: Vec<ActionRule>,
 }
 
 /// An action a feature gives: an attack roll or a save against its DC,
@@ -461,6 +500,23 @@ struct RawFeature {
     defense: Vec<RawDefense>,
     #[serde(default)]
     proficiency: Vec<RawProficiency>,
+    #[serde(default)]
+    companion: Vec<RawCompanion>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCompanion {
+    kind: Option<String>,
+    creature: Option<String>,
+    creatures: Option<String>,
+    #[serde(default)]
+    types: Vec<String>,
+    count: Option<String>,
+    #[serde(default)]
+    effect: Vec<RawEffect>,
+    #[serde(default)]
+    action: Vec<RawAction>,
 }
 
 #[derive(Deserialize)]
@@ -659,6 +715,113 @@ pub fn resolve_id(lib: &Library, id: &str) -> Option<dnt_data::EntityId> {
     parse_id(id).ok()?.iter().find_map(|k| lib.get(k))
 }
 
+fn formula(src: &str, loc: String, diags: &mut Vec<Diagnostic>) -> Option<Formula> {
+    match Formula::parse(src) {
+        Ok(f) => Some(f),
+        Err(e) => {
+            diags.push(Diagnostic { location: loc, message: e.display(src) });
+            None
+        }
+    }
+}
+
+/// `[[….effect]]`s, at `at` (`feature[0]`).
+fn parse_effects(raw: Vec<RawEffect>, at: &str, name: &str, diags: &mut Vec<Diagnostic>) -> Vec<Effect> {
+    let mut effects = Vec::new();
+    for (ei, e) in raw.into_iter().enumerate() {
+        let loc = |field: &str| format!("{at}.effect[{ei}]{field}");
+        if !valid_key(&e.target) {
+            diags.push(Diagnostic { location: loc(".target"), message: format!("`{}` is not a valid stat key", e.target) });
+            continue;
+        }
+        let ops: Vec<(Op, &str, &String)> = [
+            (Op::Add, "add", &e.add),
+            (Op::Set, "set", &e.set),
+            (Op::Max, "max", &e.max),
+            (Op::Min, "min", &e.min),
+            (Op::Mul, "mul", &e.mul),
+        ]
+        .into_iter()
+        .filter_map(|(op, n, v)| v.as_ref().map(|v| (op, n, v)))
+        .collect();
+        let [(op, field, src)] = ops.as_slice() else {
+            diags
+                .push(Diagnostic { location: loc(""), message: "an effect needs exactly one of `add`, `set`, `max`, `min`, `mul`".into() });
+            continue;
+        };
+        let value = formula(src, loc(&format!(".{field}")), diags);
+        let when = match &e.when {
+            Some(w) => match formula(w, loc(".when"), diags) {
+                Some(f) => Some(f),
+                None => continue,
+            },
+            None => None,
+        };
+        let Some(value) = value else { continue };
+        effects.push(Effect { target: e.target, op: *op, value, when, origin: e.origin.unwrap_or_else(|| name.to_string()) });
+    }
+    effects
+}
+
+/// `[[….action]]`s, at `at` (`feature[0]`).
+fn parse_actions(raw: Vec<RawAction>, at: &str, diags: &mut Vec<Diagnostic>) -> Vec<ActionRule> {
+    let mut actions = Vec::new();
+    for (ai, a) in raw.into_iter().enumerate() {
+        let loc = |field: &str| format!("{at}.action[{ai}]{field}");
+        let mut ok = true;
+        let mut opt = |src: &Option<String>, field: &str, diags: &mut Vec<Diagnostic>| match src {
+            Some(src) => {
+                let f = formula(src, loc(&format!(".{field}")), diags);
+                ok &= f.is_some();
+                f
+            }
+            None => None,
+        };
+        let attack = opt(&a.attack, "attack", diags);
+        let dc = opt(&a.dc, "dc", diags);
+        let damage = opt(&a.damage, "damage", diags);
+        let heal = opt(&a.heal, "heal", diags);
+        let temp_hp = opt(&a.temp_hp, "temp_hp", diags);
+        let when = opt(&a.when, "when", diags);
+        if a.save.is_some() != a.dc.is_some() {
+            diags.push(Diagnostic { location: loc(""), message: "a save has a `dc`, and a `dc` is a save's".into() });
+            ok = false;
+        }
+        if a.save.as_deref().is_some_and(|ab| !ABILITIES.iter().any(|(k, _)| *k == ab)) {
+            diags.push(Diagnostic { location: loc(".save"), message: "`save` is an ability: `str` … `cha`".into() });
+            ok = false;
+        }
+        if a.cost.is_some() && a.resource.is_none() {
+            diags.push(Diagnostic { location: loc(".cost"), message: "`cost` is what it takes of a `resource`".into() });
+            ok = false;
+        }
+        if ok && [&attack, &dc, &damage, &heal, &temp_hp].iter().all(|f| f.is_none()) {
+            diags.push(Diagnostic {
+                location: loc(""),
+                message: "an action does something: `attack`, `save`, `damage`, `heal` or `temp_hp`".into(),
+            });
+            ok = false;
+        }
+        if ok {
+            actions.push(ActionRule {
+                name: a.name,
+                attack,
+                save: a.save,
+                dc,
+                damage,
+                damage_type: a.damage_type,
+                heal,
+                temp_hp,
+                resource: a.resource,
+                cost: a.cost.unwrap_or(1).max(1),
+                note: a.note,
+                when,
+            });
+        }
+    }
+    actions
+}
+
 impl Overlay {
     /// Parse overlay TOML. Structural (TOML) errors fail the whole file;
     /// invalid formulas, ids or keys are reported and the item skipped.
@@ -733,41 +896,7 @@ impl Overlay {
                 }
             }
 
-            let mut effects = Vec::new();
-            for (ei, e) in f.effect.into_iter().enumerate() {
-                let loc = |field: &str| at(&format!(".effect[{ei}]{field}"));
-                if !valid_key(&e.target) {
-                    diags.push(Diagnostic { location: loc(".target"), message: format!("`{}` is not a valid stat key", e.target) });
-                    continue;
-                }
-                let ops: Vec<(Op, &str, &String)> = [
-                    (Op::Add, "add", &e.add),
-                    (Op::Set, "set", &e.set),
-                    (Op::Max, "max", &e.max),
-                    (Op::Min, "min", &e.min),
-                    (Op::Mul, "mul", &e.mul),
-                ]
-                .into_iter()
-                .filter_map(|(op, n, v)| v.as_ref().map(|v| (op, n, v)))
-                .collect();
-                let [(op, field, src)] = ops.as_slice() else {
-                    diags.push(Diagnostic {
-                        location: loc(""),
-                        message: "an effect needs exactly one of `add`, `set`, `max`, `min`, `mul`".into(),
-                    });
-                    continue;
-                };
-                let value = formula(src, loc(&format!(".{field}")), &mut diags);
-                let when = match &e.when {
-                    Some(w) => match formula(w, loc(".when"), &mut diags) {
-                        Some(f) => Some(f),
-                        None => continue,
-                    },
-                    None => None,
-                };
-                let Some(value) = value else { continue };
-                effects.push(Effect { target: e.target, op: *op, value, when, origin: e.origin.unwrap_or_else(|| name.clone()) });
-            }
+            let effects = parse_effects(f.effect, &at(""), &name, &mut diags);
 
             let mut spells = Vec::new();
             for (si, g) in f.spell.into_iter().enumerate() {
@@ -906,60 +1035,7 @@ impl Overlay {
                 }
             }
 
-            let mut actions = Vec::new();
-            for (ai, a) in f.action.into_iter().enumerate() {
-                let loc = |field: &str| at(&format!(".action[{ai}]{field}"));
-                let mut ok = true;
-                let mut opt = |src: &Option<String>, field: &str, diags: &mut Vec<Diagnostic>| match src {
-                    Some(src) => {
-                        let f = formula(src, loc(&format!(".{field}")), diags);
-                        ok &= f.is_some();
-                        f
-                    }
-                    None => None,
-                };
-                let attack = opt(&a.attack, "attack", &mut diags);
-                let dc = opt(&a.dc, "dc", &mut diags);
-                let damage = opt(&a.damage, "damage", &mut diags);
-                let heal = opt(&a.heal, "heal", &mut diags);
-                let temp_hp = opt(&a.temp_hp, "temp_hp", &mut diags);
-                let when = opt(&a.when, "when", &mut diags);
-                if a.save.is_some() != a.dc.is_some() {
-                    diags.push(Diagnostic { location: loc(""), message: "a save has a `dc`, and a `dc` is a save's".into() });
-                    ok = false;
-                }
-                if a.save.as_deref().is_some_and(|ab| !ABILITIES.iter().any(|(k, _)| *k == ab)) {
-                    diags.push(Diagnostic { location: loc(".save"), message: "`save` is an ability: `str` … `cha`".into() });
-                    ok = false;
-                }
-                if a.cost.is_some() && a.resource.is_none() {
-                    diags.push(Diagnostic { location: loc(".cost"), message: "`cost` is what it takes of a `resource`".into() });
-                    ok = false;
-                }
-                if ok && [&attack, &dc, &damage, &heal, &temp_hp].iter().all(|f| f.is_none()) {
-                    diags.push(Diagnostic {
-                        location: loc(""),
-                        message: "an action does something: `attack`, `save`, `damage`, `heal` or `temp_hp`".into(),
-                    });
-                    ok = false;
-                }
-                if ok {
-                    actions.push(ActionRule {
-                        name: a.name,
-                        attack,
-                        save: a.save,
-                        dc,
-                        damage,
-                        damage_type: a.damage_type,
-                        heal,
-                        temp_hp,
-                        resource: a.resource,
-                        cost: a.cost.unwrap_or(1).max(1),
-                        note: a.note,
-                        when,
-                    });
-                }
-            }
+            let actions = parse_actions(f.action, &at(""), &mut diags);
 
             let mut defenses = Vec::new();
             for (di, d) in f.defense.into_iter().enumerate() {
@@ -994,6 +1070,44 @@ impl Overlay {
                 proficiencies.push(ProficiencyRule { skills: p.skills, saves: p.saves, tools: p.tools });
             }
 
+            let mut companions = Vec::new();
+            for (ci, c) in f.companion.into_iter().enumerate() {
+                let here = at(&format!(".companion[{ci}]"));
+                if c.creature.is_some() == c.creatures.is_some() {
+                    diags.push(Diagnostic { location: here, message: "a companion has a `creature` or `creatures` (a filter)".into() });
+                    continue;
+                }
+                if let Some(Err(e)) = c.creature.as_deref().map(parse_id) {
+                    diags.push(Diagnostic { location: format!("{here}.creature"), message: e });
+                    continue;
+                }
+                let creatures = match &c.creatures {
+                    Some(src) => match formula(src, format!("{here}.creatures"), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    None => None,
+                };
+                let count = match &c.count {
+                    Some(src) => match formula(src, format!("{here}.count"), &mut diags) {
+                        Some(f) => Some(f),
+                        None => continue,
+                    },
+                    None => None,
+                };
+                let effects = parse_effects(c.effect, &here, &name, &mut diags);
+                let actions = parse_actions(c.action, &here, &mut diags);
+                companions.push(CompanionRule {
+                    kind: c.kind.unwrap_or_else(|| name.clone()),
+                    creature: c.creature,
+                    creatures,
+                    types: c.types.into_iter().map(|t| t.to_lowercase()).collect(),
+                    count,
+                    effects,
+                    actions,
+                });
+            }
+
             if !f.levels.is_empty() && !keys.iter().any(|k| k.kind == Kind::Condition) {
                 diags.push(Diagnostic { location: at(".levels"), message: "only a condition has `levels`".into() });
                 continue;
@@ -1018,6 +1132,7 @@ impl Overlay {
                 actions,
                 defenses,
                 proficiencies,
+                companions,
             });
         }
         let multiclass = match raw.multiclass {
@@ -1096,6 +1211,21 @@ impl OverlaySet {
             }
         }
         self.add(overlay);
+    }
+
+    /// The built-in SRD rules for the book entries that are the SRD's (the
+    /// data says so, see [`Library::srd_twins`]): an entry with no rules of
+    /// its own has its SRD entry's. Call it before adding the user's rules,
+    /// which replace these.
+    pub fn share_with_srd_twins(&mut self, lib: &Library) {
+        for (srd, book) in lib.srd_twins() {
+            let (srd, book) = (&lib.entity(srd).key, &lib.entity(book).key);
+            let Some(rules) = self.by_key.get(srd).filter(|r| !r.is_empty()).cloned() else { continue };
+            let mine = self.by_key.entry(book.clone()).or_default();
+            if mine.is_empty() {
+                *mine = rules;
+            }
+        }
     }
 
     /// Remove the overlays for an entity (not those for another class).
@@ -1526,5 +1656,35 @@ pick = "skills"
     fn toml_errors_fail_the_file() {
         assert!(Overlay::parse("[[feature]]\nid = ").is_err());
         assert!(Overlay::parse("[[feature]]\nid = \"feat:Alert\"\nbogus = 1").is_err());
+    }
+
+    #[test]
+    fn a_books_srd_entries_have_the_built_in_srd_rules() {
+        let mut lib = Library::new();
+        lib.load_json(&serde_json::json!({
+            "spell": [{"name": "Find Pet", "source": "SRD52", "level": 1}, {"name": "Find Pet", "source": "BK", "level": 1, "srd52": true}],
+            "classFeature": [
+                {"name": "Rage", "source": "SRD52", "className": "Barbarian", "classSource": "SRD52", "level": 1},
+                {"name": "Rage", "source": "BK", "className": "Barbarian", "classSource": "BK", "level": 1, "srd52": true}
+            ],
+            "feat": [{"name": "Alert", "source": "SRD52"}, {"name": "Alert", "source": "BK"}]
+        }));
+        let (o, d) = Overlay::parse(
+            "[[feature]]\nid = \"spell:Find Pet|SRD52\"\nsummary = \"pet\"\n\n[[feature]]\nid = \"classFeature:Rage|Barbarian|SRD52|1\"\nsummary = \"rage\"\n\n[[feature]]\nid = \"feat:Alert|SRD52\"\nsummary = \"alert\"\n",
+        )
+        .unwrap();
+        assert!(d.is_empty(), "{d:?}");
+        let mut set = OverlaySet::default();
+        set.add(o);
+        set.share_with_srd_twins(&lib);
+        let summary = |set: &OverlaySet, k: Key| set.for_entity(&k).first().and_then(|o| o.summary.clone());
+        assert_eq!(summary(&set, Key::new(Kind::Spell, &["Find Pet", "BK"])).as_deref(), Some("pet"));
+        assert_eq!(summary(&set, Key::new(Kind::ClassFeature, &["Rage", "Barbarian", "BK", "1", "BK"])).as_deref(), Some("rage"));
+        assert_eq!(summary(&set, Key::new(Kind::Feat, &["Alert", "BK"])), None, "not marked as the SRD's");
+        // Rules of its own replace the SRD's.
+        let (mine, _) = Overlay::parse("[[feature]]\nid = \"spell:Find Pet|BK\"\nsummary = \"mine\"\n").unwrap();
+        set.replace(mine);
+        assert_eq!(summary(&set, Key::new(Kind::Spell, &["Find Pet", "BK"])).as_deref(), Some("mine"));
+        assert_eq!(summary(&set, Key::new(Kind::Spell, &["Find Pet", "SRD52"])).as_deref(), Some("pet"));
     }
 }

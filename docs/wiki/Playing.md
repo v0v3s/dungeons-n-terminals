@@ -37,6 +37,24 @@ level (`C`). The conditions are those of your books, and their rules say
 what each does: to your numbers, and advantage or disadvantage on your
 rolls. Concentration shows as a chip; tap it to end it.
 
+## Companions
+
+The **Companions** tab holds the creatures that serve the character: a
+familiar, a steed, a summoned spirit, followers. A spell or feature whose
+rules give a companion has a button there (*Familiar (Find Familiar)*):
+it asks for a creature the rules allow, its type when it has a choice,
+and the level the spell is cast at. *Add a follower…* takes any creature.
+
+Each companion has a card of its own: hit points (*Damage*, *Heal*), AC,
+speed, its abilities and skills, and its actions; tap a number or an
+action to roll it in its name. Its `⋯` shows its stat block, renames it,
+sets conditions, sends it away and back, and removes it. A summoned
+creature's numbers follow the spell's level and you (your spell attack,
+your proficiency bonus), as the spell's [[Homebrew and rules|rules]] say.
+
+A follower of your own (a hireling with no stat block in any book) is
+campaign homebrew: make a creature in the compendium (*New*), then add it.
+
 ## Attacks
 
 Each attack shows its bonus and damage; its `⋯` holds the weapon in the main

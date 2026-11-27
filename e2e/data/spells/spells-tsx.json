@@ -70,6 +70,38 @@
    "entries": [
     "A gust pushes creatures 10 feet away."
    ]
+  },
+  {
+   "name": "Call Steed",
+   "source": "TSX",
+   "srd52": "Find Steed",
+   "level": 2,
+   "school": "C",
+   "time": [
+    {
+     "number": 10,
+     "unit": "minute"
+    }
+   ],
+   "range": {
+    "type": "point",
+    "distance": {
+     "type": "feet",
+     "amount": 30
+    }
+   },
+   "components": {
+    "v": true,
+    "s": true
+   },
+   "duration": [
+    {
+     "type": "instant"
+    }
+   ],
+   "entries": [
+    "A loyal mount answers your call: the steed the SRD's spell summons."
+   ]
   }
  ]
 }

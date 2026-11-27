@@ -28,6 +28,10 @@ pub enum Origin {
 /// homebrew each turns on).
 pub fn load(store: &dnt_store::Store, lib: Option<&Library>) -> (OverlaySet, Vec<String>) {
     let (mut set, diags) = builtin::overlays();
+    // A book's entries that are the SRD's have its built-in rules too.
+    if let Some(lib) = lib {
+        set.share_with_srd_twins(lib);
+    }
     let mut brews = Brews::new(store);
     let mut problems: Vec<String> = diags.iter().map(|d| format!("built-in rules: {d}")).collect();
     for path in store.overlay_files() {

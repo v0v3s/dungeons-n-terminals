@@ -11,6 +11,7 @@ mod seed;
 mod backup;
 mod campaigns;
 mod characters;
+mod companions;
 mod compendium;
 mod concentration;
 mod creation;

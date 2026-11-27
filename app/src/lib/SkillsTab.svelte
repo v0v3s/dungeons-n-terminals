@@ -26,9 +26,28 @@
 
 <div class="skills-tab">
   {#if desktop.current}<div class="mode"><RollMode mode={o.next_roll} {ctx} /></div>{/if}
-  <Pane title="Abilities" class="abilities" fold="sheet.abilities" footer="{how} a number: how it adds up">
+  <Pane title="Abilities" class="abilities" fold="sheet.abilities" section footer={desktop.current ? `${how} a number: how it adds up` : ""}>
+    {#snippet aside()}
+      {#if !desktop.current}
+        <!-- The columns' names, over them. -->
+        <span class="heads"><span>check</span><span>save</span></span>
+      {/if}
+    {/snippet}
+    {#if !desktop.current}
+      <!-- A phone: ● for a proficient save, the name, the score by the
+           check, then the check and the save. -->
+      <div class="grid abil phone">
+        {#each o.abilities as a (a.key)}
+          <span class="mark" class:on={a.proficient} title={a.proficient ? "proficient in the save" : ""}>{a.proficient ? "●" : "○"}</span>
+          <button class="aname" onclick={(e) => ctx.explain(a.key, e.currentTarget)} oncontextmenu={hold(a.key)}>{a.name}</button>
+          <span class="score" data-of={a.name}>{a.score}</span>
+          <button class="num rollbox" aria-label="{a.name} check" onclick={(e) => clickRoll(ctx, e, { type: "ability", key: a.key })} oncontextmenu={hold(`mod.${a.key}`)}>{a.modifier}</button>
+          <button class="num rollbox save" class:prof={a.proficient} aria-label="{a.name} save" onclick={(e) => clickRoll(ctx, e, { type: "save", key: a.key })} oncontextmenu={hold(`save.${a.key}`)}>{a.save}</button>
+        {/each}
+      </div>
+    {:else}
     <div class="grid abil" class:desk={desktop.current}>
-      <span class="dim c">score</span><span class="dim">ability</span><span class="dim c">check</span>{#if desktop.current}<span></span>{/if}<span class="dim c">save</span>{#if desktop.current}<span></span>{/if}
+      <span class="dim c">{desktop.current ? "score" : ""}</span><span class="dim">{desktop.current ? "ability" : ""}</span><span class="dim c">check</span>{#if desktop.current}<span></span>{/if}<span class="dim c">save</span>{#if desktop.current}<span></span>{/if}
       {#each o.abilities as a (a.key)}
         <span class="score" data-of={a.name}>{a.score}</span>
         <button class="aname" onclick={(e) => ctx.explain(a.key, e.currentTarget)} oncontextmenu={hold(a.key)}>{a.name}</button>
@@ -43,12 +62,13 @@
         {#if desktop.current}<button class="info" aria-label="How the {a.name} save adds up" title="How it adds up" onclick={explainHere(`save.${a.key}`)}>ⓘ</button>{/if}
       {/each}
     </div>
-    {#each o.casting as c (c.name)}
-      <div class="cast"><span class="muted">{c.name}</span> <span class="dim">DC</span> <b>{c.dc}</b> <span class="dim">attack</span> <b>{c.attack}</b></div>
-    {/each}
+    {/if}
   </Pane>
 
-  <Pane title="Skills" class="skills" fold="sheet.skills" footer="{how} one: how it adds up">
+  <Pane title="Skills" class="skills" fold="sheet.skills" section footer={desktop.current ? `${how} one: how it adds up` : ""}>
+    {#snippet aside()}
+      {#if !desktop.current}<span class="dim legend"><span class="on">●</span> proficient</span>{/if}
+    {/snippet}
     {#each o.skills as s (s.key)}
       <div class="skrow">
         <button class="skill" onclick={(e) => clickRoll(ctx, e, { type: "skill", key: s.key })} oncontextmenu={hold(`skill.${s.key}`)}>
@@ -106,9 +126,6 @@
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
-  }
-  .cast {
-    margin-top: 0.75em;
   }
   .skill {
     display: grid;
@@ -211,23 +228,86 @@
       text-overflow: ellipsis;
     }
   }
+  /* Phones and tablets: sections on gold lines (see Pane), one row each,
+     the roll at the right. */
+  @media not ((pointer: fine) and (min-width: 761px)) {
+    .legend {
+      font-size: 0.85em;
+    }
+    .legend .on {
+      color: var(--accent);
+    }
+    .heads {
+      display: flex;
+      margin-left: 1.5ch;
+      font-size: 0.8em;
+      color: var(--gray);
+    }
+    .heads span {
+      width: 56px;
+      text-align: center;
+    }
+    .heads span:first-child {
+      width: 48px;
+    }
+    .abil.phone {
+      grid-template-columns: 2ch minmax(0, 1fr) auto 48px 56px;
+      column-gap: 0;
+      align-items: center;
+    }
+    .abil.phone > * {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--raised);
+      align-self: stretch;
+    }
+    .abil.phone > .aname {
+      padding-left: 1ch;
+    }
+    .abil.phone > .score {
+      justify-content: flex-end;
+      padding-right: 1.2ch;
+      color: var(--gray);
+    }
+    .abil.phone > .num {
+      justify-content: center;
+      align-self: center;
+      justify-self: start;
+      min-width: 48px;
+      height: 28px;
+      min-height: 28px;
+      padding: 0;
+      background: var(--card);
+      border-radius: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .abil.phone > .save {
+      justify-self: end;
+    }
+    .skill {
+      grid-template-columns: 2ch minmax(0, 1fr) 48px;
+      min-height: 34px;
+      border-bottom: 1px solid var(--raised) !important;
+    }
+    .sname .dim {
+      font-size: 0.85em;
+    }
+    .skill .rollbox {
+      min-width: 48px;
+      height: 28px;
+      padding: 0;
+      background: var(--card);
+      border-radius: 6px;
+    }
+    .mark {
+      color: var(--dark);
+    }
+  }
   @media (max-width: 760px) {
     .skills-tab {
       grid-template-columns: minmax(0, 1fr);
-      gap: 1.6em;
-    }
-    .grid.abil > * {
-      min-height: 40px;
-      display: flex;
-      align-items: center;
-    }
-    .grid.abil .c,
-    .grid.abil .score,
-    .grid.abil .num {
-      justify-content: center;
-    }
-    .skill {
-      min-height: 44px;
+      gap: 1em;
     }
   }
 </style>

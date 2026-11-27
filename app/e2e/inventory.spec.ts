@@ -3,6 +3,15 @@ import { answer, choose, dialog, expect, openSheet, pick, sheetTab, status, test
 
 const line = (page: Page, name: string) => page.locator("button.line", { hasText: name });
 
+/// + Add item, + Quick item or + Homebrew: a button on a computer, in the
+/// Carried section's "+ add" menu on a phone.
+async function adding(page: Page, label: "+ Add item" | "+ Quick item" | "+ Homebrew") {
+  const direct = page.getByRole("button", { name: label, exact: true });
+  if (await direct.count()) return direct.click();
+  await page.getByRole("button", { name: "+ add", exact: true }).click();
+  await choose(page, "Add", label);
+}
+
 /// Pick a library item by its exact name: magic items made from it (+1
 /// Shield, Sentinel Shield…) match its name too, and sort before it.
 async function pickExactly(page: Page, name: string) {
@@ -43,8 +52,9 @@ test("a container folds its contents away", { tag: "@inventory.fold" }, async ({
   const box = (await equipRow.locator("button.equip").boundingBox())!;
   const row = (await equipRow.boundingBox())!;
   const name = (await equipRow.locator("button.line .name").boundingBox())!;
-  if (await page.evaluate(() => matchMedia("(pointer: fine) and (min-width: 761px)").matches)) expect(box.x).toBeGreaterThan(name.x + name.width);
-  else expect(box.x - row.x).toBeLessThan(box.width);
+  // The box (a computer) or the tag (a phone) after the name.
+  expect(box.x).toBeGreaterThan(name.x + name.width);
+  expect(box.x + box.width).toBeLessThanOrEqual(row.x + row.width);
   await expect(line(page, "Backpack").locator(".name")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Fold" }).click();
   await expect(line(page, "Ink Pen")).toHaveCount(0);
@@ -129,7 +139,7 @@ test("a monk marks weapons as monk weapons; others are not asked", { tag: "@inve
 
 test("+ Homebrew makes a campaign item from a template and carries it", { tag: "@inventory.homebrew-item" }, async ({ page }) => {
   await openSheet(page, "Inventory");
-  await page.getByRole("button", { name: "+ Homebrew" }).click();
+  await adding(page, "+ Homebrew");
   const menu = page.getByRole("dialog", { name: "A new homebrew item" });
   await menu.getByRole("button").first().click();
   const prompt = page.getByRole("dialog").last();
@@ -141,7 +151,7 @@ test("+ Homebrew makes a campaign item from a template and carries it", { tag: "
 
 /// Add an item from the library through + Add item.
 async function addItem(page: Page, name: string) {
-  await page.getByRole("button", { name: "+ Add item" }).click();
+  await adding(page, "+ Add item");
   await expect(dialog(page, "Add an item")).toBeVisible();
   await pickExactly(page, name);
   await expect(line(page, name)).toBeVisible();
@@ -166,7 +176,7 @@ test("an item is added from the library", { tag: "@inventory.add" }, async ({ pa
 
 test("a quick item is added with its name, what it is, how many and its weight", { tag: ["@inventory.add-custom", "@inventory.quick-item"] }, async ({ page }) => {
   await openSheet(page, "Inventory");
-  await page.getByRole("button", { name: "+ Quick item" }).click();
+  await adding(page, "+ Quick item");
   const quick = dialog(page, "A quick item");
   // A name is needed.
   await quick.getByRole("button", { name: "Add the item" }).click();
@@ -217,12 +227,12 @@ test("armor is worn in a slot, a weapon and a shield held; AC and attacks follow
   // Put away and taken off: back to bare.
   await line(page, "Dagger").click();
   await choose(page, "Dagger", "Put it away");
-  await expect(slot(page, "Main hand")).not.toContainText("Dagger");
+  await expect(page.locator(".equipment")).not.toContainText("Dagger");
   await line(page, "Shield").click();
   await choose(page, "Shield", "Put it away");
   await line(page, "Padded Armor").click();
   await choose(page, "Padded Armor", "Take it off");
-  await expect(slot(page, "Body")).not.toContainText("Padded Armor");
+  await expect(page.locator(".equipment")).not.toContainText("Padded Armor");
   expect(await armorClass(page)).toBe(bare);
   await sheetTab(page, "Overview");
   await expect(page.locator(".attacks .held")).toContainText("nothing");
@@ -336,7 +346,25 @@ test("the box by a line equips it or puts it away; other things have none", { ta
   await expect(slot(page, "Main hand")).toContainText("Quarterstaff");
   await staff.click();
   await expect(staff).toHaveAttribute("aria-checked", "false");
-  await expect(slot(page, "Main hand")).not.toContainText("Quarterstaff");
+  // (A phone shows only what is worn or held.)
+  await expect(page.locator(".equipment")).not.toContainText("Quarterstaff");
   // Nothing to wear or hold: no box.
   await expect(page.getByRole("checkbox", { name: "Equipped: Parchment" })).toHaveCount(0);
+});
+
+test("on a phone, Equipped, Carried and Coins are sections, an item one row", { tag: ["@inventory.phone", "@android"] }, async ({ page }) => {
+  await openSheet(page, "Inventory");
+  // One the wizard does not start with.
+  await addItem(page, "Shortsword");
+  const equipped = page.locator(".pane.equipment");
+  const carried = page.locator(".pane.items");
+  await expect(equipped).toHaveClass(/\bsection\b/);
+  await expect(carried.locator(".aside")).toContainText("lb");
+  // Equipped from its tag: the row moves to Equipped, its hand on it.
+  await expect(carried.locator("button.line", { hasText: "Shortsword" })).toBeVisible();
+  await carried.getByRole("checkbox", { name: "Equipped: Shortsword" }).click();
+  await expect(equipped.getByRole("checkbox", { name: "Equipped: Shortsword" })).toHaveText(/hand/);
+  const row = equipped.locator(".lrow", { hasText: "Shortsword" });
+  expect((await row.boundingBox())!.height).toBeLessThan(44);
+  await expect(page.locator(".pane.coinsec button.coins")).toBeVisible();
 });

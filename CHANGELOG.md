@@ -8,6 +8,70 @@ become the release page.
 
 ## Unreleased
 
+### Added
+
+- Companions: a **Companions** tab for the creatures serving a character
+  (a familiar, a steed, a summoned spirit, followers), each with its own
+  card: hit points, AC, speed, abilities, skills and actions, all rolling
+  in its name. Casting a spell whose rules give a companion asks which
+  creature (and type) it is, at the level it was cast at; features that
+  give one and any creature as a follower are added from the tab.
+- Creatures: the data's creatures (and the SRD 5.2.1's, built in) in the
+  compendium's new Creatures category as stat blocks (narrow enough for a
+  phone), found with `#creature`, `#familiar`, `#beast` or `^0`; data zips
+  made with `scripts/pack-data.sh` take them along.
+- Rules give companions (`[[feature.companion]]`): the creatures allowed,
+  their types, how many, and effects and actions on the companion's
+  sheet that know the owner's stats and the spell's level. The SRD's
+  Find Familiar, Find Steed, Giant Insect, Summon Dragon and Animate
+  Objects have them built in.
+- A book's entry that is the SRD's (its data says so, as the 2024 books'
+  do) has dnt's built-in SRD rules, unless rules of its own replace them:
+  the 2024 Find Familiar gives a familiar, a 2024 Barbarian's Rage counts,
+  without the rules library.
+- The app: a spell with a level has a cast button beside it. With one way
+  to cast it, a tap casts it (the slot spent, the spell rolled); when a
+  higher slot, a pact slot or a ritual is possible, it asks which. A
+  cantrip keeps its roll button.
+- Hit points set by hand: `H` in the terminal app, a tap on the Hit
+  points title in the app (within 0 and the maximum).
+
+### Changed
+
+- The app on a phone or a tablet is redrawn to one compact style: each
+  page starts with a section title on a gold line, no boxes, smaller
+  text and buttons (a part's action on its title line), thin-lined rows,
+  and the roll button at the far right. The Character, Skills, Spells,
+  Inventory, Features, Companions, Notes, Compendium, Data and Campaigns
+  pages, and the menu, all follow it:
+  - Spells: one compact list for every class, filtered by class chips on
+    one line (short names, then coloured letters), with the slots left
+    beside each level and a Spellcasting table for several classes.
+  - Notes: each folder a section with its count and a +, its first notes
+    and the rest a tap away, a note's status or type at its right.
+  - Campaigns: the active one first, what it uses as rows.
+  - The menu: the compendium's categories with their kind's mark.
+- A spell knows where it came from (a class, a feat, an invocation):
+  casting it uses that class's (or that grant's) ability for its DC and
+  attack, and what the grant says it costs.
+- Creatures have their own mark in the compendium (▲), no longer the
+  rules'.
+
+### Fixed
+
+- The 2024 classes from newer data (which names a spell slot column `1`,
+  not `1st`) had no spell slots: a level 1 Wizard could choose no spells.
+- A Wizard's spells to choose are the spells its spellbook still lacks,
+  not the spells it could still prepare: a full spellbook no longer asks
+  for spells the picker cannot offer.
+- Invocations and other options a book shares with the SRD were offered
+  twice (the SRD's and the book's): with the book, only the book's is.
+- A spell a feature gives to cast for free (Pact of the Chain's Find
+  Familiar) is cast without a slot, and summons its companion.
+- A class's level table too wide for a phone is shown a block per level,
+  instead of scrolling sideways (which changed the page instead).
+
+
 ## v1.12.1 - 2026-11-26
 
 ### Changed

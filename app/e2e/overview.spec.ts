@@ -84,15 +84,15 @@ test("on a phone, touching and holding a number explains it without rolling", { 
 });
 
 test("swiping changes the tab, and the tab icons show it", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
-  for (const next of ["Skills", "Spells", "Inventory", "Features"] as const) {
+  for (const next of ["Skills", "Spells", "Inventory", "Features", "Companions"] as const) {
     await swipe(page, page.locator(".sheet > .body"), 0.8, 0.2);
     await expectTab(page, next);
   }
-  // Notes is the character's note, elsewhere: Features is the last swiped to.
+  // Notes is the character's note, elsewhere: Companions is the last swiped to.
   await swipe(page, page.locator(".sheet > .body"), 0.8, 0.2);
-  await expectTab(page, "Features");
+  await expectTab(page, "Companions");
   await swipe(page, page.locator(".sheet > .body"), 0.2, 0.8);
-  await expectTab(page, "Inventory");
+  await expectTab(page, "Features");
 });
 
 test("dragging brings the next tab in beside; short of 18% it slides back, past it the tab opens", { tag: ["@sheet.swipe-tabs", "@android"] }, async ({ page }) => {
@@ -112,4 +112,31 @@ test("dragging brings the next tab in beside; short of 18% it slides back, past 
   });
   await expectTab(page, "Skills");
   await expect(beside).toHaveCount(0);
+});
+
+test("on a phone the rolls are a section folded to its title, the last roll on it", { tag: ["@sheet.rolls-phone", "@android"] }, async ({ page }) => {
+  await expect(page.locator(".rollsec")).toHaveCount(0);
+  await page.locator(".tile", { hasText: "Init" }).click();
+  const title = page.locator(".rollsec .rolltitle");
+  await expect(title).toContainText("Rolls");
+  await expect(title.locator(".last")).toContainText("Initiative");
+  await expect(page.locator(".rollsec .rrow")).toHaveCount(0);
+  await title.click();
+  await expect(page.locator(".rollsec .rrow")).toHaveCount(1);
+  await expect(page.locator(".rollsec .rrow")).toContainText("Initiative");
+});
+
+test("on a phone the Skills tab is sections on gold lines, the rolls at the right", { tag: ["@sheet.skills-phone", "@android"] }, async ({ page }) => {
+  await sheetTab(page, "Skills");
+  const abilities = page.locator(".pane.abilities");
+  await expect(abilities).toHaveClass(/\bsection\b/);
+  expect(await abilities.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  // The columns' names on its line (the spell DC is the Spells tab's).
+  await expect(abilities.locator(".aside")).toContainText("check");
+  await expect(abilities.locator(".aside")).not.toContainText("DC");
+  // A skill: its roll at the right of its row.
+  const stealth = page.locator("button.skill", { hasText: "Stealth" });
+  const [row, box] = [(await stealth.boundingBox())!, (await stealth.locator(".rollbox").boundingBox())!];
+  expect(row.x + row.width - (box.x + box.width)).toBeLessThan(4);
+  expect(row.height).toBeLessThan(44);
 });

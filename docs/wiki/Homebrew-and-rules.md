@@ -10,7 +10,9 @@
 ## Rules
 
 A sheet knows a feature's numbers when there are rules for it. dnt ships
-rules for the SRD 5.2.1; rules for other books (the 2014 and 2024
+rules for the SRD 5.2.1; a book's entry that is the SRD's (its data says
+so, as the 2024 books' do) has those rules too, unless rules of its own
+replace them. Rules for the rest of other books (the 2014 and 2024
 Player's Handbooks, …) are in the [rules library](#the-rules-library).
 Features with rules show `auto` in the Features tab. For anything else, write them: the feature's *rules* button
 (`O` in the terminal). The check shows what they change as you type.
@@ -186,6 +188,35 @@ its rules: it has rules of its own, which name it.
 id = "classFeature:Rage|Barbarian|XPHB|1"
 class = "Shaman|WoW"                   # the class these rules are for
 ```
+
+A rule can give companions (the **Companions** tab): one creature, or the
+creatures a filter picks (`creature.cr`, `creature.beast` and the other
+types, `creature.familiar`, `creature.summon`, `creature.size`), the types
+to choose from, and how many at once (`count`). Its effects and actions
+are the companion's: their formulas know its stats, yours as
+`owner.<stat>` (`owner.prof`, `owner.spell.attack`, `owner.spell.dc`),
+`spell_level`, and its chosen type (`creature.fey`).
+
+```toml
+[[feature]]
+id = "spell:Find Steed|SRD52"
+[[feature.companion]]
+kind = "Steed"
+creature = "creature:Otherworldly Steed|SRD52"
+types = ["celestial", "fey", "fiend"]
+[[feature.companion.effect]]
+target = "ac"
+set = "10 + spell_level"
+[[feature.companion.action]]
+name = "Otherworldly Slam (Fey)"
+attack = "owner.spell.attack"
+damage = "dice(1, 8) + spell_level"
+damage_type = "psychic"
+when = "creature.fey"
+```
+
+A stat block's own attacks (`{@hit 4}`, `{@damage 1d6 + 2}`, `{@dc 13}`)
+roll without rules.
 
 ### The rules library
 

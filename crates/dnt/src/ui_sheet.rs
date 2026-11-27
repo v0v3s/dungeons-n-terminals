@@ -234,12 +234,16 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
         Tab::Features => draw_features(frame, body, lib, overlays, sheet, theme),
         Tab::Inventory => draw_inventory(frame, body, lib, sheet, theme),
         Tab::Spells => draw_spells(frame, body, lib, sheet, theme),
+        Tab::Companions => crate::ui_companions::draw(frame, body, lib, overlays, sheet, theme),
         Tab::Notes => draw_character_note(frame, body, sheet, theme),
     }
 
     // The rules editor keeps its scroll state, so it draws from the sheet.
     if let Some(Popup::Overlay(ed)) = sheet.popup.as_mut() {
         draw_overlay_editor(frame, body, ed, theme);
+        return;
+    }
+    if crate::ui_companions::draw_popup(frame, area, lib, sheet, theme) {
         return;
     }
     match sheet.popup.clone() {
@@ -318,7 +322,7 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
             );
         }
         Some(Popup::LevelUp(flow)) => draw_levelup(frame, area, &flow, theme),
-        Some(Popup::SpellPick(picker, _)) | Some(Popup::Cast(picker, _)) => {
+        Some(Popup::SpellPick(picker, _)) | Some(Popup::Cast(picker, ..)) => {
             let rows = picker.items.len() as u16 + 7;
             let rect = centered(area, 84.min(area.width), area.height.saturating_sub(4).min(28).min(rows.max(10)));
             frame.render_widget(Clear, rect);
@@ -445,6 +449,13 @@ fn draw_sheet(frame: &mut Frame, area: Rect, lib: &Library, overlays: &OverlaySe
                 rect,
             );
         }
+        Some(
+            Popup::CompanionPick(..)
+            | Popup::CompanionInput(..)
+            | Popup::CompanionConditions(..)
+            | Popup::RemoveCompanion(_)
+            | Popup::StatBlock(..),
+        ) => {}
         Some(Popup::RemoveTracker(_, name)) => {
             let rect = centered(area, 56, 5);
             frame.render_widget(Clear, rect);
@@ -583,7 +594,7 @@ fn flow_total_hint(flow: &crate::levelup::LevelUp) -> String {
     }
 }
 
-fn centered(area: Rect, w: u16, h: u16) -> Rect {
+pub(crate) fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let [row] = Layout::vertical([Constraint::Length(h)]).flex(Flex::Center).areas(area);
     let [rect] = Layout::horizontal([Constraint::Length(w.min(area.width))]).flex(Flex::Center).areas(row);
     rect
@@ -1318,12 +1329,9 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                 let lvl = spells::spell_level(lib, e);
                 // What it deals (or heals) at its own level.
                 let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
-                let caster = match row {
-                    Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.as_str()),
-                    _ => None,
-                };
+                let origin = row.origin(&data.casters, &sheet.session.build.granted);
                 let modifier = {
-                    let (_, dc) = dnt_core::rolls::spell_numbers(sheet, caster);
+                    let (_, dc) = dnt_core::rolls::spell_numbers(sheet, origin.as_deref());
                     dc - 8 - ev.int("prof").unwrap_or(2)
                 };
                 let dice = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() });
@@ -1412,8 +1420,7 @@ fn draw_spells(frame: &mut Frame, area: Rect, lib: &Library, sheet: &mut Sheet, 
                     Grant::Innate(None) => "at will".to_string(),
                     Grant::Innate(Some(n)) => {
                         let name = resolve_id(lib, id).map(|e| lib.entity(e).name.clone()).unwrap_or_default();
-                        let key = format!("innate_{}", dnt_rules::class_table::slug(&name));
-                        format!("{}/{n} free", play::resource_left(ch, ev, &key))
+                        format!("{}/{n} free", play::resource_left(ch, ev, &dnt_core::spellbook::innate_key(&name)))
                     }
                     Grant::Resource { name, cost } => Grant::resource_text(name, *cost),
                 };

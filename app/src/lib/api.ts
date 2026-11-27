@@ -1,7 +1,7 @@
 // The commands of the Rust side (app/src-tauri/src), typed.
 import { invoke } from "@tauri-apps/api/core";
 
-export type Group = "spell" | "class" | "feature" | "species" | "background" | "feat" | "item" | "rule";
+export type Group = "spell" | "class" | "feature" | "species" | "background" | "feat" | "item" | "creature" | "rule";
 
 export const GLYPH: Record<Group, string> = {
   spell: "✦",
@@ -11,6 +11,7 @@ export const GLYPH: Record<Group, string> = {
   background: "■",
   feat: "★",
   item: "♦",
+  creature: "▲",
   rule: "¶",
 };
 
@@ -142,7 +143,8 @@ export interface Row {
 export interface Found {
   rows: Row[];
   total: number;
-  categories: [string, number][];
+  /// (label, count, its kinds' colour group: "all" for All).
+  categories: [string, number, Group | "all"][];
   category: number;
   hints: [string, string][];
   suggestions: [string, number][];
@@ -377,8 +379,9 @@ export type SpellRow =
       free: boolean;
       target: Target | null;
       class_id: string | null;
-      /// The casting class, for a class spell's attack and DC.
-      caster: string | null;
+      /// Where the character has it: the casting class or the feature, for
+      /// its attack and DC and how it is cast.
+      origin: string | null;
       in_favorites: boolean;
       /// What a cast without a slot spends, when a resource pays for it.
       cost: string | null;
@@ -431,12 +434,84 @@ export interface Sheet {
   features: { title: string; features: Feature[] }[];
   spells: SpellRow[];
   inventory: Inventory;
+  companions: Companions;
 }
+
+export interface Companions {
+  list: CompanionCard[];
+  /// What gives companions, and what each may be.
+  givers: Giver[];
+}
+
+export interface CompanionCard {
+  index: number;
+  name: string;
+  creature: string;
+  creature_id: string;
+  /// Its creature, to show its stat block.
+  entity: number | null;
+  /// `Familiar`, or `Follower` for one nothing gives.
+  kind: string;
+  type_line: string;
+  away: boolean;
+  /// Null: its creature is not in the data.
+  numbers: CompanionNumbers | null;
+  conditions: string[];
+  notes: string;
+}
+
+export interface CompanionNumbers {
+  hp: number;
+  hp_max: number;
+  temp_hp: number;
+  ac: number;
+  initiative: number;
+  speed: string;
+  abilities: { key: string; score: number; modifier: number; save: number }[];
+  skills: { key: string; name: string; bonus: number }[];
+  passive_perception: number;
+  senses: string;
+  languages: string;
+  cr: string | null;
+  actions: CompanionAction[];
+}
+
+export interface CompanionAction {
+  name: string;
+  section: string;
+  attack: number | null;
+  save: string | null;
+  dc: number | null;
+  damage: string | null;
+  heal: string | null;
+}
+
+export interface Giver {
+  id: string;
+  name: string;
+  kind: string;
+  /// [id, name, challenge rating]
+  creatures: [string, string, string][];
+  types: string[];
+  most: number;
+  have: number;
+  spell_level: number | null;
+}
+
+/// What a companion rolls.
+export type CompanionRoll =
+  | { roll: "ability"; key: string }
+  | { roll: "save"; key: string }
+  | { roll: "skill"; key: string }
+  | { roll: "initiative" }
+  | { roll: "action"; name: string };
 
 export interface Outcome {
   message: string;
   changed: boolean;
   rolled: Rolled | null;
+  /// A cast spell that gives a companion: ask for it.
+  summon: { giver: Giver; spell_level: number } | null;
 }
 
 export interface Done {
@@ -500,16 +575,18 @@ export type Roll =
   | { type: "skill"; key: string }
   | { type: "initiative" }
   | { type: "attack"; slug: string }
-  | { type: "spell"; id: string; caster?: string | null }
-  | { type: "custom"; text: string };
+  | { type: "spell"; id: string; origin?: string | null }
+  | { type: "custom"; text: string }
+  | { type: "companion"; index: number; roll: CompanionRoll };
 
 export type Wanted =
   | { type: "items" }
+  | { type: "creatures"; giver?: string | null }
   | { type: "wear"; line: number }
   | { type: "containers"; line: number }
   | { type: "class_spells"; class_id: string; all?: boolean }
   | { type: "grant_spells"; key: string; filter: string; missing: number }
-  | { type: "cast"; id: string }
+  | { type: "cast"; id: string; origin?: string | null }
   | { type: "mastery" };
 
 export type Question =
@@ -599,6 +676,8 @@ export interface NoteRow {
   name: string;
   is_dir: boolean;
   depth: number;
+  /// A note's status, else its type.
+  kind: string | null;
 }
 
 export interface Note {

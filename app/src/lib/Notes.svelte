@@ -61,6 +61,14 @@
   async function loadTree() {
     try {
       rows = await api.noteTree(expanded);
+      // A phone or a tablet shows each top-level folder as a section: open.
+      if (!desktop.current) {
+        const shut = rows.filter((r) => r.depth === 0 && r.is_dir && !expanded.includes(r.path)).map((r) => r.path);
+        if (shut.length) {
+          expanded = [...expanded, ...shut];
+          rows = await api.noteTree(expanded);
+        }
+      }
     } catch (e) {
       error = String(e);
     }
@@ -172,8 +180,7 @@
     };
   }
 
-  function newFolder() {
-    const parent = folder();
+  function newFolder(parent = folder()) {
     dialog = {
       kind: "prompt",
       title: parent ? `New folder in ${parent}` : "New folder",
@@ -233,8 +240,46 @@
   }
 
   function treeMenu() {
+    // A phone or a tablet: a folder's own menu is on its title.
+    if (!desktop.current) {
+      dialog = { kind: "menu", title: "Notes", actions: [["New folder", () => newFolder("")], ["Today's session note", session]] };
+      return;
+    }
     dialog = { kind: "menu", title: selected ? short(selected) : "Notes", actions: treeActions() };
   }
+
+  /// A folder section's title tapped (a phone or a tablet): what is done in
+  /// it and to it.
+  function folderMenu(f: string) {
+    dialog = {
+      kind: "menu",
+      title: short(f),
+      actions: [[`New note in ${short(f)}`, () => newNote(f)], [`New folder in ${f}`, () => newFolder(f)], ...folderActions(f).slice(0, -1)],
+    };
+  }
+
+  /// A phone's or a tablet's folders as sections: the notes at the top
+  /// level, each folder with what is in it (the first few, the rest on a
+  /// tap), and the empty folders on one line.
+  const FEW = 3;
+  let more: string[] = $state([]);
+  type Group = { dir: api.NoteRow; items: (api.NoteRow & { rank: number })[]; count: number };
+  const sections = $derived.by(() => {
+    const tops: api.NoteRow[] = [];
+    const groups: Group[] = [];
+    let g: Group | null = null;
+    for (const r of rows) {
+      if (r.depth === 0) {
+        g = r.is_dir ? { dir: r, items: [], count: 0 } : null;
+        if (g) groups.push(g);
+        else tops.push(r);
+      } else if (g) {
+        if (r.depth === 1) g.count++;
+        g.items.push({ ...r, rank: g.count - 1 });
+      }
+    }
+    return { tops, groups: groups.filter((x) => x.count), empty: groups.filter((x) => !x.count).map((x) => x.dir) };
+  });
 
   /// What the tree's ⋯ does: a new folder, today's session note, and with a
   /// folder chosen its own actions (on a computer, buttons in sight too).
@@ -244,8 +289,7 @@
   }
 
   /// What is done to the chosen folder itself.
-  function folderActions(): [string, () => void][] {
-    const f = selected;
+  function folderActions(f = selected): [string, () => void][] {
     if (!f) return [];
     return [
       [`Rename ${short(f)}`, () => renameFolder(f)],
@@ -439,6 +483,18 @@
   });
 </script>
 
+{#snippet noteBar()}
+  <!-- A phone's or a tablet's note: read or edit, Save, ⋯ on its title line. -->
+  <span class="ntools">
+    <span class="seg">
+      <button class:on={!editing} onclick={async () => (await save(), (editing = false))}>read</button>
+      <button class:on={editing} onclick={() => (editing = true)}>edit</button>
+    </span>
+    {#if dirty}<button class="primary" onclick={saveAndRead}>Save</button>{/if}
+    <button class="ghost" onclick={noteMenu} aria-label="More">⋯</button>
+  </span>
+{/snippet}
+
 {#snippet tools()}
   <!-- Making something new: + Note (in the chosen folder), a quick note,
        a folder, today's session note, and ⋯. On a computer at the top of
@@ -468,15 +524,62 @@
   {#if !status.campaign}
     <Pane title="Notes" focused><p>Create or activate a campaign first (Campaigns).</p></Pane>
   {:else}
-    <Pane title="Notes · {status.campaign}" class="tree">
-      {#if !desktop.current}{@render tools()}{/if}
-      <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
+    <Pane title="Notes · {status.campaign}" class="tree" section={!desktop.current}>
+      <div class="searchline">
+        <label class="search"><span>❯</span><input bind:value={query} oninput={find} placeholder="search notes" spellcheck="false" /></label>
+        {#if !desktop.current}
+          <!-- A phone or a tablet: + note (at the top level; a folder's own
+               is on its title), a quick note and ⋯ on the search's line. -->
+          <span class="ptools" role="toolbar" aria-label="Notes">
+            <button class="ghost" onclick={() => newNote("")}>+ note</button>
+            <button class="ghost" onclick={capture}>quick note</button>
+            <button class="ghost" onclick={treeMenu} aria-label="More">⋯</button>
+          </span>
+        {/if}
+      </div>
       <div class="rows">
         {#if found}
           {#each found as [path, title] (path)}
             <button class="row" onclick={() => open(path)}><span class="dim">·</span> {title} <span class="dim path">{path}</span></button>
           {/each}
           {#if !found.length}<p class="dim">Nothing matches.</p>{/if}
+        {:else if !desktop.current}
+          {#snippet item(r: api.NoteRow, depth: number)}
+            <button
+              class="row"
+              class:dir={r.is_dir}
+              class:current={note?.path === r.path}
+              style:padding-left="{depth * 2}ch"
+              onclick={() => (r.is_dir ? toggle(r.path) : open(r.path))}
+            >
+              {#if r.is_dir}<span class="acc">{expanded.includes(r.path) ? "▾" : "▸"}</span>{/if}
+              <span class="name">{r.name}</span>
+              {#if r.kind}<span class="kind" class:open={r.kind === "active" || r.kind === "open"}>{r.kind}</span>{/if}
+            </button>
+          {/snippet}
+          {#each sections.tops as r (r.path)}{@render item(r, 0)}{/each}
+          {#each sections.groups as g (g.dir.path)}
+            {@const all = more.includes(g.dir.path)}
+            <div class="fsec">
+              <div class="fhead">
+                <button class="dir" onclick={() => folderMenu(g.dir.path)}>{g.dir.name}</button>
+                <span class="count">{g.count}</span>
+                <button class="ghost plus" aria-label="New note in {g.dir.name}" onclick={() => newNote(g.dir.path)}>+</button>
+              </div>
+              {#each g.items.filter((r) => all || r.rank < FEW) as r (r.path)}{@render item(r, r.depth - 1)}{/each}
+              {#if g.count > FEW}
+                <button class="more" onclick={() => (more = all ? more.filter((p) => p !== g.dir.path) : [...more, g.dir.path])}
+                  >{all ? "fewer ▴" : `${g.count - FEW} more ▾`}</button
+                >
+              {/if}
+            </div>
+          {/each}
+          {#if sections.empty.length}
+            <!-- Empty folders: their names on one line, each its menu. -->
+            <div class="fhead empty">
+              {#each sections.empty as d, i (d.path)}{#if i}<span class="dot">·</span>{/if}<button class="dir" onclick={() => folderMenu(d.path)}>{d.name}</button>{/each}
+            </div>
+          {/if}
         {:else}
           {#each rows as r (r.path)}
             {#snippet line()}
@@ -507,9 +610,19 @@
       </div>
     </Pane>
 
-    <Pane title={note ? `${note.path}${dirty ? " ●" : ""}` : "Note"} focused={!!note} class="note">
+    <Pane
+      title={note ? `${desktop.current ? note.path : note.title}${dirty ? " ●" : ""}` : "Note"}
+      focused={!!note}
+      class="note"
+      section={!desktop.current}
+      aside={!desktop.current && note ? noteBar : undefined}
+    >
       {#if desktop.current}{@render tools()}{/if}
-      {#if note}
+      {#if note && !desktop.current}
+        <!-- Where it is: under the title (a computer has it as the title). -->
+        <div class="where">{note.path}</div>
+      {/if}
+      {#if note && desktop.current}
         <div class="ntools">
           {#if !narrow && back.length}<button class="ghost" onclick={stepBack}>‹ back</button>{/if}
           <button class="ghost" class:on={!editing} onclick={async () => (await save(), (editing = false))}>Read</button>
@@ -522,6 +635,8 @@
           {/if}
           <button class="ghost" onclick={noteMenu} aria-label="More">⋯</button>
         </div>
+      {/if}
+      {#if note}
         {#if editing}
           <textarea bind:value={text} oninput={() => (dirty = true)} onbeforeinput={continueList} onblur={save} spellcheck="false"></textarea>
         {:else}
@@ -532,8 +647,8 @@
           <div class="read" onclick={onread}>{@html render(text)}</div>
           {#each note.queries as q, i (i)}
             <div class="query">
-              <div class="qtitle"><span class="acc">{q.title}</span> <span class="dim">· {q.results.length}</span></div>
-              {#if !q.results.length}<div class="dim">Nothing yet.</div>{/if}
+              <div class="qtitle"><span class="acc">{q.title}</span> <span class="dim">{desktop.current ? "· " : ""}{q.results.length}</span></div>
+              {#if !q.results.length && desktop.current}<div class="dim">Nothing yet.</div>{/if}
               {#each q.results as [path, title] (path)}<button onclick={() => open(path)}>{title}</button>{/each}
             </div>
           {/each}
@@ -1015,6 +1130,187 @@
     }
     .menu button {
       min-height: 48px;
+    }
+  }
+  .searchline {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .searchline .search {
+    flex: 1;
+    min-width: 0;
+  }
+  /* A phone or a tablet: the folders as sections, the search a prompt line
+     with + note, quick note and ⋯ on it; 36 px rows with a thin line; a
+     note a section with read/edit, Save and ⋯ on its title line. */
+  @media not ((pointer: fine) and (min-width: 761px)) {
+    .searchline {
+      min-height: 34px;
+      margin-bottom: 0.3rem;
+    }
+    .search {
+      border: 0;
+      margin: 0;
+      padding: 0;
+      align-items: center;
+    }
+    .search span {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .search input {
+      border-bottom: 1px solid var(--border);
+      padding: 4px 0;
+    }
+    .search input:focus {
+      border-bottom-color: var(--accent);
+    }
+    .ptools {
+      display: flex;
+      gap: 0.3rem;
+      flex-shrink: 0;
+    }
+    .ptools button,
+    .plus,
+    .ntools button {
+      min-height: 26px;
+      height: 26px;
+      padding: 0 0.6rem;
+      font-size: 0.85em;
+      white-space: nowrap;
+    }
+    .notes .row {
+      min-height: 38px;
+      align-items: center;
+      gap: 0.8ch;
+      border-top: 0;
+      border-bottom: 1px solid var(--raised);
+      padding-right: 0;
+      border-radius: 0;
+    }
+    .row .name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row.dir {
+      font-weight: 400;
+      color: var(--accent);
+    }
+    .kind {
+      color: var(--dim);
+      font-size: 0.85em;
+    }
+    .kind.open {
+      color: var(--green);
+    }
+    .fsec {
+      margin-top: 0.8rem;
+    }
+    .fhead {
+      display: flex;
+      align-items: center;
+      gap: 0.6ch;
+      min-height: 32px;
+      border-bottom: 1px solid rgb(224 175 104 / 0.55);
+    }
+    .fhead .dir {
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      font-weight: 700;
+      font-size: 1.1em;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .fhead .count {
+      color: var(--dim);
+      font-size: 0.9em;
+      flex: 1;
+    }
+    .fhead.empty {
+      margin-top: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .fhead.empty .dir {
+      font-weight: 400;
+      font-size: 1em;
+    }
+    /* The text as long as it is: the lists follow it. */
+    .read {
+      flex: none;
+      overflow: visible;
+    }
+    .query {
+      margin-top: 0.8rem;
+    }
+    .fhead .dot {
+      color: var(--dim);
+    }
+    .more {
+      background: none;
+      border: 0;
+      padding: 0;
+      min-height: 30px;
+      color: var(--dim);
+      font-size: 0.85em;
+      cursor: pointer;
+    }
+    .where {
+      color: var(--dim);
+      font-size: 0.85em;
+      margin-bottom: 0.4rem;
+    }
+    .ntools {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin: 0;
+      flex-wrap: nowrap;
+    }
+    .seg {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .seg button {
+      height: 24px;
+      min-height: 24px;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      color: var(--fg);
+      cursor: pointer;
+    }
+    .seg button.on {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .query {
+      border-top: 0;
+      padding-top: 0;
+      align-items: stretch;
+    }
+    .qtitle {
+      display: flex;
+      gap: 0.6ch;
+      align-items: baseline;
+      font-weight: 700;
+      border-bottom: 1px solid rgb(224 175 104 / 0.3);
+      padding-bottom: 0.2rem;
+    }
+    .qtitle .dim {
+      font-weight: 400;
+      font-size: 0.9em;
+    }
+    .query button {
+      min-height: 36px;
+      border-bottom: 1px solid var(--raised);
+      color: var(--fg);
     }
   }
 </style>

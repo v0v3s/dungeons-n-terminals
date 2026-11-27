@@ -78,6 +78,8 @@ test("the menu reaches inside a section: a category, the open character's tab, a
   await expect(inside("characters")).toHaveCount(0);
   await page.getByRole("button", { name: "What is in Characters" }).click();
   await page.getByRole("button", { name: "What is in Compendium" }).click();
+  // Each category with its kind's mark, as the compendium's rows.
+  await expect(inside("compendium").filter({ hasText: "Spells" }).locator(".mark")).toHaveText("✦");
   // From the compendium straight to the character's spells.
   await inside("characters").filter({ has: page.getByText("Spells", { exact: true }) }).click();
   await expectTab(page, "Spells");
@@ -85,8 +87,10 @@ test("the menu reaches inside a section: a category, the open character's tab, a
   await menu();
   await inside("compendium").nth(2).click();
   await expect(page.locator(".categories select")).toHaveValue("2");
-  // The character's note, from the menu too.
+  // The character's note, from the menu too: past the first few tabs.
   await menu();
+  await expect(inside("characters").filter({ has: page.getByText("Notes", { exact: true }) })).toHaveCount(0);
+  await page.getByRole("button", { name: "More in Characters" }).click();
   await inside("characters").filter({ has: page.getByText("Notes", { exact: true }) }).click();
   await expect(page.locator(".note")).toContainText("Tester.md");
   // A tab of Data.
