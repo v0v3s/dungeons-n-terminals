@@ -9,8 +9,9 @@ use dnt_rules::conditions::{self, RollKind};
 use dnt_rules::formula::{Env, Formula};
 use dnt_rules::overlay::ActionRule;
 use dnt_rules::roll::{self, Advantage, DamageRules, Rng};
-use dnt_rules::standard::ABILITIES;
+use dnt_rules::standard::{ABILITIES, SKILLS};
 use dnt_rules::{Evaluation, Value};
+use serde::{Deserialize, Serialize};
 
 use crate::session::CharacterSession;
 
@@ -244,12 +245,25 @@ pub fn attack(sheet: &mut CharacterSession, a: &Attack) -> Rolled {
 /// temporary hit points it gives; then its damage (doubled dice on a
 /// natural 20) or healing.
 pub fn action(sheet: &mut CharacterSession, a: &ActionRule) -> Rolled {
-    let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
     let ev = sheet.ev.clone();
+    let m = if a.attack.is_some() { Some(mode(sheet, RollKind::Attack)) } else { None };
+    action_roll(sheet, &ev, a, a.name.clone(), m)
+}
+
+/// An action's roll with the numbers in `ev` (the character's or a
+/// companion's), its attack in mode `m`.
+fn action_roll(
+    sheet: &mut CharacterSession,
+    ev: &Evaluation,
+    a: &ActionRule,
+    title: String,
+    m: Option<(Advantage, Vec<String>)>,
+) -> Rolled {
+    let key = |part: &str| format!("action.{}.{part}", dnt_rules::class_table::slug(&a.name));
     let mut critical = false;
     let (result, mut detail_text, crit) = if a.attack.is_some() {
         let bonus = ev.int(&key("attack")).unwrap_or(0);
-        let (m, why) = mode(sheet, RollKind::Attack);
+        let (m, why) = m.unwrap_or_default();
         let r = roll::d20(&mut sheet.roller.rng, bonus, m);
         critical = r.natural_20();
         let hit = match (critical, r.natural_1()) {
@@ -267,17 +281,75 @@ pub fn action(sheet: &mut CharacterSession, a: &ActionRule) -> Rolled {
     };
     let mut extra = Vec::new();
     let rules = DamageRules { critical, ..Default::default() };
-    if let Some(d) = roll_stat(&mut sheet.roller.rng, &ev, &key("damage"), rules) {
+    if let Some(d) = roll_stat(&mut sheet.roller.rng, ev, &key("damage"), rules) {
         let kind = a.damage_type.as_deref().map_or(String::new(), |t| format!(" {t}"));
         extra.push(format!("{}{kind} damage ({})", d.total, d.describe()));
     }
-    if let Some(d) = roll_stat(&mut sheet.roller.rng, &ev, &key("heal"), DamageRules::default()) {
+    if let Some(d) = roll_stat(&mut sheet.roller.rng, ev, &key("heal"), DamageRules::default()) {
         extra.push(format!("{} healed ({})", d.total, d.describe()));
     }
     if let Some(note) = &a.note {
         detail_text = if detail_text.is_empty() { note.clone() } else { format!("{detail_text} · {note}") };
     }
-    sheet.roller.push(Rolled { title: a.name.clone(), result, detail: detail_text, extra, crit })
+    sheet.roller.push(Rolled { title, result, detail: detail_text, extra, crit })
+}
+
+/// What a companion rolls.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "roll", rename_all = "snake_case")]
+pub enum CompanionRoll {
+    Ability {
+        key: String,
+    },
+    Save {
+        key: String,
+    },
+    Skill {
+        key: String,
+    },
+    Initiative,
+    /// One of its actions, by name.
+    Action {
+        name: String,
+    },
+}
+
+/// Companion `index`'s roll, titled with its name. Its numbers are its
+/// own; the next roll's mode (advantage) applies.
+pub fn companion(sheet: &mut CharacterSession, index: usize, what: &CompanionRoll) -> Result<Rolled, String> {
+    let (comp, ev) = sheet.companion(index)?.clone();
+    let c = &sheet.file.character.companions[index];
+    let who = if c.name.is_empty() { comp.name.clone() } else { c.name.clone() };
+    let chosen = |sheet: &mut CharacterSession| {
+        let next = std::mem::take(&mut sheet.roller.next);
+        let why = if next == Advantage::Normal { Vec::new() } else { vec![format!("{} (chosen)", next.label())] };
+        (next, why)
+    };
+    let d20 = |sheet: &mut CharacterSession, title: String, modifier: i64| {
+        let (m, why) = chosen(sheet);
+        let r = roll::d20(&mut sheet.roller.rng, modifier, m);
+        let crit = r.natural_20().then_some(true).or(r.natural_1().then_some(false));
+        sheet.roller.push(Rolled { title, result: r.total.to_string(), detail: detail(&r, &why), extra: Vec::new(), crit })
+    };
+    Ok(match what {
+        CompanionRoll::Ability { key } => {
+            let m = ev.int(&format!("mod.{key}")).unwrap_or(0) + ev.int("d20.bonus").unwrap_or(0);
+            d20(sheet, format!("{who}: {} check", ability_name(key)), m)
+        }
+        CompanionRoll::Save { key } => {
+            d20(sheet, format!("{who}: {} save", ability_name(key)), ev.int(&format!("save.{key}")).unwrap_or(0))
+        }
+        CompanionRoll::Skill { key } => {
+            let (_, name, _) = SKILLS.iter().find(|(k, _, _)| k == key).ok_or_else(|| format!("No skill {key}"))?;
+            d20(sheet, format!("{who}: {name}"), ev.int(&format!("skill.{key}")).unwrap_or(0))
+        }
+        CompanionRoll::Initiative => d20(sheet, format!("{who}: Initiative"), ev.int("initiative").unwrap_or(0)),
+        CompanionRoll::Action { name } => {
+            let (a, _) = comp.actions.iter().find(|(a, _)| &a.name == name).ok_or_else(|| format!("{who} has no {name}"))?;
+            let m = if a.attack.is_some() { Some(chosen(sheet)) } else { None };
+            action_roll(sheet, &ev, a, format!("{who}: {}", a.name), m)
+        }
+    })
 }
 
 /// A spell: its attack roll or save DC, and its damage or healing at
@@ -328,20 +400,27 @@ pub fn spell(sheet: &mut CharacterSession, lib: &Library, spell: EntityId, slot_
     sheet.roller.push(Rolled { title, result, detail: detail_text, extra, crit })
 }
 
-/// The spell attack bonus and save DC to use: the casting class's (the
-/// best one if there are several), else proficiency and the best
-/// mental ability.
-pub fn spell_numbers(sheet: &CharacterSession, caster_slug: Option<&str>) -> (i64, i64) {
+/// The spell attack bonus and save DC of a spell from `origin` (see
+/// [`crate::spellbook::origin`]): its casting class's, or the ability of
+/// the feature that gives it; else the best casting class's, else
+/// proficiency and the best mental ability.
+pub fn spell_numbers(sheet: &CharacterSession, origin: Option<&str>) -> (i64, i64) {
     let ev = &sheet.ev;
+    let prof = ev.int("prof").unwrap_or(2);
     let of = |slug: &str| Some((ev.int(&format!("spell.{slug}.attack"))?, ev.int(&format!("spell.{slug}.dc"))?));
-    if let Some(n) = caster_slug.and_then(of) {
-        return n;
+    let with = |ab: &str| ev.int(&format!("mod.{ab}")).map(|m| (m + prof, 8 + m + prof));
+    if let Some(origin) = origin {
+        if let Some(n) = sheet.build.classes.iter().find(|c| c.id == origin).and_then(|c| of(&c.slug)) {
+            return n;
+        }
+        if let Some(n) = sheet.build.granted.iter().find(|g| g.key == origin).and_then(|g| with(g.ability.as_deref()?)) {
+            return n;
+        }
     }
     let best = sheet.build.classes.iter().filter_map(|c| of(&c.slug)).max();
     best.unwrap_or_else(|| {
         let m = ["int", "wis", "cha"].iter().filter_map(|a| ev.int(&format!("mod.{a}"))).max().unwrap_or(0);
-        let p = ev.int("prof").unwrap_or(2);
-        (m + p, 8 + m + p)
+        (m + prof, 8 + m + prof)
     })
 }
 

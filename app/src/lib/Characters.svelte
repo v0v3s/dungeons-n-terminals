@@ -21,7 +21,7 @@
     open?: string | null;
     tab?: SheetTab;
     /// The open sheet's actions, for the app bar.
-    actions?: { label: string; name: string; onclick: () => void }[];
+    actions?: { label: string; name: string; onclick: () => void; flag?: boolean }[];
     onnote: (path: string) => void;
   } = $props();
 

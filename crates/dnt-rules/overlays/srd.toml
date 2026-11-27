@@ -518,3 +518,141 @@ id = "classFeature:Mystic Arcanum (level 9 spell)|Warlock|SRD52|17"
 choose = "level=9|class=Warlock"
 grant = "free"
 uses = 1
+
+# ---- Companions ----
+
+[[feature]]
+id = "spell:Find Familiar|SRD52"
+[[feature.companion]]
+kind = "Familiar"
+creatures = "creature.familiar or (creature.beast and creature.cr == 0)"
+types = ["celestial", "fey", "fiend"]
+
+# The steed's numbers grow with the spell's level; its slam's damage type
+# is its creature type's.
+[[feature]]
+id = "spell:Find Steed|SRD52"
+[[feature.companion]]
+kind = "Steed"
+creature = "creature:Otherworldly Steed|SRD52"
+types = ["celestial", "fey", "fiend"]
+[[feature.companion.effect]]
+target = "ac"
+set = "10 + spell_level"
+[[feature.companion.effect]]
+target = "hp.max"
+set = "5 + 10 * spell_level"
+[[feature.companion.effect]]
+target = "prof"
+set = "owner.prof"
+[[feature.companion.effect]]
+target = "speed.fly"
+set = "if(spell_level >= 4, 60, 0)"
+[[feature.companion.action]]
+name = "Otherworldly Slam"
+attack = "owner.spell.attack"
+damage = "dice(1, 8) + spell_level"
+damage_type = "radiant"
+when = "creature.celestial"
+[[feature.companion.action]]
+name = "Otherworldly Slam (Fey)"
+attack = "owner.spell.attack"
+damage = "dice(1, 8) + spell_level"
+damage_type = "psychic"
+when = "creature.fey"
+[[feature.companion.action]]
+name = "Otherworldly Slam (Fiend)"
+attack = "owner.spell.attack"
+damage = "dice(1, 8) + spell_level"
+damage_type = "necrotic"
+when = "creature.fiend"
+[[feature.companion.action]]
+name = "Fell Glare"
+save = "wis"
+dc = "owner.spell.dc"
+note = "Frightened until the end of your next turn; once per long rest"
+when = "creature.fiend"
+[[feature.companion.action]]
+name = "Healing Touch"
+heal = "dice(2, 8) + spell_level"
+note = "once per long rest"
+when = "creature.celestial"
+
+[[feature]]
+id = "spell:Giant Insect|SRD52"
+[[feature.companion]]
+kind = "Giant Insect"
+creature = "creature:Giant Insect|SRD52"
+[[feature.companion.effect]]
+target = "ac"
+set = "11 + spell_level"
+[[feature.companion.effect]]
+target = "hp.max"
+set = "30 + 10 * (spell_level - 4)"
+[[feature.companion.effect]]
+target = "prof"
+set = "owner.prof"
+[[feature.companion.action]]
+name = "Poison Jab"
+attack = "owner.spell.attack"
+damage = "dice(1, 6) + 3 + spell_level"
+damage_type = "piercing"
+note = "plus 1d4 poison; attacks: half the spell's level"
+[[feature.companion.action]]
+name = "Web Bolt"
+attack = "owner.spell.attack"
+damage = "dice(1, 10) + 3 + spell_level"
+damage_type = "bludgeoning"
+note = "spider only; Speed 0 until the insect's next turn"
+[[feature.companion.action]]
+name = "Venomous Spew"
+save = "con"
+dc = "owner.spell.dc"
+note = "centipede only; Poisoned until the insect's next turn"
+
+[[feature]]
+id = "spell:Summon Dragon|SRD52"
+[[feature.companion]]
+kind = "Draconic Spirit"
+creature = "creature:Draconic Spirit|SRD52"
+[[feature.companion.effect]]
+target = "ac"
+set = "14 + spell_level"
+[[feature.companion.effect]]
+target = "hp.max"
+set = "50 + 10 * (spell_level - 5)"
+[[feature.companion.effect]]
+target = "prof"
+set = "owner.prof"
+[[feature.companion.action]]
+name = "Rend"
+attack = "owner.spell.attack"
+damage = "dice(1, 6) + 4 + spell_level"
+damage_type = "piercing"
+note = "Rend attacks: half the spell's level"
+[[feature.companion.action]]
+name = "Breath Weapon"
+save = "dex"
+dc = "owner.spell.dc"
+damage = "dice(2, 6)"
+note = "30-foot Cone; half on a success"
+
+# A Medium or smaller object's numbers (Large and Huge ones hit harder and
+# have more hit points: change them on its sheet).
+[[feature]]
+id = "spell:Animate Objects|SRD52"
+[[feature.companion]]
+kind = "Animated Object"
+creature = "creature:Animated Object|SRD52"
+count = "max(1, spell.mod)"
+[[feature.companion.effect]]
+target = "hp.max"
+set = "10"
+[[feature.companion.effect]]
+target = "prof"
+set = "owner.prof"
+[[feature.companion.action]]
+name = "Slam"
+attack = "owner.spell.attack"
+damage = "dice(1 + spell_level - 5, 4) + 3"
+damage_type = "force"

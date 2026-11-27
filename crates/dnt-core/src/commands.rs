@@ -5,9 +5,9 @@
 
 use dnt_data::Library;
 use dnt_rules::builder::FeatureSource;
-use dnt_rules::character::{Hand, InventoryItem, Slot};
+use dnt_rules::character::{Companion, Hand, InventoryItem, Slot};
 use dnt_rules::overlay::{resolve_id, OverlaySet};
-use dnt_rules::{choices, equipment, play, spells};
+use dnt_rules::{choices, companion, equipment, play, spells};
 use serde::{Deserialize, Serialize};
 
 use crate::rolls::{self, Rolled};
@@ -68,6 +68,10 @@ pub enum Command {
     SetTempHp {
         amount: i64,
     },
+    /// Set the hit points by hand (within 0 and the maximum).
+    SetHp {
+        current: i64,
+    },
     ShortRest,
     LongRest,
     SetCondition {
@@ -82,6 +86,51 @@ pub enum Command {
     /// temporary hit points, and roll it.
     UseAction {
         name: String,
+    },
+
+    // ---- companions (by their index in `companions`) ----
+    /// A companion: a creature (`creature:Owl|XMM`), given by a feature or
+    /// spell (`from`) whose rules allow it, or a follower (no `from`).
+    AddCompanion {
+        creature: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default)]
+        from: Option<String>,
+        #[serde(default)]
+        spell_level: Option<i64>,
+        #[serde(default)]
+        creature_type: Option<String>,
+    },
+    RemoveCompanion {
+        index: usize,
+    },
+    RenameCompanion {
+        index: usize,
+        name: String,
+    },
+    /// Damage (temporary hit points first), or heal when negative.
+    CompanionHp {
+        index: usize,
+        damage: i64,
+    },
+    CompanionTempHp {
+        index: usize,
+        amount: i64,
+    },
+    SetCompanionCondition {
+        index: usize,
+        condition: String,
+        on: bool,
+    },
+    /// Away (dismissed, elsewhere) or back.
+    SetCompanionAway {
+        index: usize,
+        away: bool,
+    },
+    SetCompanionNotes {
+        index: usize,
+        notes: String,
     },
 
     // ---- inventory (lines are indexes into the inventory) ----
@@ -173,11 +222,16 @@ pub enum Command {
         class_id: String,
         id: String,
     },
-    /// Cast a spell `how`: `slot:N`, `pact`, `ritual`, or `free` (an innate
-    /// cast); rolls what the spell rolls.
+    /// Cast a spell `how`: `slot:N`, `pact`, `ritual`, or `free` (the cast
+    /// without a slot its origin gives); rolls what the spell rolls, with
+    /// the numbers of its origin (see [`spellbook::origin`]: the casting
+    /// class or the feature the spell is from; the first one it is in when
+    /// not said).
     Cast {
         id: String,
         how: String,
+        #[serde(default)]
+        origin: Option<String>,
     },
     ToggleFavorite {
         id: String,
@@ -208,11 +262,21 @@ pub struct Outcome {
     pub changed: bool,
     /// A roll the command made (casting a spell that rolls).
     pub rolled: Option<Rolled>,
+    /// A cast spell that gives a companion: what to ask next (the
+    /// creature, its type), and the level it was cast at.
+    #[serde(default)]
+    pub summon: Option<Summon>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Summon {
+    pub giver: crate::companions::Giver,
+    pub spell_level: i64,
 }
 
 impl Outcome {
     fn changed(message: impl Into<String>) -> Outcome {
-        Outcome { message: message.into(), changed: true, rolled: None }
+        Outcome { message: message.into(), changed: true, rolled: None, summon: None }
     }
 }
 
@@ -231,15 +295,21 @@ fn line(session: &CharacterSession, i: usize) -> Result<&InventoryItem, Refused>
 impl CharacterSession {
     /// Apply a command; on success the session is recomputed.
     pub fn apply(&mut self, lib: &Library, overlays: &OverlaySet, command: Command) -> Result<Outcome, Refused> {
+        // A cast knows where its spell is from: the frontends say; else
+        // the first place the character has it.
+        let mut command = command;
+        if let Command::Cast { id, origin: origin @ None, .. } = &mut command {
+            *origin = resolve_id(lib, id).and_then(|e| spellbook::origin(lib, self, e));
+        }
         let cast = match &command {
-            Command::Cast { id, how } => resolve_id(lib, id).map(|e| (e, how.clone(), self.caster_of(lib, id))),
+            Command::Cast { id, how, origin } => resolve_id(lib, id).map(|e| (e, how.clone(), origin.clone())),
             _ => None,
         };
         let action = match &command {
             Command::UseAction { name } => self.build.actions.iter().find(|(a, _)| &a.name == name).map(|(a, _)| a.clone()),
             _ => None,
         };
-        let mut outcome = self.run(lib, command)?;
+        let mut outcome = self.run(lib, overlays, command)?;
         if outcome.changed {
             self.rebuild(lib, overlays);
         }
@@ -248,25 +318,21 @@ impl CharacterSession {
             outcome.message = rolled.line();
             outcome.rolled = Some(rolled);
         }
-        if let Some((spell, how, caster)) = cast.filter(|(e, _, _)| rolls::spell_rolls(lib, *e)) {
-            let (atk, dc) = rolls::spell_numbers(self, caster.as_deref());
+        if let Some((spell, how, _)) = &cast {
+            let spell_level = rolls::cast_level(self, lib, *spell, how);
+            // The spell summons by its own rules, however it was cast.
+            outcome.summon =
+                crate::companions::gives(self, lib, overlays, *spell).into_iter().next().map(|giver| Summon { giver, spell_level });
+        }
+        if let Some((spell, how, origin)) = cast.filter(|(e, _, _)| rolls::spell_rolls(lib, *e)) {
+            let (atk, dc) = rolls::spell_numbers(self, origin.as_deref());
             let level = rolls::cast_level(self, lib, spell, &how);
             outcome.rolled = Some(rolls::spell(self, lib, spell, level, atk, dc));
         }
         Ok(outcome)
     }
 
-    /// The slug of the casting class that has spell `id` (for its attack
-    /// and DC), or `None` for spells from features and items.
-    fn caster_of(&self, lib: &Library, id: &str) -> Option<String> {
-        let mine = &self.file.character.spells.classes;
-        spellbook::rows(lib, self).casters.into_iter().find_map(|c| {
-            let s = mine.get(&c.id)?;
-            s.cantrips.iter().chain(&s.prepared).chain(&s.spellbook).any(|x| x == id).then_some(c.slug)
-        })
-    }
-
-    fn run(&mut self, lib: &Library, command: Command) -> Result<Outcome, Refused> {
+    fn run(&mut self, lib: &Library, overlays: &OverlaySet, command: Command) -> Result<Outcome, Refused> {
         let ev = &self.ev;
         let c = &mut self.file.character;
         Ok(match command {
@@ -310,7 +376,7 @@ impl CharacterSession {
                     return Err("Death saves are made at 0 hit points".into());
                 }
                 let r = rolls::death_save(self);
-                return Ok(Outcome { message: "Death save".into(), changed: true, rolled: Some(r) });
+                return Ok(Outcome { message: "Death save".into(), changed: true, rolled: Some(r), summon: None });
             }
             Command::RollHitDie { faces } => {
                 if c.state.dead {
@@ -323,7 +389,7 @@ impl CharacterSession {
                     return Err(format!("No d{faces} hit die left"));
                 }
                 let r = rolls::hit_die(self, faces);
-                return Ok(Outcome { message: format!("Spent a d{faces} hit die"), changed: true, rolled: Some(r) });
+                return Ok(Outcome { message: format!("Spent a d{faces} hit die"), changed: true, rolled: Some(r), summon: None });
             }
             Command::AddTracker { name, max, recharge } => {
                 let name = name.trim().to_string();
@@ -358,6 +424,13 @@ impl CharacterSession {
             Command::SetTempHp { amount } => {
                 play::set_temp_hp(c, amount);
                 Outcome::changed(format!("Temporary hit points {amount}"))
+            }
+            Command::SetHp { current } => {
+                if c.state.dead {
+                    return Err("Dead: no hit points to set".into());
+                }
+                play::set_hp(c, ev, current);
+                Outcome::changed(format!("Hit points {}/{}", play::current_hp(c, ev), play::max_hp(ev)))
             }
             Command::ShortRest | Command::LongRest => {
                 let long = command == Command::LongRest;
@@ -411,6 +484,98 @@ impl CharacterSession {
                     play::set_temp_hp(c, n);
                 }
                 Outcome::changed(a.name.clone())
+            }
+            Command::AddCompanion { creature, name, from, spell_level, creature_type } => {
+                let id = resolve_id(lib, &creature)
+                    .filter(|&id| lib.entity(id).kind == dnt_data::Kind::Creature)
+                    .ok_or_else(|| format!("No creature {creature}"))?;
+                if let Some(from) = &from {
+                    let giver = resolve_id(lib, from).ok_or_else(|| format!("No {from}"))?;
+                    let rules: Vec<_> = overlays
+                        .for_entity(&lib.entity(giver).key)
+                        .into_iter()
+                        .flat_map(|o| o.companions.iter())
+                        .filter(|r| companion::may_be(r, lib, id))
+                        .collect();
+                    let rule = rules.first().ok_or_else(|| format!("{} cannot be {}", lib.entity(id).name, lib.entity(giver).name))?;
+                    if let Some(t) = &creature_type {
+                        if !rule.types.contains(&t.to_lowercase()) {
+                            return Err(format!("{} cannot be a {t}", rule.kind));
+                        }
+                    }
+                    let vars = companion::owner_vars(ev, &self.build.model.inputs);
+                    let most = match &rule.count {
+                        Some(f) => f.eval(&vars).map_err(|e| e.message)?.as_num().map_or(1, |n| n.floor()),
+                        None => 1,
+                    };
+                    let have = c.companions.iter().filter(|x| x.from.as_deref() == Some(from.as_str()) && !x.away).count() as i64;
+                    if have >= most {
+                        return Err(format!("{} gives {most} at once", lib.entity(giver).name));
+                    }
+                }
+                let shown = if name.is_empty() { lib.entity(id).name.clone() } else { name.clone() };
+                c.companions.push(Companion { name, creature, from, spell_level, creature_type, ..Default::default() });
+                Outcome::changed(format!("{shown} joins"))
+            }
+            Command::RemoveCompanion { index } => {
+                companion_at(c, index)?;
+                let gone = c.companions.remove(index);
+                let name = match gone.name.is_empty() {
+                    true => self.companions.get(index).and_then(|x| x.as_ref()).map_or_else(|| "It".into(), |(s, _)| s.name.clone()),
+                    false => gone.name,
+                };
+                Outcome::changed(format!("{name} leaves"))
+            }
+            Command::RenameCompanion { index, name } => {
+                companion_at(c, index)?.name = name.trim().to_string();
+                Outcome::changed("Renamed")
+            }
+            Command::CompanionHp { index, damage } => {
+                let max = self.companions.get(index).and_then(|x| x.as_ref()).and_then(|(_, e)| e.int("hp.max")).unwrap_or(1);
+                let comp = companion_at(c, index)?;
+                let hp = comp.hp.unwrap_or(max);
+                let hp = if damage >= 0 {
+                    let absorbed = damage.min(comp.temp_hp);
+                    comp.temp_hp -= absorbed;
+                    (hp - (damage - absorbed)).max(0)
+                } else {
+                    (hp - damage).min(max)
+                };
+                comp.hp = (hp < max).then_some(hp);
+                Outcome::changed(format!("{hp}/{max} hit points"))
+            }
+            Command::CompanionTempHp { index, amount } => {
+                let comp = companion_at(c, index)?;
+                comp.temp_hp = amount.max(comp.temp_hp).max(0);
+                Outcome::changed(format!("{} temporary hit points", comp.temp_hp))
+            }
+            Command::SetCompanionCondition { index, condition, on } => {
+                let name = self
+                    .build
+                    .conditions
+                    .iter()
+                    .find(|x| x.levels.is_empty() && x.name.eq_ignore_ascii_case(&condition))
+                    .ok_or_else(|| format!("{condition} is not a condition"))?
+                    .name
+                    .clone();
+                let comp = companion_at(c, index)?;
+                let had = comp.conditions.iter().position(|x| x.eq_ignore_ascii_case(&name));
+                match (had, on) {
+                    (Some(i), false) => {
+                        comp.conditions.remove(i);
+                    }
+                    (None, true) => comp.conditions.push(name.clone()),
+                    _ => {}
+                }
+                Outcome::changed(if on { name } else { format!("No longer {name}") })
+            }
+            Command::SetCompanionAway { index, away } => {
+                companion_at(c, index)?.away = away;
+                Outcome::changed(if away { "Away" } else { "Back" })
+            }
+            Command::SetCompanionNotes { index, notes } => {
+                companion_at(c, index)?.notes = notes;
+                Outcome::changed("Notes saved")
             }
             Command::EndConcentration => match c.state.concentration.take() {
                 Some(name) => Outcome::changed(format!("Stopped concentrating on {name}")),
@@ -473,14 +638,14 @@ impl CharacterSession {
                 let data = item_entity(lib, l).map(|e| &lib.entity(e).data);
                 if data.is_some_and(equipment::is_held) {
                     let shield = data.and_then(equipment::armor_kind) == Some("shield");
-                    return self.run(lib, Command::Hold { line: i, hand: if shield { Hand::Off } else { Hand::Main } });
+                    return self.run(lib, overlays, Command::Hold { line: i, hand: if shield { Hand::Off } else { Hand::Main } });
                 }
                 if l.equipped {
-                    return self.run(lib, Command::TakeOff { line: i });
+                    return self.run(lib, overlays, Command::TakeOff { line: i });
                 }
                 let name = line_name(lib, l);
                 let slot = data.map(|d| equipment::guess_slot(&self.file.character, &name, d)).unwrap_or(Slot::Other);
-                return self.run(lib, Command::Wear { line: i, slot });
+                return self.run(lib, overlays, Command::Wear { line: i, slot });
             }
             Command::Wear { line: i, slot } => {
                 line(self, i)?;
@@ -584,16 +749,19 @@ impl CharacterSession {
                 let on = spellbook::toggle_prepared(c, &spells::casters(lib, &self.build, ev), &class_id, &id)?;
                 Outcome::changed(format!("{} {}", if on { "Prepared" } else { "Unprepared" }, spell_name(lib, &id)))
             }
-            Command::Cast { id, how } => {
+            Command::Cast { id, how, origin } => {
                 let spell = resolve_id(lib, &id).ok_or_else(|| format!("Unknown spell {id}"))?;
-                // A spell cast with a resource (Soul Fragments): spend it,
-                // if the character's rules track it.
-                let paid = self.build.granted.iter().flat_map(|g| &g.grants).find_map(|g| match g {
-                    spells::Granted::Spell { id: s, grant: spells::Grant::Resource { name, cost } } if *s == id => Some((name, *cost)),
-                    _ => None,
-                });
-                match paid {
-                    Some((name, cost)) if how == "free" => {
+                if how != "free" {
+                    return Ok(Outcome::changed(spellbook::cast(lib, c, ev, spell, &how)?));
+                }
+                // Without a slot: as the spell's origin allows.
+                let grant = origin.as_deref().and_then(|o| spellbook::grant_of(lib, &self.build.granted, c, o, spell));
+                match grant {
+                    Some(spells::Grant::Innate(None)) => Outcome::changed(spellbook::cast(lib, c, ev, spell, "ritual")?),
+                    Some(spells::Grant::Innate(Some(_))) => Outcome::changed(spellbook::cast(lib, c, ev, spell, "free")?),
+                    // A resource pays (Soul Fragments), if the character's
+                    // rules track it.
+                    Some(spells::Grant::Resource { name, cost }) => {
                         let plural = format!("{name}s");
                         let tracked = self.build.resources.iter().map(|(r, _)| r).find(|r| {
                             let n = r.name.to_lowercase();
@@ -605,9 +773,9 @@ impl CharacterSession {
                             }
                         }
                         let msg = spellbook::cast(lib, c, ev, spell, "ritual")?;
-                        Outcome::changed(format!("{msg} ({})", spells::Grant::resource_text(name, cost)))
+                        Outcome::changed(format!("{msg} ({})", spells::Grant::resource_text(&name, cost)))
                     }
-                    _ => Outcome::changed(spellbook::cast(lib, c, ev, spell, &how)?),
+                    _ => return Err(format!("{} needs a slot", lib.entity(spell).name)),
                 }
             }
             Command::ToggleFavorite { id } => {
@@ -635,6 +803,10 @@ impl CharacterSession {
             }
         })
     }
+}
+
+fn companion_at(c: &mut dnt_rules::character::Character, index: usize) -> Result<&mut Companion, String> {
+    c.companions.get_mut(index).ok_or_else(|| "No such companion".into())
 }
 
 #[cfg(test)]
@@ -821,9 +993,9 @@ tools = ["Navigator's Tools"]
         let file = CharacterFile { slug: "a".into(), path: "/tmp/a.toml".into(), character: c };
         let s = CharacterSession::new(file, &lib, &OverlaySet::default(), &Default::default());
 
-        let wiz = s.caster_of(&lib, "spell:Bolt|T");
-        assert_eq!(wiz.as_deref(), Some(s.build.classes[0].slug.as_str()), "the Wizard's cantrip");
-        assert_eq!(s.caster_of(&lib, "spell:Other|T"), None);
+        let bolt = lib.get(&dnt_data::Key::new(dnt_data::Kind::Spell, &["Bolt", "T"])).unwrap();
+        let wiz = spellbook::origin(&lib, &s, bolt);
+        assert_eq!(wiz.as_deref(), Some("class:Wiz|T"), "the Wizard's cantrip");
         let (own, best) = (rolls::spell_numbers(&s, wiz.as_deref()), rolls::spell_numbers(&s, None));
         assert_eq!(own.1 + 4, best.1, "Int 10 rather than Cha 18: {own:?} vs {best:?}");
     }
@@ -843,9 +1015,9 @@ tools = ["Navigator's Tools"]
         assert_eq!(added.message, "Added Alarm, Bless");
         assert_eq!(s.character().spells.chosen["feat:X|T#0"].len(), 2);
 
-        let cast = s.apply(&lib, o, Command::Cast { id: "spell:Alarm|T".into(), how: "ritual".into() }).unwrap();
+        let cast = s.apply(&lib, o, Command::Cast { id: "spell:Alarm|T".into(), how: "ritual".into(), origin: None }).unwrap();
         assert_eq!(cast.message, "Cast Alarm");
-        assert!(s.apply(&lib, o, Command::Cast { id: "spell:Bless|T".into(), how: "slot:1".into() }).is_err(), "no slots");
+        assert!(s.apply(&lib, o, Command::Cast { id: "spell:Bless|T".into(), how: "slot:1".into(), origin: None }).is_err(), "no slots");
 
         assert!(s.apply(&lib, o, Command::ToggleFavorite { id: "spell:Bless|T".into() }).unwrap().message.contains("is a favorite"));
         assert!(s.apply(&lib, o, Command::RemoveSpell { from: to.clone(), id: "spell:Bless|T".into() }).is_ok());

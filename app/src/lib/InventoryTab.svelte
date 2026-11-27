@@ -134,6 +134,32 @@
   }
 
   const mark = (l: Line) => (l.attuned ? "★" : l.needs_attunement ? "☆" : "");
+
+  // ---- a phone: Equipped, Carried, Coins ----
+  /// Where an equipped item is, short, for its tag: its slot or its hand.
+  function tag(l: Line): string {
+    if (l.held) return inv.main_hand?.[0] === l.index ? "Main hand" : inv.off_hand?.[0] === l.index ? "Off hand" : "Held";
+    if (l.worn) return inv.worn.find((w) => w.items.some(([i]) => i === l.index))?.label ?? "Worn";
+    return "equip";
+  }
+  /// What is worn or held (with what is in it), and the rest.
+  const groups = $derived.by(() => {
+    const equipped: Line[] = [];
+    const carried: Line[] = [];
+    let inEquipped = false;
+    for (const l of shown) {
+      if (l.depth === 0) inEquipped = l.worn || l.held;
+      (inEquipped ? equipped : carried).push(l);
+    }
+    return { equipped, carried };
+  });
+  function addMenu() {
+    ctx.menu("Add", [
+      ["+ Add item", () => add()],
+      ["+ Quick item", () => custom()],
+      ["+ Homebrew", homebrew],
+    ]);
+  }
 </script>
 
 {#snippet equip(l: Line)}
@@ -147,7 +173,48 @@
   >
 {/snippet}
 
+<!-- A phone: an item's row: its name (its menu), its place or "equip"
+     (a tap equips it or puts it away), how many, its weight. -->
+{#snippet row(l: Line, slot: boolean)}
+  {@const i = inv.lines.indexOf(l)}
+  <div class="lrow prow" class:slot style:padding-left="{l.depth * 2}ch">
+    <button class="line" onclick={() => menu(l)}>
+      <span class="name" class:container={l.fill !== null}>{l.name}{#if mark(l)} <span class="mark" class:dim={!l.attuned}>{mark(l)}</span>{/if}{#if l.description}<span class="desc dim">{l.description}</span>{/if}</span>
+      {#if l.fill || l.pack}<span class="kind dim">{l.pack ? "pack" : ""}{#if l.fill} <span class:over={l.over} class="fill">{l.fill}</span>{/if}{l.weightless ? " weightless" : ""}</span>{/if}
+    </button>
+    <!-- A container's contents fold under it: its arrow after the name, so
+         names stay in line. -->
+    {#if hasContents(i)}<button class="foldbtn" aria-label={folded.has(foldKey(l)) ? "Unfold" : "Fold"} onclick={() => toggleFold(l)}>{folded.has(foldKey(l)) ? "▸" : "▾"}</button>{:else}<span></span>{/if}
+    {#if l.equippable}
+      <button class="equip tag" role="checkbox" aria-checked={l.worn || l.held} aria-label="Equipped: {l.name}" class:on={l.worn || l.held} onclick={() => ctx.act({ command: "equip", line: l.index })}>{tag(l)}</button>
+    {:else}<span></span>{/if}
+    <span class="qty">{l.quantity > 1 ? `×${l.quantity}` : ""}</span>
+    <span class="lb dim">{l.weight > 0 ? `${l.weight.toFixed(1)} lb` : ""}</span>
+  </div>
+{/snippet}
+
 <div class="inventory">
+  {#if !desktop.current}
+  <Pane title="Equipped" class="equipment" fold="sheet.equipped" section>
+    {#snippet aside()}<span class="totals small"><b class:over={inv.attuned > 3}>{inv.attuned}</b> / 3 attuned</span>{/snippet}
+    {#each groups.equipped as l (l.index)}{@render row(l, true)}{/each}
+    {#if !groups.equipped.length}<p class="dim small">Nothing worn or held: "equip" on an item below.</p>{/if}
+  </Pane>
+  <Pane title="Carried" class="items" fold="sheet.inventory" section>
+    {#snippet aside()}
+      <span class="small"><b class:over={inv.carried > inv.capacity}>{inv.carried.toFixed(1)}</b><span class="dim">/{inv.capacity} lb</span></span>
+      <button class="ghost mini addbtn" aria-label="+ add" onclick={addMenu}>+ add</button>
+    {/snippet}
+    <div class="carrybar" aria-hidden="true"><div style:width="{Math.min(100, (inv.carried / Math.max(inv.capacity, 1)) * 100)}%" class:over={inv.carried > inv.capacity}></div></div>
+    {#each groups.carried as l (l.index)}{@render row(l, false)}{/each}
+    {#if !inv.lines.length}<p class="dim small">Empty.</p>{/if}
+  </Pane>
+  <Pane title="Coins" class="coinsec" fold="sheet.coins" section>
+    <button class="coins pcoins" onclick={coins}>
+      {#each inv.coins as [c, n] (c)}<span class:zero={!n}><b class="c-{c}">{n}</b> <span class="dim">{c}</span></span>{/each}
+    </button>
+  </Pane>
+  {:else}
   <Pane title="Inventory" class="items" fold="sheet.inventory" summary="{inv.lines.length} item{inv.lines.length === 1 ? '' : 's'} · {inv.carried.toFixed(1)} lb">
     <div class="buttons">
       <button class="primary" onclick={() => add()}>+ Add item</button>
@@ -214,6 +281,7 @@
     <div class="slot"><span class="dim">Main hand</span><span>{inv.main_hand?.[1] ?? "—"}</span></div>
     <div class="slot"><span class="dim">Off hand</span><span>{inv.off_hand?.[1] ?? "—"}</span></div>
   </Pane>
+  {/if}
 </div>
 
 <!-- Keyed: one reopened while the last still fades is a new one. -->
@@ -244,6 +312,121 @@
 {/if}
 
 <style>
+  /* A phone: sections on gold lines (see Pane), one row per item. */
+  .prow,
+  .prow.slot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto 6ch;
+    column-gap: 1ch;
+    align-items: center;
+    min-height: 36px;
+    border-bottom: 1px solid var(--raised);
+  }
+  .prow .line {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 0.2em 0;
+    border: 0;
+    text-align: left;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .prow > * {
+    align-self: center;
+  }
+  .prow .equip {
+    width: auto;
+    height: auto;
+    margin: 0;
+  }
+  .prow .lb {
+    display: block;
+  }
+  .prow .foldbtn {
+    width: 2ch;
+    margin: 0;
+    font-size: 1em;
+  }
+  .totals.small {
+    display: inline;
+  }
+  .prow .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prow .desc {
+    display: block;
+    font-size: 0.8em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prow .kind {
+    font-size: 0.8em;
+  }
+  .prow .tag {
+    font: inherit;
+    font-size: 0.75em;
+    white-space: nowrap;
+    border: 1px dashed var(--border) !important;
+    border-radius: 99px;
+    padding: 0.1em 1ch !important;
+    color: var(--dim);
+    text-align: center !important;
+  }
+  .prow .tag.on {
+    border-style: solid !important;
+    border-color: rgb(224 175 104 / 0.55) !important;
+    color: var(--accent);
+  }
+  .prow .lb {
+    font-size: 0.8em;
+    text-align: right;
+  }
+  .prow .qty {
+    font-size: 0.85em;
+    color: var(--gray);
+  }
+  .small {
+    font-size: 0.85em;
+  }
+  .addbtn {
+    min-height: 24px !important;
+    padding: 0 1ch !important;
+    margin-left: 1ch;
+    font-size: 0.85em;
+    color: var(--cyan);
+  }
+  .carrybar {
+    height: 6px;
+    margin: 0.2em 0 0.3em;
+    background: var(--raised);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .carrybar div {
+    height: 100%;
+    background: var(--blue);
+  }
+  .carrybar div.over {
+    background: var(--red);
+  }
+  .pcoins {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3em 2.5ch;
+    min-height: 36px;
+    align-items: center;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+  }
+  .coins .zero {
+    opacity: 0.45;
+  }
   .inventory {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(30ch, 1fr);

@@ -54,18 +54,18 @@
   let sheetTab = $state<SheetTab>("Overview");
   let dataTab = $state<DataTab>("Import");
   /// The open sheet's actions (warnings, ⋯): in the app bar on a phone.
-  let sheetActions = $state<{ label: string; name: string; onclick: () => void }[]>([]);
+  let sheetActions = $state<{ label: string; name: string; onclick: () => void; flag?: boolean }[]>([]);
   let category = $state(0);
-  let categories = $state<[string, number][]>([]);
+  let categories = $state<api.Found["categories"]>([]);
   // A sheet, not a character being made (`new: <name>`).
   const sheetOpen = $derived(!!characterOpen && !characterOpen.startsWith("new: "));
   const menu = $derived(
-    SECTIONS.map(([id, l]): [string, string, string, [string, string, string][]] => [
+    SECTIONS.map(([id, l]): [string, string, string, [string, string, string, string?][]] => [
       id,
       l,
       "",
       id === "compendium" && status?.loaded
-        ? categories.map(([c, n], i) => [String(i), c, String(n)])
+        ? categories.map(([c, n, g], i) => [String(i), c, String(n), g])
         : id === "characters" && sheetOpen
           ? SHEET_TABS.map((t) => [t, t, ""])
           : id === "data"
@@ -247,7 +247,8 @@
       current={welcome ? "" : section}
       currentChild={menuChild}
       onpick={pick}
-      footer={status?.campaign ? `◈ ${status.campaign} · ${counts}` : counts}
+      campaign={status?.campaign ?? ""}
+      footer={counts}
     />
   {:else}
     <header class="top">

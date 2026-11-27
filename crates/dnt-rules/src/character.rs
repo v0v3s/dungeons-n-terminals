@@ -38,6 +38,12 @@
 //! [state]
 //! hp = 12
 //! resources_used = { arcane_recovery = 1 }
+//!
+//! [[companions]]
+//! name = "Pip"
+//! creature = "creature:Owl|XMM"         # its stat block
+//! from = "spell:Find Familiar|XPHB"     # what gives it; none for a follower
+//! creature_type = "fey"
 //! ```
 
 use std::collections::BTreeMap;
@@ -88,6 +94,10 @@ pub struct Character {
     /// Trackers the player keeps: a magic item's charges, a boon, …
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trackers: Vec<CustomTracker>,
+    /// Creatures that serve the character: followers, a familiar, a
+    /// steed, summoned spirits.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub companions: Vec<Companion>,
 }
 
 /// Something with uses the player keeps track of, e.g. a ring that gives a
@@ -641,4 +651,40 @@ resources_used = { arcane_recovery = 1 }
         // Defaults are not written out.
         assert!(!c.to_toml().contains("death_failures"));
     }
+}
+
+/// A creature serving the character. Its stat block is a creature in the
+/// library (a book's, or campaign homebrew for a follower of one's own);
+/// rules for what gives it (`from`) change its sheet.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Companion {
+    /// Its own name; the creature's without one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
+    /// `creature:Owl|XMM`.
+    pub creature: String,
+    /// The feature or spell that gives it (`spell:Find Familiar|XPHB`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+    /// The level a spell was cast at, for a summoned creature.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spell_level: Option<i64>,
+    /// A creature type chosen instead of its own (`fey`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creature_type: Option<String>,
+    /// Away: dismissed, or not with the character.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub away: bool,
+    /// Current hit points; `None` means full.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hp: Option<i64>,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub temp_hp: i64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub conditions: Vec<String>,
+    /// Manual overrides: stat key → formula.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub overrides: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub notes: String,
 }

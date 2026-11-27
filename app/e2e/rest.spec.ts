@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, openSheet, sheetMore, sheetTab, test } from "./fixtures";
+import { answer, choose, dialog, expect, openSheet, sheetMore, sheetTab, spend, test } from "./fixtures";
 
 /// A pool by its name, on its tab: spell slots on Spells, hit dice (by
 /// the hit points) on the Overview.
@@ -11,8 +11,11 @@ async function at(page: Page, name: string) {
     : page.locator(".tracker").filter({ has: page.locator(".tname", { hasText: name }) });
 }
 const left = async (page: Page, name: string) => (await at(page, name)).locator(".count");
-const use = async (page: Page, name: string) => (await at(page, name)).getByRole("button", { name: "Use" }).click();
-const restore = async (page: Page, name: string) => (await at(page, name)).getByRole("button", { name: "Restore" }).click();
+/// Use one or get one back: a tracker's −/+ (or its menu on a phone);
+/// spell slots' pips, from their menu.
+const step = async (page: Page, name: string, action: "Use" | "Restore") => spend(page, await at(page, name), name, action);
+const use = (page: Page, name: string) => step(page, name, "Use");
+const restore = (page: Page, name: string) => step(page, name, "Restore");
 const hp = (page: Page) => page.locator(".hpnum");
 
 /// The sheet's own menu (⋯ by the name).

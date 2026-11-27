@@ -1,6 +1,7 @@
 //! Characters: the roster, the open sheet, commands and rolls, and the
 //! level-up and new-character flows.
 
+use dnt_core::companions::{self, Companions};
 use dnt_core::creation::{NewCharacter, StepRow};
 use dnt_core::flow::{choice_question, Answer, Question};
 use dnt_core::levelup::LevelUp;
@@ -53,6 +54,7 @@ pub struct Sheet {
     features: Vec<FeatureGroup>,
     spells: Vec<SpellRow>,
     inventory: Inventory,
+    companions: Companions,
 }
 
 pub fn sheet_of(inner: &Inner) -> Res<Sheet> {
@@ -65,6 +67,7 @@ pub fn sheet_of(inner: &Inner) -> Res<Sheet> {
         features: sheet::features(lib, &inner.ws.overlays, s),
         spells: sheet::spells(lib, s),
         inventory: sheet::inventory(lib, s),
+        companions: companions::companions(s, lib, &inner.ws.overlays),
     })
 }
 
@@ -151,15 +154,21 @@ pub enum Roll {
     Attack {
         slug: String,
     },
-    /// A spell, with the casting class's slug for its attack and DC.
+    /// A spell, with its origin (the casting class or the feature) for
+    /// its attack and DC.
     Spell {
         id: String,
         #[serde(default)]
-        caster: Option<String>,
+        origin: Option<String>,
     },
     /// Typed by hand: `d20 + prof + dex`.
     Custom {
         text: String,
+    },
+    /// Companion `index`'s roll.
+    Companion {
+        index: usize,
+        roll: rolls::CompanionRoll,
     },
 }
 
@@ -188,16 +197,17 @@ pub async fn roll(app: State<'_, App>, what: Roll) -> Res<Rolled> {
             let a = s.build.attacks.iter().find(|a| a.slug == slug).cloned().ok_or("No such attack")?;
             rolls::attack(s, &a)
         }
-        Roll::Spell { id, caster } => {
+        Roll::Spell { id, origin } => {
             let spell = dnt_rules::overlay::resolve_id(lib, &id).ok_or("No such spell")?;
             if !rolls::spell_rolls(lib, spell) {
                 return Err(format!("{} has nothing to roll", lib.entity(spell).name));
             }
-            let (atk, dc) = rolls::spell_numbers(s, caster.as_deref());
+            let (atk, dc) = rolls::spell_numbers(s, origin.as_deref());
             let level = dnt_rules::spells::spell_level(lib, spell);
             rolls::spell(s, lib, spell, level, atk, dc)
         }
         Roll::Custom { text } => rolls::custom(s, &text)?,
+        Roll::Companion { index, roll } => rolls::companion(s, index, &roll)?,
     };
     Ok(Rolled { line: r.line(), rolled: r, sheet: sheet_of(inner)? })
 }
@@ -240,10 +250,21 @@ pub enum Wanted {
     },
     /// Spells for a feature's choice.
     GrantSpells { key: String, filter: String, missing: usize },
-    /// How to cast a spell (values: `slot:N`, `pact`, `ritual`).
-    Cast { id: String },
+    /// How to cast a spell from its origin (values: `free`, `slot:N`,
+    /// `pact`, `ritual`).
+    Cast {
+        id: String,
+        #[serde(default)]
+        origin: Option<String>,
+    },
     /// Weapons to swap a mastery to.
     Mastery,
+    /// Creatures for a companion: what a rule (`giver`, its id) allows, or
+    /// any (a follower). Values: creature ids.
+    Creatures {
+        #[serde(default)]
+        giver: Option<String>,
+    },
 }
 
 #[derive(Serialize)]
@@ -327,9 +348,9 @@ pub async fn options(app: State<'_, App>, wanted: Wanted) -> Res<Options> {
             spellbook::class_choices(lib, ch, c, &filter, all).into()
         }
         Wanted::GrantSpells { key, filter: text, missing } => spellbook::grant_choices(lib, ch, &key, &text, missing, &filter).into(),
-        Wanted::Cast { id } => {
+        Wanted::Cast { id, origin } => {
             let spell = dnt_rules::overlay::resolve_id(lib, &id).ok_or("No such spell")?;
-            let (title, choices) = spellbook::cast_choices(lib, s, spell).ok_or("No spell slots")?;
+            let (title, choices) = spellbook::cast_choices(lib, s, spell, origin.as_deref()).ok_or("No spell slots")?;
             plain(&title, choices)
         }
         Wanted::Mastery => {
@@ -339,6 +360,7 @@ pub async fn options(app: State<'_, App>, wanted: Wanted) -> Res<Options> {
                 .collect();
             plain("Swap the mastery for…", choices)
         }
+        Wanted::Creatures { giver } => plain("Which creature?", companions::creature_choices(s, lib, &inner.ws.overlays, giver.as_deref())),
     })
 }
 
@@ -537,7 +559,7 @@ pub async fn levelup_apply(app: State<'_, App>) -> Res<Done> {
     let message = flow.apply(&mut s.file.character);
     s.rebuild(lib, &inner.ws.overlays);
     save(inner)?;
-    Ok(Done { outcome: Outcome { message, changed: true, rolled: None }, sheet: sheet_of(inner)? })
+    Ok(Done { outcome: Outcome { message, changed: true, rolled: None, summon: None }, sheet: sheet_of(inner)? })
 }
 
 #[derive(Serialize)]

@@ -39,7 +39,8 @@ test.describe("with the data", () => {
   test("about tells the version, the licence, the repository and that the SRD is built in", { tag: "@data.about" }, async ({ page }) => {
     const version = readFileSync(new URL("../../Cargo.toml", import.meta.url), "utf8").match(/^version = "(.+)"/m)![1];
     await go(page, "Data", "About");
-    const about = pane(page, "About");
+    // On a phone the tab is titled About, its credits Credits.
+    const about = pane(page, "(About|Credits)");
     await expect(about).toContainText("It has the SRD 5.2.1 built in, and reads the books you import.");
     // The attribution the SRD's licence asks for.
     await expect(about).toContainText("This work includes material from the System Reference Document 5.2.1");
@@ -51,7 +52,7 @@ test.describe("with the data", () => {
 
   test("about's Source code opens the repository in the browser", { tag: "@about.source-code" }, async ({ page }) => {
     await go(page, "Data", "About");
-    await pane(page, "About").getByRole("button", { name: "Source code" }).click();
+    await pane(page, "(About|Credits)").getByRole("button", { name: "Source code" }).click();
     // Caught: no browser opens.
     expect(await opened(page)).toEqual(["https://github.com/v0v3s/dungeons-n-terminals"]);
   });
@@ -163,4 +164,20 @@ test("the data's parts are tabs; Problems only while there are some", { tag: "@d
   if (onMenu) await expect(menu.getByRole("button", { name: /^Problems/ })).toHaveText(/Problems\s*1/);
   else await expect(tabs.locator("option", { hasText: "Problems (1)" })).toHaveCount(1);
   await expect(page.locator(".err")).toContainText("not in the library: feat:Nonesuch|TST");
+});
+
+test("on a phone the tab is the first section's title, its action on its line, each part a section", { tag: ["@data.phone", "@android"] }, async ({ page }) => {
+  await go(page, "Data", "Import");
+  const line = page.locator(".tabline");
+  await expect(line.getByRole("combobox", { name: "Data" })).toHaveValue("Import");
+  await expect(line.getByRole("button", { name: "Import…" })).toBeVisible();
+  // No boxes: the parts are sections on gold lines.
+  for (const p of await page.locator(".data section.pane").all()) await expect(p).toHaveClass(/\bsection\b/);
+  expect(await page.locator(".data section.pane").first().evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  await dataTab(page, "Backups");
+  await expect(line.getByRole("button", { name: "Back up now" })).toBeVisible();
+  await expect(line.getByRole("button", { name: "Restore from a file…" })).toBeVisible();
+  await dataTab(page, "About");
+  await expect(line.getByRole("button", { name: "Check for updates" })).toBeVisible();
+  await expect(pane(page, "Credits").getByRole("button", { name: "Source code" })).toBeVisible();
 });

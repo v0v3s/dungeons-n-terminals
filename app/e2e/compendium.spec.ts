@@ -120,8 +120,11 @@ test("a category narrows the results to its kind", { tag: "@compendium.category"
   await expect(names(page).filter({ hasText: "Acid Arrow" })).toHaveCount(0);
   await category(page, "Rules");
   await expect(names(page).filter({ hasText: "Proving Rule" })).toHaveCount(1);
+  // All of them (searched, the list being long): an item and a spell.
   await category(page, "All");
+  await search(page, "battleaxe");
   await expect(names(page).filter({ hasText: exact("Battleaxe") })).toHaveCount(1);
+  await search(page, "acid arrow");
   await expect(names(page).filter({ hasText: "Acid Arrow" })).toHaveCount(1);
 });
 
@@ -172,6 +175,16 @@ test("a wide table keeps its headers and cells on one line and scrolls sideways"
   await compendium(page);
   await search(page, "wizard");
   await read(page, "Wizard");
+  if (await phone(page)) {
+    // Too wide for a phone: a block per level, each value with its column's
+    // name, and nothing to scroll sideways.
+    const levels = doc(page).locator(".rowcards").filter({ has: page.locator(".lbl", { hasText: "Prepared Spells" }) }).first();
+    await expect(levels.locator(".rowcard")).toHaveCount(20);
+    await expect(levels.locator(".rowcard").first().locator(".lead")).toHaveText(/^Level\s+1/);
+    await expect(doc(page).locator(".table").filter({ has: page.locator("th", { hasText: "Prepared Spells" }) })).toHaveCount(0);
+    await fits(page, "the Wizard's entry");
+    return;
+  }
   // The Wizard's class table: many columns.
   const box = doc(page).locator(".table").filter({ has: page.locator("th", { hasText: "Level" }) }).first();
   await expect(box).toBeVisible();
@@ -349,4 +362,65 @@ test("an entry is exported and imported", { tag: "@export.entry" }, async ({ pag
   await go(page, "Compendium");
   await search(page, "sun glint");
   await read(page, "Sun Glint");
+});
+
+test("a creature reads as a stat block, found by its tags", { tag: "@compendium.creatures" }, async ({ page }) => {
+  await compendium(page);
+  // Their own category: creatures, not spells.
+  await category(page, "Creatures");
+  await search(page, "owl");
+  await expect(names(page).filter({ hasText: exact("Owl") })).toHaveCount(1);
+  await search(page, "acid arrow");
+  await expect(names(page).filter({ hasText: "Acid Arrow" })).toHaveCount(0);
+  await category(page, "All");
+  await search(page, "#familiar owl");
+  await read(page, "Owl");
+  await expect(doc(page)).toContainText("Tiny Beast");
+  await expect(doc(page)).toContainText("AC 11");
+  await expect(doc(page)).toContainText("Fly 60 ft.");
+  await expect(doc(page)).toContainText("Passive Perception 15");
+  // One ability per row, no wider than the phone.
+  const table = doc(page).locator("table");
+  await expect(table.locator("th")).toHaveText(["", "Score", "Mod", "Save"]);
+  await expect(table.locator("tbody tr").first().locator("td")).toHaveText(["STR", "3", "-4", "-4"]);
+  await expect(table.locator("tbody tr")).toHaveCount(6);
+  const fits = await doc(page).evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+  expect(fits).toBe(true);
+  // An action's name runs into its text.
+  await expect(doc(page).locator("p", { hasText: "Talons." })).toContainText("Melee Attack Roll: +3");
+
+  // Below CR 1, and the Wolf (CR 1/4) is a creature too.
+  await search(page, "#creature ^0 wolf");
+  await read(page, "Wolf");
+  await expect(doc(page)).toContainText("CR 1/4");
+  await expect(doc(page)).toContainText("Bite");
+});
+
+test("on a phone the search is a prompt line, the results and an entry sections", { tag: ["@compendium.phone", "@android"] }, async ({ page }) => {
+  await go(page, "Compendium");
+  const box = page.locator(".searchbox");
+  expect(await box.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  const results = page.locator(".pane.browse");
+  await expect(results).toHaveClass(/\bsection\b/);
+  await expect(results.locator(".title")).toContainText("results");
+  await searchBox(page).fill("fireball");
+  await page.locator(".rows button", { hasText: "Fireball" }).first().click();
+  const entry = page.locator(".pane.detail");
+  await expect(entry).toHaveClass(/\bsection\b/);
+  expect(await entry.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  await expect(entry.locator("h1")).toContainText("Fireball");
+});
+
+test("a class's table too wide for a phone is a block per level, nothing scrolls sideways", { tag: ["@compendium.wide-tables", "@android"] }, async ({ page }) => {
+  await go(page, "Compendium");
+  await search(page, "cleric");
+  await read(page, "Cleric");
+  const levels = page.locator(".detail .rowcard");
+  await expect(levels.first()).toContainText("Level");
+  await expect(levels.first()).toContainText("1st");
+  // Nothing in the entry scrolls sideways.
+  const sideways = await page.locator(".detail").first().evaluate((d) =>
+    [d, ...d.querySelectorAll("*")].some((e) => e.scrollWidth > e.clientWidth + 1 && ["auto", "scroll"].includes(getComputedStyle(e).overflowX)),
+  );
+  expect(sideways).toBe(false);
 });

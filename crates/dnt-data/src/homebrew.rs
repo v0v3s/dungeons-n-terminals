@@ -79,6 +79,8 @@ pub enum Template {
     OptionalFeature,
     Background,
     Species,
+    /// A follower of one's own, or any creature.
+    Creature,
 }
 
 impl Template {
@@ -92,6 +94,7 @@ impl Template {
         Template::OptionalFeature,
         Template::Background,
         Template::Species,
+        Template::Creature,
     ];
     /// Templates that make items (for the inventory's "Create new item…").
     pub const ITEMS: &'static [Template] = &[Template::MagicItem, Template::Weapon, Template::Armor, Template::Gear];
@@ -107,6 +110,7 @@ impl Template {
             Template::OptionalFeature => "Optional feature",
             Template::Background => "Background",
             Template::Species => "Species",
+            Template::Creature => "Creature",
         }
     }
 
@@ -121,6 +125,7 @@ impl Template {
             Template::OptionalFeature => "an eldritch invocation, metamagic, maneuver…",
             Template::Background => "a background description",
             Template::Species => "a medium species with a 30 ft. speed",
+            Template::Creature => "a stat block: a follower of your own, with an attack",
         }
     }
 
@@ -132,6 +137,7 @@ impl Template {
             Template::OptionalFeature => Kind::OptionalFeature,
             Template::Background => Kind::Background,
             Template::Species => Kind::Race,
+            Template::Creature => Kind::Creature,
         }
     }
 
@@ -166,6 +172,13 @@ impl Template {
                 "entries": ["Describe the background."]
             }),
             Template::Species => json!({"edition": "one", "size": ["M"], "speed": 30, "entries": ["Describe the species."]}),
+            Template::Creature => json!({
+                "size": ["M"], "type": "humanoid", "alignment": ["N"],
+                "ac": [12], "hp": {"average": 11, "formula": "2d8 + 2"}, "speed": {"walk": 30},
+                "str": 12, "dex": 12, "con": 12, "int": 10, "wis": 10, "cha": 10,
+                "passive": 10, "languages": ["Common"], "cr": "1/4",
+                "action": [{"name": "Strike", "entries": ["{@atkr m} {@hit 3}, reach 5 ft. {@h}{@damage 1d6 + 1} Bludgeoning damage."]}]
+            }),
         };
         v["name"] = json!(name);
         v["source"] = json!(source);

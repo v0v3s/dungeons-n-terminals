@@ -5,6 +5,17 @@ const row = (page: Page, name: string) => page.locator("button.row", { hasText: 
 /// The notes' toolbar (+ Note, Quick note, …, ⋯): over the folders on a
 /// phone, at the top of the note's side on a computer.
 const bar = (page: Page) => page.getByRole("toolbar", { name: "Notes" });
+/// A phone or a tablet: the folders are sections, a folder's menu on its title.
+const sectioned = (page: Page) => page.evaluate(() => !matchMedia("(pointer: fine) and (min-width: 761px)").matches);
+const folderRow = (page: Page, name: string) => page.locator(".tree button.dir", { hasText: name });
+
+/// Something done to a folder: from its title's menu on a phone or a
+/// tablet, else chosen in the tree and from the toolbar's ⋯.
+async function folderAction(page: Page, name: string, action: string) {
+  await folderRow(page, name).click();
+  if (!(await sectioned(page))) await bar(page).getByRole("button", { name: "More" }).click();
+  await choose(page, name, action);
+}
 
 test("deleting a note and a folder asks first; declining keeps them", { tag: "@notes.delete" }, async ({ page }) => {
   await invoke(page, "note_create", { folder: "", title: "Doomed" });
@@ -23,11 +34,9 @@ test("deleting a note and a folder asks first; declining keeps them", { tag: "@n
   await choose(page, "Delete Doomed", "Delete");
   await expect(row(page, "Doomed")).toHaveCount(0);
 
-  await row(page, "Attic").click();
-  await bar(page).getByRole("button", { name: "More" }).click();
-  await choose(page, "Attic", "Delete Attic…");
+  await folderAction(page, "Attic", "Delete Attic…");
   await choose(page, "Delete Attic", "Delete");
-  await expect(row(page, "Attic")).toHaveCount(0);
+  await expect(folderRow(page, "Attic")).toHaveCount(0);
 });
 
 test("a top-level folder moves up and down", { tag: "@notes.folder-order" }, async ({ page }) => {
@@ -35,12 +44,10 @@ test("a top-level folder moves up and down", { tag: "@notes.folder-order" }, asy
   await invoke(page, "note_create_folder", { parent: "", name: "Beta" });
   await page.reload();
   await go(page, "Notes");
-  const order = async () => (await page.locator("button.row.dir").allTextContents()).map((t) => t.replace(/[▾▸]/, "").trim());
+  const order = async () => (await page.locator(".tree button.dir").allTextContents()).map((t) => t.replace(/[▾▸]/, "").trim());
   const before = await order();
   expect(before.indexOf("Beta")).toBeGreaterThan(before.indexOf("Alpha"));
-  await row(page, "Beta").click();
-  await bar(page).getByRole("button", { name: "More" }).click();
-  await choose(page, "Beta", "Move Beta up");
+  await folderAction(page, "Beta", "Move Beta up");
   await expect.poll(async () => (await order()).indexOf("Beta") < (await order()).indexOf("Alpha")).toBe(true);
 });
 
@@ -49,18 +56,16 @@ test("a note and a folder are renamed", { tag: "@notes.rename" }, async ({ page 
   await invoke(page, "note_create", { folder: "", title: "Draft" });
   await page.reload();
   await go(page, "Notes");
-  await row(page, "Beta").click();
-  await bar(page).getByRole("button", { name: "More" }).click();
-  await choose(page, "Beta", "Rename Beta");
+  await folderAction(page, "Beta", "Rename Beta");
   await answer(page, "Rename Beta", "Gamma");
-  await expect(row(page, "Gamma")).toBeVisible();
-  await expect(row(page, "Beta")).toHaveCount(0);
+  await expect(folderRow(page, "Gamma")).toBeVisible();
+  await expect(folderRow(page, "Beta")).toHaveCount(0);
 
   await row(page, "Draft").click();
   await page.locator(".ntools").getByRole("button", { name: "More" }).click();
   await choose(page, "Draft", "Rename");
   await answer(page, "Rename", "Final");
-  // The open note's pane is titled with its path (on a phone it hides the tree).
+  // The open note's pane shows its path (on a phone it hides the tree).
   await expect(page.locator(".note")).toContainText("Final.md");
 });
 
@@ -83,7 +88,6 @@ async function toTree(page: Page) {
 }
 
 const file = (page: Page, name: string) => page.locator("button.row:not(.dir)", { hasText: name });
-const folderRow = (page: Page, name: string) => page.locator("button.row.dir", { hasText: name });
 
 test("the notes tree: folders open and close, a note opens", { tag: "@notes.browse" }, async ({ page }) => {
   await go(page, "Notes");
@@ -93,6 +97,20 @@ test("the notes tree: folders open and close, a note opens", { tag: "@notes.brow
   // Party/Party.md, inside an open folder.
   const party = file(page, "Party");
   await expect(party).toBeVisible();
+  if (await sectioned(page)) {
+    // Sections: a folder's title is its menu; it is always open.
+    await folderRow(page, "Party").click();
+    await expect(dialog(page, "Party")).toContainText("New note in Party");
+    await page.keyboard.press("Escape");
+    await expect(party).toBeVisible();
+    await file(page, "Campaign").click();
+    await expect(note(page)).toContainText("Campaign.md");
+    await expect(note(page).locator(".read")).toContainText("E2E");
+    await toTree(page);
+    await party.click();
+    await expect(note(page)).toContainText("Party/Party.md");
+    return;
+  }
   // The first tap chooses the folder, the next closes it.
   await folderRow(page, "Party").click();
   await folderRow(page, "Party").click();
@@ -117,15 +135,21 @@ test("a note is made from its folder's template, and a folder is made", { tag: "
   await answer(page, "New folder", "Downtime");
   await expect(folderRow(page, "Downtime")).toBeVisible();
 
-  // The new folder is chosen: a note goes in it, from the generic template.
-  await bar(page).getByRole("button", { name: /\+ Note/ }).click();
+  // A note in it, from the generic template: from its menu on a phone (the
+  // new folder is chosen on a computer: + Note puts it there).
+  if (await sectioned(page)) await folderAction(page, "Downtime", "New note in Downtime");
+  else await bar(page).getByRole("button", { name: /\+ Note/ }).click();
   await answer(page, "New note in Downtime", "Crafting");
   await expect(note(page)).toContainText("Downtime/Crafting.md");
   await expect(note(page).locator("textarea")).toHaveValue(/# Crafting/);
 
   await toTree(page);
-  await folderRow(page, "NPCs").click();
-  await bar(page).getByRole("button", { name: /\+ Note/ }).click();
+  // A phone: from the folder's menu (still empty, it has no + of its own).
+  if (await sectioned(page)) await folderAction(page, "NPCs", "New note in NPCs");
+  else {
+    await folderRow(page, "NPCs").click();
+    await bar(page).getByRole("button", { name: /\+ Note/ }).click();
+  }
   await answer(page, "New note in NPCs", "Old Miller");
   await expect(note(page)).toContainText("NPCs/Old Miller.md");
   const text = note(page).locator("textarea");
@@ -151,6 +175,11 @@ test("today's session note is made from the template", { tag: "@notes.session" }
   await expect(file(page, path)).toBeVisible();
 
   // A note in Sessions is a session note too: the next one of the day.
+  if (await sectioned(page)) {
+    await page.getByRole("button", { name: "New note in Sessions" }).click();
+    await expect(note(page)).toContainText(`Sessions/${path} (2).md`);
+    return;
+  }
   // Sessions chosen (a tap on the chosen folder chooses its parent): the
   // button says where its note goes.
   const plus = bar(page).getByRole("button", { name: /\+ Note/ });
@@ -178,7 +207,8 @@ test("a note is edited and saved, then read", { tag: ["@notes.edit", "@notes.sav
   const text = note(page).locator("textarea");
   const before = await text.inputValue();
   await text.fill(before + "\nThe bridge to the mill is out.\n");
-  await expect(note(page)).toContainText("Inbox.md ●");
+  await expect(note(page)).toContainText("Inbox.md");
+  await expect(note(page)).toContainText("●");
   await note(page).getByRole("button", { name: "Save" }).click();
   await expect(note(page)).not.toContainText("●");
   // Saved: back to reading it.
@@ -223,7 +253,6 @@ test("a note shows which notes link to it", { tag: "@notes.backlinks" }, async (
     "NPCs/Old Miller.md": "# Old Miller\n",
     "Lore/Unrelated.md": "# Unrelated\n",
   });
-  await folderRow(page, "NPCs").click();
   await file(page, "Old Miller").click();
   const linked = note(page).locator(".backlinks");
   await expect(linked).toContainText("Linked from");
@@ -334,4 +363,40 @@ test("Enter goes on with a list, and on an empty item ends it", { tag: "@notes.l
   await text.press("Enter");
   await text.pressSequentially("unpacked");
   await expect.poll(async () => (await text.inputValue()).trimEnd()).toBe(["# Lists", "- bread", "- milk", "1. one", "2. two", "- [x] packed", "- [ ] unpacked"].join("\n"));
+});
+
+test("on a phone the folders are sections, a note a section too", { tag: ["@notes.phone", "@android"] }, async ({ page }) => {
+  await seedNotes(page, {
+    ...Object.fromEntries(["Ana", "Bors", "Cato", "Dara", "Eld"].map((n) => [`NPCs/${n}.md`, `---\ntype: npc\n---\n# ${n}\n`])),
+    "Quests/Lost Ring.md": "---\ntype: quest\nstatus: active\n---\n# Lost Ring\n",
+  });
+  const tree = page.locator(".tree");
+  await expect(tree).toHaveClass(/\bsection\b/);
+  // The search a prompt line with + note, quick note and ⋯ on it.
+  const line = page.locator(".searchline");
+  await expect(line.getByPlaceholder("search notes")).toBeVisible();
+  await expect(line.getByRole("button", { name: "+ note" })).toBeVisible();
+  // A folder: its title, its count and + on one line; the first few notes,
+  // the rest a tap away; a note's status or type at its right.
+  const npcs = page.locator(".fsec", { has: page.locator("button.dir", { hasText: "NPCs" }) });
+  await expect(npcs.locator(".fhead")).toHaveText(/^NPCs\s*5\s*\+$/);
+  await expect(npcs.getByRole("button", { name: "New note in NPCs" })).toBeVisible();
+  await expect(npcs.locator("button.row")).toHaveCount(3);
+  await expect(npcs.locator("button.row").first()).toContainText("npc");
+  await npcs.getByRole("button", { name: "2 more ▾" }).click();
+  await expect(npcs.locator("button.row")).toHaveCount(5);
+  await expect(file(page, "Lost Ring")).toContainText("active");
+  // Empty folders on one line at the end.
+  await expect(page.locator(".fhead.empty")).toContainText("Places");
+  await expect(page.locator(".fhead.empty")).not.toContainText("NPCs");
+
+  // A note: its name the section's title, read/edit and ⋯ on it, its path
+  // under it; an empty list is just its title.
+  await file(page, "Campaign").click();
+  const n = note(page);
+  await expect(n).toHaveClass(/\bsection\b/);
+  await expect(n.locator(".title")).toHaveText("Campaign");
+  await expect(n.locator(".aside").getByRole("button", { name: "edit" })).toBeVisible();
+  await expect(n.locator(".where")).toHaveText("Campaign.md");
+  await expect(n).not.toContainText("Nothing yet.");
 });

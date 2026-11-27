@@ -155,6 +155,19 @@ fn emit_tag(inner: &str, style: Style, out: &mut Vec<Span>) {
         "atk" | "atkr" => out.push(Span::styled(attack_label(first), with(|s| s.italic = true))),
         "h" => out.push(Span::styled("Hit: ", with(|s| s.italic = true))),
         "m" => out.push(Span::styled("Miss: ", with(|s| s.italic = true))),
+        "hom" => out.push(Span::styled("Hit or Miss: ", with(|s| s.italic = true))),
+        "actSave" => {
+            let ab = crate::view::ability_name(first);
+            out.push(Span::styled(format!("{ab} Saving Throw: "), with(|s| s.italic = true)));
+        }
+        "actSaveFail" => out.push(Span::styled(
+            if first.is_empty() { "Failure: ".to_string() } else { format!("{} Failure: ", ordinal_word(first)) },
+            with(|s| s.italic = true),
+        )),
+        "actSaveSuccess" => out.push(Span::styled("Success: ", with(|s| s.italic = true))),
+        "actSaveSuccessOrFail" => out.push(Span::styled("Failure or Success: ", with(|s| s.italic = true))),
+        "actTrigger" => out.push(Span::styled("Trigger: ", with(|s| s.italic = true))),
+        "actResponse" => out.push(Span::styled(if first == "d" { "Response—" } else { "Response: " }, with(|s| s.italic = true))),
         _ => {
             if let Some(kind) = Kind::for_tag(tag).first() {
                 let display_idx = crate::id::Key::from_ref(*kind, tag, &parts).and_then(|(_, d)| d).unwrap_or(2);
@@ -185,6 +198,16 @@ fn signed(n: &str) -> String {
         n.to_string()
     } else {
         format!("+{n}")
+    }
+}
+
+/// `2` → `Second`.
+fn ordinal_word(n: &str) -> &str {
+    match n {
+        "1" => "First",
+        "2" => "Second",
+        "3" => "Third",
+        _ => n,
     }
 }
 

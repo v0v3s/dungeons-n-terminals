@@ -5,6 +5,7 @@ use dnt_data::{EntityId, Library, SourceFilter};
 use dnt_rules::builder::{build, Build};
 use dnt_rules::character::{Character, InventoryItem};
 use dnt_rules::choices::{self, Pending};
+use dnt_rules::companion;
 use dnt_rules::equipment;
 use dnt_rules::overlay::OverlaySet;
 use dnt_rules::play::Edition;
@@ -24,6 +25,9 @@ pub struct CharacterSession {
     pub edition: Edition,
     /// Dice, the next roll's mode and the roll log.
     pub roller: Roller,
+    /// Each companion's sheet and numbers, as `character.companions`
+    /// (`None` for one whose creature is not in the data).
+    pub companions: Vec<Option<(companion::Sheet, Evaluation)>>,
 }
 
 impl CharacterSession {
@@ -34,6 +38,7 @@ impl CharacterSession {
         let build = build(&file.character, lib, overlays);
         let ev = build.evaluate();
         let edition = Edition::of(&build, lib);
+        let companions = companion_sheets(&file.character, lib, overlays, &companion::owner_vars(&ev, &build.model.inputs));
         CharacterSession {
             pending: choices::pending(lib, overlays, &file.character, filter),
             filter: filter.clone(),
@@ -42,6 +47,7 @@ impl CharacterSession {
             ev,
             edition,
             roller: Roller::default(),
+            companions,
         }
     }
 
@@ -50,6 +56,12 @@ impl CharacterSession {
         self.build = build(&self.file.character, lib, overlays);
         self.ev = self.build.evaluate();
         self.pending = choices::pending(lib, overlays, &self.file.character, &self.filter);
+        self.companions = companion_sheets(&self.file.character, lib, overlays, &companion::owner_vars(&self.ev, &self.build.model.inputs));
+    }
+
+    /// Companion `index`'s sheet and numbers.
+    pub fn companion(&self, index: usize) -> Result<&(companion::Sheet, Evaluation), String> {
+        self.companions.get(index).ok_or("No such companion")?.as_ref().ok_or_else(|| "Its creature is not in the data".into())
     }
 
     pub fn character(&self) -> &Character {
@@ -75,4 +87,20 @@ pub fn line_name(lib: &Library, line: &InventoryItem) -> String {
         .or_else(|| item_entity(lib, line).map(|e| lib.entity(e).name.clone()))
         .or_else(|| line.item.clone())
         .unwrap_or_else(|| "?".into())
+}
+
+fn companion_sheets(
+    c: &Character,
+    lib: &Library,
+    overlays: &OverlaySet,
+    owner: &std::collections::HashMap<String, dnt_rules::Value>,
+) -> Vec<Option<(companion::Sheet, Evaluation)>> {
+    c.companions
+        .iter()
+        .map(|comp| {
+            let sheet = companion::build(comp, lib, overlays, owner)?;
+            let ev = sheet.evaluate();
+            Some((sheet, ev))
+        })
+        .collect()
 }

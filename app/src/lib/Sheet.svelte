@@ -6,6 +6,8 @@
   import * as api from "./api";
   import Ask from "./Ask.svelte";
   import EntryModal from "./EntryModal.svelte";
+  import CompanionsTab from "./CompanionsTab.svelte";
+  import { summon } from "./summon";
   import FeaturesTab from "./FeaturesTab.svelte";
   import InventoryTab from "./InventoryTab.svelte";
   import Modal from "./Modal.svelte";
@@ -35,7 +37,7 @@
     sheet: api.Sheet;
     tab?: SheetTab;
     /// The sheet's own actions (warnings, the ⋯ menu), for the app bar on a phone.
-    actions?: { label: string; name: string; onclick: () => void }[];
+    actions?: { label: string; name: string; onclick: () => void; flag?: boolean }[];
     onclose: () => void;
     onnote: (path: string) => void;
   } = $props();
@@ -46,6 +48,7 @@
     Features: "features",
     Spells: "spells",
     Inventory: "inventory",
+    Companions: "companions",
     Notes: "notes",
   };
   type Tab = SheetTab;
@@ -169,7 +172,19 @@
   let lastDice = "";
 
   $effect(() => {
+    const h = sheet.header;
+    // A phone or a tablet: what is still to do goes in the app bar too.
+    const flags = !touch.current
+      ? []
+      : [
+          ...(!h.level ? [{ label: "1st level", name: "Take the first level", onclick: levelUp, flag: true }] : []),
+          ...(h.pending ? [{ label: `${h.pending} ${h.pending === 1 ? "choice" : "choices"}`, name: `${h.pending} ${h.pending === 1 ? "choice" : "choices"} to make`, onclick: nextPending, flag: true }] : []),
+          ...(h.spells_to_choose
+            ? [{ label: `${h.spells_to_choose} ${h.spells_to_choose === 1 ? "spell" : "spells"}`, name: `${h.spells_to_choose} ${h.spells_to_choose === 1 ? "spell" : "spells"} to choose`, onclick: chooseSpells, flag: true }]
+            : []),
+        ];
     actions = [
+      ...flags,
       ...(sheet.header.warnings.length ? [{ label: "⚠", name: "Warnings", onclick: () => (dialog = { kind: "warnings" }) }] : []),
       { label: "⋯", name: "More", onclick: more },
     ];
@@ -190,6 +205,9 @@
       const r = done.outcome.rolled;
       say(done.outcome.message, r);
       if (r) log(done.outcome.message);
+      // A spell that gives a companion: which one, now.
+      const s = done.outcome.summon;
+      if (s) summon(ctx, s.giver, s.spell_level);
       return true;
     } catch (e) {
       say(String(e));
@@ -500,6 +518,8 @@
     <SpellsTab rows={sheet.spells} slots={sheet.overview.trackers.filter((t) => t.id.startsWith("slot:") || t.id === "pact")} {ctx} />
   {:else if t === "Inventory"}
     <InventoryTab inv={sheet.inventory} {ctx} />
+  {:else if t === "Companions"}
+    <CompanionsTab companions={sheet.companions} {ctx} />
   {/if}
 {/snippet}
 
@@ -516,7 +536,7 @@
       <button class="ghost icon" onclick={more} aria-label="More">⋯</button>
     </div>
   </div>
-  {#if sheet.header.pending || sheet.header.spells_to_choose || !sheet.header.level}
+  {#if !touch.current && (sheet.header.pending || sheet.header.spells_to_choose || !sheet.header.level)}
     <div class="flags">
       {#if !sheet.header.level}<button class="flag" onclick={levelUp}>Take the first level</button>{/if}
       {#if sheet.header.pending}<button class="flag" onclick={nextPending}>{sheet.header.pending} {sheet.header.pending === 1 ? "choice" : "choices"}<span class="wide">&nbsp;to make</span></button>{/if}
@@ -1345,6 +1365,14 @@
   }
   /* A phone's or a tablet's app bar has the name, the level and the
      sheet's actions. */
+  /* A phone or a tablet: the (thin) scrollbar at the screen's edge, in
+     the page's margin, its room kept there or not: the content never
+     narrows or moves when it shows. */
+  :global(.touch) .body {
+    scrollbar-gutter: stable;
+    margin-right: -12px;
+    padding-right: 8px;
+  }
   :global(.touch) .head {
     display: none;
   }

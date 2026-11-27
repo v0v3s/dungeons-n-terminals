@@ -2,6 +2,7 @@
 
 import re
 
+import creatures
 import tags
 from pdf import join
 from text import entries
@@ -67,7 +68,17 @@ def parse(chunk, pdf_path):
         else:
             break
         i += 1
-    body = entries(chunk[i:], pdf_path)
+    # A creature's stat block (the one the spell summons) is the
+    # creature's: the text links to it.
+    rest, summoned, damage = chunk[i:], [], ""
+    while (k := next((k for k, l in enumerate(rest) if creatures.is_name(l)), None)) is not None:
+        summoned.append(rest[k].text.strip())
+        end = creatures.span(rest, k)
+        damage += " ".join(l.text for l in rest[k:end])
+        rest = rest[:k] + rest[end:]
+    body = entries(rest, pdf_path)
+    for c in summoned:
+        body = tags.map_text(body, lambda t: t.replace(f"{c} stat block", "{@creature " + c + "|" + SOURCE + "} stat block"))
     spell = {"name": name, "source": SOURCE, "page": chunk[0].page, "edition": "one", "level": level, "school": SCHOOLS[school]}
     spell.update(time(fields["Casting Time"]))
     spell["range"] = range_(fields["Range"])
@@ -75,6 +86,9 @@ def parse(chunk, pdf_path):
     spell["duration"] = duration(fields["Duration"])
     higher = [e for e in body if isinstance(e, dict) and e.get("name") in ("Using a Higher-Level Spell Slot", "Cantrip Upgrade")]
     spell["entries"] = [e for e in body if e not in higher]
+    if damage:
+        # The damage the creature deals is the spell's.
+        spell["_summoned"] = damage
     if higher:
         spell["entriesHigherLevel"] = higher
     return spell, classes
@@ -90,7 +104,7 @@ def finish(spell, names):
     if m := re.search(r"\b(ranged|melee) spell attack", text):
         spell["spellAttack"] = [m.group(1)[0].upper()]
     for key, found in (
-        ("damageInflict", tags.damage_types(text)),
+        ("damageInflict", tags.damage_types(text + " " + spell.pop("_summoned", ""))),
         ("savingThrow", tags.saving_throws(text)),
         ("conditionInflict", tags.conditions(text)),
     ):

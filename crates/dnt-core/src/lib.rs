@@ -6,6 +6,7 @@
 pub mod backup;
 pub mod bundle;
 pub mod commands;
+pub mod companions;
 pub mod compendium;
 pub mod creation;
 pub mod entry_fields;

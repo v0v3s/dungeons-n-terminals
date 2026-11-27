@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { answer, choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test } from "./fixtures";
+import { answer, choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, spend, status, test } from "./fixtures";
 
 const roll = (page: Page) => page.locator(".status.roll");
 const attack = (page: Page, name: string | RegExp) => page.locator(".attack").filter({ has: page.locator(".aname", { hasText: name }) });
@@ -43,7 +43,8 @@ async function addTracker(page: Page, name: string, uses: number, back: string) 
 
 test("an attack rolls to hit with its damage", { tag: "@roll.attack" }, async ({ page }) => {
   await openSheet(page);
-  await attack(page, "Dagger").locator("button.arow").click();
+  // Its row on a computer; its roll button at the right on a phone.
+  await attack(page, "Dagger").locator("button.arow, button.hit").first().click();
   await expect(roll(page)).toContainText("Dagger");
   await expect(roll(page)).toContainText(/to hit|critical|miss/);
   await expect(roll(page)).toContainText("piercing damage");
@@ -192,14 +193,14 @@ test("a tracker of your own is added with its uses and when they come back", { t
   await addTracker(page, "Lucky Coin", 3, "At dawn");
   const row = tracker(page, "Lucky Coin");
   await expect(row.locator(".count")).toHaveText("3/3");
-  await expect(row.locator(".recharge")).toHaveText("dawn");
-  await row.getByRole("button", { name: "Use" }).click();
+  await expect(row.locator(".recharge, .rshort")).toHaveText("dawn");
+  await spend(page, row, "Lucky Coin", "Use");
   await expect(row.locator(".count")).toHaveText("2/3");
 });
 
 test("a species trait's tracker shows its own entry, from its species", { tag: "@trackers.feature" }, async ({ page }) => {
   await openSheet(page);
-  await tracker(page, "Heroic Inspiration").locator("button.tname").click();
+  await tracker(page, "Heroic Inspiration").locator(".tname").click();
   await choose(page, "Heroic Inspiration", "Show the feature");
   // The entry, not the menu of the same name fading out.
   const box = dialog(page, "Heroic Inspiration").and(page.locator(".wide"));
@@ -220,13 +221,13 @@ test("removing a tracker of your own asks first", { tag: "@trackers.remove" }, a
   await addTracker(page, "Lucky Coin", 3, "After a long rest");
   await expect(tracker(page, "Lucky Coin")).toHaveCount(1);
 
-  await tracker(page, "Lucky Coin").locator("button.tname").click();
+  await tracker(page, "Lucky Coin").locator(".tname").click();
   await choose(page, "Lucky Coin", "Remove the tracker…");
   // A confirmation, as for anything removed for good: declining keeps it.
   await dialog(page, "Remove Lucky Coin").getByRole("button", { name: "Cancel" }).click();
   await expect(tracker(page, "Lucky Coin")).toHaveCount(1);
 
-  await tracker(page, "Lucky Coin").locator("button.tname").click();
+  await tracker(page, "Lucky Coin").locator(".tname").click();
   await choose(page, "Lucky Coin", "Remove the tracker…");
   await dialog(page, "Remove Lucky Coin").getByRole("button", { name: "Remove" }).click();
   await expect(tracker(page, "Lucky Coin")).toHaveCount(0);
@@ -272,7 +273,11 @@ test("concentration on a spell is ended from the overview", { tag: "@concentrati
     await spell.click();
   }
   await choose(page, "Fog Cloud", "Cast…");
-  await page.getByRole("dialog").last().locator("li button").first().click();
+  // A slot level to choose, when there is more than one.
+  const level = page.getByRole("dialog").last().locator("li button").first();
+  const cast = status(page).filter({ hasText: "Fog Cloud" });
+  await expect(level.or(cast).first()).toBeVisible();
+  if (await level.isVisible()) await level.click();
   await expect(status(page)).toContainText("Fog Cloud");
 
   await sheetTab(page, "Overview");
@@ -406,7 +411,7 @@ test("a rule changes the attacks with the weapons it picks", { tag: "@rules.atta
     text: '[[feature]]\nid = "feat:Alert|SRD52"\nname = "Quick Blade"\n[[feature.attack]]\nweapons = "weapon.light"\ndie = "1d8"\nnote = "quick"\n',
   });
   await openSheet(page, "Overview", "Tester");
-  await expect(attack(page, "Dagger").locator("button.arow")).toContainText("1d8 + 2");
+  await expect(attack(page, "Dagger")).toContainText("1d8 + 2");
   await expect(attack(page, "Dagger").locator(".anotes")).toContainText("quick");
   // Not a Light weapon: its own die.
   await expect(attack(page, STAFF).locator(".anotes")).not.toContainText("quick");

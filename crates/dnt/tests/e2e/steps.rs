@@ -96,3 +96,48 @@ pub fn with_wren(rules: bool) -> Home {
 pub fn open_wren(t: &mut Tui) {
     t.send("2").wait("Wren").send("G").send(crate::harness::ENTER).wait("◆ Wren").wait("Armor Class");
 }
+
+/// A level 7 Wizard with Find Familiar and Call Steed (the test book's Find Steed) prepared (the app's
+/// tests have her too).
+pub const MIRA: &str = r#"name = "Mira"
+species = "race:Human|SRD52"
+background = "background:Sage|SRD52"
+
+[abilities]
+str = 8
+dex = 14
+con = 12
+int = 16
+wis = 13
+cha = 10
+
+[[levels]]
+class = "class:Wizard|SRD52"
+[[levels]]
+class = "class:Wizard|SRD52"
+[[levels]]
+class = "class:Wizard|SRD52"
+[[levels]]
+class = "class:Wizard|SRD52"
+[[levels]]
+class = "class:Wizard|SRD52"
+[[levels]]
+class = "class:Wizard|SRD52"
+[[levels]]
+class = "class:Wizard|SRD52"
+
+[spells.classes."class:Wizard|SRD52"]
+prepared = ["spell:Find Familiar|SRD52", "spell:Call Steed|TSX"]
+"#;
+
+/// The campaign with Mira, alone on the roster.
+pub fn with_mira() -> Home {
+    let home = Home::campaign();
+    character_file(&home, "mira", MIRA);
+    home
+}
+
+/// Open Mira on the Overview.
+pub fn open_mira(t: &mut Tui) {
+    t.send("2").wait("Mira").send("g").send(crate::harness::ENTER).wait("◆ Mira").wait("Armor Class");
+}

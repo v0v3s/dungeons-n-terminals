@@ -249,13 +249,18 @@ does = "Order the results (best match, name, source, level or rarity)."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "compendium.creatures"
+does = "The compendium has the SRD's creatures, in a Creatures category of their own: #creature (and #familiar, #beast, ^0 for below CR 1) finds them, and a creature reads as a stat block, narrow enough for a phone: its type, AC, HP, speed, the abilities one per row (score, modifier, save), senses, CR, and its traits and actions each with its name run in, under their section headings."
+targets = ["tui", "app"]
+
+[[scenario]]
 id = "compendium.read"
 does = "Read an entry: its fields, text, tables and lists."
 targets = ["tui", "app"]
 
 [[scenario]]
 id = "compendium.tables"
-does = "A wide table (a class's) keeps each header and cell on one line, and scrolls sideways in its box, its bar in sight; wherever an entry is read (the compendium, the creation preview, an entry's dialog)."
+does = "A wide table (a class's) keeps each header and cell on one line, and scrolls sideways in its box, its bar in sight; wherever an entry is read (the compendium, the creation preview, an entry's dialog). One too wide for a phone is a block per row instead (a level each, every value with its column's name), never scrolled sideways."
 targets = ["app"]
 not = { tui = "the terminal draws a table as text lines that run past the pane, scrolled with the pane" }
 
@@ -473,6 +478,11 @@ does = "Heal, up to the maximum."
 targets = ["tui", "app"]
 
 [[scenario]]
+id = "hp.set"
+does = "Set the hit points by hand (within 0 and the maximum, the temporary ones kept): on a phone a tap on the Hit points title, in the terminal H."
+targets = ["tui", "android"]
+
+[[scenario]]
 id = "hp.temp"
 does = "Gain temporary hit points."
 targets = ["tui", "app"]
@@ -520,7 +530,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "roll.hit-die"
-does = "Roll a hit die to heal: in the app, tap its bar under the hit points."
+does = "Roll a hit die to heal: in the app, tap its bar under the hit points (on a phone its chip, then Roll one and heal)."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -565,9 +575,15 @@ not = { tui = "no swiping in a terminal: ↑ and ↓ move through the results, t
 
 [[scenario]]
 id = "sheet.app-bar"
-does = "On a phone the app bar carries the open character: their name and level, the warnings and the sheet's ⋯ menu, with the tabs as icons right under it."
+does = "On a phone the app bar carries the open character: their name and level, what is still to do (spells to choose, choices to make) as a small pill that goes to it, the warnings and the sheet's ⋯ menu, with the tabs as icons right under it."
 targets = ["android"]
 not = { tui = "the terminal's sheet has its name and level in its own title line" }
+
+[[scenario]]
+id = "sheet.overview-phone"
+does = "On a phone the Character tab is compact: each section is a gold title over a thin line with its actions on that line (Damage, Heal and Temp on Hit points; + on Tracking), the hit dice are chips, each tracker one row; a tap on a chip or a row opens its menu: use one, restore one (a hit die also rolls), and the rest. An attack is one row: its name and its damage short (bludg.), which open its menu, and its roll at the right."
+targets = ["android"]
+not = { tui = "the terminal's sheet is its own layout of panes" }
 
 [[scenario]]
 id = "sheet.tab-row"
@@ -592,6 +608,12 @@ id = "sheet.explain-popup"
 does = "On a computer a number's ⓘ (or a click on an ability's name, or a right click) shows how it adds up in a pop-up beside it: the total with its sign, a line for each part (a skill's ability modifier and proficiency, then what items and features add) with where it comes from; only that, no rolling (the number itself rolls); Escape closes it."
 targets = ["windows"]
 not = { tui = "the terminal explains the number under the cursor with ? in a pane of its own" }
+
+[[scenario]]
+id = "sheet.rolls-phone"
+does = "On a phone the latest rolls are a section folded to its title line, which shows how many and the last roll; open, one row each, newest first, the dice under it. No rolls yet: no section."
+targets = ["android"]
+not = { tui = "the terminal shows the latest rolls in its status line and roll log" }
 
 [[scenario]]
 id = "sheet.rolls-folded"
@@ -630,6 +652,36 @@ targets = ["windows"]
 not = { tui = "the terminal acts on the spell under the cursor with keys" }
 
 [[scenario]]
+id = "companions.phone"
+does = "On a phone each companion is laid out as the Character tab, smaller: its name a section on a gold line with Damage, Heal and its menu on it, a small line (kind, creature, type, CR, speed), the hit points as a row with a bar, AC, Init and Passive Perception as number boxes, the six abilities as small boxes (a tap rolls the check, holding the save), its skills and conditions, and its attacks as rows with the roll at the right."
+targets = ["android"]
+not = { tui = "the terminal's companions are its own layout of panes" }
+
+[[scenario]]
+id = "compendium.wide-tables"
+does = "A table too wide for its place (a class's levels on a phone) never scrolls sideways (a sideways swipe goes to the next entry): each row becomes a block, its first cell leading (Level 1st), then each column's name and value, empty ones left out. A table that fits stays a table."
+targets = ["android"]
+not = { tui = "the terminal draws tables in its own panes, wrapping its columns" }
+
+[[scenario]]
+id = "compendium.phone"
+does = "On a phone the Compendium's search is a prompt line (a gold ❯, the text on a thin line, no box) with the category a small button beside it; the results are a section on a gold line (their count its title, sort on it) and an entry a section too (its name the gold line, its menu on it), no boxes."
+targets = ["android"]
+not = { tui = "the terminal's compendium is its own layout of panes" }
+
+[[scenario]]
+id = "features.phone"
+does = "On a phone the Features tab's groups (a class, the species, the background, feats) are sections on gold lines, each feature one row with a line under it: its level, its name (its entry), auto when rules automate it, rules."
+targets = ["android"]
+not = { tui = "the terminal's features are its own layout of panes" }
+
+[[scenario]]
+id = "inventory.phone"
+does = "On a phone the Inventory tab is three sections on gold lines: Equipped (what is worn or held, its slot or hand as a tag; attuned n/3 on its line), Carried (the rest, the weight carried on its line and as a bar, one + add for an item, a quick item or homebrew) and Coins. Each item is one row: its name (its menu), its tag (equip, or where it is: a tap equips it or puts it away), how many, its weight."
+targets = ["android"]
+not = { tui = "the terminal's inventory is its own layout of panes" }
+
+[[scenario]]
 id = "inventory.actions-panel"
 does = "On a computer a click on an item shows everything its menu does as buttons under it (read, equip, wear, hold, attune, put in, unpack, container, quantity, remove); ⋯ and a right click still open the menu."
 targets = ["windows"]
@@ -640,6 +692,12 @@ id = "inventory.equip-pills"
 does = "On a computer an item's state has a column after its name (Item | State | Qty | Weight): Equip, or where the item is (Worn · its slot, Held · its hand); a click equips it or puts it away; nothing there for what cannot be worn or held."
 targets = ["windows"]
 not = { tui = "the terminal marks worn and held items with ◉ and ◈" }
+
+[[scenario]]
+id = "sheet.skills-phone"
+does = "On a phone the Skills tab has the Character tab's look: Abilities and Skills are sections on gold lines (the check and save column names on the Abilities line; the spell DC and attack are the Spells tab's), one row each: ● or ○ first (a proficient save; a proficient skill), the name, an ability's score by its check, the rolls at the right (a check and a save; a skill's bonus)."
+targets = ["android"]
+not = { tui = "the terminal's sheet is its own layout of panes" }
 
 [[scenario]]
 id = "sheet.skills-tab"
@@ -812,7 +870,7 @@ not = { tui = "the terminal lists the features in one column" }
 
 [[scenario]]
 id = "spells.choose"
-does = "Choose the spells the character may have (cantrips, a grant's choice)."
+does = "Choose the spells the character may have (cantrips, a grant's choice); the sheet says how many are still to choose: a Wizard's are the spells of its spellbook (which to prepare is the day's choice, not one still owed), another class's its prepared or known spells."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -822,7 +880,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.cast"
-does = "Cast a spell with a slot: the slot is spent, a concentration spell is noted."
+does = "Cast a spell with a slot: the slot is spent, a concentration spell is noted. In the app a spell of level 1 or more has a cast button beside it: one way to cast it casts it at once; when a higher slot (an upcast), a pact slot or a ritual is possible, it asks which."
 targets = ["tui", "app"]
 
 [[scenario]]
@@ -843,9 +901,15 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.by-level"
-does = "Spells are grouped by level under each casting class, whose save DC, attack and highest level are boxes; each level's heading has its slots (and pact slots), to spend and restore."
+does = "All the spells are one list by level, whichever class gave them (its tag beside each spell); the slots (one pool, and pact slots; a tap on their pips uses or restores one; each level's slots left also beside its name, short: 2/2) and each class's save DC and attack are at the top; a spell with no slot left to cast it is dimmed; a level folds away and back."
 targets = ["app"]
 not = { tui = "the terminal lists each class's spells with their level, and its slots in their own section" }
+
+[[scenario]]
+id = "spells.filter"
+does = "Buttons on one line (on a phone on the Spellcasting title line; full class names if they fit, else short names, else letters) show one class's spells (with its DC, attack, slots and counts), the spells of feats and other features (◆), or all (several classes: a small table of their DC, attack and highest level, then the slots)."
+targets = ["app"]
+not = { tui = "the terminal lists each class's spells in its own section already" }
 
 [[scenario]]
 id = "spells.prepare"
@@ -875,12 +939,12 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.granted"
-does = "A feature that grants a spell adds it, listed under that feature, without counting against the limits: as the data's granted spells, or as its text says (Pact of the Chain's Find Familiar, Paladin's Smite's Divine Smite); the feature gone (a level undone), its spell goes too."
+does = "A feature that grants a spell adds it, marked as from that feature (in the app ◆ and its name beside the spell, in the terminal under the feature), without counting against the limits: as the data's granted spells, or as its text says (Pact of the Chain's Find Familiar, Paladin's Smite's Divine Smite); the feature gone (a level undone), its spell goes too."
 targets = ["tui", "app"]
 
 [[scenario]]
 id = "spells.roll"
-does = "Roll a spell's attack or save and damage, with its class's numbers: in the app from its menu, or the roll button beside a spell with dice. Dice that are not damage are named for what they do, in the list and the roll: Guidance's 1d4 an ability check bonus, Resistance's damage reduction, Bane's an attack and save penalty (never damage or healing); a damage spell still says damage."
+does = "Roll a spell's attack or save and damage, with its class's numbers, without casting it: in the app from its menu, or the roll button beside a cantrip with dice (a spell with a level has the cast button there). Dice that are not damage are named for what they do, in the list and the roll: Guidance's 1d4 an ability check bonus, Resistance's damage reduction, Bane's an attack and save penalty (never damage or healing); a damage spell still says damage."
 targets = ["tui", "app"]
 
 # ---------------------------------------------------------------- inventory
@@ -1077,7 +1141,7 @@ targets = ["tui", "app"]
 
 [[scenario]]
 id = "nav.menu-inside"
-does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories, the open character's tabs and the tabs of Data, so the menu goes from anywhere to, say, the character's spells."
+does = "The menu's sections unfold (▸, folded at first) to what is inside them: the compendium's categories, the open character's tabs and the tabs of Data (the first few, the rest behind N more), so the menu goes from anywhere to, say, the character's spells. The menu is a section like the pages: Sections a gold title, the open section in gold, each compendium category with its kind's coloured mark (as the compendium's rows), the active campaign in gold at the foot."
 targets = ["android"]
 not = { tui = "no menu: the number keys change the section, Tab the category or the tab" }
 
@@ -1135,6 +1199,24 @@ targets = ["windows"]
 not = { tui = "the terminal's notes take : commands and keys" }
 
 [[scenario]]
+id = "campaigns.phone"
+does = "On a phone the active campaign is the first section: its name the gold title with ⋯ on it, its books (with edit), homebrew and own source as label rows; the other campaigns a section under it with + new on its line, each a row with make active and ⋯."
+targets = ["android"]
+not = { tui = "the terminal lists the campaigns, acting on the one under the cursor with keys" }
+
+[[scenario]]
+id = "data.phone"
+does = "On a phone the Data tab is the first section's gold title (Import ▾, a tap picks another tab) with its action on its line (Import…, back up now and restore…, the update check), the explanations kept whole; each part a section on a gold line, no boxes; the backup settings label rows with their control at the right."
+targets = ["android"]
+not = { tui = "the terminal's data screen is its own layout of panes" }
+
+[[scenario]]
+id = "notes.phone"
+does = "On a phone the notes are a section: the search a prompt line with + note, quick note and ⋯ on it; the notes at the top level, then each folder as a section (its title its menu, its count and a + on its line, the first few notes and the rest a tap away, a note's status or type at its right), the empty folders on one line; an open note a section too (its name the title, read/edit and ⋯ on it, its path under it, an empty list just its title)."
+targets = ["android"]
+not = { tui = "the terminal's notes are its own layout of panes" }
+
+[[scenario]]
 id = "campaigns.cards"
 does = "On a computer the campaigns are cards side by side, as many as fit, each with its actions in sight (books & homebrew, rename, export, delete, make active)."
 targets = ["windows"]
@@ -1175,3 +1257,24 @@ id = "layout.focus"
 does = "On a computer, Tab moves through the controls, and the one the keyboard is on is outlined."
 targets = ["windows"]
 not = { tui = "the terminal shows where the keys go by its highlighted row and cursor" }
+
+# ---------------------------------------------------------------- companions
+[[scenario]]
+id = "companions.familiar"
+does = "Casting a spell whose rules give a familiar (Find Familiar) asks for a creature it allows (the Owl, not a Wolf) and a type (Fey); the familiar has its own card on the Companions tab (HP, AC, speed, abilities, skills, passive Perception), and its Perception rolls in its name. The spell gives one at a time: casting it again with one there says so."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "companions.feature-spell"
+does = "A spell a feature gives to cast without a slot (Pact of the Chain's Find Familiar) is cast at once, spending no slot, and summons by the spell's own rules: it asks for the familiar."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "companions.summon"
+does = "A book's spell that is the SRD's Find Steed (the data says so: the test book's Call Steed) has the SRD's built-in rules: cast with a level 4 slot it summons the Otherworldly Steed: its numbers follow the level it was cast at and its owner (AC 14, 45 HP, a Fly speed, its slam at the owner's spell attack (+6) with 1d8 + 4 damage), and only its chosen type's slam is there."
+targets = ["tui", "app"]
+
+[[scenario]]
+id = "companions.follower"
+does = "Any creature joins as a follower from the Companions tab's add (in the app a line after the last companion; in the terminal a), which also lists the features that give companions: a Wolf, whose Bite rolls to hit with its damage; damage and healing keep its hit points; it can be renamed, have conditions, go away and come back, and leave. A creature of one's own, made from the Creature homebrew template (Hireling), joins the same way."
+targets = ["tui", "app"]

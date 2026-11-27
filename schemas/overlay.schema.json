@@ -476,6 +476,157 @@
               }
             }
           },
+          "companion": {
+            "type": "array",
+            "description": "Creatures that serve the character: a familiar, a steed, a summoned spirit. Its effects and actions are on the companion's sheet; their formulas know its stats, the owner's as owner.<stat>, and spell_level.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "description": "What the companion is (Familiar); the feature's name without one."
+                },
+                "creature": {
+                  "type": "string",
+                  "description": "The creature it is (creature:Otherworldly Steed|SRD52)."
+                },
+                "creatures": {
+                  "type": "string",
+                  "description": "Or the creatures it may be: a filter over creature.cr, creature.<type> (creature.beast), creature.familiar, creature.summon, creature.size."
+                },
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Creature types to choose from instead of its own (celestial)."
+                },
+                "count": {
+                  "type": "string",
+                  "description": "How many at once (a formula; 1 without)."
+                },
+                "effect": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["target"],
+                    "additionalProperties": false,
+                    "minProperties": 2,
+                    "properties": {
+                      "target": {
+                        "type": "string",
+                        "description": "A stat: ac, speed, hp.max, initiative, save.dex, skill.stealth, attack.bonus, attack.damage, attack.melee.damage, attack.ranged.bonus, attack.one_handed.damage, attack.strength.damage, attack.heavy.damage, attack.unarmed.damage, attack.offhand.full_mod, rider.<key>, resource.<key>.max, …"
+                      },
+                      "add": {
+                        "type": "string"
+                      },
+                      "set": {
+                        "type": "string"
+                      },
+                      "max": {
+                        "type": "string"
+                      },
+                      "min": {
+                        "type": "string"
+                      },
+                      "mul": {
+                        "type": "string"
+                      },
+                      "when": {
+                        "type": "string",
+                        "description": "Formula that must be true, e.g. `toggle('raging')`."
+                      },
+                      "origin": {
+                        "type": "string",
+                        "description": "Shown in breakdowns; for riders, `Name: when it applies`."
+                      }
+                    },
+                    "oneOf": [
+                      {
+                        "required": ["add"]
+                      },
+                      {
+                        "required": ["set"]
+                      },
+                      {
+                        "required": ["max"]
+                      },
+                      {
+                        "required": ["min"]
+                      },
+                      {
+                        "required": ["mul"]
+                      }
+                    ]
+                  }
+                },
+                "action": {
+                  "type": "array",
+                  "description": "Actions of its own, listed with the attacks.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["name"],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "attack": {
+                        "type": "string",
+                        "description": "Formula: the attack bonus, for an attack roll."
+                      },
+                      "save": {
+                        "enum": ["str", "dex", "con", "int", "wis", "cha"],
+                        "description": "The ability of the target's save (with dc)."
+                      },
+                      "dc": {
+                        "type": "string",
+                        "description": "Formula: the save's DC."
+                      },
+                      "damage": {
+                        "type": "string",
+                        "description": "Formula of dice: dice(2, 6) + mod.con."
+                      },
+                      "damage_type": {
+                        "type": "string"
+                      },
+                      "heal": {
+                        "type": "string",
+                        "description": "Formula of dice: the healing."
+                      },
+                      "temp_hp": {
+                        "type": "string",
+                        "description": "Formula: temporary hit points the character gains."
+                      },
+                      "resource": {
+                        "type": "string",
+                        "description": "The key of the resource a use takes."
+                      },
+                      "cost": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Uses of the resource it takes (1 without)."
+                      },
+                      "note": {
+                        "type": "string",
+                        "description": "Shown with the action and its roll."
+                      },
+                      "when": {
+                        "type": "string",
+                        "description": "Formula: the action is there while this holds."
+                      }
+                    },
+                    "dependentRequired": {
+                      "save": ["dc"],
+                      "dc": ["save"],
+                      "cost": ["resource"]
+                    }
+                  }
+                }
+              }
+            }
+          },
           "all_options": {
             "type": "boolean",
             "description": "The options its text lists are all gained, not one chosen."

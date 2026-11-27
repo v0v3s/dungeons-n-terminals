@@ -36,7 +36,7 @@
     reading?: string | null;
     /// The category shown, and every one with its count (for the menu).
     category?: number;
-    categories?: [string, number][];
+    categories?: api.Found["categories"];
     /// The active campaign, whose sources the compendium shows.
     campaign?: api.CampaignInfo | null;
     onstatus: (s: api.Status) => void;
@@ -578,6 +578,7 @@
       footer={!touch && found ? `${found.total} results` : ""}
       aside={found?.orders.length ? orderSelect : undefined}
       class="browse"
+      section={touch}
     >
       {#if !touch && !desktop.current}
         {@render searchbox()}
@@ -587,7 +588,7 @@
       {@render rows()}
     </Pane>
 
-    <Pane focused={open} class="detail">
+    <Pane focused={open} class="detail" section={touch}>
       {#if entry}
         {#snippet shown(entry: api.Entry)}
         <div class="head">
@@ -1072,6 +1073,81 @@
   }
   .touch .head h1 {
     font-size: 1.15em;
+  }
+
+  /* A phone or a tablet: the search a prompt line (a gold ❯, the text on
+     a thin line, gold while typing), the category a small button; the
+     results and the entry as sections (see Pane), no boxes. */
+  .touch .searchrow {
+    align-items: center;
+  }
+  .touch .searchbox {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+  .touch .prompt {
+    min-height: 36px;
+  }
+  .touch .prompt span {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .touch .prompt input {
+    border-bottom: 1px solid var(--border);
+    padding: 4px 0;
+  }
+  .touch .searchbox.on .prompt input {
+    border-bottom-color: var(--accent);
+  }
+  .touch .clear {
+    width: 32px;
+    height: 32px;
+  }
+  .touch .searchrow .categories {
+    flex: 0 1 auto;
+    max-width: 45%;
+  }
+  .touch .searchrow .categories :global(.tabsel) {
+    min-height: 30px;
+    height: auto;
+    border-color: var(--border);
+    border-radius: 6px;
+    font-size: 0.85em;
+  }
+  .touch .split {
+    padding-top: 6px;
+  }
+  .touch :global(.browse) {
+    padding: 0;
+  }
+  .touch .rows button {
+    min-height: 38px;
+    padding: 0 4px;
+  }
+  .touch .rows li + li button {
+    border-top: 0;
+  }
+  .touch .rows li button {
+    border-bottom: 1px solid var(--raised);
+  }
+  .touch .title {
+    align-items: center;
+    border-bottom: 1px solid rgb(224 175 104 / 0.55);
+    min-height: 32px;
+    margin-bottom: 0.2em;
+  }
+  .touch .title :global(.more) {
+    min-height: 26px !important;
+    min-width: 32px !important;
+    height: 26px;
+    padding: 0 1ch !important;
+    font-size: 0.9em;
+  }
+  .touch .head .sub {
+    border-bottom: 0;
+    font-size: 0.85em;
+    padding-bottom: 0.3em;
   }
 
   /* Tablets: the entry gets the larger share. */

@@ -14,7 +14,7 @@
 
 <div class="features">
   {#each groups as g (g.title)}
-    <Pane title={g.title} fold="sheet.features.{g.title}" summary={`${g.features.length} feature${g.features.length === 1 ? "" : "s"}`}>
+    <Pane title={g.title} fold="sheet.features.{g.title}" section summary={`${g.features.length} feature${g.features.length === 1 ? "" : "s"}`}>
       {#each g.features as f (f.index)}
         <div class="row">
           <button class="feature" onclick={() => ctx.show(f.entity)}>
@@ -97,13 +97,32 @@
       font-size: 0.85em;
     }
   }
+  /* Phones and tablets: groups as sections on gold lines (see Pane), one
+     row per feature with a line under it, its level small. */
+  @media not ((pointer: fine) and (min-width: 761px)) {
+    .features {
+      gap: 1em 2ch;
+    }
+    .row {
+      min-height: 36px;
+      border-bottom: 1px solid var(--raised);
+    }
+    .feature {
+      grid-template-columns: 2.5ch 1fr auto;
+      align-items: center;
+    }
+    .lvl {
+      font-size: 0.85em;
+    }
+    .rules {
+      min-height: 32px;
+      font-size: 0.85em;
+      padding-right: 0;
+    }
+  }
   @media (max-width: 760px) {
     .features {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .feature {
-      min-height: 44px;
-      align-items: center;
     }
   }
 </style>

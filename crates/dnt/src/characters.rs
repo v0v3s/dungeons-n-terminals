@@ -22,11 +22,12 @@ pub enum Tab {
     Features,
     Spells,
     Inventory,
+    Companions,
     Notes,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 5] = [Tab::Overview, Tab::Features, Tab::Spells, Tab::Inventory, Tab::Notes];
+    pub const ALL: [Tab; 6] = [Tab::Overview, Tab::Features, Tab::Spells, Tab::Inventory, Tab::Companions, Tab::Notes];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -34,6 +35,7 @@ impl Tab {
             Tab::Features => "Features",
             Tab::Spells => "Spells",
             Tab::Inventory => "Inventory",
+            Tab::Companions => "Companions",
             Tab::Notes => "Notes",
         }
     }
@@ -59,6 +61,8 @@ pub enum Prompt {
     Damage,
     Heal,
     TempHp,
+    /// The hit points, set by hand.
+    Hp,
 }
 
 impl Prompt {
@@ -67,6 +71,7 @@ impl Prompt {
             Prompt::Damage => "Damage",
             Prompt::Heal => "Heal",
             Prompt::TempHp => "Temporary HP",
+            Prompt::Hp => "Hit points",
         }
     }
 }
@@ -87,8 +92,8 @@ pub enum Popup {
     Text(TextPrompt, String),
     /// Adding spells to a class or a feature grant.
     SpellPick(Box<Picker>, spellbook::Target),
-    /// Choosing how to cast a spell.
-    Cast(Box<Picker>, String),
+    /// Choosing how to cast a spell (its id and origin).
+    Cast(Box<Picker>, String, Option<String>),
     /// Choosing where to wear an inventory line.
     Wear(Box<Picker>, usize),
     /// Choosing a container for an inventory line.
@@ -105,6 +110,17 @@ pub enum Popup {
     RemoveTracker(String, String),
     /// A roll typed by hand (`d20 + prof + dex`), and why the last try failed.
     Roll(String, String),
+    /// Companions: a list to choose from (what to add, a creature, its
+    /// type, a companion's menu).
+    CompanionPick(Box<Picker>, crate::companions_tab::Pick),
+    /// Companions: typed text (damage, a name, notes, a spell's level).
+    CompanionInput(crate::companions_tab::Input, String),
+    /// A companion's conditions: (companion, cursor row).
+    CompanionConditions(usize, usize),
+    /// Confirm a companion leaving.
+    RemoveCompanion(usize),
+    /// A creature's stat block, scrolled.
+    StatBlock(dnt_data::EntityId, u16),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +185,8 @@ pub struct Sheet {
     pub spell_cursor: usize,
     pub feature_cursor: usize,
     pub feature_scroll: usize,
+    /// The Companions tab's row under the cursor.
+    pub companion_cursor: usize,
     pub popup: Option<Popup>,
     /// The last custom roll, to roll again.
     pub last_roll: String,
@@ -198,6 +216,7 @@ impl Sheet {
             spell_cursor: 0,
             feature_cursor: 0,
             feature_scroll: 0,
+            companion_cursor: 0,
             popup: None,
             last_roll: String::new(),
         }
@@ -317,6 +336,8 @@ impl Characters {
                         | Popup::MoveInto(..)
                         | Popup::SwapMastery(..)
                         | Popup::Overlay(..)
+                        | Popup::CompanionPick(..)
+                        | Popup::CompanionInput(..)
                 )
             )
     }
@@ -573,12 +594,12 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 };
                 return run(sheet, lib, overlays, Command::AddSpells { to: target, ids });
             }
-            Popup::Cast(mut picker, spell) => {
+            Popup::Cast(mut picker, spell, origin) => {
                 sheet.popup = None;
                 match picker.key(key) {
-                    Some(Picked::One(how)) => return run(sheet, lib, overlays, Command::Cast { id: spell, how }),
+                    Some(Picked::One(how)) => return run(sheet, lib, overlays, Command::Cast { id: spell, how, origin }),
                     _ if key.code == KeyCode::Esc => {}
-                    _ => sheet.popup = Some(Popup::Cast(picker, spell)),
+                    _ => sheet.popup = Some(Popup::Cast(picker, spell, origin)),
                 }
                 return Action::None;
             }
@@ -702,6 +723,11 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                 }
                 return Action::None;
             }
+            p @ (Popup::CompanionPick(..)
+            | Popup::CompanionInput(..)
+            | Popup::CompanionConditions(..)
+            | Popup::RemoveCompanion(_)
+            | Popup::StatBlock(..)) => return crate::companions_tab::popup_key(sheet, p, key, lib, overlays),
             Popup::Breakdown(_) => {
                 if matches!(key.code, KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q' | '?' | ' ')) {
                     sheet.popup = None;
@@ -742,6 +768,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
                             Prompt::Damage => Command::Damage { amount, critical: false },
                             Prompt::Heal => Command::Heal { amount },
                             Prompt::TempHp => Command::SetTempHp { amount },
+                            Prompt::Hp => Command::SetHp { current: amount },
                         };
                         return run(sheet, lib, overlays, command);
                     }
@@ -781,6 +808,10 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
             sheet.popup = Some(Popup::Input(Prompt::TempHp, String::new()));
             return Action::None;
         }
+        KeyCode::Char('H') => {
+            sheet.popup = Some(Popup::Input(Prompt::Hp, String::new()));
+            return Action::None;
+        }
         KeyCode::Char('s') => {
             sheet.popup = Some(Popup::Confirm(Rest::Short));
             return Action::None;
@@ -816,6 +847,7 @@ fn sheet_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overlay
     match sheet.tab {
         Tab::Overview => overview_key(sheet, key, lib, overlays),
         Tab::Inventory => inventory_key(sheet, key, lib, overlays, filter),
+        Tab::Companions => crate::companions_tab::key(sheet, key, lib, overlays),
         Tab::Spells => spells_key(sheet, key, lib, overlays, filter),
         Tab::Notes => match key.code {
             KeyCode::Enter | KeyCode::Char('i') => Action::OpenNote(sheet.session.file.character.name.clone()),
@@ -1014,7 +1046,7 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
             };
             sheet.popup = Some(spell_pick(spellbook::class_choices(lib, &sheet.session.file.character, &data.casters[c], filter, true)));
         }
-        KeyCode::Enter => match row {
+        KeyCode::Enter | KeyCode::Char('c') => match row {
             Some(Row::GrantChoice { key, filter: f, missing, .. }) => {
                 sheet.popup = Some(spell_pick(spellbook::grant_choices(lib, &sheet.session.file.character, &key, &f, missing, filter)));
             }
@@ -1027,16 +1059,16 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
                 if dnt_rules::spells::spell_level(lib, spell) == 0 {
                     return Action::Status(format!("{} is a cantrip: no slot needed", lib.entity(spell).name));
                 }
-                // Free (innate) casts first, if the grant has them.
-                if let Some(Row::GrantSpell {
-                    how: dnt_rules::spells::Grant::Innate(Some(_)) | dnt_rules::spells::Grant::Resource { .. },
-                    ..
-                }) = &row
-                {
-                    return run(sheet, lib, overlays, Command::Cast { id: id.clone(), how: "free".into() });
+                let origin = row.as_ref().and_then(|r| r.origin(&data.casters, &sheet.session.build.granted));
+                // Enter casts without a slot when its feature allows (and
+                // has a cast left); `c` always asks how.
+                let ways = spellbook::cast_choices(lib, &sheet.session, spell, origin.as_deref());
+                let free = ways.as_ref().and_then(|(_, w)| w.first()).is_some_and(|w| w.value == "free" && w.warning.is_none());
+                if free && key.code == KeyCode::Enter {
+                    return run(sheet, lib, overlays, Command::Cast { id: id.clone(), how: "free".into(), origin });
                 }
-                match spellbook::cast_choices(lib, &sheet.session, spell) {
-                    Some((title, choices)) => sheet.popup = Some(Popup::Cast(Box::new(Picker::new(title, choices)), id.clone())),
+                match ways {
+                    Some((title, choices)) => sheet.popup = Some(Popup::Cast(Box::new(Picker::new(title, choices)), id.clone(), origin)),
                     None => return Action::Status("No spell slots".into()),
                 }
             }
@@ -1061,11 +1093,8 @@ fn spells_key(sheet: &mut Sheet, key: KeyEvent, lib: &Library, overlays: &Overla
             if !dnt_core::rolls::spell_rolls(lib, spell) {
                 return Action::Status(format!("{} has nothing to roll", lib.entity(spell).name));
             }
-            let slug = match row.as_ref() {
-                Some(Row::ClassSpell { caster, .. }) => data.casters.get(*caster).map(|c| c.slug.clone()),
-                _ => None,
-            };
-            let (atk, dc) = dnt_core::rolls::spell_numbers(sheet, slug.as_deref());
+            let origin = row.as_ref().and_then(|r| r.origin(&data.casters, &sheet.session.build.granted));
+            let (atk, dc) = dnt_core::rolls::spell_numbers(sheet, origin.as_deref());
             let level = dnt_rules::spells::spell_level(lib, spell);
             let r = dnt_core::rolls::spell(sheet, lib, spell, level, atk, dc);
             return Action::Rolled { line: r.line(), to_notes: sheet.session.roller.to_notes, save: false };
@@ -1252,14 +1281,26 @@ fn new_tracker(text: &str) -> Result<Command, String> {
 }
 
 /// Apply a core command: a changed character is saved, a refusal shown.
-fn run(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, command: Command) -> Action {
-    match sheet.session.apply(lib, overlays, command) {
-        Ok(dnt_core::Outcome { message, changed, rolled: Some(r) }) => {
+pub(crate) fn run(sheet: &mut Sheet, lib: &Library, overlays: &OverlaySet, command: Command) -> Action {
+    let outcome = match sheet.session.apply(lib, overlays, command) {
+        Ok(o) => o,
+        Err(e) => return Action::Status(e),
+    };
+    // A cast spell that gives a companion asks for it next.
+    let joined = outcome.summon.clone().and_then(|s| crate::companions_tab::from_cast(sheet, lib, overlays, s));
+    let action = match outcome {
+        dnt_core::Outcome { message, changed, rolled: Some(r), .. } => {
             Action::Rolled { line: format!("{message} · {}", r.line()), to_notes: sheet.session.roller.to_notes, save: changed }
         }
-        Ok(o) if o.changed => Action::Save(o.message),
-        Ok(o) => Action::Status(o.message),
-        Err(e) => Action::Status(e),
+        o if o.changed => Action::Save(o.message),
+        o => Action::Status(o.message),
+    };
+    match (joined, action) {
+        (Some(Action::Save(more) | Action::Status(more)), Action::Save(m)) => Action::Save(format!("{m} · {more}")),
+        (Some(Action::Save(more) | Action::Status(more)), Action::Rolled { line, to_notes, .. }) => {
+            Action::Rolled { line: format!("{line} · {more}"), to_notes, save: true }
+        }
+        (_, action) => action,
     }
 }
 

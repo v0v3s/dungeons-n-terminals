@@ -589,6 +589,26 @@ mod tests {
         assert_eq!(check(&c, "Agonizing Blast", 2), None);
     }
 
+    /// A book's invocation the SRD has too is offered once (the book's),
+    /// while an older printing stays for older classes.
+    #[test]
+    fn the_srds_twin_of_an_option_is_not_offered() {
+        let mut lib = Library::new();
+        lib.load_json(&json!({"optionalfeature": [
+            {"name": "Veil", "source": "SRD52", "featureType": ["EI"], "entries": ["x"]},
+            {"name": "Veil", "source": "OLD", "featureType": ["EI"], "entries": ["x"], "reprintedAs": ["Veil|NEW"]},
+            {"name": "Veil", "source": "NEW", "srd52": true, "featureType": ["EI"], "entries": ["x"]}
+        ]}));
+        let hints = |filter: &SourceFilter| {
+            optional_features(&lib, &Character::default(), &["EI".to_string()], filter, &BTreeSet::new(), 1)
+                .into_iter()
+                .map(|o| o.hint)
+                .collect::<BTreeSet<_>>()
+        };
+        assert_eq!(hints(&SourceFilter { enabled: None, hide_reprinted: true }), ["NEW".into(), "OLD".into()].into());
+        assert_eq!(hints(&SourceFilter::only(["SRD52", "OLD"])), ["OLD".into(), "SRD52".into()].into(), "without the book, the SRD's");
+    }
+
     #[test]
     fn mastery_swaps() {
         use crate::character::Level;

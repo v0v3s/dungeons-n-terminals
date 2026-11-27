@@ -77,7 +77,7 @@ fn the_characters_note_opens_from_the_sheet() {
     let mut t = Tui::scenario("character.note", Home::party());
     t.send("2").wait("◆ Tester");
     t.send("G").send(ENTER).wait("Overview   Features").wait("Human · Sage · Wizard 1");
-    for _ in 0..4 {
+    for _ in 0..5 {
         t.send(TAB);
     }
     t.wait("Party/Tester").wait("No notes for this character yet.");

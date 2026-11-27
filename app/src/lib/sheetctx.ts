@@ -55,5 +55,5 @@ export function pool(id: string): Record<string, unknown> {
 }
 
 /// The sheet's tabs; Notes opens the character's note.
-export const SHEET_TABS = ["Overview", "Skills", "Spells", "Inventory", "Features", "Notes"] as const;
+export const SHEET_TABS = ["Overview", "Skills", "Spells", "Inventory", "Features", "Companions", "Notes"] as const;
 export type SheetTab = (typeof SHEET_TABS)[number];

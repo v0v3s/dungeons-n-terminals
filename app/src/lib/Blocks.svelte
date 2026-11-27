@@ -7,8 +7,31 @@
   let { blocks, onlink }: { blocks: Block[]; onlink: (link: Link) => void } = $props();
 
   const label = (spans: { text: string }[]) => (spans[0]?.text ?? "").replace(/[:\s]+$/, "");
+  const text = (spans: { text: string }[]) => spans.map((s) => s.text).join("").trim();
+  /// A cell with nothing to say ("", "—", "-").
+  const empty = (spans: { text: string }[]) => ["", "—", "-", "–"].includes(text(spans));
+
+  /// Tables too wide for their place, by index: drawn as one block per row
+  /// instead, never scrolled sideways (a sideways swipe changes the page).
+  let stacked = $state<Record<number, boolean>>({});
+  // Another entry's blocks: measured afresh.
+  let measured: Block[] | null = null;
+  $effect.pre(() => {
+    if (measured !== null && blocks !== measured) stacked = {};
+    measured = blocks;
+  });
+  function fits(node: HTMLElement, i: number) {
+    const check = () => {
+      if (node.scrollWidth > node.clientWidth + 1) stacked = { ...stacked, [i]: true };
+    };
+    const seen = new ResizeObserver(check);
+    seen.observe(node);
+    check();
+    return { destroy: () => seen.disconnect() };
+  }
 </script>
 
+{#key blocks}
 {#each blocks as b, i (i)}
   {#if b.type === "heading"}
     {#if b.c.level <= 1}
@@ -22,8 +45,22 @@
     <ul>
       {#each b.c as item, j (j)}<li><Blocks blocks={item} {onlink} /></li>{/each}
     </ul>
+  {:else if b.type === "table" && stacked[i]}
+    <!-- Too wide: each row a block, its first cell leading, then each
+         column's name and value, wrapping; empty cells left out. -->
+    <div class="rowcards">
+      {#if b.c.caption}<div class="caption"><Spans spans={b.c.caption} {onlink} /></div>{/if}
+      {#each b.c.rows as row, j (j)}
+        <div class="rowcard">
+          <span class="lead">{#if b.c.header[0] && text(b.c.header[0])}<span class="lbl">{text(b.c.header[0])}</span>{" "}{/if}<Spans spans={row[0] ?? []} {onlink} /></span>
+          {#each row.slice(1) as cell, k (k)}
+            {#if !empty(cell)}<span class="pair">{#if b.c.header[k + 1]}<span class="lbl">{text(b.c.header[k + 1])}</span>{" "}{/if}<Spans spans={cell} {onlink} /></span>{/if}
+          {/each}
+        </div>
+      {/each}
+    </div>
   {:else if b.type === "table"}
-    <div class="table">
+    <div class="table" use:fits={i}>
       {#if b.c.caption}<div class="caption"><Spans spans={b.c.caption} {onlink} /></div>{/if}
       <table>
         {#if b.c.header.length}
@@ -57,6 +94,7 @@
     <hr />
   {/if}
 {/each}
+{/key}
 
 <style>
   p {
@@ -157,6 +195,26 @@
     border-top: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 4px;
+  }
+  .rowcards {
+    margin: 0 0 1em;
+  }
+  .rowcard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1em 2ch;
+    padding: 0.35em 0;
+    border-bottom: 1px solid var(--raised);
+  }
+  .rowcard .lead {
+    flex-basis: 100%;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .rowcard .lbl {
+    color: var(--gray);
+    font-size: 0.85em;
+    font-weight: 400;
   }
   .caption {
     font-weight: 700;

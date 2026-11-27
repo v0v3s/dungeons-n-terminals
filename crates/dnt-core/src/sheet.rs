@@ -751,7 +751,8 @@ pub enum SpellRow {
         favorite: bool,
         /// Cast from slots (or free casts): leveled spells.
         castable: bool,
-        /// Free casts (innate), if any are left to spend.
+        /// A cast without a slot (at will, or free casts left), from the
+        /// feature that gives it.
         free: bool,
         /// Where it was added (to remove it from there), if it can be.
         target: Option<spellbook::Target>,
@@ -762,8 +763,10 @@ pub enum SpellRow {
         /// What a cast without a slot spends, when a resource pays for it
         /// (`1 Soul Fragment`).
         cost: Option<String>,
-        /// The casting class's slug, for a class spell's attack and DC.
-        caster: Option<String>,
+        /// Where the character has it: the casting class or the feature
+        /// (see [`spellbook::origin`]), for its attack and DC and how it
+        /// is cast.
+        origin: Option<String>,
     },
     /// A feature's spell choice with picks still missing.
     Choice { key: String, filter: String, missing: usize, text: String },
@@ -778,11 +781,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
             Row::Favorite(inner) => (&**inner, true),
             r => (r, false),
         };
-        // The class a class spell is cast with, for its attack and DC.
-        let caster = match row {
-            Row::ClassSpell { caster, .. } => data.casters.get(*caster).map(|c| c.slug.clone()),
-            _ => None,
-        };
+        let origin = row.origin(&data.casters, &s.build.granted);
         let spell = |id: &str, mark: &'static str, how: String, class_id: Option<String>, free: bool| {
             let e = resolve_id(lib, id);
             let mut detail = Vec::new();
@@ -798,7 +797,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 castable = lvl > 0;
                 let r = spells::spell_roll(lib, e, ch.total_level() as i64, lvl);
                 rollable = r.dice.is_some();
-                let (_, dc) = crate::rolls::spell_numbers(s, caster.as_deref());
+                let (_, dc) = crate::rolls::spell_numbers(s, origin.as_deref());
                 let modifier = dc - 8 - ev.int("prof").unwrap_or(2);
                 if let Some(d) = r.dice.as_ref().map(|d| if r.add_modifier { d.plus_flat(modifier) } else { d.clone() }) {
                     detail.push(format!("{d} {}", r.label()));
@@ -831,7 +830,7 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 target: row.target(&data.casters),
                 class_id,
                 in_favorites,
-                caster: caster.clone(),
+                origin: origin.clone(),
                 cost: None,
             }
         };
@@ -899,10 +898,10 @@ pub fn spells(lib: &Library, s: &CharacterSession) -> Vec<SpellRow> {
                 let (text, free) = match how {
                     Grant::Prepared => ("always prepared".to_string(), false),
                     Grant::Known => ("known".to_string(), false),
-                    Grant::Innate(None) => ("at will".to_string(), false),
+                    Grant::Innate(None) => ("at will".to_string(), true),
                     Grant::Innate(Some(n)) => {
                         let name = resolve_id(lib, id).map(|e| lib.entity(e).name.clone()).unwrap_or_default();
-                        let left = play::resource_left(ch, ev, &format!("innate_{}", dnt_rules::class_table::slug(&name)));
+                        let left = play::resource_left(ch, ev, &spellbook::innate_key(&name));
                         // No free cast left: cast it with a slot, if at all.
                         (format!("{left}/{n} free"), left > 0)
                     }

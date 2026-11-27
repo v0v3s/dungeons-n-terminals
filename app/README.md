@@ -8,9 +8,20 @@ draws it in the terminal look of the TUI (see `src/app.css`).
 cd app
 npm install
 npm run tauri dev            # a desktop window, with hot reload
+npm run web                  # the same, and the UI in a browser (below)
 npm run tauri android dev    # an emulator or a phone over adb (see below)
 npm run check                # type-check the UI
 ```
+
+To prototype the UI, `npm run web` also serves it to an ordinary browser:
+open <http://localhost:1420> in Chrome and switch between phone, tablet and
+desktop in DevTools' device toolbar (it emulates touch, so the phone layouts
+apply), with hot reload. The desktop app runs as well, its window hidden
+(built with the `web-dev` feature, never in a release; Ctrl+C stops it),
+and runs the page's commands for it
+(`src-tauri/src/webdev.rs`, `src/lib/webdev.ts`), on its own data
+(`DNT_HOME=<folder> npm run web` for another). What only Android does (its
+back button, file pickers, installing an update) is not there.
 
 Android needs JDK 17 and the Android SDK with an NDK; `source
 scripts/android-env.sh` sets `JAVA_HOME`, `ANDROID_HOME` and `NDK_HOME` for

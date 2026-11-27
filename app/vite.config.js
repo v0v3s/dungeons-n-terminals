@@ -29,6 +29,8 @@ export default defineConfig(() => ({
           port: 1421,
         }
       : undefined,
+    // The app's commands for the page in a browser (npm run web).
+    proxy: { "/__ipc": "http://127.0.0.1:1422" },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

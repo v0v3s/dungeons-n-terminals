@@ -291,6 +291,18 @@ fn entity_facets(lib: &Library, id: EntityId) -> Vec<(Facet, String)> {
                 tag(&format!("{w} weapon"));
             }
         }
+        Kind::Creature => {
+            let t = crate::creature::creature_type(d);
+            for word in t.split(" or ") {
+                tag(word.split(" (").next().unwrap_or(word));
+            }
+            if d.get("familiar").and_then(Value::as_bool) == Some(true) {
+                tag("familiar");
+            }
+            if d.get("summonedBySpell").is_some() || d.get("summonedByClass").is_some() {
+                tag("summon");
+            }
+        }
         Kind::Race | Kind::Subrace => {
             for t in d.get("creatureTypes").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
                 tag(t);
@@ -308,8 +320,12 @@ fn entity_facets(lib: &Library, id: EntityId) -> Vec<(Facet, String)> {
         out.push((Facet::Damage, view::damage_type(code).to_string()));
     }
 
-    // Levels.
-    if let Some(l) = d.get("level").and_then(Value::as_u64) {
+    // Levels (a creature's: its challenge rating, `^0` for those below 1).
+    if e.kind == Kind::Creature {
+        if let Some(cr) = crate::creature::challenge_value(d) {
+            out.push((Facet::Level, (cr.floor() as u32).to_string()));
+        }
+    } else if let Some(l) = d.get("level").and_then(Value::as_u64) {
         out.push((Facet::Level, l.to_string()));
     }
 

@@ -24,6 +24,8 @@ pub struct Row {
     name: String,
     is_dir: bool,
     depth: usize,
+    /// A note's status, else its type (from its frontmatter).
+    kind: Option<String>,
 }
 
 /// The folder tree with these folders open.
@@ -34,7 +36,13 @@ pub async fn note_tree(app: State<'_, App>, expanded: Vec<String>) -> Res<Vec<Ro
     let open: BTreeSet<String> = expanded.into_iter().collect();
     Ok(core_notes::tree(&n, &open)
         .into_iter()
-        .map(|r| Row { path: r.entry.path, name: r.entry.name, is_dir: r.entry.is_dir, depth: r.depth })
+        .map(|r| {
+            let kind = (!r.entry.is_dir).then(|| n.read(&r.entry.path).ok()).flatten().and_then(|t| {
+                let mut meta = store_notes::frontmatter(&t);
+                meta.remove("status").or_else(|| meta.remove("type")).filter(|k| !k.is_empty())
+            });
+            Row { path: r.entry.path, name: r.entry.name, is_dir: r.entry.is_dir, depth: r.depth, kind }
+        })
         .collect())
 }
 

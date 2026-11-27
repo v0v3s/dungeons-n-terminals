@@ -1,7 +1,9 @@
 <!-- A rounded box with its title set into the top border, as the TUI's panes.
      With `fold`, tapping the title folds it to that line (and back); the
      state is kept per `fold` key on this device. `aside` sits in the top
-     border on the right (a select for the list below). -->
+     border on the right (a select for the list below). `section`: on a
+     phone or a tablet no box, a gold title over a thin line, `aside` on
+     that line (a computer keeps its card). -->
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { untrack } from "svelte";
@@ -14,6 +16,8 @@
     summary = "",
     aside,
     children,
+    section = false,
+    ontitle,
     class: cls = "",
   }: {
     title?: string;
@@ -25,6 +29,10 @@
     summary?: string;
     aside?: Snippet;
     children: Snippet;
+    /// A section of a page rather than a box (see above).
+    section?: boolean;
+    /// What a tap on the title does instead of folding (an edit).
+    ontitle?: () => void;
     class?: string;
   } = $props();
 
@@ -37,7 +45,8 @@
     }
   }
 
-  let folded = $state(untrack(() => !!fold && load().includes(fold)));
+  // A title that edits does not fold: never folded away.
+  let folded = $state(untrack(() => !!fold && !ontitle && load().includes(fold)));
 
   function toggle() {
     folded = !folded;
@@ -50,8 +59,10 @@
   }
 </script>
 
-<section class="pane {cls}" class:focused class:folded>
-  {#if title && fold}
+<section class="pane {cls}" class:focused class:folded class:section>
+  {#if title && ontitle}
+    <h2 class="title"><button class="fold" onclick={ontitle}>{title}<span class="edit" aria-hidden="true">✎</span></button></h2>
+  {:else if title && fold}
     <h2 class="title">
       <button class="fold" aria-expanded={!folded} onclick={toggle}>
         <span class="chev">{folded ? "▸" : "▾"}</span>{title}{#if folded && summary}<span class="summary">{summary}</span>{/if}
@@ -120,6 +131,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .edit {
+    color: var(--dim);
+    font-weight: 400;
+    font-size: 0.8em;
+  }
   .chev {
     color: var(--accent);
   }
@@ -156,6 +172,53 @@
     .title:has(.fold) {
       top: -18px;
       line-height: 36px;
+    }
+  }
+  /* A section on a phone or a tablet: its title a gold line, the aside on
+     it, no box. */
+  @media not ((pointer: fine) and (min-width: 761px)) {
+    .pane.section,
+    .pane.section.folded {
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      height: auto;
+    }
+    .section .title {
+      position: static;
+      max-width: none;
+      display: flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 0 1px;
+      margin: 0 0 0.3em;
+      background: none;
+      color: var(--accent);
+      font-size: 1.15em;
+      line-height: 1.3;
+      border-bottom: 1px solid rgb(224 175 104 / 0.55);
+    }
+    .section.folded .title {
+      margin: 0;
+    }
+    .section .title:has(.fold) {
+      top: 0;
+      line-height: 1.3;
+    }
+    .section .fold {
+      flex: 1;
+      min-height: 32px;
+      align-items: center;
+    }
+    .section .aside {
+      top: 0;
+      right: 0;
+      padding: 0;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      background: none;
+      max-width: 70%;
     }
   }
   /* On a computer: a card, its title a small heading inside it, the aside

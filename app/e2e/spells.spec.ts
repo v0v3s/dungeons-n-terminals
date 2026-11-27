@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
-import { choose, dialog, expect, invoke, openSheet, pick, sheetMore, sheetTab, status, test, wren } from "./fixtures";
+import { choose, dialog, expect, invoke, openSheet, phone, pick, sheetMore, sheetTab, status, test, wren } from "./fixtures";
 
 const spell = (page: Page, name: string) => page.locator("button.spell", { hasText: name });
-/// A level's slots (or the pact slots), in its heading on the Spells tab.
+/// A level's slots (or the pact slots), at the top of the Spells tab.
 const slot = (page: Page, name: string) => page.locator(`.slot[data-pool^="${name}"]`);
 
 /// Add spells to the first class on the Spells tab, one at a time.
@@ -68,12 +68,13 @@ test("a spell's plain dice are a number, not healing", { tag: "@spells.roll" }, 
   await openSheet(page, "Spells", "Hexa");
   await page.locator("button.choice", { hasText: "choose 1 Cleric spell" }).click();
   await pick(page, ["Bane"]);
-  await page.getByRole("button", { name: "Roll Bane" }).click();
+  await act(page, "Bane", "Roll it");
   await expect(page.locator(".status.roll")).toContainText("Charisma save");
   await expect(page.locator(".status.roll")).not.toContainText("healing");
 });
 
 test("dice that are not damage are named for what they do; damage still says damage", { tag: "@spells.roll" }, async ({ page }) => {
+  test.setTimeout(60_000);
   await openSheet(page, "Spells", "Hexa");
   await page.locator("button.choice", { hasText: "choose 2 Cleric cantrip" }).click();
   await pick(page, ["Guidance", "Resistance"]);
@@ -99,9 +100,22 @@ test("dice that are not damage are named for what they do; damage still says dam
   await roll.click();
   await expect(roll).toHaveCount(0);
   // A damage spell still says damage.
-  await page.getByRole("button", { name: "Roll Guiding Bolt" }).click();
+  await act(page, "Guiding Bolt", "Roll it");
   await expect(roll).toContainText("radiant damage");
   await expect(roll.locator(".n.dmg")).toHaveCount(1);
+});
+
+test("a Wizard's spells to choose are its spellbook's, not which to prepare", { tag: "@spells.choose" }, async ({ page }) => {
+  await openSheet(page, "Spells");
+  const flag = page.locator(".flag", { hasText: "spell" });
+  const count = async () => Number((await flag.textContent())?.match(/\d+/)?.[0]);
+  const before = await count();
+  await addSpells(page, ["Burning Hands"]);
+  // In the book: one fewer to choose; preparing it changes nothing.
+  await expect.poll(count).toBe(before - 1);
+  await page.getByRole("checkbox", { name: "Prepared: Burning Hands" }).click();
+  await expect(page.getByRole("checkbox", { name: "Prepared: Burning Hands" })).toBeChecked();
+  expect(await count()).toBe(before - 1);
 });
 
 test("the spells to choose: a class's, and a feat's choice", { tag: "@spells.choose" }, async ({ page }) => {
@@ -154,12 +168,13 @@ test("casting with a slot spends it; a concentration spell is noted", { tag: "@s
   await openSheet(page, "Spells");
   await addSpells(page, ["Burning Hands", "Fog Cloud"]);
   await expect(slot(page, "Level 1")).toContainText("2/2");
-  await act(page, "Burning Hands", "Cast…");
-  await pick(page, ["Level 1"]);
+  // Its cast button: one way to cast it (a level 1 slot), cast at once.
+  await page.getByRole("button", { name: "Cast Burning Hands" }).click();
   await expect(slot(page, "Level 1")).toContainText("1/2");
+  await expect(page.locator(".status.roll")).toContainText("Burning Hands");
 
+  // From its menu: the same, no question with one way to cast it.
   await act(page, "Fog Cloud", "Cast…");
-  await pick(page, ["Level 1"]);
   await expect(slot(page, "Level 1")).toContainText("0/2");
   await sheetTab(page, "Overview");
   await expect(page.locator(".chip.conc")).toContainText("Fog Cloud");
@@ -171,14 +186,14 @@ test("a free cast is spent and comes back on a long rest", { tag: "@spells.cast-
   await openSheet(page, "Spells", "Hexa");
   await expect(spell(page, "Detect Magic")).toBeVisible();
   const pact = await page.locator(".slot").first().textContent();
-  await act(page, "Detect Magic", "Cast (a free cast)");
+  await act(page, "Detect Magic", "Cast (no slot)");
   await expect(status(page)).toContainText("Detect Magic");
   // No slot was spent, and the free cast is gone.
   await expect(page.locator(".slot").first()).toHaveText(pact ?? "");
   await spell(page, "Detect Magic").click();
   await expect(
     dialog(page, "Detect Magic").getByRole("button", {
-      name: "Cast (a free cast)",
+      name: "Cast (no slot)",
     }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
@@ -189,7 +204,7 @@ test("a free cast is spent and comes back on a long rest", { tag: "@spells.cast-
   await spell(page, "Detect Magic").click();
   await expect(
     dialog(page, "Detect Magic").getByRole("button", {
-      name: "Cast (a free cast)",
+      name: "Cast (no slot)",
     }),
   ).toBeVisible();
 });
@@ -206,17 +221,29 @@ test("a spell in the spellbook is prepared and unprepared", { tag: "@spells.prep
   await expect(prepared).toHaveAttribute("aria-checked", String(before));
 });
 
-test("spells are grouped by level, each level's slots in its heading", { tag: "@spells.by-level" }, async ({ page }) => {
+test("spells are one list by level, the slots and the class's numbers at the top", { tag: "@spells.by-level" }, async ({ page }) => {
   await openSheet(page, "Spells");
   await addSpells(page, ["Ray of Frost", "Burning Hands"]);
   const level = (title: string) => page.locator(".level", { has: page.locator(".ltitle", { hasText: title }) });
   await expect(level("Cantrips")).toBeVisible();
-  await expect(level("Level 1").locator(".slot")).toContainText("2/2");
-  // A spell sits under its level's heading.
-  const after = (title: string, name: string) =>
-    page.locator(`.level:has(.ltitle:text-is("${title}")) ~ .srow`, { hasText: name }).first();
-  await expect(after("Level 1", "Burning Hands")).toBeVisible();
-  await expect(page.locator(".boxes").first()).toContainText("save DC");
+  await expect(page.locator(".top").locator(slot(page, "Level 1"))).toContainText("2/2");
+  // And beside each level's name, its slots left.
+  await expect(level("Level 1").locator(".lslots")).toHaveText("2/2");
+  await expect(page.locator(".top .caster")).toContainText("DC");
+  // A spell sits under its level's heading, with its class's tag.
+  const heading = (name: string) =>
+    spell(page, name).evaluate((b) => {
+      for (let el: Element | null = b.closest(".srow"); el; el = el.previousElementSibling)
+        if (el.classList.contains("level")) return el.querySelector(".ltitle")?.textContent?.trim() ?? null;
+      return null;
+    });
+  expect(await heading("Burning Hands")).toMatch(/^▾ Level 1(\D|$)/);
+  await expect(page.locator(".srow", { has: spell(page, "Burning Hands") }).locator(".prep, .mark").first()).toBeVisible();
+  // A level folds away, and back.
+  await level("Level 1").click();
+  await expect(spell(page, "Burning Hands")).toHaveCount(0);
+  await level("Level 1").click();
+  await expect(spell(page, "Burning Hands")).toBeVisible();
 });
 
 test("a spell is made a favorite, and no longer", { tag: "@spells.favorite" }, async ({ page }) => {
@@ -232,7 +259,7 @@ test("a spell is made a favorite, and no longer", { tag: "@spells.favorite" }, a
     }),
   ).toBeVisible();
   await choose(page, "Burning Hands", "No longer a favorite");
-  await expect(page.locator(".header .title", { hasText: /Favorite/i })).toHaveCount(0);
+  await expect(page.locator(".ltitle", { hasText: /Favorite/i })).toHaveCount(0);
 });
 
 test("a spell is removed", { tag: "@spells.remove" }, async ({ page }) => {
@@ -243,8 +270,9 @@ test("a spell is removed", { tag: "@spells.remove" }, async ({ page }) => {
   await expect(spell(page, "Ray of Frost")).toBeVisible();
 });
 
-test("a feature that grants a spell adds it, under that feature; gone with it", { tag: "@spells.granted" }, async ({ page }) => {
-  // Hexa to Warlock 2, taking Pact of the Chain (Find Familiar is no Warlock spell).
+/// Hexa to Warlock 2, taking Pact of the Chain (Find Familiar is no
+/// Warlock spell).
+async function pactOfTheChain(page: Page) {
   await invoke(page, "open_character", { slug: "hexa" });
   let step = await invoke<{ question: any }>(page, "levelup_start");
   while (step.question.type !== "confirm") {
@@ -260,19 +288,15 @@ test("a feature that grants a spell adds it, under that feature; gone with it", 
   await invoke(page, "close_character");
   await page.reload();
   await page.waitForFunction(() => (window as any).__TAURI_INTERNALS__);
+}
 
+test("a feature that grants a spell adds it, from that feature; gone with it", { tag: "@spells.granted" }, async ({ page }) => {
+  await pactOfTheChain(page);
   await openSheet(page, "Spells", "Hexa");
   await expect(spell(page, "Find Familiar")).toBeVisible();
-  // Listed under the feature that grants it, as from a feature.
-  const under = await spell(page, "Find Familiar").evaluate((b) => {
-    for (let el: Element | null = b.closest(".srow"); el; el = el.previousElementSibling) {
-      const t = el.querySelector?.(".header .title") ?? (el.classList.contains("header") ? el.querySelector(".title") : null);
-      if (t) return t.textContent?.trim();
-    }
-    return null;
-  });
-  expect(under).toBe("Pact of the Chain");
+  // Marked as from a feature, which it names.
   await expect(page.locator(".srow", { has: spell(page, "Find Familiar") }).locator(".mark")).toHaveText("◆");
+  await expect(spell(page, "Find Familiar")).toContainText("Pact of the Chain");
   // The level undone: the invocation goes, and its spell with it.
   await sheetMore(page);
   await choose(page, "Hexa", "Remove the latest level");
@@ -372,7 +396,7 @@ test("a spell always prepared is cast free once a day too", { tag: "@spells.prep
   await expect(spell(page, "Shield").first()).toContainText("always prepared");
   await expect(spell(page, "Shield").nth(1)).toContainText("1/1 free");
   await spell(page, "Shield").nth(1).click();
-  await choose(page, "Shield", "Cast (a free cast)");
+  await choose(page, "Shield", "Cast (no slot)");
   await expect(spell(page, "Shield").nth(1)).toContainText("0/1 free");
 });
 
@@ -399,10 +423,41 @@ test("a rule grants a spell and a choice of spells", { tag: "@rules.grant-spells
     }
     return null;
   });
-  expect(under).toBe("Patron's Gifts");
+  // A phone: no heading per feature, the row names it.
+  if (await phone(page)) await expect(spell(page, "Light")).toContainText("Patron's Gifts");
+  else expect(under).toBe("Patron's Gifts");
   await page.locator("button.choice", { hasText: "choose 1 Wizard" }).click();
   await pick(page, ["Sleep"]);
   await expect(page.locator("button.choice")).toHaveCount(0);
   // Chosen, it is cast free once a day.
   await expect(spell(page, "Sleep")).toContainText("1/1 free");
+});
+
+test("the list shows one class's spells, or all", { tag: "@spells.filter" }, async ({ page }) => {
+  await pactOfTheChain(page);
+  await openSheet(page, "Spells", "Hexa");
+  const chip = (name: string) => page.locator(".chips").getByRole("button", { name, exact: true });
+  await expect(spell(page, "Find Familiar")).toBeVisible();
+  // The Warlock's own spells: not a feature's.
+  await chip("Warlock").click();
+  await expect(chip("Warlock")).toHaveAttribute("aria-pressed", "true");
+  await expect(spell(page, "Find Familiar")).toHaveCount(0);
+  await expect(page.locator(".top .counts")).toContainText("cantrips");
+  // The features' spells: Pact of the Chain's Find Familiar, no class's.
+  await chip("Features").click();
+  await expect(spell(page, "Find Familiar")).toBeVisible();
+  // The chips stay on one line.
+  const tops = await page.locator(".chips .chip").evaluateAll((els) => new Set(els.map((e) => e.getBoundingClientRect().top)).size);
+  expect(tops).toBe(1);
+  await chip("All").click();
+  await expect(spell(page, "Find Familiar")).toBeVisible();
+});
+
+test("a spell a feature gives is cast without a slot, and summons", { tag: "@companions.feature-spell" }, async ({ page }) => {
+  await pactOfTheChain(page);
+  await openSheet(page, "Spells", "Hexa");
+  const pact = await slot(page, "Pact").textContent();
+  await page.getByRole("button", { name: "Cast Find Familiar" }).click();
+  await expect(dialog(page, "Which creature?")).toBeVisible();
+  await expect(slot(page, "Pact")).toHaveText(pact ?? "");
 });

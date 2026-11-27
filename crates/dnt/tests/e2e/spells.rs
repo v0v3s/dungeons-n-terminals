@@ -60,8 +60,9 @@ fn a_mage_adds_cantrips_and_spellbook_spells() {
     add(&mut t, "ray of frost", "Ray of Frost");
     assert!(t.shows("◦ Ray of Frost"), "{}", t.screen());
     t.wait("cantrips 1/3  prepared 0/4  book 1/6");
-    // A cantrip fills a gap; a spellbook spell does once prepared.
-    t.wait("9 spell(s) to choose");
+    // A cantrip fills a gap, and so does a spellbook spell: which of them
+    // to prepare is not a choice still owed.
+    t.wait("10 spell(s) to choose");
 }
 
 #[test]
@@ -329,4 +330,19 @@ fn a_rule_grants_a_spell_and_a_choice_of_spells() {
     t.typed("sleep").send(" ").send(ENTER).wait("Added Sleep");
     // Chosen, it is cast free once a day.
     assert!(t.line("◆ Sleep").contains("1/1 free"), "{}", t.screen());
+}
+
+#[test]
+fn a_spell_a_feature_gives_is_cast_without_a_slot_and_summons() {
+    let mut t = Tui::scenario("companions.feature-spell", Home::party());
+    spells_of(&mut t, "Hexa");
+    // Warlock 2 with Pact of the Chain: Find Familiar at will.
+    t.send("u").wait("Level up: choose a class").send(ENTER).wait("Hit points for this level");
+    t.send(ENTER).wait("Eldritch Invocations: choose 2");
+    t.typed("chain").wait("○ Pact of the Chain").send(" ").send(&ctrl('u')).typed("mask").send(" ").send(ENTER);
+    t.wait("Confirm level up").send(ENTER).wait("Warlock 2");
+    to_spell(&mut t, "Find Familiar");
+    // Enter casts it without a slot, at once: it asks for the familiar.
+    t.send(ENTER).wait("Familiar: which creature?");
+    assert!(!t.shows("Pact slot"), "{}", t.screen());
 }

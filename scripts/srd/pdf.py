@@ -83,6 +83,8 @@ def lines(pdf: str, first: int, last: int) -> list:
     ).stdout.decode("utf-8")
     # The XML can carry stray control characters.
     xml = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", xml)
+    # And bold and italic crossed (`<b>.<i> </b>…</i>`).
+    xml = re.sub(r"(<text [^>]*>)(.*?)(</text>)", lambda m: m.group(1) + _nested(m.group(2)) + m.group(3), xml)
     root = ET.fromstring(xml)
     fonts = {}
     out = []
@@ -142,6 +144,25 @@ def lines(pdf: str, first: int, last: int) -> list:
             line.right = max(l.right for l in g)
             out.append(line)
     return out
+
+
+def _nested(inner: str) -> str:
+    """A line's `<b>` and `<i>` nested properly: a tag closed under one
+    still open closes that one and opens it again after."""
+    out, open_ = [], []
+    for tok in re.split(r"(</?[bi]>)", inner):
+        m = re.fullmatch(r"<(/?)([bi])>", tok)
+        if not m:
+            out.append(tok)
+        elif not m.group(1):
+            open_.append(m.group(2))
+            out.append(tok)
+        elif m.group(2) in open_:
+            k = len(open_) - 1 - open_[::-1].index(m.group(2))
+            above = open_[k + 1 :]
+            out += [f"</{t}>" for t in reversed(above)] + [tok] + [f"<{t}>" for t in above]
+            del open_[k]
+    return "".join(out)
 
 
 def _runs(t, bold_font: bool):

@@ -58,7 +58,7 @@ fn importing_again_updates_instead_of_doubling() {
     assert_eq!(before, after);
 
     let mut t = Tui::scenario("data.import-later", home);
-    t.wait("Browse").wait("All 2044");
+    t.wait("Browse").wait("2378 results");
     t.send("/").typed("mirefolk").wait("1 results");
 }
 
@@ -67,7 +67,7 @@ fn imported_lists_sources_with_counts_and_the_homebrew() {
     let home = Home::data();
     let listed = stdout(&run("data.list", &home, &["imported"]));
     assert_eq!(count(&listed, "TST").as_deref(), Some("21"), "{listed}");
-    assert_eq!(count(&listed, "TSX").as_deref(), Some("3"), "{listed}");
+    assert_eq!(count(&listed, "TSX").as_deref(), Some("4"), "{listed}");
     assert!(listed.contains("Homebrew (enable per campaign)"), "{listed}");
     let brew = listed.lines().find(|l| l.starts_with("TSTB")).unwrap_or_else(|| panic!("{listed}"));
     assert!(brew.contains("3 entries") && brew.contains("Proving Grounds Brew"), "{listed}");
@@ -96,7 +96,7 @@ fn forgetting_homebrew_keeps_the_data() {
     assert!(count(&listed, "TST").is_some() && !listed.contains("TSTB"), "{listed}");
 
     let mut t = Tui::scenario("data.forget-homebrew", home);
-    t.wait("All 2044");
+    t.wait("2378 results");
     t.send("4").send(TAB).send(TAB).wait("Books · E2E");
     assert!(!t.shows("Proving Grounds Brew"), "{}", t.screen());
 }
@@ -111,7 +111,7 @@ fn forgetting_everything_keeps_the_campaigns() {
 
     // Only the built-in SRD is left; the campaign and party are still there.
     let mut t = Tui::scenario("data.forget-all", home);
-    t.wait("◈ E2E").wait("All 2021");
+    t.wait("◈ E2E").wait("2355 results");
     t.send("/").typed("mirefolk").wait("0 results");
     t.send(ESC).send(ESC);
     t.send("2").wait("Brawler").wait("Tester");

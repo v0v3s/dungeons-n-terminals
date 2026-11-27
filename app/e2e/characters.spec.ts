@@ -126,7 +126,42 @@ test("on a phone the app bar has the name, the level and the sheet's menu", { ta
   await openSheet(page);
   await expect(page.locator(".bar .name")).toHaveText("Tester · Lv 1");
   await expect(page.locator(".sheet .head")).toBeHidden();
-  await expect(page.locator(".sheet .icontabs").getByRole("tab")).toHaveCount(6);
+  await expect(page.locator(".sheet .icontabs").getByRole("tab")).toHaveCount(7);
   await sheetMore(page);
   await expect(dialog(page, "Tester")).toBeVisible();
+  await page.keyboard.press("Escape");
+  // What is still to do: a pill in the bar, not a row of its own.
+  await openSheet(page, "Overview", "Hexa");
+  await expect(page.locator(".bar .flag")).toHaveText("7 spells");
+  await expect(page.locator(".sheet .flags")).toHaveCount(0);
+  await page.locator(".bar .flag").click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("on a phone the Character tab is sections on gold lines, rows to tap", { tag: ["@sheet.overview-phone", "@android"] }, async ({ page }) => {
+  await openSheet(page);
+  const hp = page.locator(".pane.hp");
+  await expect(hp).toHaveClass(/\bsection\b/);
+  expect(await hp.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  // Its actions on its title line.
+  for (const name of ["Damage", "Heal", "Temp"]) await expect(hp.locator(".aside").getByRole("button", { name, exact: true })).toBeVisible();
+  // A hit die is a chip; its menu uses one and gets it back.
+  const die = page.locator(".hdchip", { hasText: "Hit dice" });
+  await expect(die.locator(".count")).toHaveText("1/1");
+  await die.click();
+  await choose(page, "Hit dice d6", "Use");
+  await expect(die.locator(".count")).toHaveText("0/1");
+  await die.click();
+  await choose(page, "Hit dice d6", "Restore");
+  await expect(die.locator(".count")).toHaveText("1/1");
+  // A tracker is one row, no −/+ on it.
+  const row = page.locator(".tracking .trow").first();
+  await expect(row).toBeVisible();
+  await expect(row.getByRole("button")).toHaveCount(0);
+  expect((await row.boundingBox())!.height).toBeLessThan(48);
+  // An attack: the name and the damage short, the roll at the right.
+  const dagger = page.locator(".attack.prow", { hasText: "Dagger" });
+  await expect(dagger.locator(".dmg")).toContainText("pierc.");
+  const [name, roll] = [(await dagger.locator(".pname").boundingBox())!, (await dagger.locator("button.hit").boundingBox())!];
+  expect(roll.x).toBeGreaterThan(name.x + name.width - 1);
 });

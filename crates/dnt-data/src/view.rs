@@ -67,6 +67,9 @@ pub fn feature_part(lib: &Library, id: EntityId, name: &str) -> Vec<Block> {
 pub fn document_of(lib: &Library, id: EntityId, data: &Value, filter: &SourceFilter) -> Vec<Block> {
     let e = lib.entity(id);
     let d = data;
+    if e.kind == Kind::Creature {
+        return crate::creature::document(d);
+    }
     let mut out = Vec::new();
 
     let mut props: Vec<(&str, Vec<Span>)> = Vec::new();

@@ -8,6 +8,7 @@
   import Pane from "./Pane.svelte";
   import Prompt from "./Prompt.svelte";
   import SourcesEditor from "./SourcesEditor.svelte";
+  import { desktop } from "./screen";
 
   let { status, onchange }: { status: api.Status; onchange: (s: api.Status) => void } = $props();
 
@@ -65,6 +66,20 @@
     if (await run("Creating the campaign…", () => api.createCampaign(newName, [...sources]))) creating = false;
   }
 
+  /// What is done to a campaign, from its ⋯.
+  const actions = (c: api.CampaignInfo): [string, () => void, boolean?][] => [
+    ["Books & homebrew", () => (editing = c)],
+    ["Rename", () => (renaming = c)],
+    ["Export", () => exportCampaign(c)],
+    ["Delete", () => (deleting = c), true],
+  ];
+  const books = (c: api.CampaignInfo) => (!c.sources.length ? "all official" : c.sources.join(" "));
+  const activate = (c: api.CampaignInfo) => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug));
+  /// A phone or a tablet: the active campaign first, what it uses as label
+  /// rows; the others a section of rows.
+  const active = $derived(status.campaigns.find((c) => c.active));
+  const others = $derived(status.campaigns.filter((c) => !c.active));
+
   const describe = (c: api.CampaignInfo) => {
     const books = !c.sources.length ? "all official" : c.sources.length > 6 ? `${c.sources.length} sources` : c.sources.join(" ");
     return c.homebrew.length ? `${books} + ${c.homebrew.length} homebrew` : books;
@@ -80,6 +95,38 @@
         <p>A campaign holds your characters, notes and homebrew, and chooses which books it uses.</p>
         <div><button class="primary" onclick={startCreate}>Create a campaign…</button></div>
       </Pane>
+    {:else if !desktop.current}
+      {#if active}
+        <section class="card active current">
+          <div class="head">
+            <span class="mark">◈</span>
+            <span class="name">{active.name}</span>
+            <span class="badge">active</span>
+            <Menu title={active.name} actions={actions(active)} />
+          </div>
+          <div class="lrow">
+            <span class="dim">Books</span><span class="val books">{books(active)}</span>
+            <button class="ghost" aria-label="Books & homebrew of {active.name}" onclick={() => (editing = active ?? null)}>edit</button>
+          </div>
+          <div class="lrow"><span class="dim">Homebrew</span><span class="val">{active.homebrew.length ? active.homebrew.join(", ") : "none"}</span></div>
+          {#if active.source}<div class="lrow"><span class="dim">Own entries</span><span class="val">source {active.source}</span></div>{/if}
+        </section>
+      {/if}
+      <div class="ohead">
+        <h2>{active ? "Other campaigns" : "Campaigns"} <span class="dim">{others.length}</span></h2>
+        <button class="go" aria-label="+ New campaign" onclick={startCreate}>+ new</button>
+      </div>
+      {#each others as c (c.slug)}
+        <section class="card other">
+          <div class="head">
+            <span class="mark">◇</span>
+            <span class="name">{c.name}</span>
+            <span class="dim books">{describe(c)}</span>
+            <button class="ghost" onclick={() => activate(c)}>make active</button>
+            <Menu title={c.name} actions={actions(c)} />
+          </div>
+        </section>
+      {/each}
     {:else}
       <!-- The action on its own, then each campaign as a card with its own buttons. -->
       <div class="bar">
@@ -93,20 +140,12 @@
               <span class="mark">{c.active ? "◈" : "◇"}</span>
               <span class="name">{c.name}</span>
               {#if c.active}<span class="badge">active</span>{/if}
-              <Menu
-                title={c.name}
-                actions={[
-                  ["Books & homebrew", () => (editing = c)],
-                  ["Rename", () => (renaming = c)],
-                  ["Export", () => exportCampaign(c)],
-                  ["Delete", () => (deleting = c), true],
-                ]}
-              />
+              <Menu title={c.name} actions={actions(c)} />
             </div>
             <div class="dim books">{describe(c)}{c.source ? ` · its own entries are source ${c.source}` : ""}</div>
             {#if !c.active}
               <div class="actions">
-                <button class="primary" onclick={() => run(`Opening ${c.name}…`, () => api.activateCampaign(c.slug))}>Make active</button>
+                <button class="primary" onclick={() => activate(c)}>Make active</button>
               </div>
             {/if}
           </section>
@@ -359,6 +398,98 @@
     }
     .buttons button {
       flex: 1;
+    }
+  }
+  /* A phone or a tablet: the active campaign a section (its name the gold
+     title, ⋯ on it), what it uses as label rows; the others a section of
+     rows with Make active; small buttons, no boxes. */
+  @media not ((pointer: fine) and (min-width: 761px)) {
+    .current,
+    .other {
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      gap: 0;
+    }
+    .current .head,
+    .ohead {
+      min-height: 32px;
+      border-bottom: 1px solid rgb(224 175 104 / 0.55);
+    }
+    .current .name {
+      font-size: 1.1em;
+    }
+    .current .badge {
+      background: none;
+      color: var(--dim);
+      font-size: 0.8em;
+    }
+    .current :global(.more),
+    .other :global(.more),
+    .lrow .ghost,
+    .other .ghost,
+    .go {
+      height: 26px;
+      min-height: 26px;
+      padding: 0 0.7rem;
+      font-size: 0.85em;
+      white-space: nowrap;
+    }
+    .current :global(.more),
+    .other :global(.more) {
+      width: 34px;
+      min-width: 0;
+      padding: 0;
+    }
+    .lrow {
+      display: grid;
+      grid-template-columns: 12ch minmax(0, 1fr) auto;
+      gap: 1ch;
+      align-items: center;
+      min-height: 38px;
+      border-bottom: 1px solid var(--raised);
+    }
+    .lrow .val {
+      overflow-wrap: anywhere;
+    }
+    .ohead {
+      display: flex;
+      align-items: center;
+      gap: 1ch;
+      margin: 1.4em 0 0;
+    }
+    .ohead h2 {
+      flex: 1;
+      font-size: 1.1em;
+    }
+    .ohead h2 .dim {
+      font-weight: 400;
+      font-size: 0.85em;
+    }
+    .other .head {
+      min-height: 42px;
+      gap: 1ch;
+      border-bottom: 1px solid var(--raised);
+    }
+    .other .name {
+      flex: none;
+      font-weight: 400;
+    }
+    .other .books {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.8em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .go {
+      background: var(--accent);
+      color: var(--black);
+      font-weight: 700;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      cursor: pointer;
     }
   }
 </style>

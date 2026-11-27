@@ -46,6 +46,8 @@ const FILES: &[(&str, &str)] = &[
     ("spells/index.json", include_str!("../../../data/srd/spells/index.json")),
     ("spells/sources.json", include_str!("../../../data/srd/spells/sources.json")),
     ("spells/spells-srd52.json", include_str!("../../../data/srd/spells/spells-srd52.json")),
+    ("bestiary/index.json", include_str!("../../../data/srd/bestiary/index.json")),
+    ("bestiary/bestiary-srd52.json", include_str!("../../../data/srd/bestiary/bestiary-srd52.json")),
 ];
 
 /// The SRD's files.

@@ -67,3 +67,12 @@ test("a weapon mastery is swapped for another weapon", { tag: "@features.mastery
   await expect(masteries).not.toContainText("Longbow");
   await expect(masteries).toContainText("Scimitar");
 });
+
+test("on a phone the feature groups are sections on gold lines, a feature one row", { tag: ["@features.phone", "@android"] }, async ({ page }) => {
+  await openSheet(page, "Features");
+  const group = page.locator(".features > .pane").first();
+  await expect(group).toHaveClass(/\bsection\b/);
+  expect(await group.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe("0px");
+  const first = group.locator(".row").first();
+  expect((await first.boundingBox())!.height).toBeLessThan(44);
+});
